@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="th">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Zomin Order CRM V3</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="เมนูหลัก">
+        <div class="brand">
+          <div class="brand-mark">Z</div>
+          <div>
+            <strong>Zomin CRM</strong>
+            <span>Order Workflow V3</span>
+          </div>
+        </div>
+        <nav id="mainNav" class="nav-list"></nav>
+      </aside>
+
+      <main class="main-panel">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Zomin Order CRM</p>
+            <h1 id="pageTitle">Dashboard</h1>
+          </div>
+          <div class="top-actions">
+            <div id="userPill" class="user-pill" hidden></div>
+            <label class="date-picker">
+              <span>วันที่ทำงาน</span>
+              <input id="workDate" type="date">
+            </label>
+            <button class="button primary" id="quickAddOrder">เพิ่มออเดอร์</button>
+          </div>
+        </header>
+
+        <section id="toast" class="toast" hidden></section>
+        <section id="content" class="content-area"></section>
+      </main>
+    </div>
+
+    <dialog id="customerDialog" class="dialog wide-dialog">
+      <form method="dialog">
+        <div class="dialog-header">
+          <div>
+            <p class="eyebrow">Customer Profile</p>
+            <h2 id="dialogCustomerName">ลูกค้า</h2>
+          </div>
+          <button class="icon-button" type="button" data-close-customer aria-label="ปิด">×</button>
+        </div>
+        <div id="customerDetail"></div>
+      </form>
+    </dialog>
+
+    <dialog id="orderDialog" class="dialog">
+      <form id="orderForm" method="dialog">
+        <div class="dialog-header">
+          <div>
+            <p class="eyebrow">Order</p>
+            <h2>เพิ่มออเดอร์</h2>
+          </div>
+          <button class="icon-button" type="button" data-close-order aria-label="ปิด">×</button>
+        </div>
+        <div class="form-grid">
+          <label>ชื่อลูกค้า<input name="name" required placeholder="เช่น คุณสมใจ"></label>
+          <label>เบอร์โทร<input name="phone" required placeholder="0812345678"></label>
+          <label class="span-2">ที่อยู่ล่าสุด<input name="address" placeholder="ที่อยู่จัดส่ง"></label>
+          <label>วันที่ซื้อ<input name="date" type="date" required></label>
+          <label>จำนวนกระปุก<input name="jars" type="number" min="1" value="1" required></label>
+          <label>ยอดซื้อ<input name="amount" type="number" min="0" step="1" required></label>
+          <label>Tag<input name="tags" placeholder="คั่นด้วย comma เช่น ปวดเข่า, ซื้อให้แม่"></label>
+        </div>
+        <div class="dialog-actions">
+          <button class="button ghost" value="cancel" type="button" data-close-order>ยกเลิก</button>
+          <button class="button primary" type="submit">บันทึกออเดอร์</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script src="/app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,1358 @@
+const navItems = [
+  ["dashboard", "/dashboard", "หน้าหลัก", "home"],
+  ["search", "/customers", "ลูกค้า", "users"],
+  ["orders", "/orders", "ออเดอร์", "clipboard"],
+  ["followup", "/follow-up", "เตือน", "bell"],
+  ["more", "/more", "เพิ่มเติม", "more"]
+];
+
+const SESSION_KEY = "zomin.crm.session";
+const routeToView = {
+  "/": "dashboard",
+  "/dashboard": "dashboard",
+  "/customers": "search",
+  "/orders": "orders",
+  "/follow-up": "followup",
+  "/more": "more",
+  "/vip": "vip",
+  "/tags": "tags",
+  "/import": "import",
+  "/reports": "reports",
+  "/settings": "settings",
+  "/team": "team",
+  "/risk": "risk",
+  "/login": "login"
+};
+const viewToRoute = Object.fromEntries(Object.entries(routeToView).map(([path, view]) => [view, path]));
+
+const app = {
+  view: routeFromLocation(),
+  followupMode: "today",
+  importMode: "paste",
+  importPreview: [],
+  currentUser: null,
+  data: null,
+  filters: {
+    q: "",
+    tag: "",
+    status: "",
+    vip: ""
+  }
+};
+
+function routeFromLocation() {
+  if (location.hash) {
+    const hashView = location.hash.replace("#", "");
+    if (hashView === "customers") return "search";
+    if (hashView === "follow-up") return "followup";
+    return hashView || "dashboard";
+  }
+  return routeToView[location.pathname] || "dashboard";
+}
+
+function navigateToView(view, replace = false) {
+  const path = viewToRoute[view] || "/dashboard";
+  if (location.pathname !== path || location.hash) {
+    history[replace ? "replaceState" : "pushState"]({}, "", path);
+  }
+}
+
+function iconSvg(name) {
+  const icons = {
+    home: '<path d="m3 10 9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M9 20v-6h6v6"/>',
+    users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+    clipboard: '<rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M8 11h8"/><path d="M8 16h6"/>',
+    bell: '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>',
+    more: '<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>'
+  };
+  return `<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icons[name] || icons.more}</svg>`;
+}
+
+const els = {
+  nav: document.querySelector("#mainNav"),
+  pageTitle: document.querySelector("#pageTitle"),
+  content: document.querySelector("#content"),
+  workDate: document.querySelector("#workDate"),
+  toast: document.querySelector("#toast"),
+  userPill: document.querySelector("#userPill"),
+  orderDialog: document.querySelector("#orderDialog"),
+  orderForm: document.querySelector("#orderForm"),
+  customerDialog: document.querySelector("#customerDialog"),
+  customerDetail: document.querySelector("#customerDetail"),
+  dialogCustomerName: document.querySelector("#dialogCustomerName"),
+  quickAddOrder: document.querySelector("#quickAddOrder")
+};
+
+function restoreSession() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(SESSION_KEY) || "null");
+    app.currentUser = saved?.id ? saved : null;
+  } catch {
+    app.currentUser = null;
+  }
+}
+
+function saveSession(user) {
+  app.currentUser = user;
+  localStorage.setItem(SESSION_KEY, JSON.stringify(user));
+}
+
+function clearSession() {
+  app.currentUser = null;
+  localStorage.removeItem(SESSION_KEY);
+}
+
+function todayISO() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function money(value) {
+  return Number(value || 0).toLocaleString("th-TH", {
+    maximumFractionDigits: 0
+  });
+}
+
+function formatDate(dateValue) {
+  if (!dateValue) return "-";
+  const [y, m, d] = String(dateValue).split("-").map(Number);
+  const date = new Date(y, m - 1, d);
+  return new Intl.DateTimeFormat("th-TH-u-ca-buddhist", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric"
+  }).format(date);
+}
+
+function dateInputValue(dateValue) {
+  return dateValue || todayISO();
+}
+
+function badgeClass(status) {
+  if (status === "SUPER VIP") return "super";
+  if (status === "VVIP") return "vvip";
+  if (status === "VIP") return "vip";
+  if (status === "AT RISK") return "risk";
+  if (status === "LOST") return "lost";
+  if (status === "NEW") return "new";
+  return "normal";
+}
+
+function badge(status) {
+  return `<span class="badge ${badgeClass(status)}">${escapeHtml(status || "NORMAL")}</span>`;
+}
+
+function vipBadge(level) {
+  if (!level || level === "NORMAL") return `<span class="badge normal">NORMAL</span>`;
+  return badge(level);
+}
+
+function tagsHtml(tags = []) {
+  if (!tags.length) return `<span class="muted">ไม่มี Tag</span>`;
+  return `<div class="badge-list">${tags.map(tag => `<span class="tag">${escapeHtml(tag)}</span>`).join("")}</div>`;
+}
+
+function priority(customer) {
+  const order = {
+    "SUPER VIP": 1,
+    VVIP: 2,
+    VIP: 3,
+    NORMAL: 4
+  };
+  return order[customer.vipLevel] || 5;
+}
+
+function sortByPriority(customers) {
+  return [...customers].sort((a, b) => {
+    const p = priority(a) - priority(b);
+    if (p !== 0) return p;
+    return b.customerScore - a.customerScore;
+  });
+}
+
+function titleFor(view) {
+  const titles = {
+    login: "เข้าสู่ระบบ",
+    dashboard: "หน้าหลัก",
+    search: "ลูกค้า",
+    orders: "ออเดอร์",
+    followup: "เตือน",
+    more: "เพิ่มเติม",
+    vip: "ลูกค้า VIP",
+    risk: "ลูกค้าเสี่ยงหาย",
+    tags: "Tags",
+    import: "เพิ่มข้อมูลเก่า",
+    reports: "รายงานยอดขาย",
+    team: "จัดการทีมงาน",
+    settings: "ตั้งค่า"
+  };
+  return titles[view] || "หน้าหลัก";
+}
+
+function showToast(message) {
+  els.toast.textContent = message;
+  els.toast.hidden = false;
+  window.clearTimeout(showToast.timer);
+  showToast.timer = window.setTimeout(() => {
+    els.toast.hidden = true;
+  }, 2600);
+}
+
+async function api(path, options = {}) {
+  const res = await fetch(path, {
+    headers: {
+      "Content-Type": "application/json",
+      ...(options.headers || {})
+    },
+    ...options
+  });
+  const payload = await res.json();
+  if (!res.ok || payload.ok === false) {
+    throw new Error(payload.error || "บันทึกไม่สำเร็จ");
+  }
+  return payload;
+}
+
+async function loadState() {
+  const selectedDate = els.workDate.value || todayISO();
+  app.data = await api(`/api/state?date=${encodeURIComponent(selectedDate)}`);
+  if (!app.currentUser && app.view !== "login") {
+    app.view = "login";
+    navigateToView("login", true);
+  }
+  if (app.currentUser && app.view === "login") {
+    app.view = "dashboard";
+    navigateToView("dashboard", true);
+  }
+  render();
+}
+
+function renderNav() {
+  if (app.view === "login") {
+    els.nav.innerHTML = "";
+    return;
+  }
+  const activeGroup = ["vip", "risk", "tags", "import", "reports", "team", "settings"].includes(app.view) ? "more" : app.view;
+  els.nav.innerHTML = navItems
+    .map(([id, path, label, icon]) => `
+      <button class="nav-button ${activeGroup === id ? "active" : ""}" data-view="${id}" data-path="${path}" aria-label="${escapeHtml(label)}">
+        <span class="nav-index">${iconSvg(icon)}</span>
+        <span>${escapeHtml(label)}</span>
+      </button>
+    `)
+    .join("");
+}
+
+function updateShell() {
+  document.body.classList.toggle("login-view", app.view === "login");
+  if (!els.userPill) return;
+  if (!app.currentUser || app.view === "login") {
+    els.userPill.hidden = true;
+    els.userPill.innerHTML = "";
+    return;
+  }
+  els.userPill.hidden = false;
+  els.userPill.innerHTML = `
+    <span>${escapeHtml(app.currentUser.name)}</span>
+    <strong>${escapeHtml(app.currentUser.role)}</strong>
+    <button type="button" data-logout>ออก</button>
+  `;
+}
+
+function metric(label, value, tone = "") {
+  return `
+    <article class="metric-card ${tone}">
+      <span>${escapeHtml(label)}</span>
+      <strong>${escapeHtml(value)}</strong>
+    </article>
+  `;
+}
+
+function initials(name = "") {
+  return String(name).replace(/^คุณ/, "").trim().slice(0, 2) || "ZO";
+}
+
+function monthlySalesRows() {
+  const rows = {};
+  app.data.orders.forEach(order => {
+    const key = String(order.date || "").slice(0, 7);
+    rows[key] = (rows[key] || 0) + Number(order.amount || 0);
+  });
+  return Object.entries(rows).sort(([a], [b]) => a.localeCompare(b)).slice(-6);
+}
+
+function monthlyChart() {
+  const rows = monthlySalesRows();
+  const max = Math.max(1, ...rows.map(([, value]) => value));
+  return `
+    <div class="mobile-chart">
+      ${rows.map(([month, value]) => `
+        <div class="chart-bar-item">
+          <div class="chart-bar-track"><div class="chart-bar-fill" style="height:${Math.max(8, value / max * 100)}%"></div></div>
+          <span>${escapeHtml(month.slice(5))}</span>
+        </div>
+      `).join("")}
+    </div>
+  `;
+}
+
+function renderLogin() {
+  els.content.innerHTML = `
+    <section class="login-layout">
+      <form class="login-card" id="loginForm">
+        <div class="login-logo">Z</div>
+        <div class="section-title">
+          <h2>Zomin Order CRM</h2>
+          <p>Mobile CRM สำหรับทีมขาย Zomin</p>
+        </div>
+        <label>Username
+          <input name="username" autocomplete="username" required placeholder="admin หรือ staff">
+        </label>
+        <label>Password
+          <input name="password" autocomplete="current-password" type="password" required placeholder="admin123 หรือ staff123">
+        </label>
+        <button class="button primary" type="submit">เข้าสู่ระบบ</button>
+        <p class="login-demo">Demo: admin / admin123 หรือ staff / staff123</p>
+      </form>
+    </section>
+  `;
+}
+
+function customerRow(customer) {
+  return `
+    <article class="customer-list-card" data-customer="${customer.id}">
+      <div class="customer-card-top">
+        <div class="customer-identity">
+          <div class="avatar">${escapeHtml(initials(customer.name))}</div>
+          <div>
+            <h3>${escapeHtml(customer.name)}</h3>
+            <p>${escapeHtml(customer.phone)}</p>
+          </div>
+        </div>
+        <div class="badge-stack">
+          ${vipBadge(customer.vipLevel)}
+          ${customer.status !== customer.vipLevel ? badge(customer.status) : ""}
+        </div>
+      </div>
+      ${tagsHtml(customer.tags)}
+      <div class="customer-card-metrics">
+        <div><span>ซื้อล่าสุด</span><strong>${formatDate(customer.lastPurchaseDate)}</strong></div>
+        <div><span>กระปุก</span><strong>${customer.lastJars || 0}</strong></div>
+        <div><span>ยอดสะสม</span><strong>${money(customer.totalSpent)} บาท</strong></div>
+        <div><span>ควรทัก</span><strong>${formatDate(customer.followUpDate)}</strong></div>
+      </div>
+    </article>
+  `;
+}
+
+function customerTable(customers, emptyText = "ไม่พบข้อมูลลูกค้า") {
+  if (!customers.length) return `<div class="empty-state">${escapeHtml(emptyText)}</div>`;
+  return `
+    <div class="customer-list">
+      ${customers.map(customerRow).join("")}
+    </div>
+  `;
+}
+
+function orderTable(orders) {
+  if (!orders.length) return `<div class="empty-state">ยังไม่มีออเดอร์</div>`;
+  const sorted = [...orders].sort((a, b) => String(b.date).localeCompare(String(a.date)));
+  return `
+    <div class="order-list">
+      ${sorted.map(order => `
+        <article class="order-card">
+          <div class="order-top">
+            <div>
+              <strong>${escapeHtml(order.customerName)}</strong>
+              <span>${formatDate(order.date)} · ${escapeHtml(order.time || "-")}</span>
+            </div>
+            ${badge(order.status === "NEW" ? "NEW" : order.vipLevel)}
+          </div>
+          <div class="order-grid">
+            <div><span>เบอร์</span><strong>${escapeHtml(order.phone)}</strong></div>
+            <div><span>จำนวน</span><strong>${Number(order.jars || 0)} กระปุก</strong></div>
+            <div><span>ยอดเงิน</span><strong>${money(order.amount)} บาท</strong></div>
+            <div><span>ช่องทาง</span><strong>${escapeHtml(order.source || "-")}</strong></div>
+          </div>
+          <div class="inline">
+            <button class="button ghost" data-open-customer="${escapeHtml(order.customerId)}">ดูรายละเอียด</button>
+            <button class="button secondary" data-open-order>แก้ไข</button>
+          </div>
+        </article>
+      `).join("")}
+    </div>
+  `;
+}
+
+function renderDashboard() {
+  const s = app.data.summary;
+  const due = sortByPriority(app.data.customers.filter(customer => customer.followUpDate && customer.followUpDate <= s.selectedDate)).slice(0, 8);
+  const highScore = [...app.data.customers].sort((a, b) => b.customerScore - a.customerScore).slice(0, 5);
+
+  els.content.innerHTML = `
+    <section class="section">
+      <div class="metric-grid">
+        ${metric("ยอดขายวันนี้", `${money(s.salesToday)} บาท`, "accent")}
+        ${metric("ออเดอร์วันนี้", money(s.ordersToday || 0))}
+        ${metric("กระปุกวันนี้", money(s.jarsToday || 0), "green")}
+        ${metric("ลูกค้าทั้งหมด", money(s.customerCount))}
+        ${metric("ยอดขายเดือนนี้", `${money(s.salesThisMonth)} บาท`, "purple")}
+        ${metric("ออเดอร์เดือนนี้", money(s.ordersThisMonth || 0))}
+        ${metric("ควรทักวันนี้", money(s.dueToday), "warn")}
+        ${metric("VIP / VVIP / SUPER", `${s.vip} / ${s.vvip} / ${s.superVip}`)}
+      </div>
+      <button class="button primary add-order-wide" data-open-order>+ เพิ่มออเดอร์</button>
+      <div class="two-col">
+        <div class="panel stack">
+          <div class="section-header">
+            <div class="section-title">
+              <h2>ควรโทรวันนี้ ${money(s.dueToday)} คน</h2>
+              <p>เรียงตาม SUPER VIP, VVIP, VIP, NORMAL และ Customer Score</p>
+            </div>
+            <button class="button secondary" data-view-shortcut="followup">เปิดคิวโทร</button>
+          </div>
+          ${followupCards(due.slice(0, 5), true)}
+        </div>
+        <div class="panel stack">
+          <h2>กราฟยอดขายรายเดือน</h2>
+          ${monthlyChart()}
+          <h2>Customer Score สูงสุด</h2>
+          <div class="stack">
+            ${highScore.map(customer => `
+              <div class="inline">
+                ${vipBadge(customer.vipLevel)}
+                <button class="button ghost" data-open-customer="${customer.id}">${escapeHtml(customer.name)}</button>
+                <span class="muted">Score ${money(customer.customerScore)}</span>
+              </div>
+            `).join("")}
+          </div>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function addDaysISO(dateValue, amount) {
+  const [y, m, d] = String(dateValue).split("-").map(Number);
+  const date = new Date(y, m - 1, d);
+  date.setDate(date.getDate() + amount);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function diffDaysISO(fromDate, toDate) {
+  const from = new Date(`${fromDate}T00:00:00`);
+  const to = new Date(`${toDate}T00:00:00`);
+  return Math.round((to - from) / 86400000);
+}
+
+function followupRange() {
+  const base = app.data.summary.selectedDate;
+  if (app.followupMode === "tomorrow") return { label: "พรุ่งนี้", start: addDaysISO(base, 1), end: addDaysISO(base, 1) };
+  if (app.followupMode === "week") return { label: "สัปดาห์นี้", start: base, end: addDaysISO(base, 7) };
+  if (app.followupMode === "custom") return { label: "เลือกวันที่", start: base, end: base };
+  if (app.followupMode === "overdue") return { label: "เลยกำหนดแล้ว", start: "", end: addDaysISO(base, -1) };
+  return { label: "วันนี้", start: base, end: base };
+}
+
+function renderOrders() {
+  els.content.innerHTML = `
+    <section class="section">
+      <div class="section-header">
+        <div class="section-title">
+          <h2>ออเดอร์ทั้งหมด</h2>
+          <p>รวมออเดอร์ Manual, Import และ LINE Webhook ที่ parser อ่านได้</p>
+        </div>
+        <button class="button primary" data-open-order>เพิ่มออเดอร์</button>
+      </div>
+      ${orderTable(app.data.orders)}
+    </section>
+  `;
+}
+
+function applyCustomerFilters() {
+  const q = app.filters.q.trim().toLowerCase();
+  return app.data.customers.filter(customer => {
+    const textMatch = !q || [customer.name, customer.phone, customer.address, ...(customer.tags || [])].join(" ").toLowerCase().includes(q);
+    const tagMatch = !app.filters.tag || (customer.tags || []).includes(app.filters.tag);
+    const statusMatch = !app.filters.status || customer.status === app.filters.status;
+    const vipMatch = !app.filters.vip || customer.vipLevel === app.filters.vip;
+    return textMatch && tagMatch && statusMatch && vipMatch;
+  });
+}
+
+function renderSearch() {
+  const customers = sortByPriority(applyCustomerFilters());
+  els.content.innerHTML = `
+    <section class="section">
+      <div class="panel stack">
+        <div class="section-title">
+          <h2>ค้นหาลูกค้า</h2>
+          <p>ค้นจากชื่อ เบอร์ Tag สถานะ และ VIP Level</p>
+        </div>
+        <div class="filters">
+          <input data-filter="q" placeholder="ชื่อ เบอร์ Tag" value="${escapeHtml(app.filters.q)}">
+          <select data-filter="tag">
+            <option value="">ทุก Tag</option>
+            ${app.data.tags.map(tag => `<option value="${escapeHtml(tag)}" ${app.filters.tag === tag ? "selected" : ""}>${escapeHtml(tag)}</option>`).join("")}
+          </select>
+          <select data-filter="status">
+            <option value="">ทุกสถานะ</option>
+            ${["NEW", "NORMAL", "VIP", "VVIP", "SUPER VIP", "AT RISK", "LOST"].map(status => `<option ${app.filters.status === status ? "selected" : ""}>${status}</option>`).join("")}
+          </select>
+          <select data-filter="vip">
+            <option value="">ทุก VIP Level</option>
+            ${["NORMAL", "VIP", "VVIP", "SUPER VIP"].map(level => `<option ${app.filters.vip === level ? "selected" : ""}>${level}</option>`).join("")}
+          </select>
+          <button class="button ghost" data-reset-filters>ล้างตัวกรอง</button>
+        </div>
+      </div>
+      <div id="searchResults">${customerTable(customers)}</div>
+    </section>
+  `;
+}
+
+function updateSearchResults() {
+  const results = document.querySelector("#searchResults");
+  if (!results) return;
+  const customers = sortByPriority(applyCustomerFilters());
+  results.innerHTML = customerTable(customers);
+}
+
+function makeMessage(customer) {
+  const name = customer.name.replace(/^คุณ/, "คุณ");
+  return `สวัสดีค่ะ ${name} จาก Zomin นะคะ รอบก่อนสั่ง ${customer.lastJars || 1} กระปุก ตอนนี้ใกล้ถึงรอบดูแลต่อเนื่องแล้วค่ะ ต้องการให้จัดส่งเพิ่มไหมคะ`;
+}
+
+function followupCards(customers, compact = false) {
+  if (!customers.length) return `<div class="empty-state">ยังไม่มีลูกค้าถึงกำหนดในวันนี้</div>`;
+  return `
+    <div class="priority-list">
+      ${customers.map(customer => `
+        <article class="customer-card">
+          <div class="customer-card-main">
+            <h3>
+              <button class="button ghost" data-open-customer="${customer.id}">${escapeHtml(customer.name)}</button>
+              ${vipBadge(customer.vipLevel)}
+              ${badge(customer.status)}
+            </h3>
+            <div class="badge-list">${tagsHtml(customer.tags)}</div>
+            <div class="mini-stats">
+              <div class="mini-stat"><span>เบอร์โทร</span><strong>${escapeHtml(customer.phone)}</strong></div>
+              <div class="mini-stat"><span>ซื้อล่าสุด</span><strong>${formatDate(customer.lastPurchaseDate)}</strong></div>
+              <div class="mini-stat"><span>กระปุกล่าสุด</span><strong>${customer.lastJars}</strong></div>
+              <div class="mini-stat"><span>ยอดสะสม</span><strong>${money(customer.totalSpent)} บาท</strong></div>
+            </div>
+            ${compact ? "" : `<p class="muted">ควรทัก ${formatDate(customer.followUpDate)} · ${followupDayLabel(customer)}</p>`}
+          </div>
+          <div class="call-actions">
+            <a class="button primary" href="tel:${escapeHtml(customer.phone)}">โทร</a>
+            <button class="button ghost" data-copy="${escapeHtml(customer.phone)}">คัดลอกเบอร์</button>
+            <button class="button secondary" data-copy="${escapeHtml(makeMessage(customer))}">คัดลอกข้อความ</button>
+          </div>
+        </article>
+      `).join("")}
+    </div>
+  `;
+}
+
+function followupDayLabel(customer) {
+  const days = diffDaysISO(app.data.summary.selectedDate, customer.followUpDate);
+  if (days === 0) return "ถึงกำหนดวันนี้";
+  if (days > 0) return `เหลืออีก ${days} วัน`;
+  return `เลยกำหนด ${Math.abs(days)} วัน`;
+}
+
+function renderFollowup() {
+  const range = followupRange();
+  const customers = sortByPriority(app.data.customers.filter(customer => {
+    if (!customer.followUpDate) return false;
+    if (app.followupMode === "overdue") return customer.followUpDate < app.data.summary.selectedDate;
+    return customer.followUpDate >= range.start && customer.followUpDate <= range.end;
+  }));
+  els.content.innerHTML = `
+    <section class="section">
+      <div class="panel stack followup-toolbar">
+        <div class="section-title">
+          <h2>เตือนติดตามลูกค้า</h2>
+          <p>${range.label} · ถึงวันที่ ${formatDate(range.end)}</p>
+        </div>
+        <div class="tab-row" role="tablist" aria-label="ช่วงวันที่ Follow-up">
+          ${[
+            ["today", "วันนี้"],
+            ["tomorrow", "พรุ่งนี้"],
+            ["week", "สัปดาห์นี้"],
+            ["custom", "เลือกวันที่"],
+            ["overdue", "เลยกำหนดแล้ว"]
+          ].map(([id, label]) => `
+            <button class="tab-button ${app.followupMode === id ? "active" : ""}" data-followup-mode="${id}" type="button">${label}</button>
+          `).join("")}
+        </div>
+        <div class="date-inline ${app.followupMode === "custom" ? "show" : ""}">
+          <label class="date-picker">
+            <span>เลือกวันที่</span>
+            <input id="followupDatePicker" type="date" value="${escapeHtml(app.data.summary.selectedDate)}">
+          </label>
+        </div>
+      </div>
+      ${followupCards(customers)}
+    </section>
+  `;
+}
+
+function renderMore() {
+  const cards = [
+    ["vip", "ลูกค้า VIP", "VIP / VVIP / SUPER VIP", "VIP"],
+    ["import", "เพิ่มข้อมูลเก่า", "CSV, Google Sheets, LINE text", "นำเข้า"],
+    ["reports", "รายงานยอดขาย", "ยอดขายและสัดส่วนลูกค้า", "รายงาน"],
+    ["settings", "ตั้งค่า Follow-up", "กฎจำนวนกระปุกและวันติดตาม", "Follow-up"],
+    ["settings", "ตั้งค่า VIP", "VIP / VVIP / SUPER VIP", "VIP"],
+    ["settings", "ตั้งค่า LINE OA", "Channel Secret, Token, Webhook", "LINE"],
+    ["team", "จัดการผู้ใช้", "Admin และ Staff", "ทีม"],
+    ["tags", "Tags", "จัดการ Tag และดูจำนวนลูกค้า", "Tag"],
+    ["risk", "ลูกค้าเสี่ยงหาย", "AT RISK และ LOST", "แจ้งเตือน"]
+  ];
+
+  els.content.innerHTML = `
+    <section class="section">
+      <div class="more-grid">
+        ${cards.map(([view, title, desc, chip]) => `
+          <button class="more-card" data-view-shortcut="${view}" type="button">
+            <span>${escapeHtml(chip)}</span>
+            <strong>${escapeHtml(title)}</strong>
+            <small>${escapeHtml(desc)}</small>
+          </button>
+        `).join("")}
+        <button class="more-card logout-card" data-logout type="button">
+          <span>Logout</span>
+          <strong>ออกจากระบบ</strong>
+          <small>จบ session บนเครื่องนี้</small>
+        </button>
+      </div>
+    </section>
+  `;
+}
+
+function tagUsageRows() {
+  return [...app.data.tags].sort((a, b) => a.localeCompare(b, "th")).map(tag => {
+    const customers = app.data.customers.filter(customer => (customer.tags || []).includes(tag));
+    const totalSpent = customers.reduce((sum, customer) => sum + Number(customer.totalSpent || 0), 0);
+    return { tag, customers, totalSpent };
+  });
+}
+
+function renderTags() {
+  const rows = tagUsageRows();
+  els.content.innerHTML = `
+    <section class="section">
+      <form class="panel stack" id="tagsForm">
+        <div class="section-title">
+          <h2>จัดการ Tags</h2>
+          <p>เพิ่ม Tag ได้ไม่จำกัด และกด Tag เพื่อกรองรายชื่อลูกค้าได้ทันที</p>
+        </div>
+        <div class="form-grid">
+          <label class="span-2">เพิ่ม Tag ใหม่
+            <input name="name" required placeholder="เช่น ปวดเข่า, ซื้อให้แม่, โทรติดยาก">
+          </label>
+        </div>
+        <button class="button primary" type="submit">เพิ่ม Tag</button>
+      </form>
+      <div class="tag-grid">
+        ${rows.map(row => `
+          <button class="tag-card" data-tag-filter="${escapeHtml(row.tag)}" type="button">
+            <span class="tag">${escapeHtml(row.tag)}</span>
+            <strong>${row.customers.length} คน</strong>
+            <small>ยอดสะสม ${money(row.totalSpent)} บาท</small>
+          </button>
+        `).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderVip() {
+  const customers = sortByPriority(app.data.customers.filter(customer => customer.vipLevel !== "NORMAL"));
+  els.content.innerHTML = `
+    <section class="section">
+      <div class="section-header">
+        <div class="section-title">
+          <h2>ลูกค้า VIP</h2>
+          <p>VIP 5,000+ บาท, VVIP 10,000+ บาท, SUPER VIP 20,000+ บาท</p>
+        </div>
+      </div>
+      ${customerTable(customers, "ยังไม่มีลูกค้า VIP")}
+    </section>
+  `;
+}
+
+function renderRisk() {
+  const customers = sortByPriority(app.data.customers.filter(customer => ["AT RISK", "LOST"].includes(customer.status)));
+  els.content.innerHTML = `
+    <section class="section">
+      <div class="section-header">
+        <div class="section-title">
+          <h2>ลูกค้าเสี่ยงหาย</h2>
+          <p>AT RISK คือเลย Follow-up มากกว่า 30 วัน, LOST คือเลยมากกว่า 90 วัน</p>
+        </div>
+      </div>
+      ${customerTable(customers, "ยังไม่มีลูกค้าเสี่ยงหาย")}
+    </section>
+  `;
+}
+
+function renderImport() {
+  const lineExample = `คุณวิภา\nโทร 0891234567\nที่อยู่ 55/1 เชียงใหม่\n4 กระปุก แถม 2 กระปุก รวม 4500 บาท\n#ปวดข้อ #ซื้อให้พ่อ\n\nคุณกานดา\nโทร.083-229-5956\n2 กระปุก เก็บเงินปลายทาง 1500 บาท`;
+
+  els.content.innerHTML = `
+    <section class="section">
+      <div class="panel stack">
+        <div class="tab-row">
+          <button class="tab-button ${app.importMode === "paste" ? "active" : ""}" data-import-mode="paste" type="button">วางข้อความ</button>
+          <button class="tab-button ${app.importMode === "manual" ? "active" : ""}" data-import-mode="manual" type="button">กรอกเอง</button>
+        </div>
+      </div>
+      ${app.importMode === "paste" ? `
+        <div class="import-drop">
+          <div class="section-title">
+            <h2>วางข้อความ LINE เก่า</h2>
+            <p>ระบบจะแยกชื่อ เบอร์ จำนวนกระปุก ยอดเงิน ที่อยู่ และ Tag ก่อนบันทึก</p>
+          </div>
+          <textarea id="lineImport" spellcheck="false">${escapeHtml(lineExample)}</textarea>
+          <div class="inline">
+            <button class="button secondary" data-parse-import type="button">วิเคราะห์ข้อมูล</button>
+            <button class="button primary" data-import="line" type="button">บันทึกข้อมูล</button>
+          </div>
+          <div class="preview-list">
+            ${app.importPreview.map(row => `
+              <div class="order-card">
+                <div class="order-top"><strong>${escapeHtml(row.name)}</strong><span>${escapeHtml(row.phone)}</span></div>
+                <div class="order-grid">
+                  <div><span>วันที่</span><strong>${formatDate(row.date)}</strong></div>
+                  <div><span>จำนวน</span><strong>${row.jars} กระปุก</strong></div>
+                  <div><span>ยอดเงิน</span><strong>${money(row.amount)} บาท</strong></div>
+                  <div><span>Tag</span><strong>${escapeHtml((row.tags || []).join(", ") || "-")}</strong></div>
+                </div>
+              </div>
+            `).join("")}
+          </div>
+        </div>
+      ` : `
+        <form class="import-drop" id="manualImportForm">
+          <div class="section-title">
+            <h2>กรอกออเดอร์เก่าเอง</h2>
+            <p>เหมาะสำหรับข้อมูลที่ parser อ่านไม่ได้</p>
+          </div>
+          <div class="form-grid">
+            <label>วันที่ซื้อ<input name="date" type="date" required></label>
+            <label>เวลา<input name="time" type="time"></label>
+            <label>ชื่อ<input name="name" required></label>
+            <label>เบอร์<input name="phone" required></label>
+            <label class="span-2">ที่อยู่<input name="address"></label>
+            <label>จำนวนกระปุก<input name="jars" type="number" min="1" value="1"></label>
+            <label>ยอดเงิน<input name="amount" type="number" min="0" value="${Number(app.data.settings.defaultJarPrice || 750)}"></label>
+            <label class="span-2">หมายเหตุ<input name="note"></label>
+          </div>
+          <button class="button primary" type="submit">บันทึกข้อมูล</button>
+        </form>
+      `}
+    </section>
+  `;
+}
+
+function monthKey(dateValue) {
+  return String(dateValue || "").slice(0, 7);
+}
+
+function renderReports() {
+  const monthly = {};
+  const daily = {};
+  const sourceTotals = {};
+  app.data.orders.forEach(order => {
+    monthly[monthKey(order.date)] = (monthly[monthKey(order.date)] || 0) + Number(order.amount || 0);
+    daily[order.date] = (daily[order.date] || 0) + Number(order.amount || 0);
+    sourceTotals[order.source || "Manual"] = (sourceTotals[order.source || "Manual"] || 0) + Number(order.amount || 0);
+  });
+  const monthlyRows = Object.entries(monthly).sort(([a], [b]) => b.localeCompare(a)).slice(0, 8);
+  const dailyRows = Object.entries(daily).sort(([a], [b]) => b.localeCompare(a)).slice(0, 12);
+  const maxDaily = Math.max(1, ...dailyRows.map(([, value]) => value));
+  const selectedMonth = app.data.summary.selectedDate.slice(0, 7);
+  const monthOrders = app.data.orders.filter(order => String(order.date).startsWith(selectedMonth));
+  const repeatCustomers = app.data.customers.filter(customer => customer.purchaseCount > 1).length;
+  const topCustomers = [...app.data.customers].sort((a, b) => b.totalSpent - a.totalSpent).slice(0, 5);
+
+  els.content.innerHTML = `
+    <section class="section">
+      <div class="metric-grid">
+        ${metric("ยอดขายเดือนนี้", `${money(app.data.summary.salesThisMonth)} บาท`, "accent")}
+        ${metric("ออเดอร์รวม", money(app.data.orders.length))}
+        ${metric("กระปุกรวม", money(app.data.orders.reduce((sum, order) => sum + Number(order.jars || 0), 0)), "green")}
+        ${metric("ลูกค้าใหม่", money(app.data.summary.newCustomers))}
+        ${metric("ลูกค้าซื้อซ้ำ", money(repeatCustomers), "purple")}
+        ${metric("ออเดอร์เดือนนี้", money(monthOrders.length))}
+      </div>
+      <div class="three-col">
+        <div class="panel stack">
+          <h2>ยอดขายรายเดือน</h2>
+          <div class="bar-list">
+            ${monthlyRows.map(([key, value]) => `
+              <div class="bar-row">
+                <strong>${escapeHtml(key)}</strong>
+                <div class="bar-track"><div class="bar-fill" style="width:${Math.max(4, value / Math.max(...monthlyRows.map(([, v]) => v), 1) * 100)}%"></div></div>
+                <span>${money(value)}</span>
+              </div>
+            `).join("")}
+          </div>
+        </div>
+        <div class="panel stack">
+          <h2>ยอดขายรายวันล่าสุด</h2>
+          <div class="bar-list">
+            ${dailyRows.map(([key, value]) => `
+              <div class="bar-row">
+                <strong>${formatDate(key)}</strong>
+                <div class="bar-track"><div class="bar-fill" style="width:${Math.max(4, value / maxDaily * 100)}%"></div></div>
+                <span>${money(value)}</span>
+              </div>
+            `).join("")}
+          </div>
+        </div>
+        <div class="panel stack">
+          <h2>ยอดขายตามช่องทาง</h2>
+          <div class="bar-list">
+            ${Object.entries(sourceTotals).sort((a, b) => b[1] - a[1]).map(([source, value]) => `
+              <div class="bar-row">
+                <strong>${escapeHtml(source)}</strong>
+                <div class="bar-track"><div class="bar-fill" style="width:${Math.max(4, value / Math.max(...Object.values(sourceTotals), 1) * 100)}%"></div></div>
+                <span>${money(value)}</span>
+              </div>
+            `).join("")}
+          </div>
+        </div>
+      </div>
+      <div class="panel stack">
+        <h2>Top customers</h2>
+        ${customerTable(topCustomers)}
+      </div>
+    </section>
+  `;
+}
+
+function renderTeam() {
+  els.content.innerHTML = `
+    <section class="section">
+      <div class="two-col">
+        <div class="panel stack">
+          <div class="section-title">
+            <h2>สิทธิ์ผู้ใช้</h2>
+            <p>Admin ดูทุกอย่างและแก้ไขได้, Staff ค้นหา เพิ่มข้อมูล ดู Follow-up และโทรลูกค้า</p>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>ชื่อ</th><th>สิทธิ์</th><th>เบอร์โทร</th><th>สถานะ</th></tr></thead>
+              <tbody>
+                ${app.data.users.map(user => `
+                  <tr>
+                    <td><strong>${escapeHtml(user.name)}</strong></td>
+                    <td>${badge(user.role)}</td>
+                    <td>${escapeHtml(user.phone || "-")}</td>
+                    <td>${user.active ? "เปิดใช้งาน" : "ปิดใช้งาน"}</td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <form class="panel stack" id="teamForm">
+          <div class="section-title">
+            <h2>เพิ่มทีมงาน</h2>
+            <p>สร้างผู้ใช้งานพร้อม Username / Password สำหรับเข้าสู่ระบบ</p>
+          </div>
+          <label>ชื่อ<input name="name" required></label>
+          <label>Username<input name="username" required placeholder="เช่น sale01"></label>
+          <label>Password<input name="password" required placeholder="ตั้งรหัสผ่าน"></label>
+          <label>เบอร์โทร<input name="phone"></label>
+          <label>สิทธิ์
+            <select name="role">
+              <option>Staff</option>
+              <option>Admin</option>
+            </select>
+          </label>
+          <button class="button primary" type="submit">เพิ่มทีมงาน</button>
+        </form>
+      </div>
+    </section>
+  `;
+}
+
+function renderSettings() {
+  const settings = app.data.settings;
+  const thresholds = settings.vipThresholds || {};
+  const templates = settings.messageTemplates || {};
+  els.content.innerHTML = `
+    <section class="section">
+      <div class="two-col">
+        <form class="panel stack" id="settingsForm">
+          <div class="section-title">
+            <h2>ตั้งค่าระบบ</h2>
+            <p>VIP, Template ข้อความ, LINE OA และสิทธิ์ Staff</p>
+          </div>
+          <label>ชื่อธุรกิจ<input name="businessName" value="${escapeHtml(settings.businessName || "Zomin")}"></label>
+          <label>ราคาต่อกระปุกเริ่มต้น<input name="defaultJarPrice" type="number" min="0" value="${Number(settings.defaultJarPrice || 750)}"></label>
+          <div class="form-grid">
+            <label>VIP Threshold<input name="vipThreshold" type="number" min="0" value="${Number(thresholds.vip || 5000)}"></label>
+            <label>VVIP Threshold<input name="vvipThreshold" type="number" min="0" value="${Number(thresholds.vvip || 10000)}"></label>
+            <label>SUPER VIP Threshold<input name="superVipThreshold" type="number" min="0" value="${Number(thresholds.superVip || 20000)}"></label>
+          </div>
+          <label>Template ข้อความลูกค้าปกติ<textarea name="normalTemplate">${escapeHtml(templates.normal || "")}</textarea></label>
+          <label>Template ข้อความ VIP<textarea name="vipTemplate">${escapeHtml(templates.vip || "")}</textarea></label>
+          <label>LINE Channel ID<input name="lineChannelId" value="${escapeHtml(settings.lineChannelId || "")}"></label>
+          <label>LINE Channel Secret<input name="lineChannelSecret" value="${escapeHtml(settings.lineChannelSecret || "")}"></label>
+          <label>LINE Channel Access Token<textarea name="lineChannelAccessToken">${escapeHtml(settings.lineChannelAccessToken || "")}</textarea></label>
+          <label class="inline">
+            <input name="lineWebhookEnabled" type="checkbox" ${settings.lineWebhookEnabled ? "checked" : ""} style="width:auto">
+            เปิดรับ LINE Webhook
+          </label>
+          <div class="panel tight">
+            <strong>Webhook Endpoint</strong>
+            <p class="muted">${location.origin}/api/line/webhook</p>
+          </div>
+          <label class="inline">
+            <input name="staffCanExport" type="checkbox" ${settings.staffCanExport ? "checked" : ""} style="width:auto">
+            Staff สามารถ Export ข้อมูลได้
+          </label>
+          <button class="button primary" type="submit">บันทึก Settings</button>
+        </form>
+        <form class="panel stack" id="rulesForm">
+          <div class="section-title">
+            <h2>กฎ Follow-up อัจฉริยะ</h2>
+            <p>Admin แก้จำนวนกระปุกและจำนวนวันได้</p>
+          </div>
+          <div class="table-wrap">
+            <table class="rules-table">
+              <thead><tr><th>จำนวนกระปุกล่าสุด</th><th>ควรทักอีกกี่วัน</th></tr></thead>
+              <tbody id="rulesBody">
+                ${app.data.followUpRules.map(rule => `
+                  <tr>
+                    <td><input name="jars" type="number" min="1" value="${Number(rule.jars)}"></td>
+                    <td><input name="days" type="number" min="1" value="${Number(rule.days)}"></td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          </div>
+          <div class="inline">
+            <button class="button ghost" type="button" data-add-rule>เพิ่มกฎ</button>
+            <button class="button primary" type="submit">บันทึกกฎ</button>
+          </div>
+        </form>
+      </div>
+    </section>
+  `;
+}
+
+function renderCustomerDetail(customer) {
+  els.dialogCustomerName.textContent = customer.name;
+  els.customerDetail.innerHTML = `
+    <div class="customer-detail-hero">
+      <div class="avatar large">${escapeHtml(initials(customer.name))}</div>
+      <div>
+        <h2>${escapeHtml(customer.name)}</h2>
+        <div class="inline">${vipBadge(customer.vipLevel)} ${badge(customer.status)}</div>
+        <p>${escapeHtml(customer.phone)}</p>
+      </div>
+    </div>
+    <div class="detail-actions">
+      <a class="button primary" href="tel:${escapeHtml(customer.phone)}">โทร</a>
+      <button class="button ghost" type="button" data-copy="${escapeHtml(customer.phone)}">คัดลอกเบอร์</button>
+      <button class="button secondary" type="button" data-copy="${escapeHtml(makeMessage(customer))}">คัดลอกข้อความทัก</button>
+    </div>
+    <div class="detail-grid">
+      <div class="panel stack detail-card">
+        <div class="mini-stats">
+          <div class="mini-stat"><span>ซื้อทั้งหมด</span><strong>${customer.purchaseCount} ครั้ง</strong></div>
+          <div class="mini-stat"><span>รวม</span><strong>${customer.totalJars} กระปุก</strong></div>
+          <div class="mini-stat"><span>ยอดสะสม</span><strong>${money(customer.totalSpent)} บาท</strong></div>
+          <div class="mini-stat"><span>Customer Score</span><strong>${money(customer.customerScore)}</strong></div>
+        </div>
+        <div class="mini-stats">
+          <div class="mini-stat"><span>ซื้อครั้งแรก</span><strong>${formatDate(customer.firstPurchaseDate)}</strong></div>
+          <div class="mini-stat"><span>ซื้อล่าสุด</span><strong>${formatDate(customer.lastPurchaseDate)}</strong></div>
+          <div class="mini-stat"><span>ควรทักอีก</span><strong>${formatDate(customer.followUpDate)}</strong></div>
+          <div class="mini-stat"><span>กระปุกล่าสุด</span><strong>${customer.lastJars}</strong></div>
+        </div>
+        <div class="info-card"><span>เบอร์</span><strong>${escapeHtml(customer.phone)}</strong></div>
+        <div class="info-card"><span>ที่อยู่ล่าสุด</span><strong>${escapeHtml(customer.address || "-")}</strong></div>
+        <form class="stack" id="customerEditForm">
+          <input type="hidden" name="customerId" value="${customer.id}">
+          <label>Tags
+            <input name="tags" value="${escapeHtml((customer.tags || []).join(", "))}">
+          </label>
+          <label>หมายเหตุลูกค้า
+            <textarea name="note">${escapeHtml(customer.note || "")}</textarea>
+          </label>
+          <button class="button secondary" type="submit">บันทึก Tags / หมายเหตุ</button>
+        </form>
+        <form class="stack" id="contactForm">
+          <input type="hidden" name="customerId" value="${customer.id}">
+          <div class="form-grid">
+            <label>วันที่ติดต่อ<input name="date" type="date" value="${dateInputValue(customer.lastContactDate)}"></label>
+            <label>ผลลัพธ์
+              <select name="result">
+                ${["โทรติด", "ไม่รับ", "สนใจ", "ยังไม่หมด", "สั่งซื้อแล้ว", "โทรใหม่"].map(result => `<option>${result}</option>`).join("")}
+              </select>
+            </label>
+            <label>นัดติดตามครั้งถัดไป<input name="nextFollowUpDate" type="date"></label>
+            <label>ผู้ติดต่อ<input name="staff" value="${escapeHtml(app.currentUser?.name || "")}"></label>
+            <label class="span-2">หมายเหตุ<input name="note" value="${escapeHtml(customer.lastContactNote || "")}"></label>
+          </div>
+          <button class="button primary" type="submit">บันทึกการติดต่อ</button>
+        </form>
+      </div>
+      <div class="panel stack detail-card">
+        <h3>ประวัติออเดอร์</h3>
+        <div class="timeline">
+          ${customer.orders.slice().reverse().map(order => `
+            <div class="timeline-item">
+              <strong>${formatDate(order.date)} · ${order.jars} กระปุก · ${money(order.amount)} บาท</strong>
+              <span class="muted">${escapeHtml(order.source || "Manual")}</span>
+            </div>
+          `).join("")}
+        </div>
+        <h3>ประวัติการติดต่อ</h3>
+        <div class="timeline">
+          ${(customer.contactLogs || []).map(log => `
+            <div class="timeline-item">
+              <strong>${formatDate(log.date)} · ${escapeHtml(log.result || "-")}</strong>
+              <span class="muted">${escapeHtml(log.note || "-")}</span>
+              <span class="muted">ผู้ติดต่อ ${escapeHtml(log.staff || "-")}${log.nextFollowUpDate ? ` · นัด ${formatDate(log.nextFollowUpDate)}` : ""}</span>
+            </div>
+          `).join("") || `<div class="empty-state">ยังไม่มีประวัติการติดต่อ</div>`}
+        </div>
+      </div>
+    </div>
+  `;
+  els.customerDialog.showModal();
+}
+
+function render() {
+  if (!app.data) return;
+  renderNav();
+  updateShell();
+  els.pageTitle.textContent = titleFor(app.view);
+  const renderer = {
+    login: renderLogin,
+    dashboard: renderDashboard,
+    orders: renderOrders,
+    search: renderSearch,
+    followup: renderFollowup,
+    more: renderMore,
+    vip: renderVip,
+    risk: renderRisk,
+    tags: renderTags,
+    import: renderImport,
+    reports: renderReports,
+    team: renderTeam,
+    settings: renderSettings
+  }[app.view] || renderDashboard;
+  renderer();
+}
+
+function setView(view) {
+  app.view = view;
+  navigateToView(view);
+  render();
+}
+
+function syncViewFromLocation() {
+  const nextView = routeFromLocation();
+  if (!app.currentUser && nextView !== "login") {
+    app.view = "login";
+    navigateToView("login", true);
+    render();
+    return;
+  }
+  if (app.currentUser && nextView === "login") {
+    app.view = "dashboard";
+    navigateToView("dashboard", true);
+    render();
+    return;
+  }
+  app.view = nextView;
+  render();
+}
+
+async function submitOrder(form) {
+  const data = Object.fromEntries(new FormData(form).entries());
+  await api("/api/orders", {
+    method: "POST",
+    body: JSON.stringify(data)
+  });
+  els.orderDialog.close();
+  form.reset();
+  showToast("บันทึกออเดอร์แล้ว");
+  await loadState();
+}
+
+function openOrderDialog() {
+  els.orderForm.reset();
+  els.orderForm.elements.date.value = els.workDate.value || todayISO();
+  els.orderForm.elements.amount.value = app.data?.settings?.defaultJarPrice || 750;
+  els.orderDialog.showModal();
+}
+
+async function copyText(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    showToast("คัดลอกแล้ว");
+  } catch {
+    showToast("คัดลอกไม่สำเร็จ");
+  }
+}
+
+async function handleImport(type) {
+  const textarea = type === "line" ? document.querySelector("#lineImport") : document.querySelector("#csvImport");
+  const payload = await api("/api/import", {
+    method: "POST",
+    body: JSON.stringify({ type, content: textarea.value })
+  });
+  showToast(`Import สำเร็จ ${payload.imported} ออเดอร์`);
+  app.importPreview = [];
+  await loadState();
+}
+
+async function parseImportPreview() {
+  const textarea = document.querySelector("#lineImport");
+  const payload = await api("/api/parse-preview", {
+    method: "POST",
+    body: JSON.stringify({ content: textarea.value })
+  });
+  app.importPreview = payload.rows || [];
+  showToast(`วิเคราะห์ได้ ${app.importPreview.length} ออเดอร์`);
+  renderImport();
+}
+
+document.addEventListener("click", async event => {
+  const navButton = event.target.closest("[data-view]");
+  if (navButton) setView(navButton.dataset.view);
+
+  const shortcut = event.target.closest("[data-view-shortcut]");
+  if (shortcut) setView(shortcut.dataset.viewShortcut);
+
+  if (event.target.closest("[data-open-order]")) openOrderDialog();
+
+  if (event.target.closest("[data-logout]")) {
+    clearSession();
+    app.view = "login";
+      navigateToView("login");
+      render();
+  }
+
+  const tagFilter = event.target.closest("[data-tag-filter]");
+  if (tagFilter) {
+    app.filters = { q: "", tag: tagFilter.dataset.tagFilter, status: "", vip: "" };
+    setView("search");
+  }
+
+  const followupModeButton = event.target.closest("[data-followup-mode]");
+  if (followupModeButton) {
+    app.followupMode = followupModeButton.dataset.followupMode;
+    renderFollowup();
+  }
+
+  const customerButton = event.target.closest("[data-open-customer]");
+  if (customerButton) {
+    const customer = app.data.customers.find(item => item.id === customerButton.dataset.openCustomer);
+    if (customer) renderCustomerDetail(customer);
+  }
+
+  const row = event.target.closest("[data-customer]");
+  if (row && !event.target.closest("button")) {
+    const customer = app.data.customers.find(item => item.id === row.dataset.customer);
+    if (customer) renderCustomerDetail(customer);
+  }
+
+  const copyButton = event.target.closest("[data-copy]");
+  if (copyButton) copyText(copyButton.dataset.copy);
+
+  const importButton = event.target.closest("[data-import]");
+  if (importButton) handleImport(importButton.dataset.import);
+
+  const parseButton = event.target.closest("[data-parse-import]");
+  if (parseButton) parseImportPreview();
+
+  const importMode = event.target.closest("[data-import-mode]");
+  if (importMode) {
+    app.importMode = importMode.dataset.importMode;
+    renderImport();
+  }
+
+  if (event.target.closest("[data-reset-filters]")) {
+    app.filters = { q: "", tag: "", status: "", vip: "" };
+    renderSearch();
+  }
+
+  if (event.target.closest("[data-close-order]")) els.orderDialog.close();
+
+  if (event.target.closest("[data-close-customer]")) els.customerDialog.close();
+
+  if (event.target.closest("[data-add-rule]")) {
+    document.querySelector("#rulesBody").insertAdjacentHTML("beforeend", `
+      <tr>
+        <td><input name="jars" type="number" min="1" value="1"></td>
+        <td><input name="days" type="number" min="1" value="15"></td>
+      </tr>
+    `);
+  }
+});
+
+document.addEventListener("input", event => {
+  const filter = event.target.closest("[data-filter]");
+  if (filter) {
+    app.filters[filter.dataset.filter] = filter.value;
+    updateSearchResults();
+  }
+});
+
+document.addEventListener("change", async event => {
+  if (event.target === els.workDate) await loadState();
+
+  if (event.target?.id === "followupDatePicker") {
+    els.workDate.value = event.target.value;
+    app.followupMode = "custom";
+    await loadState();
+  }
+
+  if (event.target?.id === "csvFile") {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const text = await file.text();
+    document.querySelector("#csvImport").value = text;
+  }
+});
+
+document.addEventListener("submit", async event => {
+  event.preventDefault();
+  const form = event.target;
+
+  try {
+    if (form.id === "loginForm") {
+      const data = Object.fromEntries(new FormData(form).entries());
+      const payload = await api("/api/login", {
+        method: "POST",
+        body: JSON.stringify(data)
+      });
+      saveSession(payload.user);
+      app.view = "dashboard";
+      navigateToView("dashboard");
+      showToast("เข้าสู่ระบบแล้ว");
+      render();
+    }
+
+    if (form.id === "orderForm") {
+      await submitOrder(form);
+    }
+
+    if (form.id === "teamForm") {
+      const data = Object.fromEntries(new FormData(form).entries());
+      await api("/api/team", {
+        method: "POST",
+        body: JSON.stringify(data)
+      });
+      showToast("เพิ่มทีมงานแล้ว");
+      await loadState();
+    }
+
+    if (form.id === "manualImportForm") {
+      const data = Object.fromEntries(new FormData(form).entries());
+      await api("/api/orders", {
+        method: "POST",
+        body: JSON.stringify({ ...data, source: "Manual Import" })
+      });
+      showToast("บันทึกออเดอร์เก่าแล้ว");
+      await loadState();
+    }
+
+    if (form.id === "tagsForm") {
+      const data = Object.fromEntries(new FormData(form).entries());
+      await api("/api/tags", {
+        method: "POST",
+        body: JSON.stringify(data)
+      });
+      showToast("เพิ่ม Tag แล้ว");
+      form.reset();
+      await loadState();
+    }
+
+    if (form.id === "settingsForm") {
+      const data = Object.fromEntries(new FormData(form).entries());
+      data.lineWebhookEnabled = form.elements.lineWebhookEnabled.checked;
+      data.staffCanExport = form.elements.staffCanExport.checked;
+      await api("/api/settings", {
+        method: "PUT",
+        body: JSON.stringify(data)
+      });
+      showToast("บันทึก Settings แล้ว");
+      await loadState();
+    }
+
+    if (form.id === "rulesForm") {
+      const rows = [...form.querySelectorAll("tbody tr")].map(row => ({
+        jars: row.querySelector('[name="jars"]').value,
+        days: row.querySelector('[name="days"]').value
+      }));
+      await api("/api/followup-rules", {
+        method: "PUT",
+        body: JSON.stringify({ rules: rows })
+      });
+      showToast("บันทึกกฎ Follow-up แล้ว");
+      await loadState();
+    }
+
+    if (form.id === "contactForm") {
+      const data = Object.fromEntries(new FormData(form).entries());
+      await api("/api/contact-log", {
+        method: "POST",
+        body: JSON.stringify(data)
+      });
+      showToast("บันทึกการติดต่อแล้ว");
+      els.customerDialog.close();
+      await loadState();
+    }
+
+    if (form.id === "customerEditForm") {
+      const data = Object.fromEntries(new FormData(form).entries());
+      await api(`/api/customers/${encodeURIComponent(data.customerId)}`, {
+        method: "PUT",
+        body: JSON.stringify({ tags: data.tags, note: data.note })
+      });
+      showToast("บันทึกข้อมูลลูกค้าแล้ว");
+      els.customerDialog.close();
+      await loadState();
+    }
+  } catch (error) {
+    showToast(error.message);
+  }
+});
+
+window.addEventListener("hashchange", syncViewFromLocation);
+window.addEventListener("popstate", syncViewFromLocation);
+
+els.quickAddOrder.addEventListener("click", openOrderDialog);
+els.workDate.value = todayISO();
+restoreSession();
+loadState().catch(error => {
+  els.content.innerHTML = `<div class="empty-state">โหลดข้อมูลไม่สำเร็จ: ${escapeHtml(error.message)}</div>`;
+});

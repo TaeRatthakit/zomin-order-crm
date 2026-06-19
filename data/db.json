@@ -1,0 +1,575 @@
+{
+  "settings": {
+    "businessName": "Zomin",
+    "defaultJarPrice": 750,
+    "vipThresholds": {
+      "vip": 5000,
+      "vvip": 10000,
+      "superVip": 20000
+    },
+    "messageTemplates": {
+      "normal": "สวัสดีค่ะ {{name}} จาก Zomin นะคะ รอบก่อนสั่ง {{jars}} กระปุก ตอนนี้ถึงรอบดูแลต่อเนื่องแล้ว ต้องการให้จัดส่งเพิ่มไหมคะ",
+      "vip": "สวัสดีค่ะ {{name}} ลูกค้า VIP ของ Zomin รอบดูแลต่อเนื่องมาถึงแล้ว ทีมงานเตรียมโปรพิเศษไว้ให้ค่ะ"
+    },
+    "lineChannelId": "",
+    "lineChannelSecret": "",
+    "lineChannelAccessToken": "",
+    "lineWebhookEnabled": false,
+    "staffCanExport": false
+  },
+  "followUpRules": [
+    {
+      "jars": 1,
+      "days": 15
+    },
+    {
+      "jars": 2,
+      "days": 30
+    },
+    {
+      "jars": 3,
+      "days": 45
+    },
+    {
+      "jars": 6,
+      "days": 90
+    },
+    {
+      "jars": 13,
+      "days": 180
+    },
+    {
+      "jars": 30,
+      "days": 365
+    }
+  ],
+  "tags": [
+    "กรดไหลย้อน",
+    "จ่ายง่าย",
+    "ซื้อให้พ่อ",
+    "ซื้อให้ภรรยา",
+    "ซื้อให้แม่",
+    "ซื้อให้สามี",
+    "ตัวแทน",
+    "โทรติดยาก",
+    "นอนไม่หลับ",
+    "ปวดข้อ",
+    "ปวดเข่า",
+    "ปวดหลัง",
+    "รอตัดสินใจ",
+    "ลูกค้าองค์กร",
+    "สนใจโปร",
+    "SUPER VIP",
+    "VIP ดูแลพิเศษ"
+  ],
+  "users": [
+    {
+      "id": "u_admin",
+      "username": "admin",
+      "password": "admin123",
+      "name": "แอดมินโซมิน",
+      "role": "Admin",
+      "phone": "0810000000",
+      "active": true
+    },
+    {
+      "id": "u_staff_1",
+      "username": "staff",
+      "password": "staff123",
+      "name": "ทีมขาย 1",
+      "role": "Staff",
+      "phone": "0820000000",
+      "active": true
+    }
+  ],
+  "customers": [
+    {
+      "note": "ดูแลพิเศษ ชอบให้โทรช่วงเย็น",
+      "id": "c_pongsak",
+      "name": "คุณพงศ์ศักดิ์ ขำดี",
+      "phone": "0812345678",
+      "address": "99/8 ต.ในเมือง อ.เมือง จ.ขอนแก่น 40000",
+      "tags": [
+        "ปวดเข่า",
+        "ซื้อให้พ่อ",
+        "VIP ดูแลพิเศษ"
+      ],
+      "createdAt": "2025-08-20",
+      "lastContactDate": "2026-06-01",
+      "lastContactNote": "ดูแลพิเศษ ชอบให้โทรช่วงเย็น",
+      "assignedTo": "u_staff_1"
+    },
+    {
+      "note": "",
+      "id": "c_malee",
+      "name": "คุณมาลี ทองดี",
+      "phone": "0895551122",
+      "address": "12/5 แขวงบางนา เขตบางนา กรุงเทพฯ 10260",
+      "tags": [
+        "ปวดข้อ",
+        "ซื้อให้แม่",
+        "จ่ายง่าย"
+      ],
+      "createdAt": "2026-05-20",
+      "lastContactDate": "",
+      "lastContactNote": "",
+      "assignedTo": "u_staff_1"
+    },
+    {
+      "note": "ติดต่อได้ช่วงเช้า",
+      "id": "c_somchai",
+      "name": "คุณสมชาย ใจดี",
+      "phone": "0862223344",
+      "address": "55 ม.4 ต.แม่กา อ.เมือง จ.พะเยา 56000",
+      "tags": [
+        "ปวดหลัง",
+        "โทรติดยาก"
+      ],
+      "createdAt": "2025-12-15",
+      "lastContactDate": "2026-03-01",
+      "lastContactNote": "ติดต่อได้ช่วงเช้า",
+      "assignedTo": "u_staff_1"
+    },
+    {
+      "note": "สนใจแพ็ก 6 กระปุก",
+      "id": "c_orapan",
+      "name": "คุณอรพรรณ ศรีสุข",
+      "phone": "0637894561",
+      "address": "45/1 ต.หาดใหญ่ อ.หาดใหญ่ จ.สงขลา 90110",
+      "tags": [
+        "กรดไหลย้อน",
+        "ซื้อให้สามี"
+      ],
+      "createdAt": "2026-03-10",
+      "lastContactDate": "2026-05-18",
+      "lastContactNote": "สนใจแพ็ก 6 กระปุก",
+      "assignedTo": "u_admin"
+    },
+    {
+      "note": "สั่งรอบใหญ่ทุกไตรมาส",
+      "id": "c_company",
+      "name": "บริษัทสุขภาพดี จำกัด",
+      "phone": "021234567",
+      "address": "88 อาคารเอ แขวงสีลม เขตบางรัก กรุงเทพฯ 10500",
+      "tags": [
+        "ลูกค้าองค์กร",
+        "ตัวแทน",
+        "SUPER VIP"
+      ],
+      "createdAt": "2025-01-12",
+      "lastContactDate": "2026-06-03",
+      "lastContactNote": "สั่งรอบใหญ่ทุกไตรมาส",
+      "assignedTo": "u_admin"
+    },
+    {
+      "note": "",
+      "id": "c_naree",
+      "name": "คุณนารี แสงทอง",
+      "phone": "0949988776",
+      "address": "7/9 ต.ปากน้ำ อ.เมือง จ.สมุทรปราการ 10270",
+      "tags": [
+        "นอนไม่หลับ",
+        "ซื้อให้แม่"
+      ],
+      "createdAt": "2026-06-10",
+      "lastContactDate": "",
+      "lastContactNote": "",
+      "assignedTo": "u_staff_1"
+    },
+    {
+      "note": "นัดโทรซ้ำแต่ยังไม่รับสาย",
+      "id": "c_rattana",
+      "name": "คุณรัตนา วงศ์ดี",
+      "phone": "0874445566",
+      "address": "22/6 ต.ท่าศาลา อ.เมือง จ.เชียงใหม่ 50000",
+      "tags": [
+        "ปวดหลัง",
+        "โทรติดยาก"
+      ],
+      "createdAt": "2026-04-20",
+      "lastContactDate": "2026-05-10",
+      "lastContactNote": "นัดโทรซ้ำแต่ยังไม่รับสาย",
+      "assignedTo": "u_staff_1"
+    },
+    {
+      "note": "ชอบให้ทัก LINE ก่อนโทร",
+      "id": "c_wipa",
+      "name": "คุณวิภา แสงสุข",
+      "phone": "0891234567",
+      "address": "55/1 ต.สุเทพ อ.เมือง จ.เชียงใหม่ 50200",
+      "tags": [
+        "ปวดข้อ",
+        "ซื้อให้พ่อ"
+      ],
+      "createdAt": "2026-06-01",
+      "lastContactDate": "2026-06-15",
+      "lastContactNote": "สนใจโปร 6 กระปุก",
+      "assignedTo": "u_staff_1"
+    },
+    {
+      "note": "โทรช่วงพักเที่ยง",
+      "id": "c_kanda",
+      "name": "คุณกานดา เจริญผล",
+      "phone": "0832295956",
+      "address": "18/2 ต.ทับเที่ยง อ.เมือง จ.ตรัง 92000",
+      "tags": [
+        "กรดไหลย้อน",
+        "จ่ายง่าย"
+      ],
+      "createdAt": "2026-04-12",
+      "lastContactDate": "2026-06-12",
+      "lastContactNote": "รอเงินเดือน",
+      "assignedTo": "u_staff_1"
+    },
+    {
+      "note": "ควรส่งข้อความก่อนโทร",
+      "id": "c_nopporn",
+      "name": "คุณนพพร ศรีชัย",
+      "phone": "0831635695",
+      "address": "70/8 ต.ในเมือง อ.เมือง จ.นครราชสีมา 30000",
+      "tags": [
+        "ปวดเข่า",
+        "โทรติดยาก"
+      ],
+      "createdAt": "2025-09-09",
+      "lastContactDate": "2026-02-01",
+      "lastContactNote": "ไม่รับสาย 2 ครั้ง",
+      "assignedTo": "u_staff_1"
+    },
+    {
+      "note": "ลูกค้าเก่า ดูแลดี",
+      "id": "c_pranee",
+      "name": "คุณปราณี ใจงาม",
+      "phone": "0862551899",
+      "address": "101 ม.3 ต.บ้านสวน อ.เมือง จ.ชลบุรี 20000",
+      "tags": [
+        "ซื้อให้แม่",
+        "VIP ดูแลพิเศษ"
+      ],
+      "createdAt": "2025-10-20",
+      "lastContactDate": "2026-06-10",
+      "lastContactNote": "ชอบแพ็กใหญ่",
+      "assignedTo": "u_admin"
+    },
+    {
+      "note": "ตอบแชทเร็ว",
+      "id": "c_siriporn",
+      "name": "คุณศิริพร มั่นคง",
+      "phone": "0649595657",
+      "address": "9/4 แขวงลาดพร้าว เขตลาดพร้าว กรุงเทพฯ 10230",
+      "tags": [
+        "ปวดหลัง",
+        "ซื้อให้สามี"
+      ],
+      "createdAt": "2026-02-02",
+      "lastContactDate": "2026-05-20",
+      "lastContactNote": "ขอคิดดูก่อน",
+      "assignedTo": "u_staff_1"
+    },
+    {
+      "note": "ตัวแทนรายย่อย",
+      "id": "c_health_shop",
+      "name": "ร้านสุขภาพบ้านเรา",
+      "phone": "0924457788",
+      "address": "33/2 อ.เมือง จ.อุดรธานี 41000",
+      "tags": [
+        "ตัวแทน",
+        "ลูกค้าองค์กร"
+      ],
+      "createdAt": "2025-05-05",
+      "lastContactDate": "2026-06-05",
+      "lastContactNote": "สนใจสต็อกเพิ่ม",
+      "assignedTo": "u_admin"
+    },
+    {
+      "note": "ลูกค้าใหม่จาก LINE",
+      "id": "c_thanapol",
+      "name": "คุณธนพล รุ่งเรือง",
+      "phone": "0953344556",
+      "address": "44/7 ต.ปากเพรียว อ.เมือง จ.สระบุรี 18000",
+      "tags": [
+        "ปวดข้อ"
+      ],
+      "createdAt": "2026-06-12",
+      "lastContactDate": "",
+      "lastContactNote": "",
+      "assignedTo": "u_staff_1"
+    },
+    {
+      "note": "ไม่สะดวกโทรตอนเย็น",
+      "id": "c_duangjai",
+      "name": "คุณดวงใจ พลอยงาม",
+      "phone": "0998877665",
+      "address": "12/9 ต.บ่อยาง อ.เมือง จ.สงขลา 90000",
+      "tags": [
+        "นอนไม่หลับ",
+        "ซื้อให้แม่"
+      ],
+      "createdAt": "2026-01-18",
+      "lastContactDate": "2026-06-01",
+      "lastContactNote": "ยังมีสินค้าเหลือ",
+      "assignedTo": "u_staff_1"
+    }
+  ],
+  "orders": [
+    {
+      "time": "09:00",
+      "id": "o_1001",
+      "customerId": "c_pongsak",
+      "date": "2025-08-20",
+      "items": "Zomin",
+      "jars": 6,
+      "amount": 4500,
+      "source": "Seed",
+      "rawText": ""
+    },
+    {
+      "time": "09:00",
+      "id": "o_1002",
+      "customerId": "c_pongsak",
+      "date": "2025-11-20",
+      "items": "Zomin",
+      "jars": 13,
+      "amount": 9750,
+      "source": "Seed",
+      "rawText": ""
+    },
+    {
+      "time": "09:00",
+      "id": "o_1003",
+      "customerId": "c_pongsak",
+      "date": "2026-06-19",
+      "items": "Zomin",
+      "jars": 30,
+      "amount": 22500,
+      "source": "Seed",
+      "rawText": ""
+    },
+    {
+      "time": "09:00",
+      "id": "o_1004",
+      "customerId": "c_malee",
+      "date": "2026-05-20",
+      "items": "Zomin",
+      "jars": 2,
+      "amount": 1500,
+      "source": "Seed",
+      "rawText": ""
+    },
+    {
+      "time": "09:00",
+      "id": "o_1005",
+      "customerId": "c_somchai",
+      "date": "2026-01-10",
+      "items": "Zomin",
+      "jars": 1,
+      "amount": 750,
+      "source": "Seed",
+      "rawText": ""
+    },
+    {
+      "time": "09:00",
+      "id": "o_1006",
+      "customerId": "c_orapan",
+      "date": "2026-05-05",
+      "items": "Zomin",
+      "jars": 3,
+      "amount": 2250,
+      "source": "Seed",
+      "rawText": ""
+    },
+    {
+      "time": "09:00",
+      "id": "o_1007",
+      "customerId": "c_company",
+      "date": "2025-01-12",
+      "items": "Zomin",
+      "jars": 30,
+      "amount": 22500,
+      "source": "Seed",
+      "rawText": ""
+    },
+    {
+      "time": "09:00",
+      "id": "o_1008",
+      "customerId": "c_company",
+      "date": "2026-03-15",
+      "items": "Zomin",
+      "jars": 30,
+      "amount": 22500,
+      "source": "Seed",
+      "rawText": ""
+    },
+    {
+      "time": "09:00",
+      "id": "o_1009",
+      "customerId": "c_naree",
+      "date": "2026-06-10",
+      "items": "Zomin",
+      "jars": 1,
+      "amount": 750,
+      "source": "Seed",
+      "rawText": ""
+    },
+    {
+      "time": "09:00",
+      "id": "o_1010",
+      "customerId": "c_rattana",
+      "date": "2026-04-20",
+      "items": "Zomin",
+      "jars": 1,
+      "amount": 750,
+      "source": "Seed",
+      "rawText": ""
+    },
+    {
+      "time": "10:20",
+      "id": "o_1011",
+      "customerId": "c_wipa",
+      "date": "2026-06-01",
+      "items": "Zomin",
+      "jars": 6,
+      "amount": 4500,
+      "source": "LINE",
+      "rawText": "คุณวิภา โทร 0891234567 4 กระปุก แถม 2 กระปุก รวม 4500 บาท #ปวดข้อ"
+    },
+    {
+      "time": "14:10",
+      "id": "o_1012",
+      "customerId": "c_kanda",
+      "date": "2026-05-20",
+      "items": "Zomin",
+      "jars": 2,
+      "amount": 1500,
+      "source": "LINE",
+      "rawText": "โทร.083-229-5956 2 กระปุก 1,500 บาท"
+    },
+    {
+      "time": "09:30",
+      "id": "o_1013",
+      "customerId": "c_nopporn",
+      "date": "2026-01-15",
+      "items": "Zomin",
+      "jars": 3,
+      "amount": 2250,
+      "source": "Import",
+      "rawText": ""
+    },
+    {
+      "time": "11:45",
+      "id": "o_1014",
+      "customerId": "c_pranee",
+      "date": "2026-06-05",
+      "items": "Zomin",
+      "jars": 13,
+      "amount": 9750,
+      "source": "LINE",
+      "rawText": "7 แถม 6 = 13 กระปุก รวม 9750 บาท"
+    },
+    {
+      "time": "13:00",
+      "id": "o_1015",
+      "customerId": "c_pranee",
+      "date": "2025-10-20",
+      "items": "Zomin",
+      "jars": 6,
+      "amount": 4500,
+      "source": "Manual",
+      "rawText": ""
+    },
+    {
+      "time": "16:30",
+      "id": "o_1016",
+      "customerId": "c_siriporn",
+      "date": "2026-05-18",
+      "items": "Zomin",
+      "jars": 1,
+      "amount": 750,
+      "source": "LINE",
+      "rawText": "06-4959-5657 1 กระปุก เก็บเงินปลายทาง 750 บาท"
+    },
+    {
+      "time": "10:00",
+      "id": "o_1017",
+      "customerId": "c_health_shop",
+      "date": "2026-03-02",
+      "items": "Zomin",
+      "jars": 30,
+      "amount": 22500,
+      "source": "ตัวแทน",
+      "rawText": ""
+    },
+    {
+      "time": "10:00",
+      "id": "o_1018",
+      "customerId": "c_health_shop",
+      "date": "2026-06-01",
+      "items": "Zomin",
+      "jars": 30,
+      "amount": 22500,
+      "source": "ตัวแทน",
+      "rawText": ""
+    },
+    {
+      "time": "18:20",
+      "id": "o_1019",
+      "customerId": "c_thanapol",
+      "date": "2026-06-12",
+      "items": "Zomin",
+      "jars": 1,
+      "amount": 750,
+      "source": "LINE",
+      "rawText": "รับโซมินฟรี 1 กระปุก ของฟรี"
+    },
+    {
+      "time": "08:40",
+      "id": "o_1020",
+      "customerId": "c_duangjai",
+      "date": "2026-05-25",
+      "items": "Zomin",
+      "jars": 2,
+      "amount": 1500,
+      "source": "LINE",
+      "rawText": ""
+    }
+  ],
+  "lineMessages": [],
+  "contactLogs": [
+    {
+      "id": "log_1",
+      "customerId": "c_pongsak",
+      "date": "2026-06-01",
+      "result": "โทรติด",
+      "note": "ดูแลพิเศษ ชอบให้โทรช่วงเย็น",
+      "staff": "ทีมขาย 1",
+      "nextFollowUpDate": "2026-07-01"
+    },
+    {
+      "id": "log_2",
+      "customerId": "c_wipa",
+      "date": "2026-06-15",
+      "result": "สนใจ",
+      "note": "สนใจโปร 6 กระปุก",
+      "staff": "ทีมขาย 1",
+      "nextFollowUpDate": "2026-07-01"
+    },
+    {
+      "id": "log_3",
+      "customerId": "c_nopporn",
+      "date": "2026-02-01",
+      "result": "ไม่รับ",
+      "note": "ไม่รับสาย 2 ครั้ง",
+      "staff": "ทีมขาย 1",
+      "nextFollowUpDate": "2026-02-08"
+    },
+    {
+      "id": "log_4",
+      "customerId": "c_duangjai",
+      "date": "2026-06-01",
+      "result": "ยังไม่หมด",
+      "note": "ขอให้โทรใหม่ปลายเดือน",
+      "staff": "ทีมขาย 1",
+      "nextFollowUpDate": "2026-06-25"
+    }
+  ]
+}
