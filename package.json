@@ -10,6 +10,7 @@
     "test": "node scripts/smoke-test.js",
     "seed": "node scripts/seed.js",
     "seed:admin": "node scripts/seed-admin.js",
+    "seed:production-admin": "node scripts/ensure-production-admin.js",
     "migrate:supabase": "node scripts/migrate-json-to-supabase.js"
   },
   "keywords": [
