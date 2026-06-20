@@ -6,7 +6,6 @@ const navItems = [
   ["more", "/more", "เพิ่มเติม", "more"]
 ];
 
-const SESSION_KEY = "zomin.crm.session";
 const routeToView = {
   "/": "dashboard",
   "/dashboard": "dashboard",
@@ -39,6 +38,21 @@ const app = {
     vip: ""
   }
 };
+
+const adminViews = new Set(["settings", "team"]);
+
+function isAdmin() {
+  return app.currentUser?.role === "Admin";
+}
+
+function canExportData() {
+  return isAdmin() || Boolean(app.data?.settings?.staffCanExport);
+}
+
+function canAccessView(view) {
+  if (adminViews.has(view)) return isAdmin();
+  return true;
+}
 
 function routeFromLocation() {
   if (location.hash) {
@@ -83,10 +97,14 @@ const els = {
   quickAddOrder: document.querySelector("#quickAddOrder")
 };
 
-function restoreSession() {
+async function restoreSession() {
   try {
-    const saved = JSON.parse(localStorage.getItem(SESSION_KEY) || "null");
-    app.currentUser = saved?.id ? saved : null;
+    const res = await fetch("/api/session", {
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" }
+    });
+    const payload = await res.json();
+    app.currentUser = payload.user?.id ? payload.user : null;
   } catch {
     app.currentUser = null;
   }
@@ -94,12 +112,11 @@ function restoreSession() {
 
 function saveSession(user) {
   app.currentUser = user;
-  localStorage.setItem(SESSION_KEY, JSON.stringify(user));
 }
 
 function clearSession() {
   app.currentUser = null;
-  localStorage.removeItem(SESSION_KEY);
+  app.data = null;
 }
 
 function todayISO() {
@@ -212,29 +229,50 @@ function showToast(message) {
 
 async function api(path, options = {}) {
   const res = await fetch(path, {
+    credentials: "same-origin",
     headers: {
       "Content-Type": "application/json",
       ...(options.headers || {})
     },
     ...options
   });
-  const payload = await res.json();
+  const text = await res.text();
+  let payload = {};
+  try {
+    payload = text ? JSON.parse(text) : {};
+  } catch {
+    payload = { ok: res.ok, raw: text };
+  }
   if (!res.ok || payload.ok === false) {
-    throw new Error(payload.error || "บันทึกไม่สำเร็จ");
+    const error = new Error(payload.error || "บันทึกไม่สำเร็จ");
+    error.status = res.status;
+    throw error;
   }
   return payload;
 }
 
 async function loadState() {
   const selectedDate = els.workDate.value || todayISO();
-  app.data = await api(`/api/state?date=${encodeURIComponent(selectedDate)}`);
-  if (!app.currentUser && app.view !== "login") {
-    app.view = "login";
-    navigateToView("login", true);
+  try {
+    app.data = await api(`/api/state?date=${encodeURIComponent(selectedDate)}`);
+    if (app.data.currentUser) app.currentUser = app.data.currentUser;
+  } catch (error) {
+    if (error.status === 401) {
+      clearSession();
+      app.view = "login";
+      navigateToView("login", true);
+      render();
+      return;
+    }
+    throw error;
   }
   if (app.currentUser && app.view === "login") {
     app.view = "dashboard";
     navigateToView("dashboard", true);
+  }
+  if (!canAccessView(app.view)) {
+    app.view = "more";
+    navigateToView("more", true);
   }
   render();
 }
@@ -619,18 +657,21 @@ function renderMore() {
     ["vip", "ลูกค้า VIP", "VIP / VVIP / SUPER VIP", "VIP"],
     ["import", "เพิ่มข้อมูลเก่า", "CSV, Google Sheets, LINE text", "นำเข้า"],
     ["reports", "รายงานยอดขาย", "ยอดขายและสัดส่วนลูกค้า", "รายงาน"],
-    ["settings", "ตั้งค่า Follow-up", "กฎจำนวนกระปุกและวันติดตาม", "Follow-up"],
-    ["settings", "ตั้งค่า VIP", "VIP / VVIP / SUPER VIP", "VIP"],
-    ["settings", "ตั้งค่า LINE OA", "Channel Secret, Token, Webhook", "LINE"],
-    ["team", "จัดการผู้ใช้", "Admin และ Staff", "ทีม"],
     ["tags", "Tags", "จัดการ Tag และดูจำนวนลูกค้า", "Tag"],
     ["risk", "ลูกค้าเสี่ยงหาย", "AT RISK และ LOST", "แจ้งเตือน"]
   ];
+  const adminCards = [
+    ["settings", "ตั้งค่า Follow-up", "กฎจำนวนกระปุกและวันติดตาม", "Follow-up"],
+    ["settings", "ตั้งค่า VIP", "VIP / VVIP / SUPER VIP", "VIP"],
+    ["settings", "ตั้งค่า LINE OA", "Channel Secret, Token, Webhook", "LINE"],
+    ["team", "จัดการผู้ใช้", "Admin และ Staff", "ทีม"]
+  ];
+  const visibleCards = isAdmin() ? [...cards, ...adminCards] : cards;
 
   els.content.innerHTML = `
     <section class="section">
       <div class="more-grid">
-        ${cards.map(([view, title, desc, chip]) => `
+        ${visibleCards.map(([view, title, desc, chip]) => `
           <button class="more-card" data-view-shortcut="${view}" type="button">
             <span>${escapeHtml(chip)}</span>
             <strong>${escapeHtml(title)}</strong>
@@ -643,6 +684,21 @@ function renderMore() {
           <small>จบ session บนเครื่องนี้</small>
         </button>
       </div>
+      ${canExportData() ? `
+        <div class="panel stack export-panel">
+          <div class="section-title">
+            <h2>Export / Backup</h2>
+            <p>ดาวน์โหลดข้อมูลสำหรับสำรองหรือย้ายไป production database</p>
+          </div>
+          <div class="inline">
+            <a class="button secondary" href="/api/export/customers">Customers CSV</a>
+            <a class="button secondary" href="/api/export/orders">Orders CSV</a>
+            <a class="button secondary" href="/api/export/followups">Follow-up CSV</a>
+            <a class="button secondary" href="/api/export/vip">VIP CSV</a>
+            ${isAdmin() ? `<a class="button ghost" href="/api/backup">JSON Backup</a>` : ""}
+          </div>
+        </div>
+      ` : ""}
     </section>
   `;
 }
@@ -901,6 +957,16 @@ function renderSettings() {
   const settings = app.data.settings;
   const thresholds = settings.vipThresholds || {};
   const templates = settings.messageTemplates || {};
+  const lineSecretHelp = settings.lineChannelSecretConfigured
+    ? settings.lineChannelSecretFromEnv
+      ? "ตั้งค่าไว้ใน Vercel Environment แล้ว"
+      : "มีค่าเดิมอยู่แล้ว เว้นว่างไว้เพื่อคงค่าเดิม"
+    : "ยังไม่ได้ตั้งค่า";
+  const lineTokenHelp = settings.lineChannelAccessTokenConfigured
+    ? settings.lineChannelAccessTokenFromEnv
+      ? "ตั้งค่าไว้ใน Vercel Environment แล้ว"
+      : "มีค่าเดิมอยู่แล้ว เว้นว่างไว้เพื่อคงค่าเดิม"
+    : "ยังไม่ได้ตั้งค่า";
   els.content.innerHTML = `
     <section class="section">
       <div class="two-col">
@@ -918,9 +984,9 @@ function renderSettings() {
           </div>
           <label>Template ข้อความลูกค้าปกติ<textarea name="normalTemplate">${escapeHtml(templates.normal || "")}</textarea></label>
           <label>Template ข้อความ VIP<textarea name="vipTemplate">${escapeHtml(templates.vip || "")}</textarea></label>
-          <label>LINE Channel ID<input name="lineChannelId" value="${escapeHtml(settings.lineChannelId || "")}"></label>
-          <label>LINE Channel Secret<input name="lineChannelSecret" value="${escapeHtml(settings.lineChannelSecret || "")}"></label>
-          <label>LINE Channel Access Token<textarea name="lineChannelAccessToken">${escapeHtml(settings.lineChannelAccessToken || "")}</textarea></label>
+          <label>LINE Channel ID<input name="lineChannelId" value="${escapeHtml(settings.lineChannelId || "")}" ${settings.lineChannelIdFromEnv ? "readonly" : ""}></label>
+          <label>LINE Channel Secret<input name="lineChannelSecret" type="password" autocomplete="new-password" placeholder="${escapeHtml(lineSecretHelp)}"></label>
+          <label>LINE Channel Access Token<textarea name="lineChannelAccessToken" autocomplete="off" placeholder="${escapeHtml(lineTokenHelp)}"></textarea></label>
           <label class="inline">
             <input name="lineWebhookEnabled" type="checkbox" ${settings.lineWebhookEnabled ? "checked" : ""} style="width:auto">
             เปิดรับ LINE Webhook
@@ -928,6 +994,10 @@ function renderSettings() {
           <div class="panel tight">
             <strong>Webhook Endpoint</strong>
             <p class="muted">${location.origin}/api/line/webhook</p>
+            <div class="inline">
+              <button class="button ghost" type="button" data-copy-webhook>คัดลอก URL</button>
+              <button class="button secondary" type="button" data-test-webhook>ทดสอบ Mock Webhook</button>
+            </div>
           </div>
           <label class="inline">
             <input name="staffCanExport" type="checkbox" ${settings.staffCanExport ? "checked" : ""} style="width:auto">
@@ -1048,7 +1118,7 @@ function renderCustomerDetail(customer) {
 }
 
 function render() {
-  if (!app.data) return;
+  if (!app.data && app.view !== "login") return;
   renderNav();
   updateShell();
   els.pageTitle.textContent = titleFor(app.view);
@@ -1071,6 +1141,10 @@ function render() {
 }
 
 function setView(view) {
+  if (!canAccessView(view)) {
+    showToast("เมนูนี้ต้องใช้สิทธิ์ Admin");
+    return;
+  }
   app.view = view;
   navigateToView(view);
   render();
@@ -1087,6 +1161,13 @@ function syncViewFromLocation() {
   if (app.currentUser && nextView === "login") {
     app.view = "dashboard";
     navigateToView("dashboard", true);
+    render();
+    return;
+  }
+  if (!canAccessView(nextView)) {
+    app.view = "more";
+    navigateToView("more", true);
+    showToast("เมนูนี้ต้องใช้สิทธิ์ Admin");
     render();
     return;
   }
@@ -1154,10 +1235,15 @@ document.addEventListener("click", async event => {
   if (event.target.closest("[data-open-order]")) openOrderDialog();
 
   if (event.target.closest("[data-logout]")) {
+    try {
+      await api("/api/logout", { method: "POST" });
+    } catch {
+      // Session may already be expired; still return to login.
+    }
     clearSession();
     app.view = "login";
-      navigateToView("login");
-      render();
+    navigateToView("login");
+    render();
   }
 
   const tagFilter = event.target.closest("[data-tag-filter]");
@@ -1186,6 +1272,21 @@ document.addEventListener("click", async event => {
 
   const copyButton = event.target.closest("[data-copy]");
   if (copyButton) copyText(copyButton.dataset.copy);
+
+  if (event.target.closest("[data-copy-webhook]")) {
+    copyText(`${location.origin}/api/line/webhook`);
+  }
+
+  if (event.target.closest("[data-test-webhook]")) {
+    const payload = await api("/api/line/mock", {
+      method: "POST",
+      body: JSON.stringify({
+        text: "คุณทดสอบ โทร 0891234567 2 กระปุก รวม 1500 บาท #ทดสอบ"
+      })
+    });
+    showToast(`Webhook mock สำเร็จ ${payload.parsedOrders || 0} ออเดอร์`);
+    await loadState();
+  }
 
   const importButton = event.target.closest("[data-import]");
   if (importButton) handleImport(importButton.dataset.import);
@@ -1258,7 +1359,7 @@ document.addEventListener("submit", async event => {
       app.view = "dashboard";
       navigateToView("dashboard");
       showToast("เข้าสู่ระบบแล้ว");
-      render();
+      await loadState();
     }
 
     if (form.id === "orderForm") {
@@ -1352,7 +1453,18 @@ window.addEventListener("popstate", syncViewFromLocation);
 
 els.quickAddOrder.addEventListener("click", openOrderDialog);
 els.workDate.value = todayISO();
-restoreSession();
-loadState().catch(error => {
+
+async function init() {
+  await restoreSession();
+  if (!app.currentUser) {
+    app.view = "login";
+    navigateToView("login", true);
+    render();
+    return;
+  }
+  await loadState();
+}
+
+init().catch(error => {
   els.content.innerHTML = `<div class="empty-state">โหลดข้อมูลไม่สำเร็จ: ${escapeHtml(error.message)}</div>`;
 });

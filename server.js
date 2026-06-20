@@ -2,10 +2,21 @@ const http = require("http");
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
+require("./lib/env").loadEnv();
+const { readDb, writeDb } = require("./lib/db");
+const {
+  hashPassword,
+  verifyPassword,
+  createSession,
+  getSession,
+  destroySession,
+  sessionCookie,
+  clearSessionCookie
+} = require("./lib/auth");
 
 const PORT = Number(process.env.PORT || 3000);
+const HOST = process.env.HOST || "0.0.0.0";
 const ROOT = __dirname;
-const DATA_FILE = path.join(ROOT, "data", "db.json");
 const PUBLIC_DIR = path.join(ROOT, "public");
 
 const MIME_TYPES = {
@@ -19,18 +30,11 @@ const MIME_TYPES = {
   ".jpeg": "image/jpeg"
 };
 
-function readDb() {
-  return JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
-}
-
-function writeDb(db) {
-  fs.writeFileSync(DATA_FILE, `${JSON.stringify(db, null, 2)}\n`, "utf8");
-}
-
-function json(res, status, payload) {
+function json(res, status, payload, extraHeaders = {}) {
   res.writeHead(status, {
     "Content-Type": "application/json; charset=utf-8",
-    "Cache-Control": "no-store"
+    "Cache-Control": "no-store",
+    ...extraHeaders
   });
   res.end(JSON.stringify(payload));
 }
@@ -111,8 +115,101 @@ function splitTags(input) {
 }
 
 function publicUser(user) {
-  const { pin, password, ...safeUser } = user;
+  const { pin, password, passwordHash, ...safeUser } = user;
   return safeUser;
+}
+
+function booleanEnv(value, fallback = false) {
+  if (value === undefined || value === "") return fallback;
+  return ["1", "true", "yes", "on"].includes(String(value).toLowerCase());
+}
+
+function effectiveSettings(settings = {}) {
+  return {
+    ...settings,
+    lineChannelId: process.env.LINE_CHANNEL_ID || settings.lineChannelId || "",
+    lineChannelSecret: process.env.LINE_CHANNEL_SECRET || settings.lineChannelSecret || "",
+    lineChannelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN || settings.lineChannelAccessToken || "",
+    lineWebhookEnabled: booleanEnv(process.env.LINE_WEBHOOK_ENABLED, Boolean(settings.lineWebhookEnabled))
+  };
+}
+
+function publicSettings(settings = {}) {
+  const effective = effectiveSettings(settings);
+  return {
+    ...effective,
+    lineChannelSecret: "",
+    lineChannelAccessToken: "",
+    lineChannelSecretConfigured: Boolean(effective.lineChannelSecret),
+    lineChannelAccessTokenConfigured: Boolean(effective.lineChannelAccessToken),
+    lineChannelIdFromEnv: Boolean(process.env.LINE_CHANNEL_ID),
+    lineChannelSecretFromEnv: Boolean(process.env.LINE_CHANNEL_SECRET),
+    lineChannelAccessTokenFromEnv: Boolean(process.env.LINE_CHANNEL_ACCESS_TOKEN)
+  };
+}
+
+function secretInputValue(input, currentValue) {
+  const value = String(input || "").trim();
+  if (!value || value === "__configured__") return currentValue || "";
+  return value;
+}
+
+function ensurePasswordHash(user, password) {
+  if (user.passwordHash) return false;
+  if (user.password_hash) {
+    user.passwordHash = user.password_hash;
+    delete user.password_hash;
+    return true;
+  }
+  const plain = String(password || user.password || user.pin || "");
+  if (!plain) return false;
+  user.passwordHash = hashPassword(plain);
+  delete user.password;
+  delete user.pin;
+  return true;
+}
+
+function getCurrentUser(req) {
+  return getSession(req)?.user || null;
+}
+
+function requireUser(req, res) {
+  const user = getCurrentUser(req);
+  if (!user) {
+    json(res, 401, { ok: false, error: "กรุณาเข้าสู่ระบบ" });
+    return null;
+  }
+  return user;
+}
+
+function requireAdmin(req, res) {
+  const user = requireUser(req, res);
+  if (!user) return null;
+  if (user.role !== "Admin") {
+    json(res, 403, { ok: false, error: "ต้องใช้สิทธิ์ Admin" });
+    return null;
+  }
+  return user;
+}
+
+function csvEscape(value) {
+  const textValue = String(value ?? "");
+  if (/[",\n]/.test(textValue)) return `"${textValue.replace(/"/g, '""')}"`;
+  return textValue;
+}
+
+function csvResponse(res, filename, rows) {
+  const headers = Object.keys(rows[0] || { empty: "" });
+  const body = [
+    headers.join(","),
+    ...rows.map(row => headers.map(header => csvEscape(row[header])).join(","))
+  ].join("\n");
+  res.writeHead(200, {
+    "Content-Type": "text/csv; charset=utf-8",
+    "Content-Disposition": `attachment; filename="${filename}"`,
+    "Cache-Control": "no-store"
+  });
+  res.end(`\uFEFF${body}`);
 }
 
 function vipLevel(totalSpent, settings = {}) {
@@ -355,7 +452,8 @@ function parseLineOrder(rawText, defaultJarPrice = 750) {
 }
 
 function verifyLineSignature(rawBody, channelSecret, signature) {
-  if (!channelSecret || !signature) return true;
+  if (!channelSecret) return true;
+  if (!signature) return false;
   const digest = crypto
     .createHmac("sha256", channelSecret)
     .update(rawBody || "")
@@ -443,17 +541,18 @@ function serveStatic(req, res) {
 
 async function handleApi(req, res) {
   const url = new URL(req.url, `http://${req.headers.host}`);
-  const db = readDb();
 
-  if (req.method === "GET" && url.pathname === "/api/state") {
-    const date = url.searchParams.get("date") || toDateOnly();
-    const enriched = enrichDb(db, date);
-    return json(res, 200, {
-      ...enriched,
-      users: enriched.users.map(publicUser),
-      summary: buildSummary(enriched, date)
-    });
+  if (req.method === "GET" && url.pathname === "/api/session") {
+    const user = getCurrentUser(req);
+    return json(res, 200, { ok: true, user });
   }
+
+  if (req.method === "POST" && url.pathname === "/api/logout") {
+    destroySession(req);
+    return json(res, 200, { ok: true }, { "Set-Cookie": clearSessionCookie() });
+  }
+
+  const db = await readDb();
 
   if (req.method === "POST" && url.pathname === "/api/login") {
     const body = await readBody(req);
@@ -464,17 +563,37 @@ async function handleApi(req, res) {
       (item.username === username || item.id === username)
     );
     if (!user) return json(res, 401, { ok: false, error: "ไม่พบผู้ใช้งาน" });
-    const expectedPassword = String(user.password || user.pin || "");
-    if (password !== expectedPassword) {
+    const upgraded = ensurePasswordHash(user, password);
+    if (!verifyPassword(password, user.passwordHash)) {
       return json(res, 401, { ok: false, error: "Username หรือ Password ไม่ถูกต้อง" });
     }
-    return json(res, 200, { ok: true, user: publicUser(user) });
+    if (upgraded) await writeDb(db);
+    const session = createSession(user);
+    return json(res, 200, { ok: true, user: publicUser(user) }, {
+      "Set-Cookie": sessionCookie(session.token, session.expiresAt)
+    });
+  }
+
+  const isLineWebhook = url.pathname === "/api/line/webhook";
+  const currentUser = isLineWebhook ? null : requireUser(req, res);
+  if (!isLineWebhook && !currentUser) return;
+
+  if (req.method === "GET" && url.pathname === "/api/state") {
+    const date = url.searchParams.get("date") || toDateOnly();
+    const enriched = enrichDb(db, date);
+    return json(res, 200, {
+      ...enriched,
+      settings: publicSettings(enriched.settings),
+      users: currentUser.role === "Admin" ? enriched.users.map(publicUser) : [currentUser],
+      currentUser,
+      summary: buildSummary(enriched, date)
+    });
   }
 
   if (req.method === "POST" && url.pathname === "/api/customers") {
     const body = await readBody(req);
     const customer = findOrCreateCustomer(db, body);
-    writeDb(db);
+    await writeDb(db);
     return json(res, 200, { ok: true, customer });
   }
 
@@ -494,14 +613,14 @@ async function handleApi(req, res) {
       assignedTo: body.assignedTo ?? customer.assignedTo
     });
     db.tags = Array.from(new Set([...(db.tags || []), ...(customer.tags || [])]));
-    writeDb(db);
+    await writeDb(db);
     return json(res, 200, { ok: true, customer });
   }
 
   if (req.method === "POST" && url.pathname === "/api/orders") {
     const body = await readBody(req);
     const order = addOrder(db, { ...body, source: body.source || "Manual" });
-    writeDb(db);
+    await writeDb(db);
     return json(res, 200, { ok: true, order });
   }
 
@@ -525,7 +644,7 @@ async function handleApi(req, res) {
       }
     }
 
-    writeDb(db);
+    await writeDb(db);
     return json(res, 200, { ok: true, imported: imported.length });
   }
 
@@ -550,7 +669,11 @@ async function handleApi(req, res) {
   if (req.method === "POST" && url.pathname === "/api/line/webhook") {
     const body = await readBody(req);
     const signature = req.headers["x-line-signature"];
-    if (!verifyLineSignature(body._rawBody, db.settings.lineChannelSecret, signature)) {
+    const settings = effectiveSettings(db.settings);
+    if (!settings.lineWebhookEnabled) {
+      return json(res, 403, { ok: false, error: "LINE Webhook ยังไม่ได้เปิดใช้งาน" });
+    }
+    if (!verifyLineSignature(body._rawBody, settings.lineChannelSecret, signature)) {
       return json(res, 401, { ok: false, error: "LINE signature ไม่ถูกต้อง" });
     }
     const events = Array.isArray(body.events) ? body.events : [{ message: { text: body.text || body.content || "" } }];
@@ -565,15 +688,34 @@ async function handleApi(req, res) {
         raw_text: rawText
       });
       if (rawText) {
-        const parsed = parseLineOrder(rawText, db.settings.defaultJarPrice);
+        const parsed = parseLineOrder(rawText, settings.defaultJarPrice);
         if (parsed.phone) parsedOrders.push(addOrder(db, parsed));
       }
     }
-    writeDb(db);
+    await writeDb(db);
     return json(res, 200, { ok: true, parsedOrders: parsedOrders.length });
   }
 
+  if (req.method === "POST" && url.pathname === "/api/line/mock") {
+    if (!requireAdmin(req, res)) return;
+    const body = await readBody(req);
+    const rawText = String(body.text || body.content || "คุณทดสอบ โทร 0891234567 2 กระปุก รวม 1500 บาท #ทดสอบ");
+    db.lineMessages = db.lineMessages || [];
+    db.lineMessages.push({
+      id: uid("line"),
+      receivedAt: new Date().toISOString(),
+      rawEvent: { type: "mock", message: { text: rawText } },
+      text: rawText,
+      raw_text: rawText
+    });
+    const parsed = parseLineOrder(rawText, db.settings.defaultJarPrice);
+    const parsedOrders = parsed.phone ? [addOrder(db, parsed)] : [];
+    await writeDb(db);
+    return json(res, 200, { ok: true, parsedOrders: parsedOrders.length, rows: parsedOrders });
+  }
+
   if (req.method === "PUT" && url.pathname === "/api/settings") {
+    if (!requireAdmin(req, res)) return;
     const body = await readBody(req);
     db.settings = {
       ...db.settings,
@@ -588,42 +730,152 @@ async function handleApi(req, res) {
         normal: String(body.normalTemplate ?? db.settings.messageTemplates?.normal ?? ""),
         vip: String(body.vipTemplate ?? db.settings.messageTemplates?.vip ?? "")
       },
-      lineChannelId: String(body.lineChannelId ?? ""),
-      lineChannelSecret: String(body.lineChannelSecret ?? ""),
-      lineChannelAccessToken: String(body.lineChannelAccessToken ?? ""),
+      lineChannelId: process.env.LINE_CHANNEL_ID ? db.settings.lineChannelId || "" : String(body.lineChannelId ?? ""),
+      lineChannelSecret: process.env.LINE_CHANNEL_SECRET
+        ? db.settings.lineChannelSecret || ""
+        : secretInputValue(body.lineChannelSecret, db.settings.lineChannelSecret),
+      lineChannelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN
+        ? db.settings.lineChannelAccessToken || ""
+        : secretInputValue(body.lineChannelAccessToken, db.settings.lineChannelAccessToken),
       lineWebhookEnabled: Boolean(body.lineWebhookEnabled),
       staffCanExport: Boolean(body.staffCanExport)
     };
-    writeDb(db);
-    return json(res, 200, { ok: true, settings: db.settings });
+    await writeDb(db);
+    return json(res, 200, { ok: true, settings: publicSettings(db.settings) });
   }
 
   if (req.method === "PUT" && url.pathname === "/api/followup-rules") {
+    if (!requireAdmin(req, res)) return;
     const body = await readBody(req);
     db.followUpRules = (body.rules || [])
       .map(rule => ({ jars: Number(rule.jars), days: Number(rule.days) }))
       .filter(rule => rule.jars > 0 && rule.days > 0)
       .sort((a, b) => a.jars - b.jars);
-    writeDb(db);
+    await writeDb(db);
     return json(res, 200, { ok: true, rules: db.followUpRules });
   }
 
   if (req.method === "POST" && url.pathname === "/api/team") {
+    if (!requireAdmin(req, res)) return;
     const body = await readBody(req);
+    const password = String(body.password || body.pin || "staff123").trim() || "staff123";
     const user = {
       id: uid("u"),
       name: String(body.name || "").trim(),
       username: String(body.username || body.phone || uid("staff")).trim(),
       role: body.role === "Admin" ? "Admin" : "Staff",
       phone: normalizePhone(body.phone || ""),
-      pin: String(body.pin || "1111").trim() || "1111",
-      password: String(body.password || body.pin || "staff123").trim() || "staff123",
+      passwordHash: hashPassword(password),
       active: body.active !== false
     };
     if (!user.name) return json(res, 400, { ok: false, error: "กรุณาใส่ชื่อทีมงาน" });
     db.users.push(user);
-    writeDb(db);
+    await writeDb(db);
     return json(res, 200, { ok: true, user: publicUser(user) });
+  }
+
+  if (req.method === "PUT" && url.pathname.startsWith("/api/team/")) {
+    if (!requireAdmin(req, res)) return;
+    const id = url.pathname.split("/").pop();
+    const body = await readBody(req);
+    const user = db.users.find(item => item.id === id);
+    if (!user) return json(res, 404, { ok: false, error: "ไม่พบผู้ใช้" });
+    if (body.username !== undefined) user.username = String(body.username).trim();
+    if (body.name !== undefined) user.name = String(body.name).trim();
+    if (body.phone !== undefined) user.phone = normalizePhone(body.phone);
+    if (body.role !== undefined) user.role = body.role === "Admin" ? "Admin" : "Staff";
+    if (body.active !== undefined) user.active = Boolean(body.active);
+    if (body.password) {
+      user.passwordHash = hashPassword(body.password);
+      delete user.password;
+      delete user.pin;
+    }
+    await writeDb(db);
+    return json(res, 200, { ok: true, user: publicUser(user) });
+  }
+
+  if (req.method === "GET" && url.pathname.startsWith("/api/export/")) {
+    if (!(currentUser.role === "Admin" || db.settings.staffCanExport)) {
+      return json(res, 403, { ok: false, error: "ต้องใช้สิทธิ์ Admin หรือเปิด Staff Export" });
+    }
+    const date = url.searchParams.get("date") || toDateOnly();
+    const enriched = enrichDb(db, date);
+    const type = url.pathname.split("/").pop();
+    if (type === "customers") {
+      return csvResponse(res, "customers.csv", enriched.customers.map(customer => ({
+        id: customer.id,
+        name: customer.name,
+        phone: customer.phone,
+        status: customer.status,
+        vipLevel: customer.vipLevel,
+        totalOrders: customer.purchaseCount,
+        totalQuantity: customer.totalJars,
+        totalAmount: customer.totalSpent,
+        followUpDate: customer.followUpDate,
+        tags: (customer.tags || []).join("|")
+      })));
+    }
+    if (type === "orders") {
+      return csvResponse(res, "orders.csv", enriched.orders.map(order => ({
+        id: order.id,
+        date: order.date,
+        time: order.time || "",
+        customerName: order.customerName,
+        phone: order.phone,
+        quantity: order.jars,
+        amount: order.amount,
+        source: order.source
+      })));
+    }
+    if (type === "followups") {
+      return csvResponse(res, "followups.csv", enriched.customers
+        .filter(customer => customer.followUpDate && customer.followUpDate <= date)
+        .map(customer => ({
+          id: customer.id,
+          name: customer.name,
+          phone: customer.phone,
+          vipLevel: customer.vipLevel,
+          status: customer.status,
+          followUpDate: customer.followUpDate,
+          lastPurchaseDate: customer.lastPurchaseDate,
+          lastJars: customer.lastJars
+        })));
+    }
+    if (type === "vip") {
+      return csvResponse(res, "vip-customers.csv", enriched.customers
+        .filter(customer => customer.vipLevel !== "NORMAL")
+        .map(customer => ({
+          id: customer.id,
+          name: customer.name,
+          phone: customer.phone,
+          vipLevel: customer.vipLevel,
+          totalAmount: customer.totalSpent,
+          totalOrders: customer.purchaseCount
+        })));
+    }
+    if (type === "contact-logs") {
+      return csvResponse(res, "contact-logs.csv", (db.contactLogs || []).map(log => ({
+        id: log.id,
+        customerId: log.customerId,
+        date: log.date,
+        result: log.result,
+        note: log.note,
+        staff: log.staff,
+        nextFollowUpDate: log.nextFollowUpDate
+      })));
+    }
+    return json(res, 404, { ok: false, error: "ไม่พบ export type" });
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/backup") {
+    if (!requireAdmin(req, res)) return;
+    res.writeHead(200, {
+      "Content-Type": "application/json; charset=utf-8",
+      "Content-Disposition": "attachment; filename=\"zomin-backup.json\"",
+      "Cache-Control": "no-store"
+    });
+    res.end(JSON.stringify({ exportedAt: new Date().toISOString(), data: db }, null, 2));
+    return;
   }
 
   if (req.method === "POST" && url.pathname === "/api/tags") {
@@ -631,7 +883,7 @@ async function handleApi(req, res) {
     const tags = splitTags(body.name || body.tags);
     if (!tags.length) return json(res, 400, { ok: false, error: "กรุณาใส่ชื่อ Tag" });
     db.tags = Array.from(new Set([...(db.tags || []), ...tags])).sort((a, b) => a.localeCompare(b, "th"));
-    writeDb(db);
+    await writeDb(db);
     return json(res, 200, { ok: true, tags: db.tags });
   }
 
@@ -652,22 +904,29 @@ async function handleApi(req, res) {
     };
     db.contactLogs = db.contactLogs || [];
     db.contactLogs.push(log);
-    writeDb(db);
+    await writeDb(db);
     return json(res, 200, { ok: true, customer, log });
   }
 
   return json(res, 404, { ok: false, error: "API not found" });
 }
 
-const server = http.createServer(async (req, res) => {
+async function appHandler(req, res) {
   try {
     if (req.url.startsWith("/api/")) return await handleApi(req, res);
     return serveStatic(req, res);
   } catch (error) {
     return json(res, 500, { ok: false, error: error.message || "Server error" });
   }
-});
+}
 
-server.listen(PORT, "127.0.0.1", () => {
-  console.log(`Zomin Order CRM is running at http://127.0.0.1:${PORT}`);
-});
+const server = http.createServer(appHandler);
+
+if (require.main === module) {
+  server.listen(PORT, HOST, () => {
+    console.log(`Zomin Order CRM is running at http://${HOST}:${PORT}`);
+  });
+}
+
+module.exports = appHandler;
+module.exports.server = server;

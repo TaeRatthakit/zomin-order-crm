@@ -5,7 +5,12 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js"
+    "dev": "node server.js",
+    "build": "node scripts/verify-build.js",
+    "test": "node scripts/smoke-test.js",
+    "seed": "node scripts/seed.js",
+    "seed:admin": "node scripts/seed-admin.js",
+    "migrate:supabase": "node scripts/migrate-json-to-supabase.js"
   },
   "keywords": [
     "zomin",

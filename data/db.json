@@ -66,7 +66,7 @@
     {
       "id": "u_admin",
       "username": "admin",
-      "password": "admin123",
+      "passwordHash": "scrypt$d0bed4647829f9970f7277bf7a996202$ffd8c6c99fbcf0fc8d42480e40b67185e165389fa7ce9f7b98dae273862351bea43bef48ace87e31ed9441b31c74e52aa31d530d183bb8b163b30f7b310241f2",
       "name": "แอดมินโซมิน",
       "role": "Admin",
       "phone": "0810000000",
@@ -75,7 +75,7 @@
     {
       "id": "u_staff_1",
       "username": "staff",
-      "password": "staff123",
+      "passwordHash": "scrypt$ff0b6b2e349d8f8e77b96625596fe145$b5099127f37cec6913cdc53975ea28ab4329250da91b51ede350fd6374a3b4366d144070616ecf1aa761bc045f115f16277ce155eab141ea7b6338575ec5a3f5",
       "name": "ทีมขาย 1",
       "role": "Staff",
       "phone": "0820000000",

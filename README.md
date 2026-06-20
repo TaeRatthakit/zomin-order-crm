@@ -5,6 +5,7 @@
 ## วิธีรัน
 
 ```bash
+npm run build
 npm start
 ```
 
@@ -47,11 +48,32 @@ Staff: staff / staff123
 
 ## การเก็บข้อมูล
 
-ข้อมูลทั้งหมดเก็บในไฟล์:
+ค่าเริ่มต้นเป็น JSON mode สำหรับรันในเครื่อง:
 
 ```text
 data/db.json
 ```
+
+สำหรับ production ให้ใช้ Supabase:
+
+```bash
+DATABASE_PROVIDER=supabase
+SUPABASE_URL=...
+SUPABASE_SERVICE_ROLE_KEY=...
+SESSION_SECRET=...
+```
+
+อ่านขั้นตอนเต็มใน `README_DEPLOY.md`
+
+## Production Preparation
+
+- มี signed cookie auth แบบ httpOnly และ role guard สำหรับ Admin / Staff
+- รหัสผ่านใน `data/db.json` เก็บเป็น `passwordHash`
+- มี Supabase schema ที่ `supabase/schema.sql`
+- มี seed script `npm run seed`
+- มี migration script `npm run migrate:supabase`
+- มี export CSV และ JSON backup สำหรับ Admin
+- มี mock webhook test ในหน้า Settings
 
 ## Import ข้อมูลเก่า
 
