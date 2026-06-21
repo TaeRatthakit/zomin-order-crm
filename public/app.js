@@ -28,6 +28,7 @@ const app = {
   view: routeFromLocation(),
   followupMode: "today",
   importMode: "paste",
+  lineImportText: "",
   importPreview: [],
   currentUser: null,
   data: null,
@@ -776,8 +777,6 @@ function renderRisk() {
 }
 
 function renderImport() {
-  const lineExample = `คุณวิภา\nโทร 0891234567\nที่อยู่ 55/1 เชียงใหม่\n4 กระปุก แถม 2 กระปุก รวม 4500 บาท\nช่องทาง: ไลน์บริษัท\nLINE: wipa88\nของแถม: แถม 2 กระปุก\n#ปวดข้อ #ซื้อให้พ่อ\n\nรูป\n\nคุณกานดา\nโทร.083-229-5956\n2 กระปุก เก็บเงินปลายทาง 1500 บาท\nช่องทาง: Facebook\nF: Kanda Shop`;
-
   els.content.innerHTML = `
     <section class="section">
       <div class="panel stack">
@@ -792,7 +791,7 @@ function renderImport() {
             <h2>วางข้อความ LINE เก่า</h2>
             <p>ระบบจะแยกชื่อ เบอร์ ที่อยู่ จำนวน ยอดเงิน ช่องทาง ชื่อเฟส/ไลน์ ของแถม และ Tag ก่อนบันทึก</p>
           </div>
-          <textarea id="lineImport" spellcheck="false">${escapeHtml(lineExample)}</textarea>
+          <textarea id="lineImport" spellcheck="false" placeholder="วางข้อความ LINE ที่ต้องการวิเคราะห์">${escapeHtml(app.lineImportText)}</textarea>
           <div class="inline">
             <button class="button secondary" data-parse-import type="button">วิเคราะห์ข้อมูล</button>
             <button class="button primary" data-import="line" type="button">บันทึกข้อมูล</button>
@@ -1231,12 +1230,17 @@ async function handleImport(type) {
     body: JSON.stringify({ type, content: textarea.value })
   });
   showToast(`Import สำเร็จ ${payload.imported} ออเดอร์`);
+  if (type === "line") {
+    app.lineImportText = textarea.value;
+  }
   app.importPreview = [];
   await loadState();
 }
 
 async function parseImportPreview() {
   const textarea = document.querySelector("#lineImport");
+  if (!textarea) return;
+  app.lineImportText = textarea.value;
   const payload = await api("/api/parse-preview", {
     method: "POST",
     body: JSON.stringify({ content: textarea.value })
@@ -1345,6 +1349,14 @@ document.addEventListener("input", event => {
   if (filter) {
     app.filters[filter.dataset.filter] = filter.value;
     updateSearchResults();
+  }
+
+  if (event.target?.id === "lineImport") {
+    app.lineImportText = event.target.value;
+    if (app.importPreview.length) {
+      app.importPreview = [];
+      renderImport();
+    }
   }
 });
 
