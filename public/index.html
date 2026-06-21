@@ -69,6 +69,23 @@
           <label>วันที่ซื้อ<input name="date" type="date" required></label>
           <label>จำนวนกระปุก<input name="jars" type="number" min="1" value="1" required></label>
           <label>ยอดซื้อ<input name="amount" type="number" min="0" step="1" required></label>
+          <label>ช่องทางที่ลูกค้าสั่งมา
+            <select name="sourceChannel">
+              <option>เพจงาดำ น้ำมันสกัดเย็น โซมิน</option>
+              <option>ไลน์บริษัท</option>
+              <option>โทรสั่ง</option>
+              <option>Facebook</option>
+              <option>LINE OA</option>
+            </select>
+          </label>
+          <label>ชื่อเฟส/ชื่อไลน์ลูกค้า<input name="socialName" placeholder="เช่น F: สมใจ / LINE: somjai"></label>
+          <label>ของแถมที่ลูกค้าได้<input name="freeGift" placeholder="เช่น แถม 1 กระปุก, ค่าส่งฟรี"></label>
+          <label>สถานะบัตร VIP
+            <select name="vipCardStatus">
+              <option>ยังไม่ได้ส่งบัตร</option>
+              <option>ส่งบัตรแล้ว</option>
+            </select>
+          </label>
           <label>Tag<input name="tags" placeholder="คั่นด้วย comma เช่น ปวดเข่า, ซื้อให้แม่"></label>
         </div>
         <div class="dialog-actions">

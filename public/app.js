@@ -422,8 +422,13 @@ function orderTable(orders) {
             <div><span>เบอร์</span><strong>${escapeHtml(order.phone)}</strong></div>
             <div><span>จำนวน</span><strong>${Number(order.jars || 0)} กระปุก</strong></div>
             <div><span>ยอดเงิน</span><strong>${money(order.amount)} บาท</strong></div>
-            <div><span>ช่องทาง</span><strong>${escapeHtml(order.source || "-")}</strong></div>
+            <div><span>ช่องทาง</span><strong>${escapeHtml(order.sourceChannel || order.source || "-")}</strong></div>
+            <div><span>ชื่อเฟส/ไลน์</span><strong>${escapeHtml(order.socialName || "-")}</strong></div>
+            <div><span>ของแถม</span><strong>${escapeHtml(order.freeGift || "-")}</strong></div>
+            <div><span>บัตร VIP</span><strong>${escapeHtml(order.vipCardStatus || "-")}</strong></div>
           </div>
+          ${order.vipCardReminder ? `<p class="alert-text">${escapeHtml(order.vipCardReminder)}</p>` : ""}
+          ${order.vipDiscountFlag ? `<p class="muted">${escapeHtml(order.vipDiscountFlag)}</p>` : ""}
           <div class="inline">
             <button class="button ghost" data-open-customer="${escapeHtml(order.customerId)}">ดูรายละเอียด</button>
             <button class="button secondary" data-open-order>แก้ไข</button>
@@ -771,7 +776,7 @@ function renderRisk() {
 }
 
 function renderImport() {
-  const lineExample = `คุณวิภา\nโทร 0891234567\nที่อยู่ 55/1 เชียงใหม่\n4 กระปุก แถม 2 กระปุก รวม 4500 บาท\n#ปวดข้อ #ซื้อให้พ่อ\n\nคุณกานดา\nโทร.083-229-5956\n2 กระปุก เก็บเงินปลายทาง 1500 บาท`;
+  const lineExample = `คุณวิภา\nโทร 0891234567\nที่อยู่ 55/1 เชียงใหม่\n4 กระปุก แถม 2 กระปุก รวม 4500 บาท\nช่องทาง: ไลน์บริษัท\nLINE: wipa88\nของแถม: แถม 2 กระปุก\n#ปวดข้อ #ซื้อให้พ่อ\n\nรูป\n\nคุณกานดา\nโทร.083-229-5956\n2 กระปุก เก็บเงินปลายทาง 1500 บาท\nช่องทาง: Facebook\nF: Kanda Shop`;
 
   els.content.innerHTML = `
     <section class="section">
@@ -785,7 +790,7 @@ function renderImport() {
         <div class="import-drop">
           <div class="section-title">
             <h2>วางข้อความ LINE เก่า</h2>
-            <p>ระบบจะแยกชื่อ เบอร์ จำนวนกระปุก ยอดเงิน ที่อยู่ และ Tag ก่อนบันทึก</p>
+            <p>ระบบจะแยกชื่อ เบอร์ ที่อยู่ จำนวน ยอดเงิน ช่องทาง ชื่อเฟส/ไลน์ ของแถม และ Tag ก่อนบันทึก</p>
           </div>
           <textarea id="lineImport" spellcheck="false">${escapeHtml(lineExample)}</textarea>
           <div class="inline">
@@ -800,6 +805,9 @@ function renderImport() {
                   <div><span>วันที่</span><strong>${formatDate(row.date)}</strong></div>
                   <div><span>จำนวน</span><strong>${row.jars} กระปุก</strong></div>
                   <div><span>ยอดเงิน</span><strong>${money(row.amount)} บาท</strong></div>
+                  <div><span>ช่องทาง</span><strong>${escapeHtml(row.sourceChannel || "-")}</strong></div>
+                  <div><span>ชื่อเฟส/ไลน์</span><strong>${escapeHtml(row.socialName || "-")}</strong></div>
+                  <div><span>ของแถม</span><strong>${escapeHtml(row.freeGift || "-")}</strong></div>
                   <div><span>Tag</span><strong>${escapeHtml((row.tags || []).join(", ") || "-")}</strong></div>
                 </div>
               </div>
@@ -820,6 +828,15 @@ function renderImport() {
             <label class="span-2">ที่อยู่<input name="address"></label>
             <label>จำนวนกระปุก<input name="jars" type="number" min="1" value="1"></label>
             <label>ยอดเงิน<input name="amount" type="number" min="0" value="${Number(app.data.settings.defaultJarPrice || 750)}"></label>
+            <label>ช่องทางที่ลูกค้าสั่งมา<input name="sourceChannel" value="Manual Import"></label>
+            <label>ชื่อเฟส/ชื่อไลน์ลูกค้า<input name="socialName"></label>
+            <label>ของแถมที่ลูกค้าได้<input name="freeGift"></label>
+            <label>สถานะบัตร VIP
+              <select name="vipCardStatus">
+                <option>ยังไม่ได้ส่งบัตร</option>
+                <option>ส่งบัตรแล้ว</option>
+              </select>
+            </label>
             <label class="span-2">หมายเหตุ<input name="note"></label>
           </div>
           <button class="button primary" type="submit">บันทึกข้อมูล</button>
@@ -1097,7 +1114,11 @@ function renderCustomerDetail(customer) {
           ${customer.orders.slice().reverse().map(order => `
             <div class="timeline-item">
               <strong>${formatDate(order.date)} · ${order.jars} กระปุก · ${money(order.amount)} บาท</strong>
-              <span class="muted">${escapeHtml(order.source || "Manual")}</span>
+              <span class="muted">ช่องทาง ${escapeHtml(order.sourceChannel || order.source || "Manual")}</span>
+              <span class="muted">ชื่อเฟส/ไลน์ ${escapeHtml(order.socialName || "-")} · ของแถม ${escapeHtml(order.freeGift || "-")}</span>
+              <span class="muted">บัตร VIP ${escapeHtml(order.vipCardStatus || "-")}</span>
+              ${order.vipCardReminder ? `<span class="muted">${escapeHtml(order.vipCardReminder)}</span>` : ""}
+              ${order.vipDiscountFlag ? `<span class="muted">${escapeHtml(order.vipDiscountFlag)}</span>` : ""}
             </div>
           `).join("")}
         </div>

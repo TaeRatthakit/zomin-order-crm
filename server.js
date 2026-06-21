@@ -259,6 +259,7 @@ function enrichDb(db, selectedDate = toDateOnly()) {
     if (level !== "NORMAL") status = level;
     if (overdueDays > 90) status = "LOST";
     else if (overdueDays > 30) status = "AT RISK";
+    const hasVipCard = orders.some(order => order.vipCardStatus === "ส่งบัตรแล้ว");
 
     return {
       ...customer,
@@ -276,9 +277,26 @@ function enrichDb(db, selectedDate = toDateOnly()) {
       customerScore: customerScore(totalSpent, purchaseCount, firstPurchaseDate, lastPurchaseDate),
       note: customer.note || customer.lastContactNote || "",
       contactLogs,
-      orders
+      orders: orders.map(order => {
+        const sourceChannel = order.sourceChannel || order.source_channel || order.source || "";
+        const vipDiscountEligible = hasVipCard && /ไลน์บริษัท|line company|บริษัท/i.test(sourceChannel);
+        return {
+          ...order,
+          sourceChannel,
+          socialName: order.socialName || order.social_name || "",
+          freeGift: order.freeGift || order.free_gift || "",
+          vipCardStatus: order.vipCardStatus || order.vip_card_status || "ยังไม่ได้ส่งบัตร",
+          vipCardReminder: order.vipCardStatus !== "ส่งบัตรแล้ว" && !hasVipCard ? "ใส่บัตร VIP ในกล่อง" : "",
+          vipDiscountFlag: vipDiscountEligible ? "ลูกค้ามีบัตร VIP และสั่งผ่านไลน์บริษัท: รองรับส่วนลด VIP กระปุกละ 10 บาท" : ""
+        };
+      })
     };
   });
+
+  const vipCardSentByCustomer = new Map();
+  for (const order of db.orders || []) {
+    if (order.vipCardStatus === "ส่งบัตรแล้ว") vipCardSentByCustomer.set(order.customerId, true);
+  }
 
   const allTags = Array.from(
     new Set([
@@ -293,13 +311,23 @@ function enrichDb(db, selectedDate = toDateOnly()) {
     customers,
     orders: db.orders.map(order => {
       const customer = customers.find(item => item.id === order.customerId);
+      const hasVipCard = vipCardSentByCustomer.get(order.customerId) || order.vipCardStatus === "ส่งบัตรแล้ว";
+      const sourceChannel = order.sourceChannel || order.source_channel || order.source || "";
+      const needsVipCard = order.vipCardStatus !== "ส่งบัตรแล้ว" && !hasVipCard;
+      const vipDiscountEligible = hasVipCard && /ไลน์บริษัท|line company|บริษัท/i.test(sourceChannel);
       return {
         ...order,
         customerName: customer?.name || "",
         phone: customer?.phone || "",
         tags: customer?.tags || [],
         status: customer?.status || "",
-        vipLevel: customer?.vipLevel || "NORMAL"
+        vipLevel: customer?.vipLevel || "NORMAL",
+        sourceChannel,
+        socialName: order.socialName || order.social_name || "",
+        freeGift: order.freeGift || order.free_gift || "",
+        vipCardStatus: order.vipCardStatus || order.vip_card_status || "ยังไม่ได้ส่งบัตร",
+        vipCardReminder: needsVipCard ? "ใส่บัตร VIP ในกล่อง" : "",
+        vipDiscountFlag: vipDiscountEligible ? "ลูกค้ามีบัตร VIP และสั่งผ่านไลน์บริษัท: รองรับส่วนลด VIP กระปุกละ 10 บาท" : ""
       };
     })
   };
@@ -381,6 +409,17 @@ function addOrder(db, payload) {
 
   const jars = Number(payload.jars || 1);
   const amount = Number(payload.amount || jars * Number(db.settings.defaultJarPrice || 750));
+  const previousVipCardSent = (db.orders || []).some(order =>
+    order.customerId === customer.id && order.vipCardStatus === "ส่งบัตรแล้ว"
+  );
+  const vipCardStatus = String(
+    payload.vipCardStatus || payload.vip_card_status || (previousVipCardSent ? "ส่งบัตรแล้ว" : "ยังไม่ได้ส่งบัตร")
+  ).trim();
+  const sourceChannel = String(payload.sourceChannel || payload.source_channel || payload.source || "Manual").trim();
+  const vipDiscountFlag = previousVipCardSent && /ไลน์บริษัท|line company|บริษัท/i.test(sourceChannel)
+    ? "ลูกค้ามีบัตร VIP และสั่งผ่านไลน์บริษัท: รองรับส่วนลด VIP กระปุกละ 10 บาท"
+    : "";
+  const note = [String(payload.note || "").trim(), vipDiscountFlag].filter(Boolean).join(" | ");
   const order = {
     id: payload.id || uid("o"),
     customerId: customer.id,
@@ -389,7 +428,12 @@ function addOrder(db, payload) {
     items: String(payload.items || "Zomin").trim(),
     jars,
     amount,
-    source: String(payload.source || "Manual").trim(),
+    source: String(payload.source || sourceChannel || "Manual").trim(),
+    sourceChannel,
+    socialName: String(payload.socialName || payload.social_name || "").trim(),
+    freeGift: String(payload.freeGift || payload.free_gift || "").trim(),
+    vipCardStatus,
+    note,
     rawText: String(payload.rawText || "").trim()
   };
 
@@ -419,10 +463,45 @@ function parseQuantity(textValue) {
   return 1;
 }
 
+function shouldSkipLineImport(textValue) {
+  return /^(รูป|ยกเลิกข้อความ|แก้ไขเลขออเดอร์)$/i.test(String(textValue || "").trim());
+}
+
+function parseLabel(textValue, labels) {
+  const pattern = new RegExp(`(?:${labels.join("|")})\\s*[:：-]\\s*([^\\n]+)`, "i");
+  return String(textValue || "").match(pattern)?.[1]?.trim() || "";
+}
+
+function parseSourceChannel(textValue) {
+  const explicit = parseLabel(textValue, ["ช่องทาง", "ช่องทางสั่ง", "สั่งจาก", "source_channel", "source"]);
+  if (explicit) return explicit;
+  if (/ไลน์บริษัท|line company/i.test(textValue)) return "ไลน์บริษัท";
+  if (/line oa|ไลน์ oa/i.test(textValue)) return "LINE OA";
+  if (/facebook|เฟส|เพจ/i.test(textValue)) return "Facebook";
+  if (/โทรสั่ง|โทร/i.test(textValue)) return "โทรสั่ง";
+  if (/line|ไลน์/i.test(textValue)) return "LINE";
+  return "LINE";
+}
+
+function parseSocialName(textValue) {
+  const explicit = parseLabel(textValue, ["ชื่อเฟส", "ชื่อไลน์", "เฟส", "ไลน์", "social_name", "social"]);
+  if (explicit) return explicit;
+  return String(textValue || "").match(/\b(?:F|FB|LINE)\s*[:：]\s*([^\n]+)/i)?.[0]?.trim() || "";
+}
+
+function parseFreeGift(textValue) {
+  const explicit = parseLabel(textValue, ["ของแถม", "แถม", "free_gift"]);
+  if (explicit) return explicit;
+  const match = String(textValue || "").match(/แถม\s*([^\n]+)/);
+  return match?.[1]?.trim() || "";
+}
+
 function parseLineOrder(rawText, defaultJarPrice = 750) {
   const textValue = String(rawText || "").trim();
+  if (shouldSkipLineImport(textValue)) return null;
   const phoneMatch = textValue.match(/0[\d\s.-]{8,12}/);
   const phone = normalizePhone(phoneMatch?.[0] || "");
+  if (!phone) return null;
   const jars = parseQuantity(textValue);
   const parsedAmount = parseCurrency(textValue);
   const amount = parsedAmount === null ? jars * Number(defaultJarPrice || 750) : parsedAmount;
@@ -447,6 +526,10 @@ function parseLineOrder(rawText, defaultJarPrice = 750) {
     amount,
     tags: tagMatches,
     source: "LINE",
+    sourceChannel: parseSourceChannel(textValue),
+    socialName: parseSocialName(textValue),
+    freeGift: parseFreeGift(textValue),
+    vipCardStatus: parseLabel(textValue, ["สถานะบัตร VIP", "vip_card_status", "บัตร VIP"]) || "ยังไม่ได้ส่งบัตร",
     rawText: textValue
   };
 }
@@ -504,6 +587,7 @@ function parseDelimited(content) {
 function normalizeImportRow(row, defaultJarPrice) {
   const get = (...keys) => keys.map(key => row[key]).find(Boolean) || "";
   const jars = Number(get("jars", "jar", "จำนวนกระปุก", "กระปุก", "qty", "quantity") || 1);
+  const sourceChannel = get("source_channel", "source channel", "ช่องทาง", "ช่องทางสั่ง", "source") || "Import";
   return {
     name: get("name", "customer", "customer name", "ชื่อ", "ชื่อลูกค้า", "ลูกค้า"),
     phone: get("phone", "tel", "mobile", "เบอร์", "เบอร์โทร", "โทร"),
@@ -514,6 +598,10 @@ function normalizeImportRow(row, defaultJarPrice) {
     tags: get("tags", "tag", "แท็ก"),
     items: get("items", "product", "สินค้า") || "Zomin",
     source: "Import",
+    sourceChannel,
+    socialName: get("social_name", "social name", "ชื่อเฟส", "ชื่อไลน์", "facebook", "line"),
+    freeGift: get("free_gift", "free gift", "ของแถม", "แถม"),
+    vipCardStatus: get("vip_card_status", "vip card status", "สถานะบัตร vip", "บัตร vip") || "ยังไม่ได้ส่งบัตร",
     rawText: JSON.stringify(row)
   };
 }
@@ -634,7 +722,7 @@ async function handleApi(req, res) {
       const chunks = String(content).split(/\n-{3,}\n|\n\n+/).map(chunk => chunk.trim()).filter(Boolean);
       for (const chunk of chunks) {
         const parsed = parseLineOrder(chunk, db.settings.defaultJarPrice);
-        if (parsed.phone) imported.push(addOrder(db, parsed));
+        if (parsed?.phone) imported.push(addOrder(db, parsed));
       }
     } else {
       const rows = parseDelimited(content);
@@ -654,7 +742,7 @@ async function handleApi(req, res) {
     const chunks = String(content).split(/\n-{3,}\n|\n\n+/).map(chunk => chunk.trim()).filter(Boolean);
     const rows = chunks
       .map(chunk => parseLineOrder(chunk, db.settings.defaultJarPrice))
-      .filter(parsed => parsed.phone)
+      .filter(parsed => parsed?.phone)
       .map((parsed, index) => ({ id: index + 1, ...parsed }));
     return json(res, 200, { ok: true, rows });
   }
@@ -689,7 +777,7 @@ async function handleApi(req, res) {
       });
       if (rawText) {
         const parsed = parseLineOrder(rawText, settings.defaultJarPrice);
-        if (parsed.phone) parsedOrders.push(addOrder(db, parsed));
+        if (parsed?.phone) parsedOrders.push(addOrder(db, parsed));
       }
     }
     await writeDb(db);
@@ -709,7 +797,7 @@ async function handleApi(req, res) {
       raw_text: rawText
     });
     const parsed = parseLineOrder(rawText, db.settings.defaultJarPrice);
-    const parsedOrders = parsed.phone ? [addOrder(db, parsed)] : [];
+    const parsedOrders = parsed?.phone ? [addOrder(db, parsed)] : [];
     await writeDb(db);
     return json(res, 200, { ok: true, parsedOrders: parsedOrders.length, rows: parsedOrders });
   }
@@ -824,7 +912,14 @@ async function handleApi(req, res) {
         phone: order.phone,
         quantity: order.jars,
         amount: order.amount,
-        source: order.source
+        source: order.source,
+        source_channel: order.sourceChannel || "",
+        social_name: order.socialName || "",
+        free_gift: order.freeGift || "",
+        vip_card_status: order.vipCardStatus || "",
+        vip_card_reminder: order.vipCardReminder || "",
+        vip_discount_flag: order.vipDiscountFlag || "",
+        note: order.note || ""
       })));
     }
     if (type === "followups") {
