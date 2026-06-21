@@ -456,7 +456,7 @@ function parseQuantity(textValue) {
   const value = String(textValue || "");
   const freeOnly = value.match(/(?:รับ)?โซมินฟรี\s*(\d+)\s*กระปุก/);
   if (freeOnly) return Number(freeOnly[1]);
-  const plusFree = value.match(/(\d+)\s*(?:กระปุก)?\s*แถม\s*(\d+)\s*(?:กระปุก)?/);
+  const plusFree = value.match(/(\d+)\s*(?:กระปุก|ปุก|ขวด)?\s*แถม\s*(\d+)\s*(?:กระปุก|ปุก|ขวด)?/);
   if (plusFree) return Number(plusFree[1]) + Number(plusFree[2]);
   const jarMatch = value.match(/(\d+)\s*(?:กระปุก|ปุก|jar|jars|ขวด)/i);
   if (jarMatch) return Number(jarMatch[1]);
@@ -465,6 +465,27 @@ function parseQuantity(textValue) {
 
 function shouldSkipLineImport(textValue) {
   return /^(รูป|ยกเลิกข้อความ|แก้ไขเลขออเดอร์)$/i.test(String(textValue || "").trim());
+}
+
+function splitLineImportChunks(content) {
+  return String(content || "")
+    .split(/\n-{3,}\n|\n\n+/)
+    .map(chunk => chunk.trim())
+    .filter(Boolean);
+}
+
+function parseLineImportContent(content, defaultJarPrice = 750) {
+  const text = String(content || "").trim();
+  if (!text) return [];
+  const phoneMatches = text.match(/0[\d\s.-]{8,12}/g) || [];
+  if (phoneMatches.length <= 1) {
+    const parsed = parseLineOrder(text, defaultJarPrice);
+    return parsed?.phone ? [parsed] : [];
+  }
+
+  return splitLineImportChunks(text)
+    .map(chunk => parseLineOrder(chunk, defaultJarPrice))
+    .filter(parsed => parsed?.phone);
 }
 
 function parseLabel(textValue, labels) {
@@ -477,8 +498,8 @@ function parseSourceChannel(textValue) {
   if (explicit) return explicit;
   if (/ไลน์บริษัท|line company/i.test(textValue)) return "ไลน์บริษัท";
   if (/line oa|ไลน์ oa/i.test(textValue)) return "LINE OA";
+  if (/โทรสั่ง|โทรคอนเฟิร์ม|คอนเฟิร์มแล้ว|โทรสั่งแล้ว|โทร\s*สั่ง/i.test(textValue)) return "โทรสั่ง";
   if (/facebook|เฟส|เพจ/i.test(textValue)) return "Facebook";
-  if (/โทรสั่ง|โทร/i.test(textValue)) return "โทรสั่ง";
   if (/line|ไลน์/i.test(textValue)) return "LINE";
   return "LINE";
 }
@@ -486,20 +507,38 @@ function parseSourceChannel(textValue) {
 function parseSocialName(textValue) {
   const explicit = parseLabel(textValue, ["ชื่อเฟส", "ชื่อไลน์", "เฟส", "ไลน์", "social_name", "social"]);
   if (explicit) return explicit;
-  return String(textValue || "").match(/\b(?:F|FB|LINE)\s*[:：]\s*([^\n]+)/i)?.[0]?.trim() || "";
+  const fbLine = String(textValue || "").match(/(?:^|\n)\s*(?:F|FB|LINE)\s*[:：]\s*([^\n]+)/i);
+  if (fbLine) return fbLine[0].trim();
+  return "";
 }
 
 function parseFreeGift(textValue) {
-  const explicit = parseLabel(textValue, ["ของแถม", "แถม", "free_gift"]);
+  const explicit = parseLabel(textValue, ["ของแถม", "free_gift"]);
   if (explicit) return explicit;
-  const match = String(textValue || "").match(/แถม\s*([^\n]+)/);
-  return match?.[1]?.trim() || "";
+  const value = String(textValue || "");
+  const giftKeywords = [
+    "กระบอกน้ำ",
+    "นาฬิกา",
+    "งาดำชง",
+    "เซตผ้าเช็ดตัว",
+    "ผ้าเช็ดตัว",
+    "ของพรีเมียม"
+  ];
+  const giftLine = value
+    .split(/\n+/)
+    .map(line => line.trim())
+    .find(line => giftKeywords.some(keyword => line.includes(keyword)));
+  if (giftLine) return giftLine;
+  const giftMatch = value.match(/(?:ของแถม|ฟรีของแถม|รับของแถม)\s*[:：-]?\s*([^\n]+)/i);
+  return giftMatch?.[1]?.trim() || "";
 }
 
 function parseLineOrder(rawText, defaultJarPrice = 750) {
   const textValue = String(rawText || "").trim();
   if (shouldSkipLineImport(textValue)) return null;
-  const phoneMatch = textValue.match(/0[\d\s.-]{8,12}/);
+  const lines = textValue.split(/\n+/).map(line => line.trim()).filter(Boolean);
+  const phoneLine = lines.find(line => /โทร|เบอร์|phone|mobile|tel/i.test(line) && /\d/.test(line)) || lines.find(line => /^0[\d\s.-]{8,12}$/.test(line.replace(/[^\d\s.-]/g, "")));
+  const phoneMatch = phoneLine?.match(/0\d{8,9}/) || textValue.match(/(?<!\d)0\d{8,9}(?!\d)/);
   const phone = normalizePhone(phoneMatch?.[0] || "");
   if (!phone) return null;
   const jars = parseQuantity(textValue);
@@ -512,10 +551,16 @@ function parseLineOrder(rawText, defaultJarPrice = 750) {
   const addressLine = textValue
     .split(/\n+/)
     .find(line => /(ที่อยู่|ต\.|อ\.|จ\.|แขวง|เขต|ถนน|หมู่|ม\.)/.test(line));
-  const explicitName = textValue.match(/(?:ชื่อ|ลูกค้า|คุณ)\s*[:：-]?\s*([^\n,]+)/);
-  const firstLine = textValue.split(/\n+/).find(line => line.trim() && !line.match(/0[\d\s.-]{8,12}/));
-  const name = (explicitName?.[1] || firstLine || `ลูกค้า ${phone}`).replace(/^(ชื่อ|ลูกค้า)\s*[:：-]?\s*/i, "").trim();
+  const explicitNameLine = lines.find(line => /^(?:คุณ|ชื่อ|ลูกค้า)\b/i.test(line) || /(?:^|\s)(?:คุณ|ชื่อ|ลูกค้า)\s*[:：-]/i.test(line));
+  const explicitName = explicitNameLine?.match(/(?:คุณ|ชื่อ|ลูกค้า)\s*[:：-]?\s*([^\n,]+)/i);
+  const firstLine = lines.find(line => line && !line.match(/^(?:f|fb|line)\s*[:：]/i) && !/โทร|เบอร์|phone|mobile|tel/i.test(line) && !/(?:\d[\d\s.-]*){9,}/.test(line));
+  const name = (explicitName?.[1] || firstLine || `ลูกค้า ${phone}`)
+    .replace(/^(ชื่อ|ลูกค้า)\s*[:：-]?\s*/i, "")
+    .replace(/^คุณ\s*/i, "")
+    .trim();
   const tagMatches = Array.from(textValue.matchAll(/#([^\s#]+)/g)).map(match => match[1].trim());
+  const promoQuantityLine = lines.find(line => /\d+\s*(?:กระปุก|ปุก|ขวด)?\s*แถม\s*\d+\s*(?:กระปุก|ปุก|ขวด)?/.test(line));
+  const note = promoQuantityLine ? promoQuantityLine : "";
 
   return {
     name,
@@ -529,6 +574,7 @@ function parseLineOrder(rawText, defaultJarPrice = 750) {
     sourceChannel: parseSourceChannel(textValue),
     socialName: parseSocialName(textValue),
     freeGift: parseFreeGift(textValue),
+    note,
     vipCardStatus: parseLabel(textValue, ["สถานะบัตร VIP", "vip_card_status", "บัตร VIP"]) || "ยังไม่ได้ส่งบัตร",
     rawText: textValue
   };
@@ -719,9 +765,8 @@ async function handleApi(req, res) {
     const imported = [];
 
     if (type === "line") {
-      const chunks = String(content).split(/\n-{3,}\n|\n\n+/).map(chunk => chunk.trim()).filter(Boolean);
-      for (const chunk of chunks) {
-        const parsed = parseLineOrder(chunk, db.settings.defaultJarPrice);
+      const parsedRows = parseLineImportContent(content, db.settings.defaultJarPrice);
+      for (const parsed of parsedRows) {
         if (parsed?.phone) imported.push(addOrder(db, parsed));
       }
     } else {
@@ -739,10 +784,7 @@ async function handleApi(req, res) {
   if (req.method === "POST" && url.pathname === "/api/parse-preview") {
     const body = await readBody(req);
     const content = body.content || "";
-    const chunks = String(content).split(/\n-{3,}\n|\n\n+/).map(chunk => chunk.trim()).filter(Boolean);
-    const rows = chunks
-      .map(chunk => parseLineOrder(chunk, db.settings.defaultJarPrice))
-      .filter(parsed => parsed?.phone)
+    const rows = parseLineImportContent(content, db.settings.defaultJarPrice)
       .map((parsed, index) => ({ id: index + 1, ...parsed }));
     return json(res, 200, { ok: true, rows });
   }
