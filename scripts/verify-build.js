@@ -6,6 +6,7 @@ const ROOT = path.join(__dirname, "..");
 const checkFiles = [
   "server.js",
   "public/app.js",
+  "public/service-worker.js",
   "lib/env.js",
   "lib/auth.js",
   "lib/db/index.js",
@@ -23,6 +24,12 @@ const requiredFiles = [
   "supabase/schema.sql",
   "README_DEPLOY.md",
   "PROGRESS_REPORT.md",
+  "public/manifest.webmanifest",
+  "public/icons/apple-touch-icon.png",
+  "public/icons/icon-192.png",
+  "public/icons/icon-512.png",
+  "public/icons/maskable-icon-192.png",
+  "public/icons/maskable-icon-512.png",
   "vercel.json",
   "render.yaml"
 ];
