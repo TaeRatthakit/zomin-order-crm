@@ -97,6 +97,23 @@
       </form>
     </dialog>
 
+    <dialog id="deleteOrderDialog" class="dialog">
+      <form id="deleteOrderForm" method="dialog">
+        <div class="dialog-header">
+          <div>
+            <p class="eyebrow">Delete Order</p>
+            <h2>ลบออเดอร์นี้?</h2>
+          </div>
+          <button class="icon-button" type="button" data-close-delete-order aria-label="ปิด">×</button>
+        </div>
+        <p class="dialog-note">การลบจะมีผลเฉพาะออเดอร์ที่เลือก และจะไม่กระทบข้อมูลลูกค้า</p>
+        <div class="dialog-actions">
+          <button class="button ghost" type="button" data-close-delete-order>ยกเลิก</button>
+          <button class="button danger" type="submit">ลบออเดอร์</button>
+        </div>
+      </form>
+    </dialog>
+
     <script src="/app.js"></script>
     <script>
       if ("serviceWorker" in navigator) {

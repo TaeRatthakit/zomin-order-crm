@@ -759,6 +759,15 @@ async function handleApi(req, res) {
     return json(res, 200, { ok: true, order });
   }
 
+  if (req.method === "DELETE" && url.pathname.startsWith("/api/orders/")) {
+    const id = url.pathname.split("/").pop();
+    const orderIndex = db.orders.findIndex(item => item.id === id);
+    if (orderIndex === -1) return json(res, 404, { ok: false, error: "ไม่พบออเดอร์" });
+    db.orders.splice(orderIndex, 1);
+    await writeDb(db);
+    return json(res, 200, { ok: true });
+  }
+
   if (req.method === "POST" && url.pathname === "/api/import") {
     const body = await readBody(req);
     const type = body.type || "csv";

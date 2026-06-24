@@ -37,7 +37,8 @@ const app = {
     tag: "",
     status: "",
     vip: ""
-  }
+  },
+  deletingOrderId: ""
 };
 
 const adminViews = new Set(["settings", "team"]);
@@ -92,6 +93,8 @@ const els = {
   userPill: document.querySelector("#userPill"),
   orderDialog: document.querySelector("#orderDialog"),
   orderForm: document.querySelector("#orderForm"),
+  deleteOrderDialog: document.querySelector("#deleteOrderDialog"),
+  deleteOrderForm: document.querySelector("#deleteOrderForm"),
   customerDialog: document.querySelector("#customerDialog"),
   customerDetail: document.querySelector("#customerDetail"),
   dialogCustomerName: document.querySelector("#dialogCustomerName"),
@@ -433,6 +436,7 @@ function orderTable(orders) {
           <div class="inline">
             <button class="button ghost" data-open-customer="${escapeHtml(order.customerId)}">ดูรายละเอียด</button>
             <button class="button secondary" data-open-order>แก้ไข</button>
+            <button class="button danger" data-delete-order="${escapeHtml(order.id)}">ลบ</button>
           </div>
         </article>
       `).join("")}
@@ -1207,6 +1211,11 @@ async function submitOrder(form) {
   await loadState();
 }
 
+function openDeleteOrderDialog(orderId) {
+  app.deletingOrderId = orderId;
+  els.deleteOrderDialog.showModal();
+}
+
 function openOrderDialog() {
   els.orderForm.reset();
   els.orderForm.elements.date.value = els.workDate.value || todayISO();
@@ -1258,6 +1267,9 @@ document.addEventListener("click", async event => {
   if (shortcut) setView(shortcut.dataset.viewShortcut);
 
   if (event.target.closest("[data-open-order]")) openOrderDialog();
+
+  const deleteOrderButton = event.target.closest("[data-delete-order]");
+  if (deleteOrderButton) openDeleteOrderDialog(deleteOrderButton.dataset.deleteOrder);
 
   if (event.target.closest("[data-logout]")) {
     try {
@@ -1332,6 +1344,11 @@ document.addEventListener("click", async event => {
 
   if (event.target.closest("[data-close-order]")) els.orderDialog.close();
 
+  if (event.target.closest("[data-close-delete-order]")) {
+    app.deletingOrderId = "";
+    els.deleteOrderDialog.close();
+  }
+
   if (event.target.closest("[data-close-customer]")) els.customerDialog.close();
 
   if (event.target.closest("[data-add-rule]")) {
@@ -1397,6 +1414,16 @@ document.addEventListener("submit", async event => {
 
     if (form.id === "orderForm") {
       await submitOrder(form);
+    }
+
+    if (form.id === "deleteOrderForm" && app.deletingOrderId) {
+      await api(`/api/orders/${encodeURIComponent(app.deletingOrderId)}`, {
+        method: "DELETE"
+      });
+      app.deletingOrderId = "";
+      els.deleteOrderDialog.close();
+      showToast("ลบออเดอร์แล้ว");
+      await loadState();
     }
 
     if (form.id === "teamForm") {
