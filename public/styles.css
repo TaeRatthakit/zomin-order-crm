@@ -1904,6 +1904,23 @@ body {
   margin-top: 10px;
 }
 
+.order-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.order-actions .button {
+  width: 100%;
+  min-width: 0;
+  padding-inline: 8px;
+}
+
+.order-actions .button.danger {
+  background: var(--red);
+  border-color: var(--red);
+  color: #ffffff;
+}
+
 @media (min-width: 781px) {
   :root {
     --bg: #f4f6f8;
@@ -2023,6 +2040,7 @@ body {
   }
 
   .order-actions {
+    display: flex;
     justify-content: flex-end;
   }
 

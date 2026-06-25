@@ -3,7 +3,7 @@ const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
 require("./lib/env").loadEnv();
-const { readDb, writeDb } = require("./lib/db");
+const { readDb, writeDb, deleteOrder } = require("./lib/db");
 const {
   hashPassword,
   verifyPassword,
@@ -790,9 +790,8 @@ async function handleApi(req, res) {
     const id = url.pathname.split("/").pop();
     const orderIndex = db.orders.findIndex(item => item.id === id);
     if (orderIndex === -1) return json(res, 404, { ok: false, error: "ไม่พบออเดอร์" });
-    db.orders.splice(orderIndex, 1);
-    await writeDb(db);
-    return json(res, 200, { ok: true });
+    await deleteOrder(id);
+    return json(res, 200, { ok: true, deletedOrderId: id });
   }
 
   if (req.method === "POST" && url.pathname === "/api/import") {
