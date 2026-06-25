@@ -38,6 +38,7 @@ const app = {
     status: "",
     vip: ""
   },
+  editingOrderId: "",
   deletingOrderId: ""
 };
 
@@ -93,6 +94,8 @@ const els = {
   userPill: document.querySelector("#userPill"),
   orderDialog: document.querySelector("#orderDialog"),
   orderForm: document.querySelector("#orderForm"),
+  orderDialogTitle: document.querySelector("#orderDialogTitle"),
+  orderSubmitButton: document.querySelector("#orderSubmitButton"),
   deleteOrderDialog: document.querySelector("#deleteOrderDialog"),
   deleteOrderForm: document.querySelector("#deleteOrderForm"),
   customerDialog: document.querySelector("#customerDialog"),
@@ -422,20 +425,25 @@ function orderTable(orders) {
             </div>
             ${badge(order.status === "NEW" ? "NEW" : order.vipLevel)}
           </div>
-          <div class="order-grid">
-            <div><span>เบอร์</span><strong>${escapeHtml(order.phone)}</strong></div>
+          <div class="order-summary">
             <div><span>จำนวน</span><strong>${Number(order.jars || 0)} กระปุก</strong></div>
             <div><span>ยอดเงิน</span><strong>${money(order.amount)} บาท</strong></div>
             <div><span>ช่องทาง</span><strong>${escapeHtml(order.sourceChannel || order.source || "-")}</strong></div>
-            <div><span>ชื่อเฟส/ไลน์</span><strong>${escapeHtml(order.socialName || "-")}</strong></div>
-            <div><span>ของแถม</span><strong>${escapeHtml(order.freeGift || "-")}</strong></div>
-            <div><span>บัตร VIP</span><strong>${escapeHtml(order.vipCardStatus || "-")}</strong></div>
           </div>
-          ${order.vipCardReminder ? `<p class="alert-text">${escapeHtml(order.vipCardReminder)}</p>` : ""}
-          ${order.vipDiscountFlag ? `<p class="muted">${escapeHtml(order.vipDiscountFlag)}</p>` : ""}
-          <div class="inline">
+          <details class="order-details">
+            <summary>ดูข้อมูลเพิ่มเติม</summary>
+            <div class="order-grid">
+              <div><span>เบอร์</span><strong>${escapeHtml(order.phone)}</strong></div>
+              <div><span>ชื่อเฟส/ไลน์</span><strong>${escapeHtml(order.socialName || "-")}</strong></div>
+              <div><span>ของแถม</span><strong>${escapeHtml(order.freeGift || "-")}</strong></div>
+              <div><span>บัตร VIP</span><strong>${escapeHtml(order.vipCardStatus || "-")}</strong></div>
+            </div>
+            ${order.vipCardReminder ? `<p class="alert-text">${escapeHtml(order.vipCardReminder)}</p>` : ""}
+            ${order.vipDiscountFlag ? `<p class="muted">${escapeHtml(order.vipDiscountFlag)}</p>` : ""}
+          </details>
+          <div class="inline order-actions">
             <button class="button ghost" data-open-customer="${escapeHtml(order.customerId)}">ดูรายละเอียด</button>
-            <button class="button secondary" data-open-order>แก้ไข</button>
+            <button class="button secondary" data-edit-order="${escapeHtml(order.id)}">แก้ไข</button>
             <button class="button danger" data-delete-order="${escapeHtml(order.id)}">ลบ</button>
           </div>
         </article>
@@ -1201,13 +1209,15 @@ function syncViewFromLocation() {
 
 async function submitOrder(form) {
   const data = Object.fromEntries(new FormData(form).entries());
-  await api("/api/orders", {
-    method: "POST",
+  const orderId = app.editingOrderId;
+  await api(orderId ? `/api/orders/${encodeURIComponent(orderId)}` : "/api/orders", {
+    method: orderId ? "PUT" : "POST",
     body: JSON.stringify(data)
   });
+  app.editingOrderId = "";
   els.orderDialog.close();
   form.reset();
-  showToast("บันทึกออเดอร์แล้ว");
+  showToast(orderId ? "แก้ไขออเดอร์แล้ว" : "บันทึกออเดอร์แล้ว");
   await loadState();
 }
 
@@ -1216,10 +1226,32 @@ function openDeleteOrderDialog(orderId) {
   els.deleteOrderDialog.showModal();
 }
 
-function openOrderDialog() {
+function openOrderDialog(order = null) {
+  app.editingOrderId = order?.id || "";
   els.orderForm.reset();
-  els.orderForm.elements.date.value = els.workDate.value || todayISO();
-  els.orderForm.elements.amount.value = app.data?.settings?.defaultJarPrice || 750;
+  els.orderDialogTitle.textContent = order ? "แก้ไขออเดอร์" : "เพิ่มออเดอร์";
+  els.orderSubmitButton.textContent = order ? "บันทึกการแก้ไข" : "บันทึกออเดอร์";
+  if (order) {
+    const fields = {
+      name: order.customerName,
+      phone: order.phone,
+      address: order.address,
+      date: order.date,
+      jars: order.jars,
+      amount: order.amount,
+      sourceChannel: order.sourceChannel || order.source,
+      socialName: order.socialName,
+      freeGift: order.freeGift,
+      vipCardStatus: order.vipCardStatus,
+      tags: (order.tags || []).join(", ")
+    };
+    Object.entries(fields).forEach(([name, value]) => {
+      if (els.orderForm.elements[name]) els.orderForm.elements[name].value = value ?? "";
+    });
+  } else {
+    els.orderForm.elements.date.value = els.workDate.value || todayISO();
+    els.orderForm.elements.amount.value = app.data?.settings?.defaultJarPrice || 750;
+  }
   els.orderDialog.showModal();
 }
 
@@ -1267,6 +1299,12 @@ document.addEventListener("click", async event => {
   if (shortcut) setView(shortcut.dataset.viewShortcut);
 
   if (event.target.closest("[data-open-order]")) openOrderDialog();
+
+  const editOrderButton = event.target.closest("[data-edit-order]");
+  if (editOrderButton) {
+    const order = app.data.orders.find(item => item.id === editOrderButton.dataset.editOrder);
+    if (order) openOrderDialog(order);
+  }
 
   const deleteOrderButton = event.target.closest("[data-delete-order]");
   if (deleteOrderButton) openDeleteOrderDialog(deleteOrderButton.dataset.deleteOrder);
@@ -1342,7 +1380,10 @@ document.addEventListener("click", async event => {
     renderSearch();
   }
 
-  if (event.target.closest("[data-close-order]")) els.orderDialog.close();
+  if (event.target.closest("[data-close-order]")) {
+    app.editingOrderId = "";
+    els.orderDialog.close();
+  }
 
   if (event.target.closest("[data-close-delete-order]")) {
     app.deletingOrderId = "";

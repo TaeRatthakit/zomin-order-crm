@@ -759,6 +759,33 @@ async function handleApi(req, res) {
     return json(res, 200, { ok: true, order });
   }
 
+  if (req.method === "PUT" && url.pathname.startsWith("/api/orders/")) {
+    const id = url.pathname.split("/").pop();
+    const body = await readBody(req);
+    const order = db.orders.find(item => item.id === id);
+    if (!order) return json(res, 404, { ok: false, error: "ไม่พบออเดอร์" });
+    const customer = db.customers.find(item => item.id === order.customerId);
+    if (customer) {
+      if (body.name !== undefined) customer.name = String(body.name).trim();
+      if (body.phone !== undefined) customer.phone = normalizePhone(body.phone);
+      if (body.address !== undefined) customer.address = String(body.address).trim();
+      if (body.tags !== undefined) customer.tags = splitTags(body.tags);
+      db.tags = Array.from(new Set([...(db.tags || []), ...(customer.tags || [])]));
+    }
+    Object.assign(order, {
+      date: body.date ? toDateOnly(body.date) : order.date,
+      jars: body.jars !== undefined ? Number(body.jars) : order.jars,
+      amount: body.amount !== undefined ? Number(body.amount) : order.amount,
+      source: body.sourceChannel ?? order.source,
+      sourceChannel: body.sourceChannel ?? order.sourceChannel,
+      socialName: body.socialName ?? order.socialName,
+      freeGift: body.freeGift ?? order.freeGift,
+      vipCardStatus: body.vipCardStatus ?? order.vipCardStatus
+    });
+    await writeDb(db);
+    return json(res, 200, { ok: true, order });
+  }
+
   if (req.method === "DELETE" && url.pathname.startsWith("/api/orders/")) {
     const id = url.pathname.split("/").pop();
     const orderIndex = db.orders.findIndex(item => item.id === id);
