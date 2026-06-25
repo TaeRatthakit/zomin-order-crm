@@ -474,7 +474,6 @@ function renderDashboard() {
         ${metric("ควรทักวันนี้", money(s.dueToday), "warn")}
         ${metric("VIP / VVIP / SUPER", `${s.vip} / ${s.vvip} / ${s.superVip}`)}
       </div>
-      <button class="button primary add-order-wide" data-open-order>+ เพิ่มออเดอร์</button>
       <div class="two-col">
         <div class="panel stack">
           <div class="section-header">
@@ -523,12 +522,9 @@ function followupRange() {
 function renderOrders() {
   els.content.innerHTML = `
     <section class="section">
-      <div class="section-header">
-        <div class="section-title">
-          <h2>ออเดอร์ทั้งหมด</h2>
-          <p>รวมออเดอร์ Manual, Import และ LINE Webhook ที่ parser อ่านได้</p>
-        </div>
-        <button class="button primary" data-open-order>เพิ่มออเดอร์</button>
+      <div class="section-title">
+        <h2>ออเดอร์ทั้งหมด</h2>
+        <p>รวมออเดอร์ Manual, Import และ LINE Webhook ที่ parser อ่านได้</p>
       </div>
       ${orderTable(app.data.orders)}
     </section>
