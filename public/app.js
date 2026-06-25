@@ -1158,39 +1158,57 @@ function renderSettingsVip() {
   const thresholds = app.data.settings.vipThresholds || {};
   els.content.innerHTML = `
     <section class="section">
-      <div class="panel stack">
+      <form class="panel stack" id="settingsVipForm">
         <div class="section-title">
           <h2>ตั้งค่า VIP</h2>
-          <p>เกณฑ์ VIP ปัจจุบัน</p>
+          <p>กำหนดยอดสะสมขั้นต่ำสำหรับแต่ละระดับ</p>
         </div>
-        <div class="mini-stats">
-          <div class="mini-stat"><span>VIP</span><strong>${money(thresholds.vip || 5000)} บาท</strong></div>
-          <div class="mini-stat"><span>VVIP</span><strong>${money(thresholds.vvip || 10000)} บาท</strong></div>
-          <div class="mini-stat"><span>SUPER VIP</span><strong>${money(thresholds.superVip || 20000)} บาท</strong></div>
+        <div class="form-grid">
+          <label>VIP Threshold
+            <input name="vipThreshold" type="number" min="0" required value="${Number(thresholds.vip ?? 5000)}">
+          </label>
+          <label>VVIP Threshold
+            <input name="vvipThreshold" type="number" min="0" required value="${Number(thresholds.vvip ?? 10000)}">
+          </label>
+          <label>SUPER VIP Threshold
+            <input name="superVipThreshold" type="number" min="0" required value="${Number(thresholds.superVip ?? 20000)}">
+          </label>
         </div>
-        <p class="muted">การแก้ไขเกณฑ์แบบแยกหน้านี้จะเพิ่มในขั้นถัดไป</p>
-      </div>
+        <button class="button primary" type="submit">บันทึกตั้งค่า VIP</button>
+      </form>
     </section>
   `;
 }
 
 function renderSettingsLine() {
   const settings = app.data.settings;
+  const secretPlaceholder = settings.lineChannelSecretConfigured ? "•••••••••••• (ตั้งค่าแล้ว)" : "ยังไม่ได้ตั้งค่า";
+  const tokenPlaceholder = settings.lineChannelAccessTokenConfigured ? "•••••••••••• (ตั้งค่าแล้ว)" : "ยังไม่ได้ตั้งค่า";
   els.content.innerHTML = `
     <section class="section">
-      <div class="panel stack">
+      <form class="panel stack" id="settingsLineForm">
         <div class="section-title">
           <h2>ตั้งค่า LINE OA</h2>
-          <p>สถานะการเชื่อมต่อ LINE Official Account</p>
+          <p>เว้น Secret หรือ Access Token ว่างไว้เพื่อใช้ค่าเดิม</p>
         </div>
-        <div class="mini-stats">
-          <div class="mini-stat"><span>Channel ID</span><strong>${settings.lineChannelId ? "ตั้งค่าแล้ว" : "ยังไม่ได้ตั้งค่า"}</strong></div>
-          <div class="mini-stat"><span>Channel Secret</span><strong>${settings.lineChannelSecretConfigured ? "ตั้งค่าแล้ว" : "ยังไม่ได้ตั้งค่า"}</strong></div>
-          <div class="mini-stat"><span>Access Token</span><strong>${settings.lineChannelAccessTokenConfigured ? "ตั้งค่าแล้ว" : "ยังไม่ได้ตั้งค่า"}</strong></div>
-          <div class="mini-stat"><span>Webhook</span><strong>${settings.lineWebhookEnabled ? "เปิดใช้งาน" : "ปิดใช้งาน"}</strong></div>
-        </div>
-        <p class="muted">การแก้ไข LINE OA แบบแยกหน้านี้จะเพิ่มในขั้นถัดไป</p>
-      </div>
+        <label>Channel ID
+          <input name="lineChannelId" value="${escapeHtml(settings.lineChannelId || "")}" ${settings.lineChannelIdFromEnv ? "readonly" : ""}>
+        </label>
+        <label>Channel Secret
+          <input name="lineChannelSecret" type="password" autocomplete="new-password" placeholder="${escapeHtml(secretPlaceholder)}" ${settings.lineChannelSecretFromEnv ? "readonly" : ""}>
+        </label>
+        <label>Access Token
+          <textarea name="lineChannelAccessToken" autocomplete="off" placeholder="${escapeHtml(tokenPlaceholder)}" ${settings.lineChannelAccessTokenFromEnv ? "readonly" : ""}></textarea>
+        </label>
+        <label>Webhook URL
+          <input value="${escapeHtml(`${location.origin}/api/line/webhook`)}" readonly>
+        </label>
+        <label class="inline">
+          <input name="lineWebhookEnabled" type="checkbox" ${settings.lineWebhookEnabled ? "checked" : ""} style="width:auto">
+          เปิดรับ LINE Webhook
+        </label>
+        <button class="button primary" type="submit">บันทึกตั้งค่า LINE OA</button>
+      </form>
     </section>
   `;
 }
@@ -1702,6 +1720,27 @@ document.addEventListener("submit", async event => {
         body: JSON.stringify(data)
       });
       showToast("บันทึก Settings แล้ว");
+      await loadState();
+    }
+
+    if (form.id === "settingsVipForm") {
+      const data = Object.fromEntries(new FormData(form).entries());
+      await api("/api/settings", {
+        method: "PUT",
+        body: JSON.stringify(data)
+      });
+      showToast("บันทึกตั้งค่า VIP แล้ว");
+      await loadState();
+    }
+
+    if (form.id === "settingsLineForm") {
+      const data = Object.fromEntries(new FormData(form).entries());
+      data.lineWebhookEnabled = form.elements.lineWebhookEnabled.checked;
+      await api("/api/settings", {
+        method: "PUT",
+        body: JSON.stringify(data)
+      });
+      showToast("บันทึกตั้งค่า LINE OA แล้ว");
       await loadState();
     }
 

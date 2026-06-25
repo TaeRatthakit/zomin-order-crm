@@ -229,9 +229,9 @@ function csvResponse(res, filename, rows) {
 
 function vipLevel(totalSpent, settings = {}) {
   const thresholds = settings.vipThresholds || {};
-  if (totalSpent >= Number(thresholds.superVip || 20000)) return "SUPER VIP";
-  if (totalSpent >= Number(thresholds.vvip || 10000)) return "VVIP";
-  if (totalSpent >= Number(thresholds.vip || 5000)) return "VIP";
+  if (totalSpent >= Number(thresholds.superVip ?? 20000)) return "SUPER VIP";
+  if (totalSpent >= Number(thresholds.vvip ?? 10000)) return "VVIP";
+  if (totalSpent >= Number(thresholds.vip ?? 5000)) return "VIP";
   return "NORMAL";
 }
 
@@ -1021,23 +1021,29 @@ async function handleApi(req, res) {
       businessName: String(body.businessName ?? db.settings.businessName),
       defaultJarPrice: Number(body.defaultJarPrice || db.settings.defaultJarPrice || 750),
       vipThresholds: {
-        vip: Number(body.vipThreshold || body.vip || db.settings.vipThresholds?.vip || 5000),
-        vvip: Number(body.vvipThreshold || body.vvip || db.settings.vipThresholds?.vvip || 10000),
-        superVip: Number(body.superVipThreshold || body.superVip || db.settings.vipThresholds?.superVip || 20000)
+        vip: Number(body.vipThreshold ?? body.vip ?? db.settings.vipThresholds?.vip ?? 5000),
+        vvip: Number(body.vvipThreshold ?? body.vvip ?? db.settings.vipThresholds?.vvip ?? 10000),
+        superVip: Number(body.superVipThreshold ?? body.superVip ?? db.settings.vipThresholds?.superVip ?? 20000)
       },
       messageTemplates: {
         normal: String(body.normalTemplate ?? db.settings.messageTemplates?.normal ?? ""),
         vip: String(body.vipTemplate ?? db.settings.messageTemplates?.vip ?? "")
       },
-      lineChannelId: process.env.LINE_CHANNEL_ID ? db.settings.lineChannelId || "" : String(body.lineChannelId ?? ""),
+      lineChannelId: process.env.LINE_CHANNEL_ID
+        ? db.settings.lineChannelId || ""
+        : String(body.lineChannelId ?? db.settings.lineChannelId ?? ""),
       lineChannelSecret: process.env.LINE_CHANNEL_SECRET
         ? db.settings.lineChannelSecret || ""
         : secretInputValue(body.lineChannelSecret, db.settings.lineChannelSecret),
       lineChannelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN
         ? db.settings.lineChannelAccessToken || ""
         : secretInputValue(body.lineChannelAccessToken, db.settings.lineChannelAccessToken),
-      lineWebhookEnabled: Boolean(body.lineWebhookEnabled),
-      staffCanExport: Boolean(body.staffCanExport)
+      lineWebhookEnabled: body.lineWebhookEnabled === undefined
+        ? Boolean(db.settings.lineWebhookEnabled)
+        : Boolean(body.lineWebhookEnabled),
+      staffCanExport: body.staffCanExport === undefined
+        ? Boolean(db.settings.staffCanExport)
+        : Boolean(body.staffCanExport)
     };
     await writeDb(db);
     return json(res, 200, { ok: true, settings: publicSettings(db.settings) });
