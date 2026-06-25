@@ -39,7 +39,8 @@ const app = {
     vip: ""
   },
   editingOrderId: "",
-  deletingOrderId: ""
+  deletingOrderId: "",
+  deletingCustomerId: ""
 };
 
 const adminViews = new Set(["settings", "team"]);
@@ -98,6 +99,8 @@ const els = {
   orderSubmitButton: document.querySelector("#orderSubmitButton"),
   deleteOrderDialog: document.querySelector("#deleteOrderDialog"),
   deleteOrderForm: document.querySelector("#deleteOrderForm"),
+  deleteCustomerDialog: document.querySelector("#deleteCustomerDialog"),
+  deleteCustomerForm: document.querySelector("#deleteCustomerForm"),
   customerDialog: document.querySelector("#customerDialog"),
   customerDetail: document.querySelector("#customerDetail"),
   dialogCustomerName: document.querySelector("#dialogCustomerName"),
@@ -398,6 +401,9 @@ function customerRow(customer) {
         <div><span>ยอดสะสม</span><strong>${money(customer.totalSpent)} บาท</strong></div>
         <div><span>ควรทัก</span><strong>${formatDate(customer.followUpDate)}</strong></div>
       </div>
+      ${customer.purchaseCount === 0 ? `
+        <button class="button danger" type="button" data-delete-customer="${escapeHtml(customer.id)}">ลบลูกค้า</button>
+      ` : ""}
     </article>
   `;
 }
@@ -1065,6 +1071,9 @@ function renderCustomerDetail(customer) {
       <a class="button primary" href="tel:${escapeHtml(customer.phone)}">โทร</a>
       <button class="button ghost" type="button" data-copy="${escapeHtml(customer.phone)}">คัดลอกเบอร์</button>
       <button class="button secondary" type="button" data-copy="${escapeHtml(makeMessage(customer))}">คัดลอกข้อความทัก</button>
+      ${customer.purchaseCount === 0 ? `
+        <button class="button danger" type="button" data-delete-customer="${escapeHtml(customer.id)}">ลบลูกค้า</button>
+      ` : ""}
     </div>
     <div class="detail-grid">
       <div class="panel stack detail-card">
@@ -1215,6 +1224,11 @@ function openDeleteOrderDialog(orderId) {
   els.deleteOrderDialog.showModal();
 }
 
+function openDeleteCustomerDialog(customerId) {
+  app.deletingCustomerId = customerId;
+  els.deleteCustomerDialog.showModal();
+}
+
 function openOrderDialog(order = null) {
   app.editingOrderId = order?.id || "";
   els.orderForm.reset();
@@ -1298,6 +1312,9 @@ document.addEventListener("click", async event => {
   const deleteOrderButton = event.target.closest("[data-delete-order]");
   if (deleteOrderButton) openDeleteOrderDialog(deleteOrderButton.dataset.deleteOrder);
 
+  const deleteCustomerButton = event.target.closest("[data-delete-customer]");
+  if (deleteCustomerButton) openDeleteCustomerDialog(deleteCustomerButton.dataset.deleteCustomer);
+
   if (event.target.closest("[data-logout]")) {
     try {
       await api("/api/logout", { method: "POST" });
@@ -1379,6 +1396,11 @@ document.addEventListener("click", async event => {
     els.deleteOrderDialog.close();
   }
 
+  if (event.target.closest("[data-close-delete-customer]")) {
+    app.deletingCustomerId = "";
+    els.deleteCustomerDialog.close();
+  }
+
   if (event.target.closest("[data-close-customer]")) els.customerDialog.close();
 
   if (event.target.closest("[data-add-rule]")) {
@@ -1453,6 +1475,17 @@ document.addEventListener("submit", async event => {
       app.deletingOrderId = "";
       els.deleteOrderDialog.close();
       showToast("ลบออเดอร์แล้ว");
+      await loadState();
+    }
+
+    if (form.id === "deleteCustomerForm" && app.deletingCustomerId) {
+      await api(`/api/customers/${encodeURIComponent(app.deletingCustomerId)}`, {
+        method: "DELETE"
+      });
+      app.deletingCustomerId = "";
+      els.deleteCustomerDialog.close();
+      els.customerDialog.close();
+      showToast("ลบลูกค้าแล้ว");
       await loadState();
     }
 

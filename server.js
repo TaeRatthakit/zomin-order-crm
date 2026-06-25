@@ -3,7 +3,7 @@ const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
 require("./lib/env").loadEnv();
-const { readDb, writeDb, deleteOrder } = require("./lib/db");
+const { readDb, writeDb, deleteOrder, deleteCustomer } = require("./lib/db");
 const {
   hashPassword,
   verifyPassword,
@@ -750,6 +750,17 @@ async function handleApi(req, res) {
     db.tags = Array.from(new Set([...(db.tags || []), ...(customer.tags || [])]));
     await writeDb(db);
     return json(res, 200, { ok: true, customer });
+  }
+
+  if (req.method === "DELETE" && url.pathname.startsWith("/api/customers/")) {
+    const id = url.pathname.split("/").pop();
+    const customer = db.customers.find(item => item.id === id);
+    if (!customer) return json(res, 404, { ok: false, error: "ไม่พบลูกค้า" });
+    if (db.orders.some(order => order.customerId === id)) {
+      return json(res, 409, { ok: false, error: "ไม่สามารถลบลูกค้าที่ยังมีออเดอร์ได้" });
+    }
+    await deleteCustomer(id);
+    return json(res, 200, { ok: true, deletedCustomerId: id });
   }
 
   if (req.method === "POST" && url.pathname === "/api/orders") {

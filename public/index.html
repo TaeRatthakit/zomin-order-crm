@@ -114,6 +114,23 @@
       </form>
     </dialog>
 
+    <dialog id="deleteCustomerDialog" class="dialog">
+      <form id="deleteCustomerForm" method="dialog">
+        <div class="dialog-header">
+          <div>
+            <p class="eyebrow">Delete Customer</p>
+            <h2>ลบลูกค้ารายนี้?</h2>
+          </div>
+          <button class="icon-button" type="button" data-close-delete-customer aria-label="ปิด">×</button>
+        </div>
+        <p class="dialog-note">ลบได้เฉพาะลูกค้าที่ไม่มีออเดอร์เท่านั้น</p>
+        <div class="dialog-actions">
+          <button class="button ghost" type="button" data-close-delete-customer>ยกเลิก</button>
+          <button class="button danger" type="submit">ลบลูกค้า</button>
+        </div>
+      </form>
+    </dialog>
+
     <script src="/app.js"></script>
     <script>
       if ("serviceWorker" in navigator) {
