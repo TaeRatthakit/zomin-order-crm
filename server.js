@@ -115,6 +115,20 @@ function splitTags(input) {
     .filter(Boolean);
 }
 
+function normalizeImportText(value) {
+  return String(value || "").trim().replace(/\s+/g, " ");
+}
+
+function normalizeImportDate(value) {
+  const textValue = normalizeImportText(value);
+  if (!textValue) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(textValue)) return textValue;
+  const match = textValue.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})$/);
+  if (!match) return toDateOnly(textValue);
+  const year = Number(match[3]) > 2400 ? Number(match[3]) - 543 : Number(match[3]);
+  return `${year}-${String(match[2]).padStart(2, "0")}-${String(match[1]).padStart(2, "0")}`;
+}
+
 function publicUser(user) {
   const { pin, password, passwordHash, ...safeUser } = user;
   return safeUser;
@@ -409,7 +423,9 @@ function addOrder(db, payload) {
   if (!customer) throw new Error("ไม่พบลูกค้า");
 
   const jars = Number(payload.jars || 1);
-  const amount = Number(payload.amount || jars * Number(db.settings.defaultJarPrice || 750));
+  const amount = payload.amount !== undefined && payload.amount !== ""
+    ? Number(payload.amount)
+    : jars * Number(db.settings.defaultJarPrice || 750);
   const previousVipCardSent = (db.orders || []).some(order =>
     order.customerId === customer.id && order.vipCardStatus === "ส่งบัตรแล้ว"
   );
@@ -424,6 +440,9 @@ function addOrder(db, payload) {
   const order = {
     id: payload.id || uid("o"),
     customerId: customer.id,
+    orderNumber: normalizeImportText(payload.orderNumber),
+    customerName: normalizeImportText(payload.name || customer.name),
+    address: normalizeImportText(payload.address || customer.address),
     date: toDateOnly(payload.date || new Date()),
     time: String(payload.time || new Date().toTimeString().slice(0, 5)),
     items: String(payload.items || "Zomin").trim(),
@@ -633,23 +652,119 @@ function parseDelimited(content) {
 
 function normalizeImportRow(row, defaultJarPrice) {
   const get = (...keys) => keys.map(key => row[key]).find(Boolean) || "";
-  const jars = Number(get("jars", "jar", "จำนวนกระปุก", "กระปุก", "qty", "quantity") || 1);
-  const sourceChannel = get("source_channel", "source channel", "ช่องทาง", "ช่องทางสั่ง", "source") || "Import";
+  const jars = Number(get("jars", "jar", "จำนวนกระปุก", "กระปุก", "ซื้อกี่กระปุก", "qty", "quantity") || 1);
+  const amountText = String(get("amount", "total", "ยอด", "ยอดซื้อ", "ราคา")).replace(/,/g, "").trim();
+  const parsedAmount = amountText === "" ? NaN : Number(amountText);
+  const sourceChannel = get("source_channel", "source channel", "ช่องทาง", "ช่องทางสั่ง", "สั่งจาก", "source") || "Import";
+  const vipValue = normalizeImportText(get(
+    "vip_card_status",
+    "vip card status",
+    "สถานะบัตร vip",
+    "บัตร vip",
+    "เคยได้บัตรvipแล้วหรือยัง"
+  ));
   return {
-    name: get("name", "customer", "customer name", "ชื่อ", "ชื่อลูกค้า", "ลูกค้า"),
+    orderNumber: normalizeImportText(get("order number", "order_number", "เลขออเดอร์")),
+    name: get("name", "customer", "customer name", "ชื่อ", "ชื่อลูกค้า", "ชื่อลูกค้ารับของ", "ลูกค้า"),
     phone: get("phone", "tel", "mobile", "เบอร์", "เบอร์โทร", "โทร"),
     address: get("address", "ที่อยู่"),
-    date: get("date", "order date", "วันที่", "วันที่ซื้อ") || toDateOnly(),
+    date: normalizeImportDate(get("date", "order date", "วันที่", "วันที่ซื้อ", "วันที่สั่งซื้อ")) || toDateOnly(),
     jars,
-    amount: Number(String(get("amount", "total", "ยอด", "ยอดซื้อ", "ราคา")).replace(/,/g, "")) || jars * defaultJarPrice,
+    amount: Number.isFinite(parsedAmount) ? parsedAmount : jars * defaultJarPrice,
     tags: get("tags", "tag", "แท็ก"),
     items: get("items", "product", "สินค้า") || "Zomin",
     source: "Import",
     sourceChannel,
-    socialName: get("social_name", "social name", "ชื่อเฟส", "ชื่อไลน์", "facebook", "line"),
+    socialName: get(
+      "social_name",
+      "social name",
+      "ชื่อเฟส",
+      "ชื่อไลน์",
+      "ชื่อ facebook หรือ ไลน์ ของลูกค้า",
+      "facebook",
+      "line"
+    ),
     freeGift: get("free_gift", "free gift", "ของแถม", "แถม"),
-    vipCardStatus: get("vip_card_status", "vip card status", "สถานะบัตร vip", "บัตร vip") || "ยังไม่ได้ส่งบัตร",
-    rawText: JSON.stringify(row)
+    vipCardStatus: !vipValue
+      ? ""
+      : /^(เคย|ใช่|มี|ส่งแล้ว|ได้แล้ว|yes|y|true|1)$/i.test(vipValue)
+        ? "ส่งบัตรแล้ว"
+        : vipValue,
+    rawText: JSON.stringify({ ...row, __orderNumber: normalizeImportText(get("order number", "order_number", "เลขออเดอร์")) })
+  };
+}
+
+function csvDuplicateKey(order, db) {
+  const customer = db.customers.find(item => item.id === order.customerId);
+  return JSON.stringify([
+    toDateOnly(order.date) || String(order.date || "").trim(),
+    normalizeImportText(order.name || order.customerName || customer?.name),
+    normalizeImportText(order.address || customer?.address),
+    Number(order.amount || 0)
+  ]);
+}
+
+const csvMergeFields = [
+  "orderNumber",
+  "phone",
+  "tags",
+  "items",
+  "sourceChannel",
+  "socialName",
+  "freeGift",
+  "vipCardStatus"
+];
+
+function csvCompleteness(row) {
+  return csvMergeFields.reduce((score, field) => score + (normalizeImportText(row[field]) ? 1 : 0), 0);
+}
+
+function mergeCsvRows(current, candidate) {
+  const preferred = csvCompleteness(candidate) > csvCompleteness(current) ? candidate : current;
+  const fallback = preferred === current ? candidate : current;
+  const merged = { ...preferred };
+  for (const field of csvMergeFields) {
+    if (!normalizeImportText(merged[field]) && normalizeImportText(fallback[field])) {
+      merged[field] = fallback[field];
+    }
+  }
+  merged.rawText = JSON.stringify({ primary: preferred.rawText, merged: fallback.rawText });
+  return merged;
+}
+
+function prepareCsvImport(content, db) {
+  const rows = parseDelimited(content);
+  const grouped = new Map();
+  let invalid = 0;
+  let duplicateRows = 0;
+  for (const row of rows) {
+    const normalized = normalizeImportRow(row, Number(db.settings.defaultJarPrice || 750));
+    if (!normalized.phone || !normalized.name || !normalized.date) {
+      invalid += 1;
+      continue;
+    }
+    const key = csvDuplicateKey(normalized, db);
+    if (grouped.has(key)) {
+      grouped.set(key, mergeCsvRows(grouped.get(key), normalized));
+      duplicateRows += 1;
+    } else {
+      grouped.set(key, normalized);
+    }
+  }
+
+  const existingKeys = new Set(db.orders.map(order => csvDuplicateKey(order, db)));
+  const previewRows = [];
+  let existingDuplicates = 0;
+  for (const [key, row] of grouped) {
+    const duplicate = existingKeys.has(key);
+    if (duplicate) existingDuplicates += 1;
+    previewRows.push({ ...row, duplicate });
+  }
+  return {
+    rows: previewRows,
+    imported: previewRows.filter(row => !row.duplicate).length,
+    duplicates: duplicateRows + existingDuplicates,
+    invalid
   };
 }
 
@@ -810,6 +925,7 @@ async function handleApi(req, res) {
     const type = body.type || "csv";
     const content = body.content || "";
     const imported = [];
+    let duplicates = 0;
 
     if (type === "line") {
       const parsedRows = parseLineImportContent(content, db.settings.defaultJarPrice);
@@ -817,15 +933,21 @@ async function handleApi(req, res) {
         if (parsed?.phone) imported.push(addOrder(db, parsed));
       }
     } else {
-      const rows = parseDelimited(content);
-      for (const row of rows) {
-        const normalized = normalizeImportRow(row, Number(db.settings.defaultJarPrice || 750));
-        if (normalized.phone) imported.push(addOrder(db, normalized));
+      const prepared = prepareCsvImport(content, db);
+      duplicates = prepared.duplicates;
+      for (const row of prepared.rows) {
+        if (!row.duplicate) imported.push(addOrder(db, row));
       }
     }
 
     await writeDb(db);
-    return json(res, 200, { ok: true, imported: imported.length });
+    return json(res, 200, { ok: true, imported: imported.length, duplicates });
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/csv-preview") {
+    const body = await readBody(req);
+    const prepared = prepareCsvImport(body.content || "", db);
+    return json(res, 200, { ok: true, ...prepared });
   }
 
   if (req.method === "POST" && url.pathname === "/api/parse-preview") {
@@ -995,10 +1117,12 @@ async function handleApi(req, res) {
     if (type === "orders") {
       return csvResponse(res, "orders.csv", enriched.orders.map(order => ({
         id: order.id,
+        order_number: order.orderNumber || "",
         date: order.date,
         time: order.time || "",
         customerName: order.customerName,
         phone: order.phone,
+        address: order.address || "",
         quantity: order.jars,
         amount: order.amount,
         source: order.source,

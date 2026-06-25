@@ -30,6 +30,9 @@ const app = {
   importMode: "paste",
   lineImportText: "",
   importPreview: [],
+  csvImportText: "",
+  csvPreview: [],
+  csvPreviewSummary: null,
   currentUser: null,
   data: null,
   filters: {
@@ -805,10 +808,48 @@ function renderImport() {
       <div class="panel stack">
         <div class="tab-row">
           <button class="tab-button ${app.importMode === "paste" ? "active" : ""}" data-import-mode="paste" type="button">วางข้อความ</button>
+          <button class="tab-button ${app.importMode === "csv" ? "active" : ""}" data-import-mode="csv" type="button">Import CSV</button>
           <button class="tab-button ${app.importMode === "manual" ? "active" : ""}" data-import-mode="manual" type="button">กรอกเอง</button>
         </div>
       </div>
-      ${app.importMode === "paste" ? `
+      ${app.importMode === "csv" ? `
+        <div class="import-drop">
+          <div class="section-title">
+            <h2>Import CSV ออเดอร์เก่า</h2>
+            <p>อัปโหลดไฟล์ .csv เพื่อตรวจสอบรายการก่อนบันทึก</p>
+          </div>
+          <input class="file-input" id="csvFile" type="file" accept=".csv,text/csv">
+          <div class="inline">
+            <button class="button secondary" data-preview-csv type="button" ${app.csvImportText ? "" : "disabled"}>แสดงตัวอย่าง</button>
+            <button class="button primary" data-import="csv" type="button" ${app.csvPreview.length ? "" : "disabled"}>บันทึกออเดอร์</button>
+          </div>
+          ${app.csvPreviewSummary ? `
+            <p class="muted">พร้อมนำเข้า ${app.csvPreviewSummary.imported} · ซ้ำ ${app.csvPreviewSummary.duplicates} · ข้อมูลไม่ครบ ${app.csvPreviewSummary.invalid}</p>
+          ` : ""}
+          <div class="preview-list">
+            ${app.csvPreview.map(row => `
+              <div class="order-card">
+                <div class="order-top">
+                  <strong>${escapeHtml(row.name)}</strong>
+                  ${row.duplicate ? `<span class="badge risk">ซ้ำ - ข้าม</span>` : `<span class="badge new">พร้อมนำเข้า</span>`}
+                </div>
+                <div class="order-grid">
+                  <div><span>วันที่</span><strong>${formatDate(row.date)}</strong></div>
+                  <div><span>เลขออเดอร์</span><strong>${escapeHtml(row.orderNumber || "-")}</strong></div>
+                  <div><span>เบอร์</span><strong>${escapeHtml(row.phone)}</strong></div>
+                  <div><span>จำนวน</span><strong>${money(row.jars)} กระปุก</strong></div>
+                  <div><span>ยอด</span><strong>${money(row.amount)} บาท</strong></div>
+                  <div><span>สั่งจาก</span><strong>${escapeHtml(row.sourceChannel || "-")}</strong></div>
+                  <div><span>Facebook / Line</span><strong>${escapeHtml(row.socialName || "-")}</strong></div>
+                  <div><span>Tag</span><strong>${escapeHtml(row.tags || "-")}</strong></div>
+                  <div><span>ของแถม</span><strong>${escapeHtml(row.freeGift || "-")}</strong></div>
+                  <div><span>บัตร VIP</span><strong>${escapeHtml(row.vipCardStatus || "-")}</strong></div>
+                </div>
+              </div>
+            `).join("")}
+          </div>
+        </div>
+      ` : app.importMode === "paste" ? `
         <div class="import-drop">
           <div class="section-title">
             <h2>วางข้อความ LINE เก่า</h2>
@@ -1285,19 +1326,38 @@ async function copyText(text) {
 }
 
 async function handleImport(type) {
-  const textarea = type === "line" ? document.querySelector("#lineImport") : document.querySelector("#csvImport");
+  const content = type === "csv" ? app.csvImportText : document.querySelector("#lineImport")?.value || "";
   const payload = await api("/api/import", {
     method: "POST",
-    body: JSON.stringify({ type, content: textarea.value })
+    body: JSON.stringify({ type, content })
   });
   showToast(type === "csv"
     ? `นำเข้า ${payload.imported} ออเดอร์ · ซ้ำ ${payload.duplicates || 0}`
     : `Import สำเร็จ ${payload.imported} ออเดอร์`);
   if (type === "line") {
-    app.lineImportText = textarea.value;
+    app.lineImportText = content;
+  } else {
+    app.csvImportText = "";
+    app.csvPreview = [];
+    app.csvPreviewSummary = null;
   }
   app.importPreview = [];
   await loadState();
+}
+
+async function previewCsvImport() {
+  if (!app.csvImportText) return;
+  const payload = await api("/api/csv-preview", {
+    method: "POST",
+    body: JSON.stringify({ content: app.csvImportText })
+  });
+  app.csvPreview = payload.rows || [];
+  app.csvPreviewSummary = {
+    imported: payload.imported || 0,
+    duplicates: payload.duplicates || 0,
+    invalid: payload.invalid || 0
+  };
+  renderImport();
 }
 
 async function parseImportPreview() {
@@ -1394,6 +1454,8 @@ document.addEventListener("click", async event => {
   const parseButton = event.target.closest("[data-parse-import]");
   if (parseButton) parseImportPreview();
 
+  if (event.target.closest("[data-preview-csv]")) previewCsvImport();
+
   const importMode = event.target.closest("[data-import-mode]");
   if (importMode) {
     app.importMode = importMode.dataset.importMode;
@@ -1460,8 +1522,10 @@ document.addEventListener("change", async event => {
   if (event.target?.id === "csvFile") {
     const file = event.target.files?.[0];
     if (!file) return;
-    const text = await file.text();
-    document.querySelector("#csvImport").value = text;
+    app.csvImportText = await file.text();
+    app.csvPreview = [];
+    app.csvPreviewSummary = null;
+    await previewCsvImport();
   }
 });
 
