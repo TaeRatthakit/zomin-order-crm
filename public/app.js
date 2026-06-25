@@ -393,21 +393,31 @@ function monthlyChart() {
 function renderLogin() {
   els.content.innerHTML = `
     <section class="login-layout">
-      <form class="login-card" id="loginForm">
-        <div class="login-logo">Z</div>
-        <div class="section-title">
-          <h2>Zomin Order CRM</h2>
-          <p>Mobile CRM สำหรับทีมขาย Zomin</p>
-        </div>
-        <label>Username
-          <input name="username" autocomplete="username" required placeholder="admin หรือ staff">
-        </label>
-        <label>Password
-          <input name="password" autocomplete="current-password" type="password" required placeholder="admin123 หรือ staff123">
-        </label>
-        <button class="button primary" type="submit">เข้าสู่ระบบ</button>
-        <p class="login-demo">Demo: admin / admin123 หรือ staff / staff123</p>
-      </form>
+      <div class="login-desktop-card">
+        <aside class="login-brand-panel">
+          <div class="login-brand-mark">Z</div>
+          <div>
+            <p class="eyebrow">Zomin CRM</p>
+            <h2>Order Management System</h2>
+            <p>จัดการออเดอร์ ลูกค้า การติดตาม และข้อมูลทีมขายในที่เดียว</p>
+          </div>
+        </aside>
+        <form class="login-card" id="loginForm">
+          <div class="login-logo">Z</div>
+          <div class="section-title">
+            <h2>Zomin Order CRM</h2>
+            <p>Mobile CRM สำหรับทีมขาย Zomin</p>
+          </div>
+          <label>Username
+            <input name="username" autocomplete="username" required placeholder="admin หรือ staff">
+          </label>
+          <label>Password
+            <input name="password" autocomplete="current-password" type="password" required placeholder="admin123 หรือ staff123">
+          </label>
+          <button class="button primary" type="submit">เข้าสู่ระบบ</button>
+          <p class="login-demo">Demo: admin / admin123 หรือ staff / staff123</p>
+        </form>
+      </div>
     </section>
   `;
 }

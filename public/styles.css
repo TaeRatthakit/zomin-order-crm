@@ -1423,6 +1423,14 @@ th {
   place-items: center;
 }
 
+.login-desktop-card {
+  width: 100%;
+}
+
+.login-brand-panel {
+  display: none;
+}
+
 .login-card {
   width: min(100%, 430px);
   display: grid;
@@ -1432,6 +1440,101 @@ th {
   background: rgba(255, 255, 255, 0.96);
   padding: 22px;
   box-shadow: 0 22px 70px rgba(86, 45, 145, 0.18);
+}
+
+@media (min-width: 1025px) {
+  .login-view {
+    background:
+      radial-gradient(circle at 18% 20%, rgba(22, 117, 109, 0.12), transparent 340px),
+      var(--bg);
+  }
+
+  .login-view .app-shell {
+    display: block !important;
+  }
+
+  .login-view .main-panel {
+    width: 100% !important;
+    max-width: none;
+    min-height: 100vh;
+    margin: 0 !important;
+    padding: 40px !important;
+    place-items: center;
+  }
+
+  .login-view .topbar {
+    display: none;
+  }
+
+  .login-view .content-area {
+    width: min(100%, 1040px);
+    max-width: 1040px;
+    margin: 0 auto;
+  }
+
+  .login-desktop-card {
+    display: grid;
+    grid-template-columns: minmax(360px, 0.9fr) minmax(440px, 1.1fr);
+    width: min(100%, 960px);
+    min-height: 560px;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    background: var(--surface);
+    box-shadow: 0 24px 70px rgba(25, 39, 52, 0.14);
+  }
+
+  .login-brand-panel {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 40px;
+    padding: 52px 46px;
+    background: linear-gradient(150deg, #17363c 0%, #185f5a 100%);
+    color: #ffffff;
+  }
+
+  .login-brand-panel .eyebrow {
+    color: #a7f3d0;
+  }
+
+  .login-brand-panel h2 {
+    max-width: 340px;
+    margin-bottom: 16px;
+    font-size: 34px;
+  }
+
+  .login-brand-panel p {
+    max-width: 360px;
+    color: #d9e8e6;
+    line-height: 1.7;
+  }
+
+  .login-brand-mark {
+    display: grid;
+    place-items: center;
+    width: 64px;
+    height: 64px;
+    border-radius: 14px;
+    background: #ffffff;
+    color: var(--teal);
+    font-size: 32px;
+    font-weight: 950;
+  }
+
+  .login-card {
+    width: 100%;
+    max-width: none;
+    align-content: center;
+    padding: 56px;
+    border: 0;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+
+  .login-card .login-logo {
+    display: none;
+  }
 }
 
 .login-logo {
