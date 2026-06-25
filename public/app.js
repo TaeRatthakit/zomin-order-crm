@@ -89,6 +89,7 @@ function iconSvg(name) {
 const els = {
   nav: document.querySelector("#mainNav"),
   pageTitle: document.querySelector("#pageTitle"),
+  subpageNav: document.querySelector("#subpageNav"),
   content: document.querySelector("#content"),
   workDate: document.querySelector("#workDate"),
   toast: document.querySelector("#toast"),
@@ -226,6 +227,25 @@ function titleFor(view) {
     settings: "ตั้งค่า"
   };
   return titles[view] || "หน้าหลัก";
+}
+
+const moreSubpages = new Set(["vip", "risk", "tags", "import", "reports", "team", "settings"]);
+
+function renderSubpageNav() {
+  if (!moreSubpages.has(app.view)) {
+    els.subpageNav.hidden = true;
+    els.subpageNav.innerHTML = "";
+    return;
+  }
+  els.subpageNav.hidden = false;
+  els.subpageNav.innerHTML = `
+    <button class="subpage-back" type="button" data-view-shortcut="more" aria-label="กลับไปหน้าเพิ่มเติม">←</button>
+    <nav class="breadcrumb" aria-label="Breadcrumb">
+      <button type="button" data-view-shortcut="more">เพิ่มเติม</button>
+      <span aria-hidden="true">›</span>
+      <span>${escapeHtml(titleFor(app.view))}</span>
+    </nav>
+  `;
 }
 
 function showToast(message) {
@@ -1148,6 +1168,7 @@ function render() {
   renderNav();
   updateShell();
   els.pageTitle.textContent = titleFor(app.view);
+  renderSubpageNav();
   const renderer = {
     login: renderLogin,
     dashboard: renderDashboard,
@@ -1269,7 +1290,9 @@ async function handleImport(type) {
     method: "POST",
     body: JSON.stringify({ type, content: textarea.value })
   });
-  showToast(`Import สำเร็จ ${payload.imported} ออเดอร์`);
+  showToast(type === "csv"
+    ? `นำเข้า ${payload.imported} ออเดอร์ · ซ้ำ ${payload.duplicates || 0}`
+    : `Import สำเร็จ ${payload.imported} ออเดอร์`);
   if (type === "line") {
     app.lineImportText = textarea.value;
   }

@@ -1,4 +1,4 @@
-const CACHE_NAME = "zomin-crm-pwa-v7";
+const CACHE_NAME = "zomin-crm-pwa-v9";
 const CORE_ASSETS = [
   "/",
   "/index.html",
