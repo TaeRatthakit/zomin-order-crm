@@ -82,9 +82,13 @@ button {
   display: block;
 }
 
+.brand strong {
+  color: #ffffff;
+}
+
 .brand span {
   margin-top: 2px;
-  color: #b6c7cd;
+  color: rgba(248, 250, 252, 0.78);
   font-size: 12px;
 }
 
@@ -1639,6 +1643,10 @@ th {
     background: var(--purple-soft);
   }
 
+  .brand strong {
+    color: var(--ink);
+  }
+
   .brand span {
     color: var(--muted);
   }
@@ -2103,6 +2111,14 @@ body {
 
   .brand {
     display: flex !important;
+  }
+
+  .brand strong {
+    color: #ffffff !important;
+  }
+
+  .brand span {
+    color: rgba(248, 250, 252, 0.78) !important;
   }
 
   .nav-list {
