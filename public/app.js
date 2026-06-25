@@ -455,7 +455,6 @@ function orderTable(orders) {
 function renderDashboard() {
   const s = app.data.summary;
   const due = sortByPriority(app.data.customers.filter(customer => customer.followUpDate && customer.followUpDate <= s.selectedDate)).slice(0, 8);
-  const highScore = [...app.data.customers].sort((a, b) => b.customerScore - a.customerScore).slice(0, 5);
 
   els.content.innerHTML = `
     <section class="section">
@@ -484,16 +483,6 @@ function renderDashboard() {
         <div class="panel stack">
           <h2>กราฟยอดขายรายเดือน</h2>
           ${monthlyChart()}
-          <h2>Customer Score สูงสุด</h2>
-          <div class="stack">
-            ${highScore.map(customer => `
-              <div class="inline">
-                ${vipBadge(customer.vipLevel)}
-                <button class="button ghost" data-open-customer="${customer.id}">${escapeHtml(customer.name)}</button>
-                <span class="muted">Score ${money(customer.customerScore)}</span>
-              </div>
-            `).join("")}
-          </div>
         </div>
       </div>
     </section>
