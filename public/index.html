@@ -132,6 +132,19 @@
       </form>
     </dialog>
 
+    <dialog id="logoutDialog" class="dialog">
+      <form id="logoutForm" method="dialog">
+        <div class="dialog-header">
+          <h2>ยืนยันออกจากระบบ?</h2>
+          <button class="icon-button" type="button" data-close-logout aria-label="ปิด">×</button>
+        </div>
+        <div class="dialog-actions">
+          <button class="button ghost" type="button" data-close-logout>ยกเลิก</button>
+          <button class="button danger" type="submit">ออกจากระบบ</button>
+        </div>
+      </form>
+    </dialog>
+
     <script src="/app.js"></script>
     <script>
       if ("serviceWorker" in navigator) {

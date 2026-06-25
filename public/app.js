@@ -18,6 +18,9 @@ const routeToView = {
   "/import": "import",
   "/reports": "reports",
   "/settings": "settings",
+  "/settings/follow-up": "settingsFollowup",
+  "/settings/vip": "settingsVip",
+  "/settings/line-oa": "settingsLine",
   "/team": "team",
   "/risk": "risk",
   "/login": "login"
@@ -46,7 +49,7 @@ const app = {
   deletingCustomerId: ""
 };
 
-const adminViews = new Set(["settings", "team"]);
+const adminViews = new Set(["settings", "settingsFollowup", "settingsVip", "settingsLine", "team"]);
 
 function isAdmin() {
   return app.currentUser?.role === "Admin";
@@ -105,6 +108,8 @@ const els = {
   deleteOrderForm: document.querySelector("#deleteOrderForm"),
   deleteCustomerDialog: document.querySelector("#deleteCustomerDialog"),
   deleteCustomerForm: document.querySelector("#deleteCustomerForm"),
+  logoutDialog: document.querySelector("#logoutDialog"),
+  logoutForm: document.querySelector("#logoutForm"),
   customerDialog: document.querySelector("#customerDialog"),
   customerDetail: document.querySelector("#customerDetail"),
   dialogCustomerName: document.querySelector("#dialogCustomerName"),
@@ -227,12 +232,18 @@ function titleFor(view) {
     import: "เพิ่มข้อมูลเก่า",
     reports: "รายงานยอดขาย",
     team: "จัดการทีมงาน",
-    settings: "ตั้งค่า"
+    settings: "ตั้งค่า",
+    settingsFollowup: "ตั้งค่า Follow-up",
+    settingsVip: "ตั้งค่า VIP",
+    settingsLine: "ตั้งค่า LINE OA"
   };
   return titles[view] || "หน้าหลัก";
 }
 
-const moreSubpages = new Set(["vip", "risk", "tags", "import", "reports", "team", "settings"]);
+const moreSubpages = new Set([
+  "vip", "risk", "tags", "import", "reports", "team", "settings",
+  "settingsFollowup", "settingsVip", "settingsLine"
+]);
 
 function renderSubpageNav() {
   if (!moreSubpages.has(app.view)) {
@@ -693,9 +704,9 @@ function renderMore() {
     ["risk", "ลูกค้าเสี่ยงหาย", "AT RISK และ LOST", "แจ้งเตือน"]
   ];
   const adminCards = [
-    ["settings", "ตั้งค่า Follow-up", "กฎจำนวนกระปุกและวันติดตาม", "Follow-up"],
-    ["settings", "ตั้งค่า VIP", "VIP / VVIP / SUPER VIP", "VIP"],
-    ["settings", "ตั้งค่า LINE OA", "Channel Secret, Token, Webhook", "LINE"],
+    ["settingsFollowup", "ตั้งค่า Follow-up", "กฎจำนวนกระปุกและวันติดตาม", "Follow-up"],
+    ["settingsVip", "ตั้งค่า VIP", "VIP / VVIP / SUPER VIP", "VIP"],
+    ["settingsLine", "ตั้งค่า LINE OA", "Channel Secret, Token, Webhook", "LINE"],
     ["team", "จัดการผู้ใช้", "Admin และ Staff", "ทีม"]
   ];
   const visibleCards = isAdmin() ? [...cards, ...adminCards] : cards;
@@ -1113,6 +1124,77 @@ function renderSettings() {
   `;
 }
 
+function renderSettingsFollowup() {
+  els.content.innerHTML = `
+    <section class="section">
+      <form class="panel stack" id="rulesForm">
+        <div class="section-title">
+          <h2>กฎ Follow-up อัจฉริยะ</h2>
+          <p>กำหนดจำนวนวันติดตามจากจำนวนกระปุกล่าสุด</p>
+        </div>
+        <div class="table-wrap">
+          <table class="rules-table">
+            <thead><tr><th>จำนวนกระปุกล่าสุด</th><th>ควรทักอีกกี่วัน</th></tr></thead>
+            <tbody id="rulesBody">
+              ${app.data.followUpRules.map(rule => `
+                <tr>
+                  <td><input name="jars" type="number" min="1" value="${Number(rule.jars)}"></td>
+                  <td><input name="days" type="number" min="1" value="${Number(rule.days)}"></td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        </div>
+        <div class="inline">
+          <button class="button ghost" type="button" data-add-rule>เพิ่มกฎ</button>
+          <button class="button primary" type="submit">บันทึกกฎ</button>
+        </div>
+      </form>
+    </section>
+  `;
+}
+
+function renderSettingsVip() {
+  const thresholds = app.data.settings.vipThresholds || {};
+  els.content.innerHTML = `
+    <section class="section">
+      <div class="panel stack">
+        <div class="section-title">
+          <h2>ตั้งค่า VIP</h2>
+          <p>เกณฑ์ VIP ปัจจุบัน</p>
+        </div>
+        <div class="mini-stats">
+          <div class="mini-stat"><span>VIP</span><strong>${money(thresholds.vip || 5000)} บาท</strong></div>
+          <div class="mini-stat"><span>VVIP</span><strong>${money(thresholds.vvip || 10000)} บาท</strong></div>
+          <div class="mini-stat"><span>SUPER VIP</span><strong>${money(thresholds.superVip || 20000)} บาท</strong></div>
+        </div>
+        <p class="muted">การแก้ไขเกณฑ์แบบแยกหน้านี้จะเพิ่มในขั้นถัดไป</p>
+      </div>
+    </section>
+  `;
+}
+
+function renderSettingsLine() {
+  const settings = app.data.settings;
+  els.content.innerHTML = `
+    <section class="section">
+      <div class="panel stack">
+        <div class="section-title">
+          <h2>ตั้งค่า LINE OA</h2>
+          <p>สถานะการเชื่อมต่อ LINE Official Account</p>
+        </div>
+        <div class="mini-stats">
+          <div class="mini-stat"><span>Channel ID</span><strong>${settings.lineChannelId ? "ตั้งค่าแล้ว" : "ยังไม่ได้ตั้งค่า"}</strong></div>
+          <div class="mini-stat"><span>Channel Secret</span><strong>${settings.lineChannelSecretConfigured ? "ตั้งค่าแล้ว" : "ยังไม่ได้ตั้งค่า"}</strong></div>
+          <div class="mini-stat"><span>Access Token</span><strong>${settings.lineChannelAccessTokenConfigured ? "ตั้งค่าแล้ว" : "ยังไม่ได้ตั้งค่า"}</strong></div>
+          <div class="mini-stat"><span>Webhook</span><strong>${settings.lineWebhookEnabled ? "เปิดใช้งาน" : "ปิดใช้งาน"}</strong></div>
+        </div>
+        <p class="muted">การแก้ไข LINE OA แบบแยกหน้านี้จะเพิ่มในขั้นถัดไป</p>
+      </div>
+    </section>
+  `;
+}
+
 function renderCustomerDetail(customer) {
   els.dialogCustomerName.textContent = customer.name;
   els.customerDetail.innerHTML = `
@@ -1223,7 +1305,10 @@ function render() {
     import: renderImport,
     reports: renderReports,
     team: renderTeam,
-    settings: renderSettings
+    settings: renderSettings,
+    settingsFollowup: renderSettingsFollowup,
+    settingsVip: renderSettingsVip,
+    settingsLine: renderSettingsLine
   }[app.view] || renderDashboard;
   renderer();
 }
@@ -1394,17 +1479,9 @@ document.addEventListener("click", async event => {
   const deleteCustomerButton = event.target.closest("[data-delete-customer]");
   if (deleteCustomerButton) openDeleteCustomerDialog(deleteCustomerButton.dataset.deleteCustomer);
 
-  if (event.target.closest("[data-logout]")) {
-    try {
-      await api("/api/logout", { method: "POST" });
-    } catch {
-      // Session may already be expired; still return to login.
-    }
-    clearSession();
-    app.view = "login";
-    navigateToView("login");
-    render();
-  }
+  if (event.target.closest("[data-logout]")) els.logoutDialog.showModal();
+
+  if (event.target.closest("[data-close-logout]")) els.logoutDialog.close();
 
   const tagFilter = event.target.closest("[data-tag-filter]");
   if (tagFilter) {
@@ -1570,6 +1647,19 @@ document.addEventListener("submit", async event => {
       els.customerDialog.close();
       showToast("ลบลูกค้าแล้ว");
       await loadState();
+    }
+
+    if (form.id === "logoutForm") {
+      try {
+        await api("/api/logout", { method: "POST" });
+      } catch {
+        // Session may already be expired; still return to login.
+      }
+      els.logoutDialog.close();
+      clearSession();
+      app.view = "login";
+      navigateToView("login");
+      render();
     }
 
     if (form.id === "teamForm") {
