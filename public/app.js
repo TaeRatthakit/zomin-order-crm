@@ -988,9 +988,7 @@ function renderReports() {
   const sourceTotals = {};
   app.data.orders.forEach(order => {
     const orderMonth = monthKey(order.date);
-    const rawChannel = String(order.sourceChannel || "").trim();
-    const fallbackChannel = String(order.source || "").trim();
-    const channelName = rawChannel || (fallbackChannel && fallbackChannel !== "Manual" ? fallbackChannel : "Unknown");
+    const channelName = String(order.sourceChannel || order.source || "").trim() || "Unknown";
     if (orderMonth.startsWith(selectedYear)) {
       monthly[orderMonth] = (monthly[orderMonth] || 0) + Number(order.amount || 0);
     }

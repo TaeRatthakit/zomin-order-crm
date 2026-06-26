@@ -432,7 +432,7 @@ function addOrder(db, payload) {
   const vipCardStatus = String(
     payload.vipCardStatus || payload.vip_card_status || (previousVipCardSent ? "ส่งบัตรแล้ว" : "ยังไม่ได้ส่งบัตร")
   ).trim();
-  const sourceChannel = String(payload.sourceChannel || payload.source_channel || payload.source || "Manual").trim();
+  const sourceChannel = String(payload.sourceChannel || payload.source_channel || payload.source || "").trim();
   const vipDiscountFlag = previousVipCardSent && /ไลน์บริษัท|line company|บริษัท/i.test(sourceChannel)
     ? "ลูกค้ามีบัตร VIP และสั่งผ่านไลน์บริษัท: รองรับส่วนลด VIP กระปุกละ 10 บาท"
     : "";
@@ -448,7 +448,7 @@ function addOrder(db, payload) {
     items: String(payload.items || "Zomin").trim(),
     jars,
     amount,
-    source: String(payload.source || sourceChannel || "Manual").trim(),
+    source: String(payload.source || sourceChannel || "").trim(),
     sourceChannel,
     socialName: String(payload.socialName || payload.social_name || "").trim(),
     freeGift: String(payload.freeGift || payload.free_gift || "").trim(),
