@@ -740,18 +740,83 @@ function lineDebugFromMessage(message = {}) {
   const event = message.rawEvent || {};
   const source = event.source || {};
   const debug = event.__debug || {};
+  const httpDebug = event.__httpDebug || {};
   return {
     id: message.id || "",
-    received_at: message.receivedAt || debug.received_at || "",
-    event_type: event.type || debug.event_type || "",
-    source_type: source.type || debug.source_type || "",
+    received_at: message.receivedAt || debug.received_at || httpDebug.received_at || "",
+    event_type: event.type || debug.event_type || httpDebug.event_type || "",
+    source_type: source.type || debug.source_type || httpDebug.source_type || "",
     groupId: source.groupId || debug.groupId || "",
     userId: source.userId || debug.userId || "",
-    text: message.text || message.raw_text || debug.text || "",
+    text: message.text || message.raw_text || debug.text || httpDebug.text || "",
     parser_status: debug.parser_status || "not_run",
     supabase_insert_status: debug.supabase_insert_status || "not_run",
-    error_message: debug.error_message || ""
+    error_message: debug.error_message || httpDebug.error_message || "",
+    http_method: httpDebug.method || "",
+    http_body_length: httpDebug.body_length ?? "",
+    http_user_agent: httpDebug.user_agent || "",
+    http_reached_handler: httpDebug.reached_handler === true,
+    http_is_line_request: httpDebug.is_line_request === true,
+    http_signature_validation: httpDebug.signature_validation || ""
   };
+}
+
+function lineDebugSummary(rows = []) {
+  const httpRows = rows.filter(row => row.http_reached_handler);
+  const lastHttp = httpRows[0] || null;
+  const lastLine = httpRows.find(row => row.http_is_line_request) || null;
+  return {
+    last_http_request_received: lastHttp?.received_at || "",
+    last_http_method: lastHttp?.http_method || "",
+    last_http_body_length: lastHttp?.http_body_length ?? "",
+    last_http_user_agent: lastHttp?.http_user_agent || "",
+    line_request_seen: Boolean(lastLine),
+    signature_validation: lastLine?.http_signature_validation || lastHttp?.http_signature_validation || "not_seen"
+  };
+}
+
+function safeHeader(req, name) {
+  const value = req.headers[String(name).toLowerCase()];
+  return Array.isArray(value) ? value.join(", ") : String(value || "");
+}
+
+function addHttpWebhookDebug(db, req, rawBody = "", status = {}) {
+  const signature = safeHeader(req, "x-line-signature");
+  const userAgent = safeHeader(req, "user-agent");
+  const receivedAt = new Date().toISOString();
+  const isLineRequest = Boolean(signature) || /line/i.test(userAgent);
+  const debug = {
+    received_at: receivedAt,
+    event_type: "http_request",
+    source_type: "http",
+    method: req.method || "",
+    path: "/api/line/webhook",
+    body_length: Buffer.byteLength(String(rawBody || ""), "utf8"),
+    user_agent: userAgent.slice(0, 300),
+    content_type: safeHeader(req, "content-type").slice(0, 120),
+    has_line_signature: Boolean(signature),
+    is_line_request: isLineRequest,
+    signature_validation: status.signatureValidation || "not_checked",
+    reached_handler: true,
+    text: `${req.method || ""} /api/line/webhook body=${Buffer.byteLength(String(rawBody || ""), "utf8")}`,
+    error_message: status.errorMessage || ""
+  };
+  db.lineMessages = db.lineMessages || [];
+  db.lineMessages.push({
+    id: uid("line_http"),
+    receivedAt,
+    rawEvent: { __httpDebug: debug },
+    text: debug.text,
+    raw_text: debug.text
+  });
+  console.log("LINE webhook HTTP request", JSON.stringify({
+    method: debug.method,
+    bodyLength: debug.body_length,
+    isLineRequest: debug.is_line_request,
+    signatureValidation: debug.signature_validation,
+    receivedAt
+  }));
+  return debug;
 }
 
 function looksLikeOrderMessage(textValue = "") {
@@ -1204,7 +1269,7 @@ async function handleApi(req, res) {
       .map(lineDebugFromMessage)
       .sort((a, b) => String(b.received_at || "").localeCompare(String(a.received_at || "")))
       .slice(0, limit);
-    return json(res, 200, { ok: true, rows });
+    return json(res, 200, { ok: true, summary: lineDebugSummary(rows), rows });
   }
 
   if (req.method === "POST" && url.pathname === "/api/customers") {
@@ -1348,6 +1413,8 @@ async function handleApi(req, res) {
   }
 
   if (req.method === "GET" && url.pathname === "/api/line/webhook") {
+    addHttpWebhookDebug(db, req, "", { signatureValidation: "not_checked" });
+    await writeDb(db);
     return json(res, 200, {
       ok: true,
       message: "Zomin LINE webhook endpoint is ready. Use POST /api/line/webhook."
@@ -1358,14 +1425,23 @@ async function handleApi(req, res) {
     const body = await readBody(req);
     const signature = req.headers["x-line-signature"];
     const settings = effectiveSettings(db.settings);
+    const httpDebug = addHttpWebhookDebug(db, req, body._rawBody || "", { signatureValidation: "pending" });
     if (!settings.lineWebhookEnabled) {
+      httpDebug.signature_validation = "not_checked";
+      httpDebug.error_message = "LINE webhook disabled.";
+      await writeDb(db);
       return json(res, 403, { ok: false, error: "LINE Webhook ยังไม่ได้เปิดใช้งาน" });
     }
     if (!verifyLineSignature(body._rawBody, settings.lineChannelSecret, signature)) {
+      httpDebug.signature_validation = "fail";
+      httpDebug.error_message = "LINE signature validation failed.";
+      await writeDb(db);
       return json(res, 401, { ok: false, error: "LINE signature ไม่ถูกต้อง" });
     }
+    httpDebug.signature_validation = "pass";
     const events = Array.isArray(body.events) ? body.events : [{ message: { text: body.text || body.content || "" } }];
     if (!events.length) {
+      await writeDb(db);
       return json(res, 200, { ok: true, received: 0 });
     }
     const parsedOrders = await handleLineWebhookEvents(db, settings, events);

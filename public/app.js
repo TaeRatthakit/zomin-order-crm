@@ -41,6 +41,7 @@ const app = {
   currentUser: null,
   data: null,
   lineDebugRows: [],
+  lineDebugSummary: {},
   reportMonth: "",
   reportDate: "",
   filters: {
@@ -1317,6 +1318,7 @@ function renderSettingsLine() {
 async function loadLineDebugRows() {
   const payload = await api("/api/line-debug?limit=50");
   app.lineDebugRows = payload.rows || [];
+  app.lineDebugSummary = payload.summary || {};
   renderLineDebugTable();
 }
 
@@ -1324,12 +1326,23 @@ function renderLineDebugTable() {
   const target = document.querySelector("#lineDebugTable");
   if (!target) return;
   const rows = app.lineDebugRows || [];
-  target.innerHTML = rows.length ? `
+  const summary = app.lineDebugSummary || {};
+  target.innerHTML = `
+    <div class="mini-stats">
+      <div class="mini-stat"><span>Last HTTP request</span><strong>${escapeHtml(summary.last_http_request_received || "-")}</strong></div>
+      <div class="mini-stat"><span>LINE request seen</span><strong>${summary.line_request_seen ? "Yes" : "No"}</strong></div>
+      <div class="mini-stat"><span>Signature validation</span><strong>${escapeHtml(summary.signature_validation || "not_seen")}</strong></div>
+      <div class="mini-stat"><span>Handler reached</span><strong>${summary.last_http_request_received ? "Yes" : "No"}</strong></div>
+    </div>
+    ${rows.length ? `
     <div class="table-wrap">
       <table class="rules-table">
         <thead>
           <tr>
             <th>Received</th>
+            <th>HTTP</th>
+            <th>LINE</th>
+            <th>Signature</th>
             <th>Event</th>
             <th>Source</th>
             <th>Group ID</th>
@@ -1344,6 +1357,9 @@ function renderLineDebugTable() {
           ${rows.map(row => `
             <tr>
               <td>${escapeHtml(row.received_at || "-")}</td>
+              <td>${escapeHtml(row.http_method || "-")} ${escapeHtml(String(row.http_body_length || "-"))}</td>
+              <td>${row.http_is_line_request ? "Yes" : "No"}</td>
+              <td>${escapeHtml(row.http_signature_validation || "-")}</td>
               <td>${escapeHtml(row.event_type || "-")}</td>
               <td>${escapeHtml(row.source_type || "-")}</td>
               <td>${escapeHtml(row.groupId || "-")}</td>
@@ -1357,7 +1373,8 @@ function renderLineDebugTable() {
         </tbody>
       </table>
     </div>
-  ` : `<div class="empty-state">ยังไม่มี LINE webhook event</div>`;
+    ` : `<div class="empty-state">ยังไม่มี LINE webhook event</div>`}
+  `;
 }
 
 function renderLineDebug() {
