@@ -112,8 +112,7 @@ const els = {
   logoutForm: document.querySelector("#logoutForm"),
   customerDialog: document.querySelector("#customerDialog"),
   customerDetail: document.querySelector("#customerDetail"),
-  dialogCustomerName: document.querySelector("#dialogCustomerName"),
-  quickAddOrder: document.querySelector("#quickAddOrder")
+  dialogCustomerName: document.querySelector("#dialogCustomerName")
 };
 
 async function restoreSession() {
@@ -566,9 +565,12 @@ function followupRange() {
 function renderOrders() {
   els.content.innerHTML = `
     <section class="section">
-      <div class="section-title">
-        <h2>ออเดอร์ทั้งหมด</h2>
-        <p>รวมออเดอร์ Manual, Import และ LINE Webhook ที่ parser อ่านได้</p>
+      <div class="section-title section-title-actions">
+        <div>
+          <h2>ออเดอร์ทั้งหมด</h2>
+          <p>รวมออเดอร์ Manual, Import และ LINE Webhook ที่ parser อ่านได้</p>
+        </div>
+        <button class="button primary" data-open-order>เพิ่มออเดอร์</button>
       </div>
       ${orderTable(app.data.orders)}
     </section>
@@ -1493,7 +1495,7 @@ document.addEventListener("click", async event => {
   const shortcut = event.target.closest("[data-view-shortcut]");
   if (shortcut) setView(shortcut.dataset.viewShortcut);
 
-  if (event.target.closest("[data-open-order]")) openOrderDialog();
+  if (event.target.closest("[data-open-order]") && app.view === "orders") openOrderDialog();
 
   const editOrderButton = event.target.closest("[data-edit-order]");
   if (editOrderButton) {
@@ -1796,7 +1798,7 @@ document.addEventListener("submit", async event => {
 window.addEventListener("hashchange", syncViewFromLocation);
 window.addEventListener("popstate", syncViewFromLocation);
 
-els.quickAddOrder.addEventListener("click", openOrderDialog);
+// Add-order entry point is now rendered only inside the Orders page.
 els.workDate.value = todayISO();
 
 async function init() {
