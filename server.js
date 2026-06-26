@@ -724,6 +724,27 @@ function formatMissingFieldsMessage(fields) {
   return fields.join("\n");
 }
 
+function lineEventLogPayload(event = {}, text = "") {
+  const source = event.source || {};
+  return {
+    eventType: event.type || "",
+    messageType: event.message?.type || "",
+    sourceType: source.type || "",
+    groupId: source.groupId || "",
+    userId: source.userId || "",
+    text: String(text || "").slice(0, 500)
+  };
+}
+
+function looksLikeOrderMessage(textValue = "") {
+  const text = String(textValue || "");
+  const hasPhone = /(?<!\d)0\d{8,9}(?!\d)/.test(text);
+  const hasAmount = /(?:ยอด|ราคา|รวม|amount|price|cod|เก็บเงินปลายทาง|บาท|฿|THB)/i.test(text);
+  const hasQuantity = /(?:\d+\s*(?:กระปุก|ปุก|jar|jars|ขวด)|จำนวน|qty|quantity)/i.test(text);
+  const hasAddress = /(ที่อยู่|ต\.|อ\.|จ\.|แขวง|เขต|ถนน|หมู่|ม\.)/.test(text);
+  return hasPhone && (hasAmount || hasQuantity || hasAddress);
+}
+
 async function lineApiRequest(pathname, { method = "POST", body } = {}, accessToken) {
   const res = await fetch(`https://api.line.me${pathname}`, {
     method,
@@ -819,7 +840,16 @@ async function handleLineWebhookEvents(db, settings, events) {
   const replies = [];
   for (const event of events) {
     const { replyToken, source, text } = extractLineWebhookContext(event);
-    if (!isTargetGroup(source, settings)) continue;
+    const eventLog = lineEventLogPayload(event, text);
+    console.log("LINE webhook event received", JSON.stringify(eventLog));
+    if (!isTargetGroup(source, settings)) {
+      console.log("LINE webhook group skipped", JSON.stringify({
+        groupId: source.groupId || "",
+        configuredGroupId: settings.lineGroupId || "",
+        reason: source.type !== "group" ? "not_group" : "group_id_mismatch"
+      }));
+      continue;
+    }
     const rawText = text || "";
     db.lineMessages.push({
       id: uid("line"),
@@ -829,18 +859,38 @@ async function handleLineWebhookEvents(db, settings, events) {
       raw_text: rawText
     });
     if (!rawText) continue;
+    if (!looksLikeOrderMessage(rawText)) {
+      console.log("LINE webhook message skipped", JSON.stringify({ reason: "not_order_format", groupId: source.groupId || "" }));
+      continue;
+    }
+    console.log("LINE webhook parser starting", JSON.stringify({ groupId: source.groupId || "", hasOpenAI: Boolean(settings.openaiApiKey) }));
     const parsed = await parseOrderWithAI(rawText, settings);
     const normalized = normalizedOrderForStorage(parsed);
     const missingFields = missingRequiredOrderFields(normalized);
     if (missingFields.length) {
+      console.log("LINE webhook parser missing fields", JSON.stringify({ groupId: source.groupId || "", missingFields }));
       replies.push({ replyToken, messages: [{ type: "text", text: formatMissingFieldsMessage(missingFields) }] });
       continue;
     }
     try {
       parsedOrders.push(addOrder(db, normalized));
+      console.log("LINE webhook order parsed", JSON.stringify({
+        groupId: source.groupId || "",
+        orderNumber: normalized.orderNumber || "",
+        phone: normalized.phone || "",
+        amount: normalized.amount,
+        date: normalized.date
+      }));
       replies.push({ replyToken, messages: [{ type: "text", text: "✅ Order imported into OrderPilot CRM." }] });
     } catch (error) {
       if (error.code === "ORDER_DUPLICATE") {
+        console.log("LINE webhook duplicate order skipped", JSON.stringify({
+          groupId: source.groupId || "",
+          orderNumber: normalized.orderNumber || "",
+          phone: normalized.phone || "",
+          amount: normalized.amount,
+          date: normalized.date
+        }));
         replies.push({ replyToken, messages: [{ type: "text", text: "✅ Order imported into OrderPilot CRM." }] });
         continue;
       }
@@ -848,6 +898,7 @@ async function handleLineWebhookEvents(db, settings, events) {
     }
   }
   await writeDb(db);
+  console.log("LINE webhook Supabase write completed", JSON.stringify({ parsedOrders: parsedOrders.length }));
   for (const reply of replies) {
     try {
       await replyLineMessages(settings, reply.replyToken, reply.messages);
@@ -1256,12 +1307,11 @@ async function handleApi(req, res) {
       return json(res, 401, { ok: false, error: "LINE signature ไม่ถูกต้อง" });
     }
     const events = Array.isArray(body.events) ? body.events : [{ message: { text: body.text || body.content || "" } }];
-    setImmediate(() => {
-      handleLineWebhookEvents(db, settings, events).catch(error => {
-        console.error("LINE webhook processing failed:", error);
-      });
-    });
-    return json(res, 200, { ok: true, received: events.length });
+    if (!events.length) {
+      return json(res, 200, { ok: true, received: 0 });
+    }
+    const parsedOrders = await handleLineWebhookEvents(db, settings, events);
+    return json(res, 200, { ok: true, received: events.length, parsedOrders: parsedOrders.length });
   }
 
   if (req.method === "POST" && url.pathname === "/api/line/mock") {
