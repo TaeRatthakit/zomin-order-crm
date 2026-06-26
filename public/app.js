@@ -40,7 +40,6 @@ const app = {
   currentUser: null,
   data: null,
   reportMonth: "",
-  reportYear: "",
   reportDate: "",
   filters: {
     q: "",
@@ -992,7 +991,7 @@ function displayOrderChannel(order = {}) {
 function renderReports() {
   const selectedDate = app.reportDate || app.data.summary.selectedDate || todayISO();
   const selectedMonth = app.reportMonth || selectedDate.slice(0, 7);
-  const selectedYear = app.reportYear || selectedDate.slice(0, 4);
+  const selectedYear = selectedMonth.slice(0, 4);
   const monthly = {};
   const daily = {};
   const sourceTotals = {};
@@ -1018,7 +1017,6 @@ function renderReports() {
   const repeatCustomers = app.data.customers.filter(customer => customer.purchaseCount > 1).length;
   const topCustomers = [...app.data.customers].sort((a, b) => b.totalSpent - a.totalSpent).slice(0, 5);
   const monthOptions = Array.from(new Set(app.data.orders.map(order => monthKey(order.date)).filter(Boolean))).sort((a, b) => b.localeCompare(a));
-  const yearOptions = Array.from(new Set(monthOptions.map(month => month.slice(0, 4)))).sort((a, b) => b.localeCompare(a));
   const channelRows = Object.entries(sourceTotals)
     .map(([channel, stats]) => ({ channel, count: stats.count, total: stats.total }))
     .sort((a, b) => b.total - a.total);
@@ -1037,20 +1035,13 @@ function renderReports() {
         <div class="panel stack">
           <div class="card-head">
             <h2>ยอดขายรายเดือน</h2>
-            <div class="card-controls">
-              <label class="date-picker compact">
-                <span>Year</span>
-                <select data-report-year>
-                  ${yearOptions.map(year => `<option value="${escapeHtml(year)}" ${year === selectedYear ? "selected" : ""}>${escapeHtml(year)}</option>`).join("")}
-                </select>
-              </label>
-              <label class="date-picker compact">
-                <span>Month</span>
-                <select data-report-month>
-                  ${monthOptions.map(month => `<option value="${escapeHtml(month)}" ${month === selectedMonth ? "selected" : ""}>${escapeHtml(month)}</option>`).join("")}
-                </select>
-              </label>
-            </div>
+            <label class="date-picker compact">
+              <span>Month</span>
+              <input data-report-month type="month" value="${escapeHtml(selectedMonth)}" list="reportMonthOptions">
+              <datalist id="reportMonthOptions">
+                ${monthOptions.map(month => `<option value="${escapeHtml(month)}"></option>`).join("")}
+              </datalist>
+            </label>
           </div>
           <div class="bar-list">
             ${monthlyRows.map(([key, value]) => `
@@ -1711,11 +1702,6 @@ document.addEventListener("input", event => {
 
 document.addEventListener("change", async event => {
   if (event.target === els.workDate) await loadState();
-
-  if (event.target?.matches?.("[data-report-year]")) {
-    app.reportYear = event.target.value;
-    renderReports();
-  }
 
   if (event.target?.matches?.("[data-report-month]")) {
     app.reportMonth = event.target.value;
