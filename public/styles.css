@@ -408,6 +408,66 @@ a.button {
   padding: 16px;
 }
 
+.vip-threshold-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.threshold-card {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbfc 100%);
+}
+
+.threshold-card span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.threshold-card strong,
+.vip-level-summary strong {
+  font-size: 18px;
+}
+
+.threshold-input {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.threshold-input span {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-weight: 700;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.vip-level-summary {
+  display: grid;
+  gap: 10px;
+}
+
+.vip-level-summary div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+
+.vip-level-summary span {
+  color: var(--muted);
+  font-weight: 700;
+}
+
 .panel.tight {
   padding: 12px;
 }

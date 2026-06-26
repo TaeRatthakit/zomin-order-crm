@@ -796,12 +796,53 @@ function renderTags() {
 
 function renderVip() {
   const customers = sortByPriority(app.data.customers.filter(customer => customer.vipLevel !== "NORMAL"));
+  const thresholds = app.data.settings.vipThresholds || {};
   els.content.innerHTML = `
     <section class="section">
-      <div class="section-header">
-        <div class="section-title">
-          <h2>ลูกค้า VIP</h2>
-          <p>VIP 5,000+ บาท, VVIP 10,000+ บาท, SUPER VIP 20,000+ บาท</p>
+      <div class="two-col">
+        <form class="panel stack" id="vipThresholdForm">
+          <div class="section-title">
+            <h2>ตั้งค่ายอด VIP</h2>
+            <p>แก้ยอดขั้นต่ำของแต่ละระดับได้จากหน้านี้ แล้วบันทึกได้ทันที</p>
+          </div>
+          <div class="vip-threshold-grid">
+            <label class="threshold-card">
+              <span>VIP</span>
+              <strong>ยอดขั้นต่ำ</strong>
+              <div class="threshold-input">
+                <input name="vipThreshold" type="number" min="0" required value="${Number(thresholds.vip ?? 5000)}">
+                <span>บาท</span>
+              </div>
+            </label>
+            <label class="threshold-card">
+              <span>VVIP</span>
+              <strong>ยอดขั้นต่ำ</strong>
+              <div class="threshold-input">
+                <input name="vvipThreshold" type="number" min="0" required value="${Number(thresholds.vvip ?? 10000)}">
+                <span>บาท</span>
+              </div>
+            </label>
+            <label class="threshold-card">
+              <span>SUPER VIP</span>
+              <strong>ยอดขั้นต่ำ</strong>
+              <div class="threshold-input">
+                <input name="superVipThreshold" type="number" min="0" required value="${Number(thresholds.superVip ?? 20000)}">
+                <span>บาท</span>
+              </div>
+            </label>
+          </div>
+          <button class="button primary" type="submit">บันทึกยอด VIP</button>
+        </form>
+        <div class="panel stack">
+          <div class="section-title">
+            <h2>ลูกค้า VIP</h2>
+            <p>ลูกค้าจะอัปเดตระดับอัตโนมัติหลังบันทึกยอดใหม่</p>
+          </div>
+          <div class="vip-level-summary">
+            <div><span>VIP</span><strong>${money(thresholds.vip ?? 5000)} บาท</strong></div>
+            <div><span>VVIP</span><strong>${money(thresholds.vvip ?? 10000)} บาท</strong></div>
+            <div><span>SUPER VIP</span><strong>${money(thresholds.superVip ?? 20000)} บาท</strong></div>
+          </div>
         </div>
       </div>
       ${customerTable(customers, "ยังไม่มีลูกค้า VIP")}
@@ -1741,6 +1782,16 @@ document.addEventListener("submit", async event => {
         body: JSON.stringify(data)
       });
       showToast("บันทึกตั้งค่า VIP แล้ว");
+      await loadState();
+    }
+
+    if (form.id === "vipThresholdForm") {
+      const data = Object.fromEntries(new FormData(form).entries());
+      await api("/api/settings", {
+        method: "PUT",
+        body: JSON.stringify(data)
+      });
+      showToast("บันทึกยอด VIP แล้ว");
       await loadState();
     }
 
