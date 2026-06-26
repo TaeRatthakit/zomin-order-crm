@@ -112,7 +112,6 @@ const els = {
   orderForm: document.querySelector("#orderForm"),
   orderDialogTitle: document.querySelector("#orderDialogTitle"),
   orderSubmitButton: document.querySelector("#orderSubmitButton"),
-  orderCustomerSummary: document.querySelector("#orderCustomerSummary"),
   deleteOrderDialog: document.querySelector("#deleteOrderDialog"),
   deleteOrderForm: document.querySelector("#deleteOrderForm"),
   deleteCustomerDialog: document.querySelector("#deleteCustomerDialog"),
@@ -1478,6 +1477,11 @@ function renderCustomerDetail(customer) {
           ${customer.orders.slice().reverse().map(order => `
             <div class="timeline-item">
               <strong>${formatDate(order.date)} · ${order.jars} กระปุก · ${money(order.amount)} บาท</strong>
+              <span class="muted">ช่องทาง ${escapeHtml(displayOrderChannel(order))}</span>
+              <span class="muted">ชื่อเฟส/ไลน์ ${escapeHtml(order.socialName || "-")} · ของแถม ${escapeHtml(order.freeGift || "-")}</span>
+              <span class="muted">บัตร VIP ${escapeHtml(order.vipCardStatus || "-")}</span>
+              ${order.vipCardReminder ? `<span class="muted">${escapeHtml(order.vipCardReminder)}</span>` : ""}
+              ${order.vipDiscountFlag ? `<span class="muted">${escapeHtml(order.vipDiscountFlag)}</span>` : ""}
             </div>
           `).join("")}
         </div>
@@ -1495,44 +1499,6 @@ function renderCustomerDetail(customer) {
     </div>
   `;
   els.customerDialog.showModal();
-}
-
-function orderReadonlySummary(customer) {
-  if (!customer) return "";
-  return `
-    <div class="section-title">
-      <h3>สรุปลูกค้า</h3>
-      <p>ข้อมูลคำนวณและประวัติแบบอ่านอย่างเดียว</p>
-    </div>
-    <div class="mini-stats order-summary-stats">
-      <div class="mini-stat"><span>ออเดอร์ทั้งหมด</span><strong>${customer.purchaseCount} ครั้ง</strong></div>
-      <div class="mini-stat"><span>กระปุกรวม</span><strong>${customer.totalJars} กระปุก</strong></div>
-      <div class="mini-stat"><span>ยอดสะสม</span><strong>${money(customer.totalSpent)} บาท</strong></div>
-      <div class="mini-stat"><span>Customer Score</span><strong>${money(customer.customerScore)}</strong></div>
-      <div class="mini-stat"><span>ซื้อครั้งแรก</span><strong>${formatDate(customer.firstPurchaseDate)}</strong></div>
-      <div class="mini-stat"><span>ซื้อล่าสุด</span><strong>${formatDate(customer.lastPurchaseDate)}</strong></div>
-      <div class="mini-stat"><span>ควรติดตามอีก</span><strong>${formatDate(customer.followUpDate)}</strong></div>
-    </div>
-    <h3>ประวัติการซื้อ</h3>
-    <div class="timeline compact-timeline">
-      ${customer.orders.slice().reverse().map(order => `
-        <div class="timeline-item">
-          <strong>${formatDate(order.date)} · ${order.jars} กระปุก</strong>
-          <span class="muted">${money(order.amount)} บาท</span>
-        </div>
-      `).join("") || `<div class="empty-state">ยังไม่มีประวัติออเดอร์</div>`}
-    </div>
-    <h3>ประวัติการติดต่อ</h3>
-    <div class="timeline compact-timeline">
-      ${(customer.contactLogs || []).map(log => `
-        <div class="timeline-item">
-          <strong>${formatDate(log.date)} · ${escapeHtml(log.result || "-")}</strong>
-          <span class="muted">${escapeHtml(log.note || "-")}</span>
-          <span class="muted">ผู้ติดต่อ ${escapeHtml(log.staff || "-")}${log.nextFollowUpDate ? ` · นัด ${formatDate(log.nextFollowUpDate)}` : ""}</span>
-        </div>
-      `).join("") || `<div class="empty-state">ยังไม่มีประวัติการติดต่อ</div>`}
-    </div>
-  `;
 }
 
 function render() {
@@ -1639,24 +1605,14 @@ function openOrderDialog(order = null) {
       socialName: order.socialName,
       freeGift: order.freeGift,
       vipCardStatus: order.vipCardStatus,
-      note: order.note || order.vipDiscountFlag || "",
       tags: (order.tags || []).join(", ")
     };
     Object.entries(fields).forEach(([name, value]) => {
       if (els.orderForm.elements[name]) els.orderForm.elements[name].value = value ?? "";
     });
-    const customer = app.data?.customers?.find(item => item.id === order.customerId);
-    if (els.orderCustomerSummary) {
-      els.orderCustomerSummary.hidden = !customer;
-      els.orderCustomerSummary.innerHTML = orderReadonlySummary(customer);
-    }
   } else {
     els.orderForm.elements.date.value = els.workDate.value || todayISO();
     els.orderForm.elements.amount.value = app.data?.settings?.defaultJarPrice || 750;
-    if (els.orderCustomerSummary) {
-      els.orderCustomerSummary.hidden = true;
-      els.orderCustomerSummary.innerHTML = "";
-    }
   }
   els.orderDialog.showModal();
 }
