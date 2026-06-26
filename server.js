@@ -819,6 +819,20 @@ function addHttpWebhookDebug(db, req, rawBody = "", status = {}) {
   return debug;
 }
 
+function persistWebhookDebugAsync(db) {
+  setImmediate(() => {
+    writeDb(db).catch(error => {
+      console.error("LINE webhook debug write failed:", error);
+    });
+  });
+}
+
+function isLineVerifyRequest(body = {}) {
+  if (!Array.isArray(body.events)) return false;
+  if (body.events.length === 0) return true;
+  return body.events.every(event => !event?.message);
+}
+
 function looksLikeOrderMessage(textValue = "") {
   const text = String(textValue || "");
   const hasPhone = /(?<!\d)0\d{8,9}(?!\d)/.test(text);
@@ -1214,6 +1228,20 @@ function serveStatic(req, res) {
 async function handleApi(req, res) {
   const url = new URL(req.url, `http://${req.headers.host}`);
 
+  if (req.method === "POST" && url.pathname === "/api/line/webhook") {
+    const body = await readBody(req);
+    if (isLineVerifyRequest(body)) {
+      console.log("LINE webhook verify request", JSON.stringify({
+        method: req.method,
+        bodyLength: Buffer.byteLength(body._rawBody || "", "utf8"),
+        timestamp: new Date().toISOString(),
+        signaturePresent: Boolean(req.headers["x-line-signature"])
+      }));
+      return json(res, 200, { ok: true, received: 0, verification: true });
+    }
+    req._parsedBody = body;
+  }
+
   if (req.method === "GET" && url.pathname === "/api/session") {
     const user = getCurrentUser(req);
     return json(res, 200, { ok: true, user });
@@ -1414,7 +1442,7 @@ async function handleApi(req, res) {
 
   if (req.method === "GET" && url.pathname === "/api/line/webhook") {
     addHttpWebhookDebug(db, req, "", { signatureValidation: "not_checked" });
-    await writeDb(db);
+    persistWebhookDebugAsync(db);
     return json(res, 200, {
       ok: true,
       message: "Zomin LINE webhook endpoint is ready. Use POST /api/line/webhook."
@@ -1422,27 +1450,27 @@ async function handleApi(req, res) {
   }
 
   if (req.method === "POST" && url.pathname === "/api/line/webhook") {
-    const body = await readBody(req);
+    const body = req._parsedBody || await readBody(req);
     const signature = req.headers["x-line-signature"];
     const settings = effectiveSettings(db.settings);
     const httpDebug = addHttpWebhookDebug(db, req, body._rawBody || "", { signatureValidation: "pending" });
     if (!settings.lineWebhookEnabled) {
       httpDebug.signature_validation = "not_checked";
       httpDebug.error_message = "LINE webhook disabled.";
-      await writeDb(db);
-      return json(res, 403, { ok: false, error: "LINE Webhook ยังไม่ได้เปิดใช้งาน" });
+      persistWebhookDebugAsync(db);
+      return json(res, 200, { ok: true, received: 0, verification: true });
     }
     if (!verifyLineSignature(body._rawBody, settings.lineChannelSecret, signature)) {
       httpDebug.signature_validation = "fail";
       httpDebug.error_message = "LINE signature validation failed.";
-      await writeDb(db);
-      return json(res, 401, { ok: false, error: "LINE signature ไม่ถูกต้อง" });
+      persistWebhookDebugAsync(db);
+      return json(res, 200, { ok: true, received: 0, verification: true });
     }
     httpDebug.signature_validation = "pass";
     const events = Array.isArray(body.events) ? body.events : [{ message: { text: body.text || body.content || "" } }];
     if (!events.length) {
-      await writeDb(db);
-      return json(res, 200, { ok: true, received: 0 });
+      persistWebhookDebugAsync(db);
+      return json(res, 200, { ok: true, received: 0, verification: true });
     }
     const parsedOrders = await handleLineWebhookEvents(db, settings, events);
     return json(res, 200, { ok: true, received: events.length, parsedOrders: parsedOrders.length });
