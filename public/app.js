@@ -26,6 +26,7 @@ const routeToView = {
   "/login": "login"
 };
 const viewToRoute = Object.fromEntries(Object.entries(routeToView).map(([path, view]) => [view, path]));
+const MISSING_CHANNEL_LABEL = "อื่นๆ";
 
 const app = {
   view: routeFromLocation(),
@@ -985,7 +986,7 @@ function isPlaceholderChannel(value) {
 
 function displayOrderChannel(order = {}) {
   const values = [order.sourceChannel, order.source_channel, order.source];
-  return values.map(value => String(value || "").trim()).find(value => value && !isPlaceholderChannel(value)) || "Unknown";
+  return values.map(value => String(value || "").trim()).find(value => value && !isPlaceholderChannel(value)) || MISSING_CHANNEL_LABEL;
 }
 
 function renderReports() {
@@ -1506,7 +1507,7 @@ function openOrderDialog(order = null) {
       date: order.date,
       jars: order.jars,
       amount: order.amount,
-      sourceChannel: displayOrderChannel(order) === "Unknown" ? "" : displayOrderChannel(order),
+      sourceChannel: displayOrderChannel(order) === MISSING_CHANNEL_LABEL ? "" : displayOrderChannel(order),
       socialName: order.socialName,
       freeGift: order.freeGift,
       vipCardStatus: order.vipCardStatus,
