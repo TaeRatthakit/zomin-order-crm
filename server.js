@@ -814,6 +814,50 @@ async function parseOrderWithAI(textValue, settings = {}) {
   }
 }
 
+async function handleLineWebhookEvents(db, settings, events) {
+  const parsedOrders = [];
+  const replies = [];
+  for (const event of events) {
+    const { replyToken, source, text } = extractLineWebhookContext(event);
+    if (!isTargetGroup(source, settings)) continue;
+    const rawText = text || "";
+    db.lineMessages.push({
+      id: uid("line"),
+      receivedAt: new Date().toISOString(),
+      rawEvent: event,
+      text: rawText,
+      raw_text: rawText
+    });
+    if (!rawText) continue;
+    const parsed = await parseOrderWithAI(rawText, settings);
+    const normalized = normalizedOrderForStorage(parsed);
+    const missingFields = missingRequiredOrderFields(normalized);
+    if (missingFields.length) {
+      replies.push({ replyToken, messages: [{ type: "text", text: formatMissingFieldsMessage(missingFields) }] });
+      continue;
+    }
+    try {
+      parsedOrders.push(addOrder(db, normalized));
+      replies.push({ replyToken, messages: [{ type: "text", text: "✅ Order imported into OrderPilot CRM." }] });
+    } catch (error) {
+      if (error.code === "ORDER_DUPLICATE") {
+        replies.push({ replyToken, messages: [{ type: "text", text: "✅ Order imported into OrderPilot CRM." }] });
+        continue;
+      }
+      throw error;
+    }
+  }
+  await writeDb(db);
+  for (const reply of replies) {
+    try {
+      await replyLineMessages(settings, reply.replyToken, reply.messages);
+    } catch {
+      // Ignore reply failures so webhook delivery still succeeds.
+    }
+  }
+  return parsedOrders;
+}
+
 function verifyLineSignature(rawBody, channelSecret, signature) {
   if (!channelSecret) return true;
   if (!signature) return false;
@@ -1212,48 +1256,12 @@ async function handleApi(req, res) {
       return json(res, 401, { ok: false, error: "LINE signature ไม่ถูกต้อง" });
     }
     const events = Array.isArray(body.events) ? body.events : [{ message: { text: body.text || body.content || "" } }];
-    const parsedOrders = [];
-    const replies = [];
-    for (const event of events) {
-      const { replyToken, source, text } = extractLineWebhookContext(event);
-      if (!isTargetGroup(source, settings)) continue;
-      const rawText = text || "";
-      db.lineMessages.push({
-        id: uid("line"),
-        receivedAt: new Date().toISOString(),
-        rawEvent: event,
-        text: rawText,
-        raw_text: rawText
+    setImmediate(() => {
+      handleLineWebhookEvents(db, settings, events).catch(error => {
+        console.error("LINE webhook processing failed:", error);
       });
-      if (rawText) {
-        const parsed = await parseOrderWithAI(rawText, settings);
-        const normalized = normalizedOrderForStorage(parsed);
-        const missingFields = missingRequiredOrderFields(normalized);
-        if (missingFields.length) {
-          replies.push({ replyToken, messages: [{ type: "text", text: formatMissingFieldsMessage(missingFields) }] });
-          continue;
-        }
-        try {
-          parsedOrders.push(addOrder(db, normalized));
-          replies.push({ replyToken, messages: [{ type: "text", text: "✅ Order imported into OrderPilot CRM." }] });
-        } catch (error) {
-          if (error.code === "ORDER_DUPLICATE") {
-            replies.push({ replyToken, messages: [{ type: "text", text: "✅ Order imported into OrderPilot CRM." }] });
-            continue;
-          }
-          throw error;
-        }
-      }
-    }
-    await writeDb(db);
-    for (const reply of replies) {
-      try {
-        await replyLineMessages(settings, reply.replyToken, reply.messages);
-      } catch {
-        // Ignore reply failures so webhook delivery still succeeds.
-      }
-    }
-    return json(res, 200, { ok: true, parsedOrders: parsedOrders.length });
+    });
+    return json(res, 200, { ok: true, received: events.length });
   }
 
   if (req.method === "POST" && url.pathname === "/api/line/mock") {
