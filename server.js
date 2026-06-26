@@ -1227,8 +1227,9 @@ function serveStatic(req, res) {
 
 async function handleApi(req, res) {
   const url = new URL(req.url, `http://${req.headers.host}`);
+  const isLineWebhook = url.pathname === "/api/line/webhook";
 
-  if (req.method === "POST" && url.pathname === "/api/line/webhook") {
+  if (isLineWebhook && req.method === "POST") {
     const body = await readBody(req);
     if (isLineVerifyRequest(body)) {
       console.log("LINE webhook verify request", JSON.stringify({
@@ -1252,9 +1253,8 @@ async function handleApi(req, res) {
     return json(res, 200, { ok: true }, { "Set-Cookie": clearSessionCookie() });
   }
 
-  const db = await readDb();
-
   if (req.method === "POST" && url.pathname === "/api/login") {
+    const db = await readDb();
     const body = await readBody(req);
     const username = String(body.username || body.userId || "").trim();
     const password = String(body.password || body.pin || "");
@@ -1274,7 +1274,14 @@ async function handleApi(req, res) {
     });
   }
 
-  const isLineWebhook = url.pathname === "/api/line/webhook";
+  if (isLineWebhook && req.method === "GET") {
+    return json(res, 200, {
+      ok: true,
+      message: "Zomin LINE webhook endpoint is ready. Use POST /api/line/webhook."
+    });
+  }
+
+  const db = await readDb();
   const currentUser = isLineWebhook ? null : requireUser(req, res);
   if (!isLineWebhook && !currentUser) return;
 
@@ -1438,15 +1445,6 @@ async function handleApi(req, res) {
     const rows = parseLineImportContent(content, db.settings.defaultJarPrice)
       .map((parsed, index) => ({ id: index + 1, ...parsed }));
     return json(res, 200, { ok: true, rows });
-  }
-
-  if (req.method === "GET" && url.pathname === "/api/line/webhook") {
-    addHttpWebhookDebug(db, req, "", { signatureValidation: "not_checked" });
-    persistWebhookDebugAsync(db);
-    return json(res, 200, {
-      ok: true,
-      message: "Zomin LINE webhook endpoint is ready. Use POST /api/line/webhook."
-    });
   }
 
   if (req.method === "POST" && url.pathname === "/api/line/webhook") {
