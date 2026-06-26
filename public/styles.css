@@ -530,6 +530,10 @@ a.button {
   font-weight: 800;
 }
 
+.followup-setting-row > span {
+  display: block;
+}
+
 .followup-setting-input {
   display: flex;
   align-items: center;
@@ -548,6 +552,13 @@ a.button {
   color: var(--muted);
   font-size: 16px;
   font-weight: 700;
+}
+
+.followup-setting-note {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
 }
 
 .followup-preview-panel {
