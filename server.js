@@ -952,6 +952,13 @@ async function handleLineWebhookEvents(db, settings, events) {
     };
     const rawText = text || "";
     const storedEvent = { ...event, __debug: debug };
+    console.log("LINE webhook event payload", JSON.stringify({
+      eventType: event.type || "",
+      sourceType: source.type || "",
+      hasMessage: Boolean(event.message),
+      hasPostback: Boolean(event.postback),
+      hasFollow: Boolean(event.follow)
+    }));
     db.lineMessages.push({
       id: uid("line"),
       receivedAt: debug.received_at,
@@ -1452,6 +1459,13 @@ async function handleApi(req, res) {
     const signature = req.headers["x-line-signature"];
     const settings = effectiveSettings(db.settings);
     const httpDebug = addHttpWebhookDebug(db, req, body._rawBody || "", { signatureValidation: "pending" });
+    console.log("LINE webhook raw body", JSON.stringify({
+      receivedAt: httpDebug.received_at,
+      hasEvents: Array.isArray(body.events),
+      eventCount: Array.isArray(body.events) ? body.events.length : -1,
+      bodyLength: Buffer.byteLength(body._rawBody || "", "utf8"),
+      bodyPreview: String(body._rawBody || "").slice(0, 1200)
+    }));
     if (!settings.lineWebhookEnabled) {
       httpDebug.signature_validation = "not_checked";
       httpDebug.error_message = "LINE webhook disabled.";
@@ -1466,6 +1480,22 @@ async function handleApi(req, res) {
     }
     httpDebug.signature_validation = "pass";
     const events = Array.isArray(body.events) ? body.events : [{ message: { text: body.text || body.content || "" } }];
+    if (!Array.isArray(body.events)) {
+      console.log("LINE webhook no events array", JSON.stringify({
+        receivedAt: httpDebug.received_at,
+        eventType: body.type || "",
+        sourceType: body.source?.type || "",
+        hasBodyEvents: false
+      }));
+    } else if (!body.events.length) {
+      console.log("LINE webhook empty events array", JSON.stringify({
+        receivedAt: httpDebug.received_at,
+        eventType: body.type || "",
+        sourceType: body.source?.type || "",
+        hasBodyEvents: true,
+        eventCount: 0
+      }));
+    }
     if (!events.length) {
       persistWebhookDebugAsync(db);
       return json(res, 200, { ok: true, received: 0, verification: true });
