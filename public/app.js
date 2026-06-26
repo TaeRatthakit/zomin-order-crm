@@ -1286,6 +1286,9 @@ function renderSettingsLine() {
           <h2>ตั้งค่า LINE OA</h2>
           <p>เว้น Secret หรือ Access Token ว่างไว้เพื่อใช้ค่าเดิม</p>
         </div>
+        <label>LINE Group ID
+          <input name="lineGroupId" value="${escapeHtml(settings.lineGroupId || "")}" ${settings.lineGroupIdFromEnv ? "readonly" : ""}>
+        </label>
         <label>Channel ID
           <input name="lineChannelId" value="${escapeHtml(settings.lineChannelId || "")}" ${settings.lineChannelIdFromEnv ? "readonly" : ""}>
         </label>

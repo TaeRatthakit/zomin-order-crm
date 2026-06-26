@@ -145,6 +145,9 @@ function effectiveSettings(settings = {}) {
     lineChannelId: process.env.LINE_CHANNEL_ID || settings.lineChannelId || "",
     lineChannelSecret: process.env.LINE_CHANNEL_SECRET || settings.lineChannelSecret || "",
     lineChannelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN || settings.lineChannelAccessToken || "",
+    lineGroupId: process.env.LINE_GROUP_ID || settings.lineGroupId || "",
+    openaiApiKey: process.env.OPENAI_API_KEY || settings.openaiApiKey || "",
+    openaiModel: process.env.OPENAI_MODEL || settings.openaiModel || "gpt-4.1-mini",
     lineWebhookEnabled: booleanEnv(process.env.LINE_WEBHOOK_ENABLED, Boolean(settings.lineWebhookEnabled))
   };
 }
@@ -156,11 +159,15 @@ function publicSettings(settings = {}) {
     followUpDaysPerUnit: Number(effective.followUpDaysPerUnit || 15),
     lineChannelSecret: "",
     lineChannelAccessToken: "",
+    lineGroupId: "",
     lineChannelSecretConfigured: Boolean(effective.lineChannelSecret),
     lineChannelAccessTokenConfigured: Boolean(effective.lineChannelAccessToken),
+    openaiApiKeyConfigured: Boolean(effective.openaiApiKey),
     lineChannelIdFromEnv: Boolean(process.env.LINE_CHANNEL_ID),
     lineChannelSecretFromEnv: Boolean(process.env.LINE_CHANNEL_SECRET),
-    lineChannelAccessTokenFromEnv: Boolean(process.env.LINE_CHANNEL_ACCESS_TOKEN)
+    lineChannelAccessTokenFromEnv: Boolean(process.env.LINE_CHANNEL_ACCESS_TOKEN),
+    lineGroupIdFromEnv: Boolean(process.env.LINE_GROUP_ID),
+    openaiApiKeyFromEnv: Boolean(process.env.OPENAI_API_KEY)
   };
 }
 
@@ -172,6 +179,24 @@ function orderChannel(order = {}) {
   const candidates = [order.sourceChannel, order.source_channel, order.source];
   const channel = candidates.map(value => String(value || "").trim()).find(value => value && !isPlaceholderChannel(value));
   return channel || "";
+}
+
+function normalizeDuplicateOrderNumber(value) {
+  return normalizeImportText(value).toLowerCase();
+}
+
+function duplicateOrderKey(order = {}) {
+  const orderNumber = normalizeDuplicateOrderNumber(order.orderNumber || order.order_number || "");
+  if (orderNumber) return `order:${orderNumber}`;
+  return `fallback:${toDateOnly(order.date || order.order_date || "")}|${normalizePhone(order.phone || "")}|${Number(order.amount || 0)}`;
+}
+
+function fallbackDuplicateKey(order = {}) {
+  return JSON.stringify([
+    toDateOnly(order.date || order.order_date || ""),
+    normalizePhone(order.phone || ""),
+    Number(order.amount || 0)
+  ]);
 }
 
 function secretInputValue(input, currentValue) {
@@ -461,6 +486,13 @@ function findOrCreateCustomer(db, payload) {
 }
 
 function addOrder(db, payload) {
+  const duplicate = findDuplicateOrder(db, payload);
+  if (duplicate) {
+    const error = new Error("duplicate");
+    error.code = "ORDER_DUPLICATE";
+    error.order = duplicate;
+    throw error;
+  }
   const customer = payload.customerId
     ? db.customers.find(item => item.id === payload.customerId)
     : findOrCreateCustomer(db, payload);
@@ -504,6 +536,33 @@ function addOrder(db, payload) {
 
   db.orders.push(order);
   return order;
+}
+
+function findDuplicateOrder(db, payload = {}) {
+  const orderNumber = normalizeDuplicateOrderNumber(payload.orderNumber || payload.order_number || "");
+  if (orderNumber) {
+    const existing = (db.orders || []).find(order => normalizeDuplicateOrderNumber(order.orderNumber || order.order_number || "") === orderNumber);
+    if (existing) return existing;
+  }
+  const date = toDateOnly(payload.date || payload.orderDate || "");
+  const phone = normalizePhone(payload.phone || "");
+  const amount = Number(payload.amount || 0);
+  return (db.orders || []).find(order =>
+    toDateOnly(order.date) === date &&
+    normalizePhone(order.phone || "") === phone &&
+    Number(order.amount || 0) === amount
+  ) || null;
+}
+
+function missingRequiredOrderFields(order = {}) {
+  const required = [
+    ["Customer Name", order.name || order.customerName],
+    ["Shipping Address", order.address],
+    ["Phone Number", order.phone],
+    ["Quantity", order.jars ?? order.quantity],
+    ["Total Amount", order.amount]
+  ];
+  return required.filter(([, value]) => !normalizeImportText(value) && value !== 0).map(([label]) => label);
 }
 
 function parseCurrency(textValue) {
@@ -643,6 +702,116 @@ function parseLineOrder(rawText, defaultJarPrice = 750) {
     vipCardStatus: parseLabel(textValue, ["สถานะบัตร VIP", "vip_card_status", "บัตร VIP"]) || "ยังไม่ได้ส่งบัตร",
     rawText: textValue
   };
+}
+
+function extractLineWebhookContext(event = {}) {
+  return {
+    replyToken: event.replyToken || "",
+    source: event.source || {},
+    text: event.message?.text || "",
+    messageId: event.message?.id || ""
+  };
+}
+
+function isTargetGroup(eventSource = {}, settings = {}) {
+  if (eventSource.type !== "group") return false;
+  const configuredGroupId = normalizeImportText(settings.lineGroupId || "");
+  if (!configuredGroupId) return true;
+  return String(eventSource.groupId || "") === configuredGroupId;
+}
+
+function formatMissingFieldsMessage(fields) {
+  return fields.join("\n");
+}
+
+async function lineApiRequest(pathname, { method = "POST", body } = {}, accessToken) {
+  const res = await fetch(`https://api.line.me${pathname}`, {
+    method,
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json"
+    },
+    body: body ? JSON.stringify(body) : undefined
+  });
+  if (!res.ok) {
+    const detail = await res.text();
+    throw new Error(`LINE API request failed: ${res.status} ${detail}`);
+  }
+  return res.status === 204 ? null : res.json();
+}
+
+async function replyLineMessages(settings, replyToken, messages) {
+  if (!replyToken) return;
+  const accessToken = settings.lineChannelAccessToken;
+  if (!accessToken) return;
+  await lineApiRequest("/v2/bot/message/reply", {
+    body: { replyToken, messages }
+  }, accessToken);
+}
+
+function normalizedOrderForStorage(parsed = {}) {
+  return {
+    ...parsed,
+    name: parsed.name || parsed.customerName || "",
+    phone: normalizePhone(parsed.phone || ""),
+    amount: Number(parsed.amount || 0),
+    jars: Number(parsed.jars || parsed.quantity || 0) || 1,
+    date: toDateOnly(parsed.date || new Date()),
+    orderNumber: normalizeImportText(parsed.orderNumber || parsed.order_number || ""),
+    source: parsed.source || "LINE",
+    sourceChannel: parsed.sourceChannel || parsed.source_channel || "LINE"
+  };
+}
+
+async function parseOrderWithAI(textValue, settings = {}) {
+  const fallback = parseLineOrder(textValue, settings.defaultJarPrice);
+  const apiKey = settings.openaiApiKey;
+  if (!apiKey) return fallback;
+  try {
+    const response = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: settings.openaiModel || "gpt-4.1-mini",
+        input: [
+          {
+            role: "system",
+            content: "Extract a LINE order into JSON. Return only valid JSON with keys: orderDate, orderNumber, salesChannel, tag, customerSocial, customerName, shippingAddress, phoneNumber, quantity, totalAmount, freeGift, vipStatus. Use Thai field values when present. If a field is missing, use an empty string."
+          },
+          {
+            role: "user",
+            content: textValue
+          }
+        ]
+      })
+    });
+    if (!response.ok) return fallback;
+    const payload = await response.json();
+    const raw = payload.output_text || payload.output?.flatMap(item => item.content || []).map(chunk => chunk.text || "").join("") || "";
+    if (!raw.trim()) return fallback;
+    const parsed = JSON.parse(raw);
+    return {
+      date: normalizeImportDate(parsed.orderDate) || fallback?.date || toDateOnly(),
+      orderNumber: normalizeImportText(parsed.orderNumber || ""),
+      sourceChannel: normalizeImportText(parsed.salesChannel || fallback?.sourceChannel || "LINE"),
+      tags: splitTags(parsed.tag || ""),
+      socialName: normalizeImportText(parsed.customerSocial || fallback?.socialName || ""),
+      name: normalizeImportText(parsed.customerName || fallback?.name || ""),
+      address: normalizeImportText(parsed.shippingAddress || fallback?.address || ""),
+      phone: normalizePhone(parsed.phoneNumber || fallback?.phone || ""),
+      jars: Number(parsed.quantity || fallback?.jars || 0) || 1,
+      amount: Number(parsed.totalAmount || fallback?.amount || 0),
+      freeGift: normalizeImportText(parsed.freeGift || fallback?.freeGift || ""),
+      vipCardStatus: normalizeImportText(parsed.vipStatus || fallback?.vipCardStatus || "ยังไม่ได้ส่งบัตร") || "ยังไม่ได้ส่งบัตร",
+      source: "LINE",
+      rawText: textValue
+    };
+  } catch {
+    return fallback;
+  }
 }
 
 function verifyLineSignature(rawBody, channelSecret, signature) {
@@ -925,7 +1094,15 @@ async function handleApi(req, res) {
 
   if (req.method === "POST" && url.pathname === "/api/orders") {
     const body = await readBody(req);
-    const order = addOrder(db, body);
+    let order;
+    try {
+      order = addOrder(db, body);
+    } catch (error) {
+      if (error.code === "ORDER_DUPLICATE") {
+        return json(res, 409, { ok: false, error: "ออเดอร์นี้มีอยู่แล้ว" });
+      }
+      throw error;
+    }
     await writeDb(db);
     return json(res, 200, { ok: true, order });
   }
@@ -975,13 +1152,27 @@ async function handleApi(req, res) {
     if (type === "line") {
       const parsedRows = parseLineImportContent(content, db.settings.defaultJarPrice);
       for (const parsed of parsedRows) {
-        if (parsed?.phone) imported.push(addOrder(db, parsed));
+        if (parsed?.phone) {
+          try {
+            imported.push(addOrder(db, parsed));
+          } catch (error) {
+            if (error.code !== "ORDER_DUPLICATE") throw error;
+            duplicates += 1;
+          }
+        }
       }
     } else {
       const prepared = prepareCsvImport(content, db);
       duplicates = prepared.duplicates;
       for (const row of prepared.rows) {
-        if (!row.duplicate) imported.push(addOrder(db, row));
+        if (!row.duplicate) {
+          try {
+            imported.push(addOrder(db, row));
+          } catch (error) {
+            if (error.code !== "ORDER_DUPLICATE") throw error;
+            duplicates += 1;
+          }
+        }
       }
     }
 
@@ -1022,8 +1213,11 @@ async function handleApi(req, res) {
     }
     const events = Array.isArray(body.events) ? body.events : [{ message: { text: body.text || body.content || "" } }];
     const parsedOrders = [];
+    const replies = [];
     for (const event of events) {
-      const rawText = event.message?.text || "";
+      const { replyToken, source, text } = extractLineWebhookContext(event);
+      if (!isTargetGroup(source, settings)) continue;
+      const rawText = text || "";
       db.lineMessages.push({
         id: uid("line"),
         receivedAt: new Date().toISOString(),
@@ -1032,11 +1226,33 @@ async function handleApi(req, res) {
         raw_text: rawText
       });
       if (rawText) {
-        const parsed = parseLineOrder(rawText, settings.defaultJarPrice);
-        if (parsed?.phone) parsedOrders.push(addOrder(db, parsed));
+        const parsed = await parseOrderWithAI(rawText, settings);
+        const normalized = normalizedOrderForStorage(parsed);
+        const missingFields = missingRequiredOrderFields(normalized);
+        if (missingFields.length) {
+          replies.push({ replyToken, messages: [{ type: "text", text: formatMissingFieldsMessage(missingFields) }] });
+          continue;
+        }
+        try {
+          parsedOrders.push(addOrder(db, normalized));
+          replies.push({ replyToken, messages: [{ type: "text", text: "✅ Order imported into OrderPilot CRM." }] });
+        } catch (error) {
+          if (error.code === "ORDER_DUPLICATE") {
+            replies.push({ replyToken, messages: [{ type: "text", text: "✅ Order imported into OrderPilot CRM." }] });
+            continue;
+          }
+          throw error;
+        }
       }
     }
     await writeDb(db);
+    for (const reply of replies) {
+      try {
+        await replyLineMessages(settings, reply.replyToken, reply.messages);
+      } catch {
+        // Ignore reply failures so webhook delivery still succeeds.
+      }
+    }
     return json(res, 200, { ok: true, parsedOrders: parsedOrders.length });
   }
 
@@ -1083,6 +1299,12 @@ async function handleApi(req, res) {
       lineChannelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN
         ? db.settings.lineChannelAccessToken || ""
         : secretInputValue(body.lineChannelAccessToken, db.settings.lineChannelAccessToken),
+      lineGroupId: process.env.LINE_GROUP_ID
+        ? db.settings.lineGroupId || ""
+        : String(body.lineGroupId ?? db.settings.lineGroupId ?? ""),
+      openaiModel: process.env.OPENAI_MODEL
+        ? db.settings.openaiModel || "gpt-4.1-mini"
+        : String(body.openaiModel ?? db.settings.openaiModel ?? "gpt-4.1-mini"),
       lineWebhookEnabled: body.lineWebhookEnabled === undefined
         ? Boolean(db.settings.lineWebhookEnabled)
         : Boolean(body.lineWebhookEnabled),
