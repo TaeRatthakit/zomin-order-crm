@@ -2064,15 +2064,15 @@ body {
 .order-list,
 .preview-list {
   display: grid;
-  gap: 14px;
+  gap: 10px;
 }
 
 .order-card {
   display: grid;
-  gap: 12px;
+  gap: 9px;
   border: 1px solid var(--line);
   background: #ffffff;
-  padding: 16px;
+  padding: 12px;
 }
 
 .order-top {
@@ -2089,7 +2089,7 @@ body {
 
 .order-top span {
   color: var(--muted);
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .order-grid {
@@ -2174,12 +2174,15 @@ body {
 
 .order-summary {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
 }
 
 .order-summary div {
   min-width: 0;
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 7px 8px;
 }
 
 .order-summary span,
@@ -2189,8 +2192,14 @@ body {
 
 .order-summary span {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 800;
+}
+
+.order-summary strong {
+  margin-top: 2px;
+  overflow-wrap: anywhere;
+  font-size: 13px;
 }
 
 .order-details summary {
@@ -2205,20 +2214,65 @@ body {
 }
 
 .order-actions {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  flex-wrap: wrap;
 }
 
 .order-actions .button {
-  width: 100%;
   min-width: 0;
-  padding-inline: 8px;
+  min-height: 32px;
+  padding: 6px 9px;
+  font-size: 12px;
 }
 
-.order-actions .button.danger {
-  background: var(--red);
-  border-color: var(--red);
-  color: #ffffff;
+.order-actions .button.ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--teal-dark);
+}
+
+.order-actions .button.soft-action {
+  background: #edf7f2;
+  border-color: #c6dfd8;
+  color: var(--teal-dark);
+}
+
+.order-actions .button.trash-action {
+  background: #fff5f5;
+  border-color: #fecaca;
+  color: var(--red);
+}
+
+.trash-action .nav-icon {
+  width: 15px !important;
+  height: 15px !important;
+}
+
+.orders-header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.orders-show-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.orders-show-all input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--teal);
 }
 
 @media (min-width: 781px) {
@@ -2353,14 +2407,14 @@ body {
   }
 
   .order-actions .button {
-    min-height: 36px;
-    padding: 7px 11px;
+    min-height: 32px;
+    padding: 6px 9px;
   }
 
-  .order-actions .button.danger {
-    background: var(--red);
-    border-color: var(--red);
-    color: #fff;
+  .order-actions .button.trash-action {
+    background: #fff5f5;
+    border-color: #fecaca;
+    color: var(--red);
   }
 }
 
