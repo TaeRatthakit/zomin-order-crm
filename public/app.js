@@ -1208,20 +1208,21 @@ function followUpSettingsPanel(daysPerUnit) {
   const safeDays = Math.max(1, Number(daysPerUnit || 15));
   return `
     <div class="section-title">
-      <h2>ตั้งค่า Follow-up</h2>
-      <p>ใช้กฎเดียวทั้งระบบตามจำนวนกระปุกที่ลูกค้าได้รับทั้งหมด รวมของแถม</p>
+      <h2>ตั้งค่าการติดตามลูกค้า</h2>
     </div>
-    <label class="followup-setting-row">1 กระปุก ใช้ได้ประมาณ
+    <label class="followup-setting-row" for="followupDaysPerUnit">
+      <span>จำนวนวันต่อ 1 กระปุก</span>
       <div class="followup-setting-input">
         <input id="followupDaysPerUnit" name="daysPerUnit" type="number" min="1" required value="${safeDays}">
-        <span>วัน</span>
+        <span>วัน / กระปุก</span>
       </div>
+      <div class="followup-setting-note">ระบบจะคำนวณวันติดตามอัตโนมัติจากจำนวนกระปุกที่ลูกค้าได้รับทั้งหมด (รวมของแถม)</div>
     </label>
     <div class="panel tight followup-preview-panel">
       <strong>ตารางอ้างอิง</strong>
       <div class="table-wrap">
         <table class="rules-table">
-          <thead><tr><th>จำนวนที่ได้รับ</th><th>กำหนด Follow-up</th></tr></thead>
+          <thead><tr><th>ลูกค้าได้รับทั้งหมด</th><th>ระบบติดตามอีก</th></tr></thead>
           <tbody id="followupPreviewBody">
             ${followUpPreviewRows(safeDays).map(row => `
               <tr>
