@@ -1388,7 +1388,8 @@ async function handleApi(req, res) {
       sourceChannel: body.sourceChannel ?? order.sourceChannel,
       socialName: body.socialName ?? order.socialName,
       freeGift: body.freeGift ?? order.freeGift,
-      vipCardStatus: body.vipCardStatus ?? order.vipCardStatus
+      vipCardStatus: body.vipCardStatus ?? order.vipCardStatus,
+      note: body.note ?? order.note
     });
     await writeDb(db);
     return json(res, 200, { ok: true, order });
