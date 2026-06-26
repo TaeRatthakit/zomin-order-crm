@@ -21,6 +21,7 @@ const routeToView = {
   "/settings/follow-up": "settingsFollowup",
   "/settings/vip": "settingsVip",
   "/settings/line-oa": "settingsLine",
+  "/admin/line-debug": "lineDebug",
   "/team": "team",
   "/risk": "risk",
   "/login": "login"
@@ -39,6 +40,7 @@ const app = {
   csvPreviewSummary: null,
   currentUser: null,
   data: null,
+  lineDebugRows: [],
   reportMonth: "",
   reportDate: "",
   filters: {
@@ -52,7 +54,7 @@ const app = {
   deletingCustomerId: ""
 };
 
-const adminViews = new Set(["settings", "settingsFollowup", "settingsVip", "settingsLine", "team"]);
+const adminViews = new Set(["settings", "settingsFollowup", "settingsVip", "settingsLine", "lineDebug", "team"]);
 
 function isAdmin() {
   return app.currentUser?.role === "Admin";
@@ -237,7 +239,8 @@ function titleFor(view) {
     settings: "ตั้งค่า",
     settingsFollowup: "ตั้งค่า Follow-up",
     settingsVip: "ตั้งค่า VIP",
-    settingsLine: "ตั้งค่า LINE OA"
+    settingsLine: "ตั้งค่า LINE OA",
+    lineDebug: "LINE Debug"
   };
   return titles[view] || "หน้าหลัก";
 }
@@ -1311,6 +1314,73 @@ function renderSettingsLine() {
   `;
 }
 
+async function loadLineDebugRows() {
+  const payload = await api("/api/line-debug?limit=50");
+  app.lineDebugRows = payload.rows || [];
+  renderLineDebugTable();
+}
+
+function renderLineDebugTable() {
+  const target = document.querySelector("#lineDebugTable");
+  if (!target) return;
+  const rows = app.lineDebugRows || [];
+  target.innerHTML = rows.length ? `
+    <div class="table-wrap">
+      <table class="rules-table">
+        <thead>
+          <tr>
+            <th>Received</th>
+            <th>Event</th>
+            <th>Source</th>
+            <th>Group ID</th>
+            <th>User ID</th>
+            <th>Text</th>
+            <th>Parser</th>
+            <th>Insert</th>
+            <th>Error</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map(row => `
+            <tr>
+              <td>${escapeHtml(row.received_at || "-")}</td>
+              <td>${escapeHtml(row.event_type || "-")}</td>
+              <td>${escapeHtml(row.source_type || "-")}</td>
+              <td>${escapeHtml(row.groupId || "-")}</td>
+              <td>${escapeHtml(row.userId || "-")}</td>
+              <td>${escapeHtml(row.text || "-")}</td>
+              <td>${escapeHtml(row.parser_status || "-")}</td>
+              <td>${escapeHtml(row.supabase_insert_status || "-")}</td>
+              <td>${escapeHtml(row.error_message || "-")}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>
+  ` : `<div class="empty-state">ยังไม่มี LINE webhook event</div>`;
+}
+
+function renderLineDebug() {
+  els.content.innerHTML = `
+    <section class="section">
+      <div class="panel stack">
+        <div class="section-title">
+          <h2>LINE Debug</h2>
+          <p>ตรวจ webhook event ล่าสุดจาก LINE Group</p>
+        </div>
+        <div class="inline">
+          <button class="button secondary" type="button" data-refresh-line-debug>Refresh</button>
+          <button class="button ghost" type="button" data-copy="${escapeHtml(`${location.origin}/api/line/webhook`)}">Copy Webhook URL</button>
+        </div>
+        <div id="lineDebugTable"><div class="empty-state">กำลังโหลด...</div></div>
+      </div>
+    </section>
+  `;
+  loadLineDebugRows().catch(error => {
+    showToast(error.message || "โหลด LINE Debug ไม่สำเร็จ");
+  });
+}
+
 function renderCustomerDetail(customer) {
   els.dialogCustomerName.textContent = customer.name;
   els.customerDetail.innerHTML = `
@@ -1424,7 +1494,8 @@ function render() {
     settings: renderSettings,
     settingsFollowup: renderSettingsFollowup,
     settingsVip: renderSettingsVip,
-    settingsLine: renderSettingsLine
+    settingsLine: renderSettingsLine,
+    lineDebug: renderLineDebug
   }[app.view] || renderDashboard;
   renderer();
 }
@@ -1639,6 +1710,11 @@ document.addEventListener("click", async event => {
     });
     showToast(`Webhook mock สำเร็จ ${payload.parsedOrders || 0} ออเดอร์`);
     await loadState();
+  }
+
+  if (event.target.closest("[data-refresh-line-debug]")) {
+    await loadLineDebugRows();
+    showToast("โหลด LINE Debug แล้ว");
   }
 
   const importButton = event.target.closest("[data-import]");

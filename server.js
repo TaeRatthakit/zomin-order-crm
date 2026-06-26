@@ -736,6 +736,24 @@ function lineEventLogPayload(event = {}, text = "") {
   };
 }
 
+function lineDebugFromMessage(message = {}) {
+  const event = message.rawEvent || {};
+  const source = event.source || {};
+  const debug = event.__debug || {};
+  return {
+    id: message.id || "",
+    received_at: message.receivedAt || debug.received_at || "",
+    event_type: event.type || debug.event_type || "",
+    source_type: source.type || debug.source_type || "",
+    groupId: source.groupId || debug.groupId || "",
+    userId: source.userId || debug.userId || "",
+    text: message.text || message.raw_text || debug.text || "",
+    parser_status: debug.parser_status || "not_run",
+    supabase_insert_status: debug.supabase_insert_status || "not_run",
+    error_message: debug.error_message || ""
+  };
+}
+
 function looksLikeOrderMessage(textValue = "") {
   const text = String(textValue || "");
   const hasPhone = /(?<!\d)0\d{8,9}(?!\d)/.test(text);
@@ -842,7 +860,31 @@ async function handleLineWebhookEvents(db, settings, events) {
     const { replyToken, source, text } = extractLineWebhookContext(event);
     const eventLog = lineEventLogPayload(event, text);
     console.log("LINE webhook event received", JSON.stringify(eventLog));
+    const debug = {
+      received_at: new Date().toISOString(),
+      event_type: event.type || "",
+      source_type: source.type || "",
+      groupId: source.groupId || "",
+      userId: source.userId || "",
+      text: String(text || "").slice(0, 1000),
+      parser_status: "not_run",
+      supabase_insert_status: "not_run",
+      error_message: ""
+    };
+    const rawText = text || "";
+    const storedEvent = { ...event, __debug: debug };
+    db.lineMessages.push({
+      id: uid("line"),
+      receivedAt: debug.received_at,
+      rawEvent: storedEvent,
+      text: rawText,
+      raw_text: rawText
+    });
     if (!isTargetGroup(source, settings)) {
+      debug.parser_status = "skipped_group_filter";
+      debug.error_message = source.type !== "group"
+        ? "Event source is not a group."
+        : `LINE_GROUP_ID mismatch. Received groupId: ${source.groupId || "(missing)"}`;
       console.log("LINE webhook group skipped", JSON.stringify({
         groupId: source.groupId || "",
         configuredGroupId: settings.lineGroupId || "",
@@ -850,16 +892,9 @@ async function handleLineWebhookEvents(db, settings, events) {
       }));
       continue;
     }
-    const rawText = text || "";
-    db.lineMessages.push({
-      id: uid("line"),
-      receivedAt: new Date().toISOString(),
-      rawEvent: event,
-      text: rawText,
-      raw_text: rawText
-    });
     if (!rawText) continue;
     if (!looksLikeOrderMessage(rawText)) {
+      debug.parser_status = "skipped_not_order_format";
       console.log("LINE webhook message skipped", JSON.stringify({ reason: "not_order_format", groupId: source.groupId || "" }));
       continue;
     }
@@ -868,12 +903,16 @@ async function handleLineWebhookEvents(db, settings, events) {
     const normalized = normalizedOrderForStorage(parsed);
     const missingFields = missingRequiredOrderFields(normalized);
     if (missingFields.length) {
+      debug.parser_status = "missing_required_fields";
+      debug.error_message = `Missing fields: ${missingFields.join(", ")}`;
       console.log("LINE webhook parser missing fields", JSON.stringify({ groupId: source.groupId || "", missingFields }));
       replies.push({ replyToken, messages: [{ type: "text", text: formatMissingFieldsMessage(missingFields) }] });
       continue;
     }
     try {
       parsedOrders.push(addOrder(db, normalized));
+      debug.parser_status = "parsed";
+      debug.supabase_insert_status = "pending_write";
       console.log("LINE webhook order parsed", JSON.stringify({
         groupId: source.groupId || "",
         orderNumber: normalized.orderNumber || "",
@@ -884,6 +923,8 @@ async function handleLineWebhookEvents(db, settings, events) {
       replies.push({ replyToken, messages: [{ type: "text", text: "✅ Order imported into OrderPilot CRM." }] });
     } catch (error) {
       if (error.code === "ORDER_DUPLICATE") {
+        debug.parser_status = "duplicate";
+        debug.supabase_insert_status = "skipped_duplicate";
         console.log("LINE webhook duplicate order skipped", JSON.stringify({
           groupId: source.groupId || "",
           orderNumber: normalized.orderNumber || "",
@@ -894,7 +935,14 @@ async function handleLineWebhookEvents(db, settings, events) {
         replies.push({ replyToken, messages: [{ type: "text", text: "✅ Order imported into OrderPilot CRM." }] });
         continue;
       }
+      debug.parser_status = "error";
+      debug.error_message = error.message || String(error);
       throw error;
+    }
+  }
+  for (const message of db.lineMessages || []) {
+    if (message.rawEvent?.__debug?.supabase_insert_status === "pending_write") {
+      message.rawEvent.__debug.supabase_insert_status = "inserted";
     }
   }
   await writeDb(db);
@@ -1147,6 +1195,16 @@ async function handleApi(req, res) {
       currentUser,
       summary: buildSummary(enriched, date)
     });
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/line-debug") {
+    if (!requireAdmin(req, res)) return;
+    const limit = Math.max(1, Math.min(100, Number(url.searchParams.get("limit") || 50)));
+    const rows = (db.lineMessages || [])
+      .map(lineDebugFromMessage)
+      .sort((a, b) => String(b.received_at || "").localeCompare(String(a.received_at || "")))
+      .slice(0, limit);
+    return json(res, 200, { ok: true, rows });
   }
 
   if (req.method === "POST" && url.pathname === "/api/customers") {
