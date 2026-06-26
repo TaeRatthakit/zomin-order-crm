@@ -72,27 +72,23 @@
           </div>
           <button class="icon-button" type="button" data-close-order aria-label="ปิด">×</button>
         </div>
-        <div class="order-detail-layout">
-          <div class="form-grid order-edit-form">
-            <label>ชื่อลูกค้า<input name="name" required placeholder="เช่น คุณสมใจ"></label>
-            <label>เบอร์โทร<input name="phone" required placeholder="0812345678"></label>
-            <label class="span-2">ที่อยู่ล่าสุด<input name="address" placeholder="ที่อยู่จัดส่ง"></label>
-            <label>วันที่ซื้อ<input name="date" type="date" required></label>
-            <label>จำนวนกระปุก<input name="jars" type="number" min="1" value="1" required></label>
-            <label>ยอดซื้อ<input name="amount" type="number" min="0" step="1" required></label>
-            <label>ช่องทาง<input name="sourceChannel" placeholder="เช่น เพจงาดำ น้ำมันสกัดเย็น โซมิน, ไลน์บริษัท, โทรสั่ง"></label>
-            <label>ชื่อเฟส/ไลน์<input name="socialName" placeholder="เช่น F: สมใจ / LINE: somjai"></label>
-            <label>ของแถม<input name="freeGift" placeholder="เช่น แถม 1 กระปุก, ค่าส่งฟรี"></label>
-            <label>บัตร VIP
-              <select name="vipCardStatus">
-                <option>ยังไม่ได้ส่งบัตร</option>
-                <option>ส่งบัตรแล้ว</option>
-              </select>
-            </label>
-            <label class="span-2">ข้อความ/เงื่อนไข VIP discount<textarea name="note" rows="3" placeholder="เช่น ลูกค้ามีบัตร VIP และสั่งผ่านไลน์บริษัท"></textarea></label>
-            <label class="span-2">Tag<input name="tags" placeholder="คั่นด้วย comma เช่น ปวดเข่า, ซื้อให้แม่"></label>
-          </div>
-          <aside id="orderCustomerSummary" class="order-readonly-summary" hidden></aside>
+        <div class="form-grid">
+          <label>ชื่อลูกค้า<input name="name" required placeholder="เช่น คุณสมใจ"></label>
+          <label>เบอร์โทร<input name="phone" required placeholder="0812345678"></label>
+          <label class="span-2">ที่อยู่ล่าสุด<input name="address" placeholder="ที่อยู่จัดส่ง"></label>
+          <label>วันที่ซื้อ<input name="date" type="date" required></label>
+          <label>จำนวนกระปุก<input name="jars" type="number" min="1" value="1" required></label>
+          <label>ยอดซื้อ<input name="amount" type="number" min="0" step="1" required></label>
+          <label>ช่องทางที่ลูกค้าสั่งมา<input name="sourceChannel" placeholder="เช่น เพจงาดำ น้ำมันสกัดเย็น โซมิน, ไลน์บริษัท, โทรสั่ง"></label>
+          <label>ชื่อเฟส/ชื่อไลน์ลูกค้า<input name="socialName" placeholder="เช่น F: สมใจ / LINE: somjai"></label>
+          <label>ของแถมที่ลูกค้าได้<input name="freeGift" placeholder="เช่น แถม 1 กระปุก, ค่าส่งฟรี"></label>
+          <label>สถานะบัตร VIP
+            <select name="vipCardStatus">
+              <option>ยังไม่ได้ส่งบัตร</option>
+              <option>ส่งบัตรแล้ว</option>
+            </select>
+          </label>
+          <label>Tag<input name="tags" placeholder="คั่นด้วย comma เช่น ปวดเข่า, ซื้อให้แม่"></label>
         </div>
         <div class="dialog-actions">
           <button class="button ghost" value="cancel" type="button" data-close-order>ยกเลิก</button>
