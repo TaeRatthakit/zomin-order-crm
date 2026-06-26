@@ -20,6 +20,7 @@ const db = {
       normal: "สวัสดีค่ะ {{name}} จาก Zomin นะคะ รอบก่อนสั่ง {{jars}} กระปุก ตอนนี้ถึงรอบดูแลต่อเนื่องแล้ว ต้องการให้จัดส่งเพิ่มไหมคะ",
       vip: "สวัสดีค่ะ {{name}} ลูกค้า VIP ของ Zomin รอบดูแลต่อเนื่องมาถึงแล้ว ทีมงานเตรียมโปรพิเศษไว้ให้ค่ะ"
     },
+    followUpDaysPerUnit: 15,
     lineChannelId: "",
     lineChannelSecret: "",
     lineChannelAccessToken: "",
@@ -30,9 +31,10 @@ const db = {
     { jars: 1, days: 15 },
     { jars: 2, days: 30 },
     { jars: 3, days: 45 },
+    { jars: 4, days: 60 },
     { jars: 6, days: 90 },
-    { jars: 13, days: 180 },
-    { jars: 30, days: 365 }
+    { jars: 10, days: 150 },
+    { jars: 20, days: 300 }
   ],
   tags: [
     "ปวดเข่า",

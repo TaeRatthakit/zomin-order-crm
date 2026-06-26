@@ -153,6 +153,7 @@ function publicSettings(settings = {}) {
   const effective = effectiveSettings(settings);
   return {
     ...effective,
+    followUpDaysPerUnit: Number(effective.followUpDaysPerUnit || 15),
     lineChannelSecret: "",
     lineChannelAccessToken: "",
     lineChannelSecretConfigured: Boolean(effective.lineChannelSecret),
@@ -245,12 +246,46 @@ function vipLevel(totalSpent, settings = {}) {
   return "NORMAL";
 }
 
-function followUpDaysForJars(jars, rules) {
-  const count = Number(jars || 0);
-  const sorted = [...rules].sort((a, b) => Number(a.jars) - Number(b.jars));
-  const exact = sorted.find(rule => Number(rule.jars) === count);
-  if (exact) return Number(exact.days);
-  return Math.max(15, count * 15 || 15);
+function followUpDaysPerUnit(settings = {}, rules = []) {
+  const configured = Number(settings.followUpDaysPerUnit);
+  if (configured > 0) return configured;
+  const firstRule = [...rules]
+    .map(rule => ({ jars: Number(rule.jars), days: Number(rule.days) }))
+    .filter(rule => rule.jars > 0 && rule.days > 0)
+    .sort((a, b) => a.jars - b.jars)[0];
+  if (firstRule) return Math.max(1, Math.round(firstRule.days / firstRule.jars));
+  return 15;
+}
+
+function buildFollowUpRules(daysPerUnit) {
+  return [1, 2, 3, 4, 6, 10, 20].map(units => ({
+    jars: units,
+    days: units * daysPerUnit
+  }));
+}
+
+function quantityFromText(value = "") {
+  const textValue = String(value || "");
+  const totalMatch = textValue.match(/(?:รวม|=)\s*(\d+)\s*กระปุก/i);
+  if (totalMatch) return Number(totalMatch[1]);
+  const plusFree = textValue.match(/(\d+)\s*(?:กระปุก|ปุก|ขวด)?\s*แถม\s*(\d+)\s*(?:กระปุก|ปุก|ขวด)?/i);
+  if (plusFree) return Number(plusFree[1]) + Number(plusFree[2]);
+  const unitMatch = textValue.match(/(\d+)\s*(?:กระปุก|ปุก|jar|jars|ขวด)/i);
+  if (unitMatch) return Number(unitMatch[1]);
+  return 0;
+}
+
+function totalUnitsReceived(order = {}) {
+  const baseUnits = Number(order.jars || 0);
+  const fromRawText = quantityFromText(order.rawText || order.raw_text || "");
+  if (fromRawText > 0) return Math.max(baseUnits, fromRawText);
+  const freeUnits = quantityFromText(order.freeGift || order.free_gift || "");
+  return baseUnits + freeUnits;
+}
+
+function followUpDaysForUnits(units, settings, rules) {
+  const daysPerUnit = followUpDaysPerUnit(settings, rules);
+  return Math.max(daysPerUnit, Number(units || 0) * daysPerUnit || daysPerUnit);
 }
 
 function customerScore(totalSpent, purchaseCount, firstPurchaseDate, lastPurchaseDate) {
@@ -272,8 +307,8 @@ function enrichDb(db, selectedDate = toDateOnly()) {
     const purchaseCount = orders.length;
     const firstPurchaseDate = firstOrder?.date || "";
     const lastPurchaseDate = lastOrder?.date || "";
-    const lastJars = Number(lastOrder?.jars || 0);
-    const daysToNext = followUpDaysForJars(lastJars, db.followUpRules);
+    const lastJars = totalUnitsReceived(lastOrder);
+    const daysToNext = followUpDaysForUnits(lastJars, db.settings, db.followUpRules);
     const followUpDate = lastPurchaseDate ? addDays(lastPurchaseDate, daysToNext) : "";
     const overdueDays = followUpDate ? diffDays(followUpDate, selectedDate) : 0;
     const level = vipLevel(totalSpent, db.settings);
@@ -1062,12 +1097,19 @@ async function handleApi(req, res) {
   if (req.method === "PUT" && url.pathname === "/api/followup-rules") {
     if (!requireAdmin(req, res)) return;
     const body = await readBody(req);
-    db.followUpRules = (body.rules || [])
-      .map(rule => ({ jars: Number(rule.jars), days: Number(rule.days) }))
-      .filter(rule => rule.jars > 0 && rule.days > 0)
-      .sort((a, b) => a.jars - b.jars);
+    const daysPerUnit = Math.max(1, Number(body.daysPerUnit || db.settings.followUpDaysPerUnit || 15));
+    db.settings = {
+      ...db.settings,
+      followUpDaysPerUnit: daysPerUnit
+    };
+    db.followUpRules = buildFollowUpRules(daysPerUnit);
     await writeDb(db);
-    return json(res, 200, { ok: true, rules: db.followUpRules });
+    return json(res, 200, {
+      ok: true,
+      daysPerUnit,
+      rules: db.followUpRules,
+      settings: publicSettings(db.settings)
+    });
   }
 
   if (req.method === "POST" && url.pathname === "/api/team") {

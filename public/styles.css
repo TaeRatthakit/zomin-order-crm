@@ -522,6 +522,39 @@ a.button {
   flex-wrap: wrap;
 }
 
+.followup-setting-row {
+  display: grid;
+  gap: 10px;
+  color: var(--ink);
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.followup-setting-input {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.followup-setting-input input {
+  max-width: 120px;
+  min-height: 44px;
+  text-align: center;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.followup-setting-input span {
+  color: var(--muted);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.followup-preview-panel {
+  display: grid;
+  gap: 10px;
+}
+
 .filters {
   display: grid;
   grid-template-columns: repeat(5, minmax(140px, 1fr));

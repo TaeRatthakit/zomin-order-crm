@@ -718,7 +718,7 @@ function renderMore() {
     ["risk", "ลูกค้าเสี่ยงหาย", "AT RISK และ LOST", "แจ้งเตือน"]
   ];
   const adminCards = [
-    ["settingsFollowup", "ตั้งค่า Follow-up", "กฎจำนวนกระปุกและวันติดตาม", "Follow-up"],
+    ["settingsFollowup", "ตั้งค่า Follow-up", "1 กระปุก ใช้ได้กี่วัน", "Follow-up"],
     ["settingsVip", "ตั้งค่า VIP", "VIP / VVIP / SUPER VIP", "VIP"],
     ["settingsLine", "ตั้งค่า LINE OA", "Channel Secret, Token, Webhook", "LINE"],
     ["team", "จัดการผู้ใช้", "Admin และ Staff", "ทีม"]
@@ -1190,58 +1190,59 @@ function renderSettings() {
           <button class="button primary" type="submit">บันทึก Settings</button>
         </form>
         <form class="panel stack" id="rulesForm">
-          <div class="section-title">
-            <h2>กฎ Follow-up อัจฉริยะ</h2>
-            <p>Admin แก้จำนวนกระปุกและจำนวนวันได้</p>
-          </div>
-          <div class="table-wrap">
-            <table class="rules-table">
-              <thead><tr><th>จำนวนกระปุกล่าสุด</th><th>ควรทักอีกกี่วัน</th></tr></thead>
-              <tbody id="rulesBody">
-                ${app.data.followUpRules.map(rule => `
-                  <tr>
-                    <td><input name="jars" type="number" min="1" value="${Number(rule.jars)}"></td>
-                    <td><input name="days" type="number" min="1" value="${Number(rule.days)}"></td>
-                  </tr>
-                `).join("")}
-              </tbody>
-            </table>
-          </div>
-          <div class="inline">
-            <button class="button ghost" type="button" data-add-rule>เพิ่มกฎ</button>
-            <button class="button primary" type="submit">บันทึกกฎ</button>
-          </div>
+          ${followUpSettingsPanel(Number(settings.followUpDaysPerUnit || 15))}
         </form>
       </div>
     </section>
   `;
 }
 
+function followUpPreviewRows(daysPerUnit) {
+  return [1, 2, 3, 4, 6, 10, 20].map(units => ({
+    units,
+    days: units * daysPerUnit
+  }));
+}
+
+function followUpSettingsPanel(daysPerUnit) {
+  const safeDays = Math.max(1, Number(daysPerUnit || 15));
+  return `
+    <div class="section-title">
+      <h2>ตั้งค่า Follow-up</h2>
+      <p>ใช้กฎเดียวทั้งระบบตามจำนวนกระปุกที่ลูกค้าได้รับทั้งหมด รวมของแถม</p>
+    </div>
+    <label class="followup-setting-row">1 กระปุก ใช้ได้ประมาณ
+      <div class="followup-setting-input">
+        <input id="followupDaysPerUnit" name="daysPerUnit" type="number" min="1" required value="${safeDays}">
+        <span>วัน</span>
+      </div>
+    </label>
+    <div class="panel tight followup-preview-panel">
+      <strong>ตารางอ้างอิง</strong>
+      <div class="table-wrap">
+        <table class="rules-table">
+          <thead><tr><th>จำนวนที่ได้รับ</th><th>กำหนด Follow-up</th></tr></thead>
+          <tbody id="followupPreviewBody">
+            ${followUpPreviewRows(safeDays).map(row => `
+              <tr>
+                <td>${row.units} กระปุก</td>
+                <td>${row.days} วัน</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <button class="button primary" type="submit">บันทึกค่า Follow-up</button>
+  `;
+}
+
 function renderSettingsFollowup() {
+  const daysPerUnit = Number(app.data.settings.followUpDaysPerUnit || 15);
   els.content.innerHTML = `
     <section class="section">
       <form class="panel stack" id="rulesForm">
-        <div class="section-title">
-          <h2>กฎ Follow-up อัจฉริยะ</h2>
-          <p>กำหนดจำนวนวันติดตามจากจำนวนกระปุกล่าสุด</p>
-        </div>
-        <div class="table-wrap">
-          <table class="rules-table">
-            <thead><tr><th>จำนวนกระปุกล่าสุด</th><th>ควรทักอีกกี่วัน</th></tr></thead>
-            <tbody id="rulesBody">
-              ${app.data.followUpRules.map(rule => `
-                <tr>
-                  <td><input name="jars" type="number" min="1" value="${Number(rule.jars)}"></td>
-                  <td><input name="days" type="number" min="1" value="${Number(rule.days)}"></td>
-                </tr>
-              `).join("")}
-            </tbody>
-          </table>
-        </div>
-        <div class="inline">
-          <button class="button ghost" type="button" data-add-rule>เพิ่มกฎ</button>
-          <button class="button primary" type="submit">บันทึกกฎ</button>
-        </div>
+        ${followUpSettingsPanel(daysPerUnit)}
       </form>
     </section>
   `;
@@ -1672,14 +1673,6 @@ document.addEventListener("click", async event => {
 
   if (event.target.closest("[data-close-customer]")) els.customerDialog.close();
 
-  if (event.target.closest("[data-add-rule]")) {
-    document.querySelector("#rulesBody").insertAdjacentHTML("beforeend", `
-      <tr>
-        <td><input name="jars" type="number" min="1" value="1"></td>
-        <td><input name="days" type="number" min="1" value="15"></td>
-      </tr>
-    `);
-  }
 });
 
 document.addEventListener("input", event => {
@@ -1695,6 +1688,18 @@ document.addEventListener("input", event => {
       app.importPreview = [];
       renderImport();
     }
+  }
+
+  if (event.target?.id === "followupDaysPerUnit") {
+    const body = document.querySelector("#followupPreviewBody");
+    if (!body) return;
+    const daysPerUnit = Math.max(1, Number(event.target.value || 0) || 15);
+    body.innerHTML = followUpPreviewRows(daysPerUnit).map(row => `
+      <tr>
+        <td>${row.units} กระปุก</td>
+        <td>${row.days} วัน</td>
+      </tr>
+    `).join("");
   }
 });
 
@@ -1858,15 +1863,12 @@ document.addEventListener("submit", async event => {
     }
 
     if (form.id === "rulesForm") {
-      const rows = [...form.querySelectorAll("tbody tr")].map(row => ({
-        jars: row.querySelector('[name="jars"]').value,
-        days: row.querySelector('[name="days"]').value
-      }));
+      const data = Object.fromEntries(new FormData(form).entries());
       await api("/api/followup-rules", {
         method: "PUT",
-        body: JSON.stringify({ rules: rows })
+        body: JSON.stringify({ daysPerUnit: data.daysPerUnit })
       });
-      showToast("บันทึกกฎ Follow-up แล้ว");
+      showToast("บันทึกค่า Follow-up แล้ว");
       await loadState();
     }
 
