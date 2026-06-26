@@ -408,13 +408,12 @@ function renderLogin() {
             <p>Mobile CRM สำหรับทีมขาย Zomin</p>
           </div>
           <label>Username
-            <input name="username" autocomplete="username" required placeholder="admin หรือ staff">
+            <input name="username" autocomplete="username" required placeholder="Username">
           </label>
           <label>Password
-            <input name="password" autocomplete="current-password" type="password" required placeholder="admin123 หรือ staff123">
+            <input name="password" autocomplete="current-password" type="password" required placeholder="Password">
           </label>
           <button class="button primary" type="submit">เข้าสู่ระบบ</button>
-          <p class="login-demo">Demo: admin / admin123 หรือ staff / staff123</p>
         </form>
       </div>
     </section>
