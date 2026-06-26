@@ -1025,30 +1025,25 @@ function renderReports() {
         ${metric("ลูกค้าซื้อซ้ำ", money(repeatCustomers), "purple")}
         ${metric("ออเดอร์เดือนนี้", money(monthOrders.length))}
       </div>
-      <div class="panel stack">
-        <div class="section-title">
-          <h2>ตัวกรองรายงาน</h2>
-          <p>เลือกเดือน ปี และวันที่ เพื่อดูยอดขายแบบละเอียด</p>
-        </div>
-        <div class="form-grid">
-          <label>Year
-            <select data-report-year>
-              ${yearOptions.map(year => `<option value="${escapeHtml(year)}" ${year === selectedYear ? "selected" : ""}>${escapeHtml(year)}</option>`).join("")}
-            </select>
-          </label>
-          <label>Month
-            <select data-report-month>
-              ${monthOptions.map(month => `<option value="${escapeHtml(month)}" ${month === selectedMonth ? "selected" : ""}>${escapeHtml(month)}</option>`).join("")}
-            </select>
-          </label>
-          <label class="span-2">Daily Sales Date
-            <input data-report-date type="date" value="${escapeHtml(selectedDate)}">
-          </label>
-        </div>
-      </div>
       <div class="three-col">
         <div class="panel stack">
-          <h2>ยอดขายรายเดือน</h2>
+          <div class="card-head">
+            <h2>ยอดขายรายเดือน</h2>
+            <div class="card-controls">
+              <label class="date-picker compact">
+                <span>Year</span>
+                <select data-report-year>
+                  ${yearOptions.map(year => `<option value="${escapeHtml(year)}" ${year === selectedYear ? "selected" : ""}>${escapeHtml(year)}</option>`).join("")}
+                </select>
+              </label>
+              <label class="date-picker compact">
+                <span>Month</span>
+                <select data-report-month>
+                  ${monthOptions.map(month => `<option value="${escapeHtml(month)}" ${month === selectedMonth ? "selected" : ""}>${escapeHtml(month)}</option>`).join("")}
+                </select>
+              </label>
+            </div>
+          </div>
           <div class="bar-list">
             ${monthlyRows.map(([key, value]) => `
               <div class="bar-row">
@@ -1060,7 +1055,13 @@ function renderReports() {
           </div>
         </div>
         <div class="panel stack">
-          <h2>ยอดขายรายวัน</h2>
+          <div class="card-head">
+            <h2>ยอดขายรายวัน</h2>
+            <label class="date-picker compact">
+              <span>Date</span>
+              <input data-report-date type="date" value="${escapeHtml(selectedDate)}">
+            </label>
+          </div>
           <div class="bar-list">
             ${dailyRows.map(([key, value]) => `
               <div class="bar-row">

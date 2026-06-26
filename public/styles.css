@@ -225,6 +225,21 @@ h3 {
   font-weight: 700;
 }
 
+.date-picker.compact {
+  min-width: 132px;
+  gap: 4px;
+}
+
+.date-picker.compact span {
+  font-size: 11px;
+}
+
+.date-picker.compact input,
+.date-picker.compact select {
+  min-height: 34px;
+  padding: 7px 9px;
+}
+
 input,
 select,
 textarea {
@@ -406,6 +421,21 @@ a.button {
 
 .panel {
   padding: 16px;
+}
+
+.card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.card-controls {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .vip-threshold-grid {
