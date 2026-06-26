@@ -44,6 +44,7 @@ const app = {
   lineDebugSummary: {},
   reportMonth: "",
   reportDate: "",
+  ordersShowAll: false,
   filters: {
     q: "",
     tag: "",
@@ -93,6 +94,7 @@ function iconSvg(name) {
     users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
     clipboard: '<rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M8 11h8"/><path d="M8 16h6"/>',
     bell: '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>',
+    trash: '<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="m19 6-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/>',
     more: '<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>'
   };
   return `<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icons[name] || icons.more}</svg>`;
@@ -467,7 +469,7 @@ function customerTable(customers, emptyText = "ไม่พบข้อมูล
 }
 
 function orderTable(orders) {
-  if (!orders.length) return `<div class="empty-state">ยังไม่มีออเดอร์</div>`;
+  if (!orders.length) return `<div class="empty-state">ยังไม่มีออเดอร์ในวันที่เลือก</div>`;
   const sorted = [...orders].sort((a, b) => String(b.date).localeCompare(String(a.date)));
   return `
     <div class="order-list">
@@ -497,9 +499,9 @@ function orderTable(orders) {
             ${order.vipDiscountFlag ? `<p class="muted">${escapeHtml(order.vipDiscountFlag)}</p>` : ""}
           </details>
           <div class="inline order-actions">
-            <button class="button ghost" data-open-customer="${escapeHtml(order.customerId)}">ดูรายละเอียด</button>
-            <button class="button secondary" data-edit-order="${escapeHtml(order.id)}">แก้ไข</button>
-            <button class="button danger" data-delete-order="${escapeHtml(order.id)}">ลบ</button>
+            <button class="button ghost compact-action" data-open-customer="${escapeHtml(order.customerId)}">ดูรายละเอียด</button>
+            <button class="button secondary compact-action soft-action" data-edit-order="${escapeHtml(order.id)}">แก้ไข</button>
+            <button class="button danger compact-action trash-action" data-delete-order="${escapeHtml(order.id)}" aria-label="ลบออเดอร์">${iconSvg("trash")}<span>ลบ</span></button>
           </div>
         </article>
       `).join("")}
@@ -569,16 +571,26 @@ function followupRange() {
 }
 
 function renderOrders() {
+  const selectedDate = app.data.summary?.selectedDate || els.workDate.value || todayISO();
+  const orders = app.ordersShowAll
+    ? app.data.orders
+    : app.data.orders.filter(order => order.date === selectedDate);
   els.content.innerHTML = `
     <section class="section">
       <div class="section-title section-title-actions">
         <div>
-          <h2>ออเดอร์ทั้งหมด</h2>
-          <p>รวมออเดอร์จากทุกช่องทาง รวมถึง Import และ LINE Webhook ที่ parser อ่านได้</p>
+          <h2>${app.ordersShowAll ? "ออเดอร์ทั้งหมด" : `ออเดอร์วันที่ ${formatDate(selectedDate)}`}</h2>
+          <p>${app.ordersShowAll ? `แสดง ${money(orders.length)} ออเดอร์จากทุกวัน` : `แสดง ${money(orders.length)} ออเดอร์จากวันที่เลือก`}</p>
         </div>
-        <button class="button primary" data-open-order>เพิ่มออเดอร์</button>
+        <div class="orders-header-actions">
+          <label class="orders-show-all">
+            <input type="checkbox" data-orders-show-all ${app.ordersShowAll ? "checked" : ""}>
+            <span>แสดงทั้งหมด</span>
+          </label>
+          <button class="button primary" data-open-order>เพิ่มออเดอร์</button>
+        </div>
       </div>
-      ${orderTable(app.data.orders)}
+      ${orderTable(orders)}
     </section>
   `;
 }
@@ -1801,7 +1813,15 @@ document.addEventListener("input", event => {
 });
 
 document.addEventListener("change", async event => {
-  if (event.target === els.workDate) await loadState();
+  if (event.target === els.workDate) {
+    app.ordersShowAll = false;
+    await loadState();
+  }
+
+  if (event.target?.matches?.("[data-orders-show-all]")) {
+    app.ordersShowAll = event.target.checked;
+    renderOrders();
+  }
 
   if (event.target?.matches?.("[data-report-month]")) {
     app.reportMonth = event.target.value;
