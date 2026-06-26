@@ -58,7 +58,7 @@ create table if not exists public.orders (
   amount numeric(12,2) not null default 0,
   order_date date not null,
   order_time time,
-  source text not null default 'Manual',
+  source text not null default '',
   source_channel text default '',
   social_name text default '',
   free_gift text default '',

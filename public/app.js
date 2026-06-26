@@ -570,7 +570,7 @@ function renderOrders() {
       <div class="section-title section-title-actions">
         <div>
           <h2>ออเดอร์ทั้งหมด</h2>
-          <p>รวมออเดอร์ Manual, Import และ LINE Webhook ที่ parser อ่านได้</p>
+          <p>รวมออเดอร์จากทุกช่องทาง รวมถึง Import และ LINE Webhook ที่ parser อ่านได้</p>
         </div>
         <button class="button primary" data-open-order>เพิ่มออเดอร์</button>
       </div>
@@ -957,7 +957,7 @@ function renderImport() {
             <label class="span-2">ที่อยู่<input name="address"></label>
             <label>จำนวนกระปุก<input name="jars" type="number" min="1" value="1"></label>
             <label>ยอดเงิน<input name="amount" type="number" min="0" value="${Number(app.data.settings.defaultJarPrice || 750)}"></label>
-            <label>ช่องทางที่ลูกค้าสั่งมา<input name="sourceChannel" value="Manual Import"></label>
+            <label>ช่องทางที่ลูกค้าสั่งมา<input name="sourceChannel" placeholder="เช่น LINE OA, โทรศัพท์, ตัวแทน"></label>
             <label>ชื่อเฟส/ชื่อไลน์ลูกค้า<input name="socialName"></label>
             <label>ของแถมที่ลูกค้าได้<input name="freeGift"></label>
             <label>สถานะบัตร VIP
@@ -979,6 +979,15 @@ function monthKey(dateValue) {
   return String(dateValue || "").slice(0, 7);
 }
 
+function isPlaceholderChannel(value) {
+  return /^manual(?:\s+import)?$/i.test(String(value || "").trim());
+}
+
+function displayOrderChannel(order = {}) {
+  const values = [order.sourceChannel, order.source_channel, order.source];
+  return values.map(value => String(value || "").trim()).find(value => value && !isPlaceholderChannel(value)) || "Unknown";
+}
+
 function renderReports() {
   const selectedDate = app.reportDate || app.data.summary.selectedDate || todayISO();
   const selectedMonth = app.reportMonth || selectedDate.slice(0, 7);
@@ -988,7 +997,7 @@ function renderReports() {
   const sourceTotals = {};
   app.data.orders.forEach(order => {
     const orderMonth = monthKey(order.date);
-    const channelName = String(order.sourceChannel || order.source || "").trim() || "Unknown";
+    const channelName = displayOrderChannel(order);
     if (orderMonth.startsWith(selectedYear)) {
       monthly[orderMonth] = (monthly[orderMonth] || 0) + Number(order.amount || 0);
     }
@@ -1374,7 +1383,7 @@ function renderCustomerDetail(customer) {
           ${customer.orders.slice().reverse().map(order => `
             <div class="timeline-item">
               <strong>${formatDate(order.date)} · ${order.jars} กระปุก · ${money(order.amount)} บาท</strong>
-              <span class="muted">ช่องทาง ${escapeHtml(order.sourceChannel || order.source || "Manual")}</span>
+              <span class="muted">ช่องทาง ${escapeHtml(displayOrderChannel(order))}</span>
               <span class="muted">ชื่อเฟส/ไลน์ ${escapeHtml(order.socialName || "-")} · ของแถม ${escapeHtml(order.freeGift || "-")}</span>
               <span class="muted">บัตร VIP ${escapeHtml(order.vipCardStatus || "-")}</span>
               ${order.vipCardReminder ? `<span class="muted">${escapeHtml(order.vipCardReminder)}</span>` : ""}
@@ -1497,7 +1506,7 @@ function openOrderDialog(order = null) {
       date: order.date,
       jars: order.jars,
       amount: order.amount,
-      sourceChannel: order.sourceChannel || order.source,
+      sourceChannel: displayOrderChannel(order) === "Unknown" ? "" : displayOrderChannel(order),
       socialName: order.socialName,
       freeGift: order.freeGift,
       vipCardStatus: order.vipCardStatus,
@@ -1803,7 +1812,7 @@ document.addEventListener("submit", async event => {
       const data = Object.fromEntries(new FormData(form).entries());
       await api("/api/orders", {
         method: "POST",
-        body: JSON.stringify({ ...data, source: "Manual Import" })
+        body: JSON.stringify(data)
       });
       showToast("บันทึกออเดอร์เก่าแล้ว");
       await loadState();

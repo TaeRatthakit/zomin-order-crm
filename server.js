@@ -163,6 +163,16 @@ function publicSettings(settings = {}) {
   };
 }
 
+function isPlaceholderChannel(value) {
+  return /^manual(?:\s+import)?$/i.test(String(value || "").trim());
+}
+
+function orderChannel(order = {}) {
+  const candidates = [order.sourceChannel, order.source_channel, order.source];
+  const channel = candidates.map(value => String(value || "").trim()).find(value => value && !isPlaceholderChannel(value));
+  return channel || "";
+}
+
 function secretInputValue(input, currentValue) {
   const value = String(input || "").trim();
   if (!value || value === "__configured__") return currentValue || "";
@@ -293,7 +303,7 @@ function enrichDb(db, selectedDate = toDateOnly()) {
       note: customer.note || customer.lastContactNote || "",
       contactLogs,
       orders: orders.map(order => {
-        const sourceChannel = order.sourceChannel || order.source_channel || order.source || "";
+        const sourceChannel = orderChannel(order);
         const vipDiscountEligible = hasVipCard && /ไลน์บริษัท|line company|บริษัท/i.test(sourceChannel);
         return {
           ...order,
@@ -327,7 +337,7 @@ function enrichDb(db, selectedDate = toDateOnly()) {
     orders: db.orders.map(order => {
       const customer = customers.find(item => item.id === order.customerId);
       const hasVipCard = vipCardSentByCustomer.get(order.customerId) || order.vipCardStatus === "ส่งบัตรแล้ว";
-      const sourceChannel = order.sourceChannel || order.source_channel || order.source || "";
+      const sourceChannel = orderChannel(order);
       const needsVipCard = order.vipCardStatus !== "ส่งบัตรแล้ว" && !hasVipCard;
       const vipDiscountEligible = hasVipCard && /ไลน์บริษัท|line company|บริษัท/i.test(sourceChannel);
       return {
@@ -432,7 +442,7 @@ function addOrder(db, payload) {
   const vipCardStatus = String(
     payload.vipCardStatus || payload.vip_card_status || (previousVipCardSent ? "ส่งบัตรแล้ว" : "ยังไม่ได้ส่งบัตร")
   ).trim();
-  const sourceChannel = String(payload.sourceChannel || payload.source_channel || payload.source || "").trim();
+  const sourceChannel = orderChannel(payload);
   const vipDiscountFlag = previousVipCardSent && /ไลน์บริษัท|line company|บริษัท/i.test(sourceChannel)
     ? "ลูกค้ามีบัตร VIP และสั่งผ่านไลน์บริษัท: รองรับส่วนลด VIP กระปุกละ 10 บาท"
     : "";
@@ -448,7 +458,7 @@ function addOrder(db, payload) {
     items: String(payload.items || "Zomin").trim(),
     jars,
     amount,
-    source: String(payload.source || sourceChannel || "").trim(),
+    source: isPlaceholderChannel(payload.source) ? "" : String(payload.source || sourceChannel || "").trim(),
     sourceChannel,
     socialName: String(payload.socialName || payload.social_name || "").trim(),
     freeGift: String(payload.freeGift || payload.free_gift || "").trim(),
@@ -880,7 +890,7 @@ async function handleApi(req, res) {
 
   if (req.method === "POST" && url.pathname === "/api/orders") {
     const body = await readBody(req);
-    const order = addOrder(db, { ...body, source: body.source || "Manual" });
+    const order = addOrder(db, body);
     await writeDb(db);
     return json(res, 200, { ok: true, order });
   }
