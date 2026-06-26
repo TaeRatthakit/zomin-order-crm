@@ -1035,8 +1035,7 @@ function renderReports() {
         <div class="panel stack">
           <div class="card-head">
             <h2>ยอดขายรายเดือน</h2>
-            <label class="date-picker compact">
-              <span>Month</span>
+            <label class="date-picker compact card-picker" aria-label="เลือกเดือนรายงานยอดขาย">
               <input data-report-month type="month" value="${escapeHtml(selectedMonth)}" list="reportMonthOptions">
               <datalist id="reportMonthOptions">
                 ${monthOptions.map(month => `<option value="${escapeHtml(month)}"></option>`).join("")}
@@ -1056,8 +1055,7 @@ function renderReports() {
         <div class="panel stack">
           <div class="card-head">
             <h2>ยอดขายรายวัน</h2>
-            <label class="date-picker compact">
-              <span>Date</span>
+            <label class="date-picker compact card-picker" aria-label="เลือกวันที่รายงานยอดขายรายวัน">
               <input data-report-date type="date" value="${escapeHtml(selectedDate)}">
             </label>
           </div>

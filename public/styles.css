@@ -230,6 +230,14 @@ h3 {
   gap: 4px;
 }
 
+.card-picker {
+  width: auto;
+  min-width: 132px;
+  max-width: 160px;
+  justify-self: end;
+  flex: 0 0 auto;
+}
+
 .date-picker.compact span {
   font-size: 11px;
 }
@@ -425,7 +433,7 @@ a.button {
 
 .card-head {
   display: flex;
-  align-items: flex-start;
+  align-items: start;
   justify-content: space-between;
   gap: 12px;
 }
@@ -889,6 +897,16 @@ tr:last-child td {
   .button,
   .date-picker {
     width: 100%;
+  }
+
+  .card-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .card-picker {
+    width: 100%;
+    max-width: none;
   }
 
   .metric-grid,
