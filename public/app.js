@@ -38,6 +38,9 @@ const app = {
   csvPreviewSummary: null,
   currentUser: null,
   data: null,
+  reportMonth: "",
+  reportYear: "",
+  reportDate: "",
   filters: {
     q: "",
     tag: "",
@@ -977,21 +980,40 @@ function monthKey(dateValue) {
 }
 
 function renderReports() {
+  const selectedDate = app.reportDate || app.data.summary.selectedDate || todayISO();
+  const selectedMonth = app.reportMonth || selectedDate.slice(0, 7);
+  const selectedYear = app.reportYear || selectedDate.slice(0, 4);
   const monthly = {};
   const daily = {};
   const sourceTotals = {};
   app.data.orders.forEach(order => {
-    monthly[monthKey(order.date)] = (monthly[monthKey(order.date)] || 0) + Number(order.amount || 0);
-    daily[order.date] = (daily[order.date] || 0) + Number(order.amount || 0);
-    sourceTotals[order.source || "Manual"] = (sourceTotals[order.source || "Manual"] || 0) + Number(order.amount || 0);
+    const orderMonth = monthKey(order.date);
+    const rawChannel = String(order.sourceChannel || "").trim();
+    const fallbackChannel = String(order.source || "").trim();
+    const channelName = rawChannel || (fallbackChannel && fallbackChannel !== "Manual" ? fallbackChannel : "Unknown");
+    if (orderMonth.startsWith(selectedYear)) {
+      monthly[orderMonth] = (monthly[orderMonth] || 0) + Number(order.amount || 0);
+    }
+    if (order.date === selectedDate) {
+      daily[order.date] = (daily[order.date] || 0) + Number(order.amount || 0);
+    }
+    if (orderMonth.startsWith(selectedMonth)) {
+      if (!sourceTotals[channelName]) sourceTotals[channelName] = { count: 0, total: 0 };
+      sourceTotals[channelName].count += 1;
+      sourceTotals[channelName].total += Number(order.amount || 0);
+    }
   });
-  const monthlyRows = Object.entries(monthly).sort(([a], [b]) => b.localeCompare(a)).slice(0, 8);
+  const monthlyRows = Object.entries(monthly).sort(([a], [b]) => b.localeCompare(a)).slice(0, 12);
   const dailyRows = Object.entries(daily).sort(([a], [b]) => b.localeCompare(a)).slice(0, 12);
   const maxDaily = Math.max(1, ...dailyRows.map(([, value]) => value));
-  const selectedMonth = app.data.summary.selectedDate.slice(0, 7);
   const monthOrders = app.data.orders.filter(order => String(order.date).startsWith(selectedMonth));
   const repeatCustomers = app.data.customers.filter(customer => customer.purchaseCount > 1).length;
   const topCustomers = [...app.data.customers].sort((a, b) => b.totalSpent - a.totalSpent).slice(0, 5);
+  const monthOptions = Array.from(new Set(app.data.orders.map(order => monthKey(order.date)).filter(Boolean))).sort((a, b) => b.localeCompare(a));
+  const yearOptions = Array.from(new Set(monthOptions.map(month => month.slice(0, 4)))).sort((a, b) => b.localeCompare(a));
+  const channelRows = Object.entries(sourceTotals)
+    .map(([channel, stats]) => ({ channel, count: stats.count, total: stats.total }))
+    .sort((a, b) => b.total - a.total);
 
   els.content.innerHTML = `
     <section class="section">
@@ -1002,6 +1024,27 @@ function renderReports() {
         ${metric("ลูกค้าใหม่", money(app.data.summary.newCustomers))}
         ${metric("ลูกค้าซื้อซ้ำ", money(repeatCustomers), "purple")}
         ${metric("ออเดอร์เดือนนี้", money(monthOrders.length))}
+      </div>
+      <div class="panel stack">
+        <div class="section-title">
+          <h2>ตัวกรองรายงาน</h2>
+          <p>เลือกเดือน ปี และวันที่ เพื่อดูยอดขายแบบละเอียด</p>
+        </div>
+        <div class="form-grid">
+          <label>Year
+            <select data-report-year>
+              ${yearOptions.map(year => `<option value="${escapeHtml(year)}" ${year === selectedYear ? "selected" : ""}>${escapeHtml(year)}</option>`).join("")}
+            </select>
+          </label>
+          <label>Month
+            <select data-report-month>
+              ${monthOptions.map(month => `<option value="${escapeHtml(month)}" ${month === selectedMonth ? "selected" : ""}>${escapeHtml(month)}</option>`).join("")}
+            </select>
+          </label>
+          <label class="span-2">Daily Sales Date
+            <input data-report-date type="date" value="${escapeHtml(selectedDate)}">
+          </label>
+        </div>
       </div>
       <div class="three-col">
         <div class="panel stack">
@@ -1017,7 +1060,7 @@ function renderReports() {
           </div>
         </div>
         <div class="panel stack">
-          <h2>ยอดขายรายวันล่าสุด</h2>
+          <h2>ยอดขายรายวัน</h2>
           <div class="bar-list">
             ${dailyRows.map(([key, value]) => `
               <div class="bar-row">
@@ -1031,11 +1074,11 @@ function renderReports() {
         <div class="panel stack">
           <h2>ยอดขายตามช่องทาง</h2>
           <div class="bar-list">
-            ${Object.entries(sourceTotals).sort((a, b) => b[1] - a[1]).map(([source, value]) => `
+            ${channelRows.map(({ channel, count, total }) => `
               <div class="bar-row">
-                <strong>${escapeHtml(source)}</strong>
-                <div class="bar-track"><div class="bar-fill" style="width:${Math.max(4, value / Math.max(...Object.values(sourceTotals), 1) * 100)}%"></div></div>
-                <span>${money(value)}</span>
+                <strong>${escapeHtml(channel)}</strong>
+                <div class="bar-track"><div class="bar-fill" style="width:${Math.max(4, total / Math.max(...channelRows.map(row => row.total), 1) * 100)}%"></div></div>
+                <span>${money(total)} · ${money(count)} ออเดอร์</span>
               </div>
             `).join("")}
           </div>
@@ -1659,6 +1702,21 @@ document.addEventListener("input", event => {
 
 document.addEventListener("change", async event => {
   if (event.target === els.workDate) await loadState();
+
+  if (event.target?.matches?.("[data-report-year]")) {
+    app.reportYear = event.target.value;
+    renderReports();
+  }
+
+  if (event.target?.matches?.("[data-report-month]")) {
+    app.reportMonth = event.target.value;
+    renderReports();
+  }
+
+  if (event.target?.matches?.("[data-report-date]")) {
+    app.reportDate = event.target.value;
+    renderReports();
+  }
 
   if (event.target?.id === "followupDatePicker") {
     els.workDate.value = event.target.value;
