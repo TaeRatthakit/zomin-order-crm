@@ -998,6 +998,25 @@ function summarizeSalesChannel(value) {
   return MISSING_CHANNEL_LABEL;
 }
 
+function summarizeOriginSource(value) {
+  const source = String(value || "").trim();
+  const normalized = source.toLowerCase();
+  if (!source || source === MISSING_CHANNEL_LABEL) return MISSING_CHANNEL_LABEL;
+  if (
+    normalized.includes("facebook") ||
+    normalized.includes("fb") ||
+    source.includes("เฟส") ||
+    source.includes("เพจ") ||
+    source.includes("page") ||
+    source.includes("แฟนเพจ") ||
+    source.includes("ไลฟ์") ||
+    source.includes("inbox")
+  ) return "Facebook";
+  if (normalized.includes("line") || source.includes("ไลน์")) return "LINE";
+  if (source.includes("โทร") || normalized.includes("phone") || normalized.includes("call") || normalized.includes("tel")) return "โทร";
+  return MISSING_CHANNEL_LABEL;
+}
+
 function renderReports() {
   const selectedDate = app.reportDate || app.data.summary.selectedDate || todayISO();
   const selectedMonth = app.reportMonth || selectedDate.slice(0, 7);
@@ -1007,7 +1026,6 @@ function renderReports() {
   const sourceTotals = {};
   app.data.orders.forEach(order => {
     const orderMonth = monthKey(order.date);
-    const channelName = displayOrderChannel(order);
     if (orderMonth.startsWith(selectedYear)) {
       monthly[orderMonth] = (monthly[orderMonth] || 0) + Number(order.amount || 0);
     }
@@ -1015,7 +1033,7 @@ function renderReports() {
       daily[order.date] = (daily[order.date] || 0) + Number(order.amount || 0);
     }
     if (orderMonth.startsWith(selectedMonth)) {
-      const summaryChannel = summarizeSalesChannel(channelName);
+      const summaryChannel = summarizeOriginSource(order.originSource);
       if (!sourceTotals[summaryChannel]) sourceTotals[summaryChannel] = { count: 0, total: 0 };
       sourceTotals[summaryChannel].count += 1;
       sourceTotals[summaryChannel].total += Number(order.amount || 0);
