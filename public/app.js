@@ -979,6 +979,16 @@ function displayOrderChannel(order = {}) {
   return values.map(value => String(value || "").trim()).find(value => value && !isPlaceholderChannel(value)) || MISSING_CHANNEL_LABEL;
 }
 
+function summarizeSalesChannel(value) {
+  const channel = String(value || "").trim();
+  const normalized = channel.toLowerCase();
+  if (!channel || channel === MISSING_CHANNEL_LABEL) return MISSING_CHANNEL_LABEL;
+  if (normalized.includes("facebook") || normalized.includes("fb") || channel.includes("เฟส")) return "Facebook";
+  if (normalized.includes("line") || channel.includes("ไลน์")) return "LINE";
+  if (channel.includes("โทร") || normalized.includes("phone") || normalized.includes("call") || normalized.includes("tel")) return "โทร";
+  return MISSING_CHANNEL_LABEL;
+}
+
 function renderReports() {
   const selectedDate = app.reportDate || app.data.summary.selectedDate || todayISO();
   const selectedMonth = app.reportMonth || selectedDate.slice(0, 7);
@@ -996,9 +1006,10 @@ function renderReports() {
       daily[order.date] = (daily[order.date] || 0) + Number(order.amount || 0);
     }
     if (orderMonth.startsWith(selectedMonth)) {
-      if (!sourceTotals[channelName]) sourceTotals[channelName] = { count: 0, total: 0 };
-      sourceTotals[channelName].count += 1;
-      sourceTotals[channelName].total += Number(order.amount || 0);
+      const summaryChannel = summarizeSalesChannel(channelName);
+      if (!sourceTotals[summaryChannel]) sourceTotals[summaryChannel] = { count: 0, total: 0 };
+      sourceTotals[summaryChannel].count += 1;
+      sourceTotals[summaryChannel].total += Number(order.amount || 0);
     }
   });
   const monthlyRows = Object.entries(monthly).sort(([a], [b]) => b.localeCompare(a)).slice(0, 12);
@@ -1022,7 +1033,7 @@ function renderReports() {
         ${metric("ลูกค้าซื้อซ้ำ", money(repeatCustomers), "purple")}
         ${metric("ออเดอร์เดือนนี้", money(monthOrders.length))}
       </div>
-      <div class="three-col">
+      <div class="report-grid">
         <div class="panel stack">
           <div class="card-head">
             <h2>ยอดขายรายเดือน</h2>

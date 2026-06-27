@@ -427,6 +427,13 @@ a.button {
   gap: 14px;
 }
 
+.report-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(260px, 0.82fr);
+  gap: 14px;
+  align-items: start;
+}
+
 .panel {
   padding: 16px;
 }
@@ -900,7 +907,8 @@ tr:last-child td {
 
   .two-col,
   .detail-grid,
-  .three-col {
+  .three-col,
+  .report-grid {
     grid-template-columns: 1fr;
   }
 
@@ -1854,6 +1862,10 @@ th {
 
   .three-col {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .report-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(260px, 0.82fr);
   }
 
   .filters {
