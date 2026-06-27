@@ -83,10 +83,26 @@ function toDateOnly(date = new Date()) {
   if (typeof date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(date)) return date;
   const d = new Date(date);
   if (Number.isNaN(d.getTime())) return "";
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Bangkok",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).formatToParts(d);
+  const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
+  const y = values.year;
+  const m = values.month;
+  const day = values.day;
   return `${y}-${m}-${day}`;
+}
+
+function bangkokTime(date = new Date()) {
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Bangkok",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23"
+  }).format(date);
 }
 
 function addDays(dateOnly, days) {
@@ -521,12 +537,14 @@ function addOrder(db, payload) {
     customerName: normalizeImportText(payload.name || customer.name),
     address: normalizeImportText(payload.address || customer.address),
     date: toDateOnly(payload.date || new Date()),
-    time: String(payload.time || new Date().toTimeString().slice(0, 5)),
+    time: String(payload.time || bangkokTime()),
     items: String(payload.items || "Zomin").trim(),
     jars,
     amount,
     source: isPlaceholderChannel(payload.source) ? "" : String(payload.source || sourceChannel || "").trim(),
     sourceChannel,
+    alternatePhone: String(payload.alternatePhone || payload.alternate_phone || "").trim(),
+    originSource: String(payload.originSource || payload.origin_source || "").trim(),
     socialName: String(payload.socialName || payload.social_name || "").trim(),
     freeGift: String(payload.freeGift || payload.free_gift || "").trim(),
     vipCardStatus,
@@ -1386,6 +1404,8 @@ async function handleApi(req, res) {
       amount: body.amount !== undefined ? Number(body.amount) : order.amount,
       source: body.sourceChannel ?? order.source,
       sourceChannel: body.sourceChannel ?? order.sourceChannel,
+      alternatePhone: body.alternatePhone ?? order.alternatePhone,
+      originSource: body.originSource ?? order.originSource,
       socialName: body.socialName ?? order.socialName,
       freeGift: body.freeGift ?? order.freeGift,
       vipCardStatus: body.vipCardStatus ?? order.vipCardStatus,
@@ -1651,11 +1671,13 @@ async function handleApi(req, res) {
         time: order.time || "",
         customerName: order.customerName,
         phone: order.phone,
+        alternate_phone: order.alternatePhone || "",
         address: order.address || "",
         quantity: order.jars,
         amount: order.amount,
         source: order.source,
         source_channel: order.sourceChannel || "",
+        origin_source: order.originSource || "",
         social_name: order.socialName || "",
         free_gift: order.freeGift || "",
         vip_card_status: order.vipCardStatus || "",
