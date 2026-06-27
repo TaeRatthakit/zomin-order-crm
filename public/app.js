@@ -44,6 +44,7 @@ const app = {
   reportDate: "",
   ordersShowAll: false,
   customersShowAll: false,
+  ordersFilterQ: "",
   filters: {
     q: "",
     tag: "",
@@ -605,9 +606,20 @@ function followupRange() {
 
 function renderOrders() {
   const selectedDate = app.data.summary?.selectedDate || els.workDate.value || todayISO();
-  const orders = app.ordersShowAll
-    ? app.data.orders
-    : app.data.orders.filter(order => order.date === selectedDate);
+  const q = app.ordersFilterQ.trim().toLowerCase();
+  const orders = app.data.orders.filter(order => {
+    const dateMatch = app.ordersShowAll || order.date === selectedDate;
+    const textMatch = !q || [
+      order.orderNumber,
+      order.customerName,
+      order.phone,
+      order.alternatePhone,
+      order.socialName,
+      order.tags,
+      order.note
+    ].join(" ").toLowerCase().includes(q);
+    return dateMatch && textMatch;
+  });
   els.content.innerHTML = `
     <section class="section">
       <div class="section-title section-title-actions">
@@ -622,6 +634,9 @@ function renderOrders() {
           </label>
           <button class="button primary" data-open-order>เพิ่มออเดอร์</button>
         </div>
+      </div>
+      <div class="panel stack">
+        <input data-order-filter="q" placeholder="เลขออเดอร์ ชื่อลูกค้า เบอร์โทร เบอร์สำรอง Facebook / LINE ลูกค้า อาการลูกค้า" value="${escapeHtml(app.ordersFilterQ)}">
       </div>
       ${orderTable(orders)}
     </section>
@@ -1801,6 +1816,11 @@ document.addEventListener("click", async event => {
     renderSearch();
   }
 
+  if (event.target.closest("[data-reset-order-filters]")) {
+    app.ordersFilterQ = "";
+    renderOrders();
+  }
+
   if (event.target.closest("[data-close-order]")) {
     app.editingOrderId = "";
     els.orderDialog.close();
@@ -1825,6 +1845,12 @@ document.addEventListener("input", event => {
   if (filter) {
     app.filters[filter.dataset.filter] = filter.value;
     updateSearchResults();
+  }
+
+  const orderFilter = event.target.closest("[data-order-filter]");
+  if (orderFilter) {
+    app.ordersFilterQ = orderFilter.value;
+    renderOrders();
   }
 
   if (event.target?.id === "followupDaysPerUnit") {
