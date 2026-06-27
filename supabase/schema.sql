@@ -128,6 +128,8 @@ create index if not exists idx_customers_vip_level on public.customers(vip_level
 create index if not exists idx_customers_follow_up_date on public.customers(follow_up_date);
 create index if not exists idx_orders_customer_id on public.orders(customer_id);
 create index if not exists idx_orders_order_date on public.orders(order_date);
+create index if not exists idx_orders_order_number on public.orders(order_number) where order_number <> '';
+create index if not exists idx_orders_import_duplicate on public.orders(order_date, phone, amount);
 create index if not exists idx_customer_tags_customer_id on public.customer_tags(customer_id);
 create index if not exists idx_contact_logs_customer_id on public.contact_logs(customer_id);
 

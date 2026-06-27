@@ -3,7 +3,16 @@ const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
 require("./lib/env").loadEnv();
-const { readDb, writeDb, deleteOrder, deleteCustomer } = require("./lib/db");
+const {
+  readDb,
+  writeDb,
+  deleteOrder,
+  deleteCustomer,
+  getImportJob,
+  getActiveImportJob,
+  saveImportJob,
+  importOrdersBatch
+} = require("./lib/db");
 const {
   hashPassword,
   verifyPassword,
@@ -337,6 +346,161 @@ function csvResponse(res, filename, rows) {
     "Cache-Control": "no-store"
   });
   res.end(`\uFEFF${body}`);
+}
+
+function importJobView(job) {
+  if (!job) return null;
+  const elapsedMs = Math.max(0, Date.now() - new Date(job.startedAt || job.createdAt).getTime());
+  const processed = Number(job.processed || 0);
+  const total = Number(job.total || 0);
+  const remaining = Math.max(0, total - processed);
+  const etaSeconds = processed > 0 && remaining > 0
+    ? Math.ceil((elapsedMs / processed) * remaining / 1000)
+    : 0;
+  return {
+    ...job,
+    failedRows: undefined,
+    percent: total ? Math.min(100, Math.round((processed / total) * 100)) : 0,
+    etaSeconds,
+    durationSeconds: Math.ceil((job.completedAt
+      ? new Date(job.completedAt).getTime() - new Date(job.startedAt || job.createdAt).getTime()
+      : elapsedMs) / 1000),
+    canExportFailures: Number(job.failed || 0) > 0
+  };
+}
+
+async function handleImportJobsApi(req, res, url) {
+  const currentUser = requireUser(req, res);
+  if (!currentUser) return true;
+  const parts = url.pathname.split("/").filter(Boolean);
+
+  if (req.method === "GET" && url.pathname === "/api/import-jobs/active") {
+    const type = url.searchParams.get("type") || "orders";
+    const job = await getActiveImportJob(type);
+    return json(res, 200, { ok: true, job: importJobView(job) });
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/import-jobs") {
+    const body = await readBody(req);
+    const type = body.type || "orders";
+    if (type !== "orders") return json(res, 400, { ok: false, error: "ประเภทการนำเข้ายังไม่รองรับ" });
+    const total = Number(body.total || 0);
+    if (!Number.isInteger(total) || total < 1) {
+      return json(res, 400, { ok: false, error: "ไฟล์ไม่มีข้อมูลสำหรับนำเข้า" });
+    }
+    const active = await getActiveImportJob(type);
+    if (active) {
+      if (active.fingerprint === body.fingerprint && active.total === total) {
+        return json(res, 200, { ok: true, job: importJobView(active), resumed: true });
+      }
+      return json(res, 409, {
+        ok: false,
+        error: "มีงานนำเข้าออเดอร์กำลังทำงานอยู่",
+        job: importJobView(active)
+      });
+    }
+    const now = new Date().toISOString();
+    const job = {
+      id: uid("import"),
+      type,
+      entity: "Order",
+      status: "queued",
+      fileName: String(body.fileName || "orders.csv"),
+      fileSize: Number(body.fileSize || 0),
+      fingerprint: String(body.fingerprint || ""),
+      total,
+      processed: 0,
+      imported: 0,
+      skipped: 0,
+      failed: 0,
+      failedRows: [],
+      batchSize: Math.max(200, Math.min(500, Number(body.batchSize || 300))),
+      createdAt: now,
+      startedAt: now,
+      completedAt: "",
+      createdBy: currentUser.id
+    };
+    await saveImportJob(job);
+    return json(res, 201, { ok: true, job: importJobView(job) });
+  }
+
+  const jobId = parts[2];
+  if (!jobId) return false;
+  const job = await getImportJob(jobId);
+  if (!job) {
+    json(res, 404, { ok: false, error: "ไม่พบงานนำเข้า" });
+    return true;
+  }
+
+  if (req.method === "GET" && parts.length === 3) {
+    json(res, 200, { ok: true, job: importJobView(job) });
+    return true;
+  }
+
+  if (req.method === "POST" && parts[3] === "cancel") {
+    if (["queued", "running", "paused"].includes(job.status)) {
+      job.status = "cancelled";
+      job.completedAt = new Date().toISOString();
+      await saveImportJob(job);
+    }
+    json(res, 200, { ok: true, job: importJobView(job) });
+    return true;
+  }
+
+  if (req.method === "POST" && parts[3] === "batches") {
+    if (!["queued", "running", "paused"].includes(job.status)) {
+      json(res, 409, { ok: false, error: "งานนำเข้าไม่ได้อยู่ในสถานะทำงาน", job: importJobView(job) });
+      return true;
+    }
+    const body = await readBody(req);
+    const offset = Number(body.offset);
+    const rows = Array.isArray(body.rows) ? body.rows : [];
+    if (!Number.isInteger(offset) || rows.length < 1 || rows.length > 500) {
+      json(res, 400, { ok: false, error: "ข้อมูลชุดนำเข้าไม่ถูกต้อง" });
+      return true;
+    }
+    if (offset < job.processed) {
+      json(res, 200, { ok: true, job: importJobView(job), replayed: true });
+      return true;
+    }
+    if (offset !== job.processed) {
+      json(res, 409, { ok: false, error: "ลำดับชุดข้อมูลไม่ต่อเนื่อง", job: importJobView(job) });
+      return true;
+    }
+
+    job.status = "running";
+    try {
+      const result = await importOrdersBatch(rows);
+      job.processed += rows.length;
+      job.imported += result.imported;
+      job.skipped += result.skipped;
+      job.failed += result.failed.length;
+      job.failedRows.push(...result.failed);
+      if (job.processed >= job.total) {
+        job.status = "completed";
+        job.completedAt = new Date().toISOString();
+      }
+      await saveImportJob(job);
+      json(res, 200, { ok: true, job: importJobView(job) });
+    } catch (error) {
+      job.status = "paused";
+      job.lastError = error.message;
+      await saveImportJob(job);
+      json(res, 500, { ok: false, error: "งานนำเข้าหยุดชั่วคราวและสามารถทำต่อได้", job: importJobView(job) });
+    }
+    return true;
+  }
+
+  if (req.method === "GET" && parts[3] === "failed.csv") {
+    const failedRows = (job.failedRows || []).map(item => ({
+      rowNumber: item.rowNumber || "",
+      error: item.error || "",
+      ...item.row
+    }));
+    csvResponse(res, `failed-${job.fileName || "orders.csv"}`, failedRows);
+    return true;
+  }
+  return false;
 }
 
 function vipLevel(totalSpent, settings = {}) {
@@ -1488,6 +1652,11 @@ async function handleApi(req, res) {
       ok: true,
       message: "Zomin LINE webhook endpoint is ready. Use POST /api/line/webhook."
     });
+  }
+
+  if (url.pathname.startsWith("/api/import-jobs")) {
+    const handled = await handleImportJobsApi(req, res, url);
+    if (handled !== false) return;
   }
 
   const db = await readDb();

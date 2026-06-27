@@ -36,6 +36,10 @@ const app = {
   csvImportText: "",
   csvPreview: [],
   csvPreviewSummary: null,
+  importJob: null,
+  importPreparing: false,
+  importWorker: null,
+  importPollTimer: null,
   currentUser: null,
   data: null,
   lineDebugRows: [],
@@ -970,47 +974,133 @@ function renderRisk() {
 }
 
 function renderImport() {
+  const job = app.importJob;
+  const busy = job && ["queued", "running"].includes(job.status);
+  const statusLabels = {
+    queued: "รอเริ่ม",
+    running: "กำลังนำเข้า",
+    paused: "หยุดชั่วคราว",
+    completed: "เสร็จสมบูรณ์",
+    cancelled: "ยกเลิกแล้ว",
+    failed: "ไม่สำเร็จ"
+  };
   els.content.innerHTML = `
     <section class="section">
       <div class="panel stack import-drop">
         <div class="section-title">
-          <h2>Import CSV ออเดอร์เก่า</h2>
-          <p>อัปโหลดไฟล์ .csv เพื่อตรวจสอบรายการก่อนบันทึก</p>
+          <h2>นำเข้าออเดอร์ CSV ขนาดใหญ่</h2>
+          <p>รองรับ 10,000–100,000+ รายการ ระบบแบ่งชุดและทำงานเบื้องหลังอัตโนมัติ</p>
         </div>
-        <p class="muted">ถ้าต้องการกรอกออเดอร์เก่าเอง ให้ไปที่หน้า Orders เลือกวันที่ แล้วกด Add Order</p>
-        <input class="file-input" id="csvFile" type="file" accept=".csv,text/csv">
-        <div class="inline">
-          <button class="button secondary" data-preview-csv type="button" ${app.csvImportText ? "" : "disabled"}>แสดงตัวอย่าง</button>
-          <button class="button primary" data-import="csv" type="button" ${app.csvPreview.length ? "" : "disabled"}>บันทึกออเดอร์</button>
-        </div>
-        ${app.csvPreviewSummary ? `
-          <p class="muted">พร้อมนำเข้า ${app.csvPreviewSummary.imported} · ซ้ำ ${app.csvPreviewSummary.duplicates} · ข้อมูลไม่ครบ ${app.csvPreviewSummary.invalid}</p>
-        ` : ""}
-        <div class="preview-list">
-          ${app.csvPreview.map(row => `
-            <div class="order-card">
-              <div class="order-top">
-                <strong>${escapeHtml(row.name)}</strong>
-                ${row.duplicate ? `<span class="badge risk">ซ้ำ - ข้าม</span>` : `<span class="badge new">พร้อมนำเข้า</span>`}
+        <label class="import-file-zone">
+          <span>${app.importPreparing ? "กำลังอ่านไฟล์…" : busy ? "มีงานกำลังทำงานอยู่" : job?.status === "paused" ? "เลือกไฟล์เดิมเพื่อทำต่อ" : "เลือกไฟล์ CSV เพื่อนำเข้า"}</span>
+          <small>ไม่ต้องแบ่งไฟล์ ระบบบันทึกทุก 300 รายการและข้ามออเดอร์ซ้ำให้เอง</small>
+          <input class="file-input" id="csvFile" type="file" accept=".csv,text/csv" ${app.importPreparing || busy ? "disabled" : ""}>
+        </label>
+        ${job ? `
+          <div class="import-progress-card">
+            <div class="import-progress-head">
+              <div>
+                <span class="import-status ${escapeHtml(job.status)}">${statusLabels[job.status] || job.status}</span>
+                <strong>${escapeHtml(job.fileName || "orders.csv")}</strong>
               </div>
-              <div class="order-grid">
-                <div><span>วันที่</span><strong>${formatDate(row.date)}</strong></div>
-                <div><span>เลขออเดอร์</span><strong>${escapeHtml(row.orderNumber || "-")}</strong></div>
-                <div><span>เบอร์</span><strong>${escapeHtml(row.phone)}</strong></div>
-                <div><span>จำนวน</span><strong>${money(row.jars)} กระปุก</strong></div>
-                <div><span>ยอด</span><strong>${money(row.amount)} บาท</strong></div>
-                <div><span>สั่งจาก</span><strong>${escapeHtml(row.sourceChannel || "-")}</strong></div>
-                <div><span>Facebook / Line</span><strong>${escapeHtml(row.socialName || "-")}</strong></div>
-                <div><span>อาการลูกค้า</span><strong>${escapeHtml(row.tags || "-")}</strong></div>
-                <div><span>ของแถม</span><strong>${escapeHtml(row.freeGift || "-")}</strong></div>
-                <div><span>บัตร VIP</span><strong>${escapeHtml(row.vipCardStatus || "-")}</strong></div>
-              </div>
+              <strong>${Number(job.percent || 0)}%</strong>
             </div>
-          `).join("")}
+            <div class="import-progress-track"><span style="width:${Number(job.percent || 0)}%"></span></div>
+            <div class="import-stat-grid">
+              <div><span>Imported / Total</span><strong>${money(job.imported || 0)} / ${money(job.total || 0)}</strong></div>
+              <div><span>ประมวลผลแล้ว</span><strong>${money(job.processed || 0)}</strong></div>
+              <div><span>ข้ามรายการซ้ำ</span><strong>${money(job.skipped || 0)}</strong></div>
+              <div><span>ไม่สำเร็จ</span><strong>${money(job.failed || 0)}</strong></div>
+              <div><span>ETA</span><strong>${job.status === "completed" ? "เสร็จแล้ว" : formatImportDuration(job.etaSeconds || 0)}</strong></div>
+              <div><span>ระยะเวลา</span><strong>${formatImportDuration(job.durationSeconds || 0)}</strong></div>
+            </div>
+            <div class="inline">
+              ${["queued", "running", "paused"].includes(job.status) ? `<button class="button danger" data-cancel-import type="button">ยกเลิก</button>` : ""}
+              ${job.canExportFailures ? `<a class="button secondary" href="/api/import-jobs/${encodeURIComponent(job.id)}/failed.csv">ดาวน์โหลดแถวที่ผิดพลาด</a>` : ""}
+            </div>
+          </div>
+        ` : `
+          <div class="import-capabilities">
+            <span>แบ่งชุดอัตโนมัติ</span>
+            <span>ทำต่อได้เมื่อสะดุด</span>
+            <span>ป้องกันข้อมูลซ้ำ</span>
+            <span>ดาวน์โหลดแถวที่ผิดพลาดได้</span>
+          </div>
+        `}
+        ${job?.status === "completed" ? `
+          <div class="import-final-summary">
+            <strong>สรุปการนำเข้า</strong>
+            <span>นำเข้าสำเร็จ ${money(job.imported || 0)} · ข้าม ${money(job.skipped || 0)} · ไม่สำเร็จ ${money(job.failed || 0)} · ใช้เวลา ${formatImportDuration(job.durationSeconds || 0)}</span>
+          </div>
+        ` : ""}
+        ${job?.lastError ? `<p class="form-error">${escapeHtml(job.lastError)}</p>` : ""}
+        <div class="muted">
+          คอลัมน์ที่รองรับ: order_number, name, phone, address, date, jars, amount, tags และ source_channel
         </div>
       </div>
     </section>
   `;
+}
+
+function formatImportDuration(seconds) {
+  const value = Math.max(0, Number(seconds || 0));
+  if (value < 60) return `${value} วินาที`;
+  const minutes = Math.floor(value / 60);
+  const remaining = value % 60;
+  return `${minutes} นาที ${remaining} วินาที`;
+}
+
+async function refreshImportJob() {
+  clearTimeout(app.importPollTimer);
+  const inProgress = app.importJob && ["queued", "running", "paused"].includes(app.importJob.status);
+  const path = inProgress
+    ? `/api/import-jobs/${encodeURIComponent(app.importJob.id)}`
+    : "/api/import-jobs/active?type=orders";
+  const payload = await api(path);
+  if (payload.job) app.importJob = payload.job;
+  if (app.view === "import") renderImport();
+  if (!app.importWorker && app.view === "import" && app.importJob && ["queued", "running"].includes(app.importJob.status)) {
+    app.importPollTimer = setTimeout(() => refreshImportJob().catch(error => showToast(error.message)), 2000);
+  }
+}
+
+function startCsvImport(file) {
+  if (app.importWorker) app.importWorker.terminate();
+  app.importPreparing = true;
+  app.importJob = null;
+  renderImport();
+  const worker = new Worker("/import-worker.js");
+  app.importWorker = worker;
+  worker.addEventListener("message", async event => {
+    const { type, job, message } = event.data || {};
+    if (job) app.importJob = job;
+    if (type === "preparing") app.importPreparing = true;
+    if (type === "progress") app.importPreparing = false;
+    if (type === "complete") {
+      app.importPreparing = false;
+      worker.terminate();
+      app.importWorker = null;
+      await loadState();
+      return;
+    }
+    if (type === "cancelled") {
+      app.importPreparing = false;
+      worker.terminate();
+      app.importWorker = null;
+    }
+    if (type === "error") {
+      app.importPreparing = false;
+      if (message) showToast(message);
+      worker.terminate();
+      app.importWorker = null;
+    }
+    if (app.view === "import") renderImport();
+  });
+  worker.postMessage({
+    type: "start",
+    file,
+    defaultJarPrice: Number(app.data?.settings?.defaultJarPrice || 750)
+  });
 }
 
 function monthKey(dateValue) {
@@ -1597,8 +1687,10 @@ function setView(view) {
     return;
   }
   app.view = view;
+  clearTimeout(app.importPollTimer);
   navigateToView(view);
   render();
+  if (view === "import" && !app.importWorker) refreshImportJob().catch(error => showToast(error.message));
 }
 
 function syncViewFromLocation() {
@@ -1818,6 +1910,18 @@ document.addEventListener("click", async event => {
 
   if (event.target.closest("[data-preview-csv]")) previewCsvImport();
 
+  if (event.target.closest("[data-cancel-import]")) {
+    if (app.importWorker) app.importWorker.postMessage({ type: "cancel" });
+    else if (app.importJob?.id) {
+      const payload = await api(`/api/import-jobs/${encodeURIComponent(app.importJob.id)}/cancel`, {
+        method: "POST",
+        body: "{}"
+      });
+      app.importJob = payload.job;
+      renderImport();
+    }
+  }
+
   if (event.target.closest("[data-reset-filters]")) {
     app.filters = { q: "", tag: "", status: "", vip: "" };
     renderSearch();
@@ -1926,10 +2030,7 @@ document.addEventListener("change", async event => {
   if (event.target?.id === "csvFile") {
     const file = event.target.files?.[0];
     if (!file) return;
-    app.csvImportText = await file.text();
-    app.csvPreview = [];
-    app.csvPreviewSummary = null;
-    await previewCsvImport();
+    startCsvImport(file);
   }
 });
 
@@ -2104,6 +2205,7 @@ async function init() {
     return;
   }
   await loadState();
+  if (app.view === "import") await refreshImportJob();
 }
 
 init().catch(error => {
