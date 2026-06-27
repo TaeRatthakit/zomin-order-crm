@@ -646,6 +646,62 @@ function parseLabel(textValue, labels) {
   return String(textValue || "").match(pattern)?.[1]?.trim() || "";
 }
 
+const PRIMARY_LINE_ORDER_FIELDS = [
+  ["name", "ชื่อลูกค้า"],
+  ["phone", "เบอร์โทร"],
+  ["alternatePhone", "เบอร์โทรสำรอง"],
+  ["address", "ที่อยู่จัดส่ง"],
+  ["date", "วันที่ซื้อ"],
+  ["jars", "จำนวนกระปุก"],
+  ["amount", "ยอดซื้อ"],
+  ["sourceChannel", "ช่องทางการสั่งซื้อ"],
+  ["originSource", "ลูกค้ามาจาก"],
+  ["socialName", "Facebook / Line ลูกค้า"],
+  ["freeGift", "ของแถมที่ลูกค้าได้"],
+  ["vipCardStatus", "สถานะบัตร vip"],
+  ["tags", "อาการลูกค้า"],
+  ["note", "หมายเหตุ"]
+];
+
+function parsePrimaryLineOrderForm(rawText) {
+  const textValue = String(rawText || "").trim();
+  if (!textValue) return null;
+  const lines = textValue.split(/\n+/).map(line => line.trim()).filter(Boolean);
+  const labels = PRIMARY_LINE_ORDER_FIELDS.map(([, label]) => label);
+  const labelMap = new Map();
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    const matchedLabel = labels.find(label => line.toLowerCase() === label.toLowerCase());
+    if (!matchedLabel) continue;
+    labelMap.set(matchedLabel, lines[index + 1] || "");
+  }
+  if (!labelMap.size) return null;
+  const requiredLabels = ["ชื่อลูกค้า", "เบอร์โทร", "ที่อยู่จัดส่ง", "จำนวนกระปุก", "ยอดซื้อ"];
+  const hasPrimaryShape = requiredLabels.every(label => labelMap.has(label));
+  if (!hasPrimaryShape) return null;
+  const get = label => String(labelMap.get(label) || "").trim();
+  const phone = normalizePhone(get("เบอร์โทร"));
+  if (!phone) return null;
+  return {
+    name: normalizeImportText(get("ชื่อลูกค้า") || `ลูกค้า ${phone}`),
+    phone,
+    alternatePhone: normalizePhone(get("เบอร์โทรสำรอง")),
+    address: normalizeImportText(get("ที่อยู่จัดส่ง")),
+    date: normalizeImportDate(get("วันที่ซื้อ")) || toDateOnly(),
+    jars: Number(get("จำนวนกระปุก").replace(/[^\d.]/g, "")) || parseQuantity(get("จำนวนกระปุก")) || 1,
+    amount: parseCurrency(get("ยอดซื้อ")),
+    source: "LINE",
+    sourceChannel: normalizeImportText(get("ช่องทางการสั่งซื้อ") || "LINE"),
+    originSource: normalizeImportText(get("ลูกค้ามาจาก")),
+    socialName: normalizeImportText(get("Facebook / Line ลูกค้า")),
+    freeGift: normalizeImportText(get("ของแถมที่ลูกค้าได้")),
+    vipCardStatus: normalizeImportText(get("สถานะบัตร vip") || "ยังไม่ได้ส่งบัตร") || "ยังไม่ได้ส่งบัตร",
+    tags: splitTags(get("อาการลูกค้า")),
+    note: normalizeImportText(get("หมายเหตุ")),
+    rawText: textValue
+  };
+}
+
 function parseSourceChannel(textValue) {
   const explicit = parseLabel(textValue, ["ช่องทาง", "ช่องทางสั่ง", "สั่งจาก", "source_channel", "source"]);
   if (explicit) return explicit;
@@ -689,6 +745,13 @@ function parseFreeGift(textValue) {
 function parseLineOrder(rawText, defaultJarPrice = 750) {
   const textValue = String(rawText || "").trim();
   if (shouldSkipLineImport(textValue)) return null;
+  const primary = parsePrimaryLineOrderForm(textValue);
+  if (primary) {
+    return {
+      ...primary,
+      amount: Number.isFinite(Number(primary.amount)) ? Number(primary.amount) : Number(primary.jars || 1) * Number(defaultJarPrice || 750)
+    };
+  }
   const lines = textValue.split(/\n+/).map(line => line.trim()).filter(Boolean);
   const phoneLine = lines.find(line => /โทร|เบอร์|phone|mobile|tel/i.test(line) && /\d/.test(line)) || lines.find(line => /^0[\d\s.-]{8,12}$/.test(line.replace(/[^\d\s.-]/g, "")));
   const phoneMatch = phoneLine?.match(/0\d{8,9}/) || textValue.match(/(?<!\d)0\d{8,9}(?!\d)/);
@@ -913,6 +976,7 @@ function normalizedOrderForStorage(parsed = {}) {
 
 async function parseOrderWithAI(textValue, settings = {}) {
   const fallback = parseLineOrder(textValue, settings.defaultJarPrice);
+  if (parsePrimaryLineOrderForm(textValue)) return fallback;
   const apiKey = settings.openaiApiKey;
   if (!apiKey) return fallback;
   try {
@@ -927,7 +991,7 @@ async function parseOrderWithAI(textValue, settings = {}) {
         input: [
           {
             role: "system",
-            content: "Extract a LINE order into JSON. Return only valid JSON with keys: orderDate, orderNumber, salesChannel, tag, customerSocial, customerName, shippingAddress, phoneNumber, quantity, totalAmount, freeGift, vipStatus. Use Thai field values when present. If a field is missing, use an empty string."
+            content: "Extract a LINE order into JSON. If exact Thai key names are present, never guess, rename, or swap them. Return only valid JSON with keys: orderDate, orderNumber, salesChannel, originSource, tag, customerSocial, customerName, shippingAddress, phoneNumber, alternatePhone, quantity, totalAmount, freeGift, vipStatus, note. Use empty string for missing fields."
           },
           {
             role: "user",
@@ -945,15 +1009,18 @@ async function parseOrderWithAI(textValue, settings = {}) {
       date: normalizeImportDate(parsed.orderDate) || fallback?.date || toDateOnly(),
       orderNumber: normalizeImportText(parsed.orderNumber || ""),
       sourceChannel: normalizeImportText(parsed.salesChannel || fallback?.sourceChannel || "LINE"),
+      originSource: normalizeImportText(parsed.originSource || fallback?.originSource || ""),
       tags: splitTags(parsed.tag || ""),
       socialName: normalizeImportText(parsed.customerSocial || fallback?.socialName || ""),
       name: normalizeImportText(parsed.customerName || fallback?.name || ""),
       address: normalizeImportText(parsed.shippingAddress || fallback?.address || ""),
       phone: normalizePhone(parsed.phoneNumber || fallback?.phone || ""),
+      alternatePhone: normalizePhone(parsed.alternatePhone || fallback?.alternatePhone || ""),
       jars: Number(parsed.quantity || fallback?.jars || 0) || 1,
       amount: Number(parsed.totalAmount || fallback?.amount || 0),
       freeGift: normalizeImportText(parsed.freeGift || fallback?.freeGift || ""),
       vipCardStatus: normalizeImportText(parsed.vipStatus || fallback?.vipCardStatus || "ยังไม่ได้ส่งบัตร") || "ยังไม่ได้ส่งบัตร",
+      note: normalizeImportText(parsed.note || fallback?.note || ""),
       source: "LINE",
       rawText: textValue
     };
