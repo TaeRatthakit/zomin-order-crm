@@ -50,6 +50,7 @@ create table if not exists public.customers (
 create table if not exists public.orders (
   id text primary key,
   customer_id text not null references public.customers(id) on delete cascade,
+  order_number text default '',
   customer_name text default '',
   phone text default '',
   address text default '',
