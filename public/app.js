@@ -469,10 +469,12 @@ function customerRow(customer) {
           ${customer.status !== customer.vipLevel ? badge(customer.status) : ""}
         </div>
       </div>
+      <div class="customer-purchase-frequency">ซื้อแล้ว ${customer.purchaseCount || 0} ครั้ง</div>
       ${tagsHtml(customer.tags)}
-      <div class="customer-card-metrics">
+      <div class="customer-card-summary">
         <div><span>ซื้อล่าสุด</span><strong>${formatDate(customer.lastPurchaseDate)}</strong></div>
-        <div><span>กระปุก</span><strong>${customer.lastJars || 0}</strong></div>
+        <div><span>ซื้อแล้วกี่ครั้ง</span><strong>${customer.purchaseCount || 0} ครั้ง</strong></div>
+        <div><span>กระปุกสะสม</span><strong>${customer.totalJars || 0} กระปุก</strong></div>
         <div><span>ยอดสะสม</span><strong>${money(customer.totalSpent)} บาท</strong></div>
         <div><span>ควรทัก</span><strong>${formatDate(customer.followUpDate)}</strong></div>
       </div>
