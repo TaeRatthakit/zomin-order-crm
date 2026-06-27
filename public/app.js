@@ -635,7 +635,7 @@ function renderOrders() {
           <button class="button primary" data-open-order>เพิ่มออเดอร์</button>
         </div>
       </div>
-      <div class="panel stack">
+      <div class="filters">
         <input data-order-filter="q" placeholder="เลขออเดอร์ ชื่อลูกค้า เบอร์โทร เบอร์สำรอง Facebook / LINE ลูกค้า อาการลูกค้า" value="${escapeHtml(app.ordersFilterQ)}">
       </div>
       ${orderTable(orders)}
