@@ -633,7 +633,25 @@ function applyCustomerFilters() {
   const selectedDate = app.data.summary?.selectedDate || els.workDate.value || todayISO();
   return app.data.customers.filter(customer => {
     const dateMatch = app.customersShowAll || (customer.orders || []).some(order => order.date === selectedDate);
-    const textMatch = !q || [customer.name, customer.phone, customer.address, ...(customer.tags || [])].join(" ").toLowerCase().includes(q);
+    const textMatch = !q || [
+      customer.name,
+      customer.phone,
+      customer.alternatePhone,
+      customer.address,
+      customer.originSource,
+      customer.socialName,
+      ...(customer.tags || []),
+      ...(customer.orders || []).flatMap(order => [
+        order.orderNumber,
+        order.customerName,
+        order.phone,
+        order.alternatePhone,
+        order.socialName,
+        order.originSource,
+        order.tags,
+        order.note
+      ])
+    ].join(" ").toLowerCase().includes(q);
     const tagMatch = !app.filters.tag || (customer.tags || []).includes(app.filters.tag);
     const statusMatch = !app.filters.status || customer.status === app.filters.status;
     const vipMatch = !app.filters.vip || customer.vipLevel === app.filters.vip;
