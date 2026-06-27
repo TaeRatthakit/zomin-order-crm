@@ -587,6 +587,10 @@ a.button {
   font-weight: 800;
 }
 
+.form-grid [data-origin-source-other][hidden] {
+  display: none !important;
+}
+
 .span-2 {
   grid-column: span 2;
 }
