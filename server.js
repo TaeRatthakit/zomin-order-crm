@@ -519,6 +519,7 @@ function addOrder(db, payload) {
   const amount = payload.amount !== undefined && payload.amount !== ""
     ? Number(payload.amount)
     : jars * Number(db.settings.defaultJarPrice || 750);
+  const phone = normalizePhone(payload.phone || customer.phone || "");
   const previousVipCardSent = (db.orders || []).some(order =>
     order.customerId === customer.id && order.vipCardStatus === "ส่งบัตรแล้ว"
   );
@@ -535,6 +536,7 @@ function addOrder(db, payload) {
     customerId: customer.id,
     orderNumber: normalizeImportText(payload.orderNumber),
     customerName: normalizeImportText(payload.name || customer.name),
+    phone,
     address: normalizeImportText(payload.address || customer.address),
     date: toDateOnly(payload.date || new Date()),
     time: String(payload.time || bangkokTime()),
@@ -545,6 +547,7 @@ function addOrder(db, payload) {
     sourceChannel,
     alternatePhone: String(payload.alternatePhone || payload.alternate_phone || "").trim(),
     originSource: String(payload.originSource || payload.origin_source || "").trim(),
+    lineMessageId: normalizeImportText(payload.lineMessageId || payload.line_message_id || ""),
     socialName: String(payload.socialName || payload.social_name || "").trim(),
     freeGift: String(payload.freeGift || payload.free_gift || "").trim(),
     vipCardStatus,
@@ -557,11 +560,19 @@ function addOrder(db, payload) {
 }
 
 function findDuplicateOrder(db, payload = {}) {
+  const lineMessageId = normalizeImportText(payload.lineMessageId || payload.line_message_id || "");
+  if (lineMessageId) {
+    const existing = (db.orders || []).find(order =>
+      normalizeImportText(order.lineMessageId || order.line_message_id || "") === lineMessageId
+    );
+    if (existing) return existing;
+  }
   const orderNumber = normalizeDuplicateOrderNumber(payload.orderNumber || payload.order_number || "");
   if (orderNumber) {
     const existing = (db.orders || []).find(order => normalizeDuplicateOrderNumber(order.orderNumber || order.order_number || "") === orderNumber);
     if (existing) return existing;
   }
+  if (lineMessageId) return null;
   const date = toDateOnly(payload.date || payload.orderDate || "");
   const phone = normalizePhone(payload.phone || "");
   const amount = Number(payload.amount || 0);
@@ -894,6 +905,7 @@ function normalizedOrderForStorage(parsed = {}) {
     jars: Number(parsed.jars || parsed.quantity || 0) || 1,
     date: toDateOnly(parsed.date || new Date()),
     orderNumber: normalizeImportText(parsed.orderNumber || parsed.order_number || ""),
+    lineMessageId: normalizeImportText(parsed.lineMessageId || parsed.line_message_id || ""),
     source: parsed.source || "LINE",
     sourceChannel: parsed.sourceChannel || parsed.source_channel || "LINE"
   };
@@ -953,8 +965,9 @@ async function parseOrderWithAI(textValue, settings = {}) {
 async function handleLineWebhookEvents(db, settings, events) {
   const parsedOrders = [];
   const replies = [];
+  const persistedOrders = [];
   for (const event of events) {
-    const { replyToken, source, text } = extractLineWebhookContext(event);
+    const { replyToken, source, text, messageId } = extractLineWebhookContext(event);
     const eventLog = lineEventLogPayload(event, text);
     console.log("LINE webhook event received", JSON.stringify(eventLog));
     const debug = {
@@ -1004,7 +1017,7 @@ async function handleLineWebhookEvents(db, settings, events) {
     }
     console.log("LINE webhook parser starting", JSON.stringify({ groupId: source.groupId || "", hasOpenAI: Boolean(settings.openaiApiKey) }));
     const parsed = await parseOrderWithAI(rawText, settings);
-    const normalized = normalizedOrderForStorage(parsed);
+    const normalized = normalizedOrderForStorage({ ...parsed, lineMessageId: messageId });
     const missingFields = missingRequiredOrderFields(normalized);
     if (missingFields.length) {
       debug.parser_status = "missing_required_fields";
@@ -1014,11 +1027,20 @@ async function handleLineWebhookEvents(db, settings, events) {
       continue;
     }
     try {
-      parsedOrders.push(addOrder(db, normalized));
+      const order = addOrder(db, normalized);
+      parsedOrders.push(order);
+      persistedOrders.push({
+        id: order.id,
+        lineMessageId: order.lineMessageId || "",
+        phone: order.phone || "",
+        amount: order.amount,
+        date: order.date
+      });
       debug.parser_status = "parsed";
       debug.supabase_insert_status = "pending_write";
       console.log("LINE webhook order parsed", JSON.stringify({
         groupId: source.groupId || "",
+        lineMessageId: messageId || "",
         orderNumber: normalized.orderNumber || "",
         phone: normalized.phone || "",
         amount: normalized.amount,
@@ -1031,12 +1053,13 @@ async function handleLineWebhookEvents(db, settings, events) {
         debug.supabase_insert_status = "skipped_duplicate";
         console.log("LINE webhook duplicate order skipped", JSON.stringify({
           groupId: source.groupId || "",
+          lineMessageId: messageId || "",
           orderNumber: normalized.orderNumber || "",
           phone: normalized.phone || "",
           amount: normalized.amount,
           date: normalized.date
         }));
-        replies.push({ replyToken, messages: [{ type: "text", text: "✅ Order imported into OrderPilot CRM." }] });
+        replies.push({ replyToken, messages: [{ type: "text", text: "ℹ️ Order already exists in OrderPilot CRM." }] });
         continue;
       }
       debug.parser_status = "error";
@@ -1050,7 +1073,10 @@ async function handleLineWebhookEvents(db, settings, events) {
     }
   }
   await writeDb(db);
-  console.log("LINE webhook Supabase write completed", JSON.stringify({ parsedOrders: parsedOrders.length }));
+  console.log("LINE webhook database write completed", JSON.stringify({
+    parsedOrders: parsedOrders.length,
+    persistedOrders
+  }));
   for (const reply of replies) {
     try {
       await replyLineMessages(settings, reply.replyToken, reply.messages);
