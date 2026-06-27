@@ -32,9 +32,7 @@ const MISSING_CHANNEL_LABEL = "อื่นๆ";
 const app = {
   view: routeFromLocation(),
   followupMode: "today",
-  importMode: "paste",
-  lineImportText: "",
-  importPreview: [],
+  importMode: "csv",
   csvImportText: "",
   csvPreview: [],
   csvPreviewSummary: null,
@@ -768,7 +766,7 @@ function renderFollowup() {
 function renderMore() {
   const cards = [
     ["vip", "ลูกค้า VIP", "VIP / VVIP / SUPER VIP", "VIP"],
-    ["import", "เพิ่มข้อมูลเก่า", "CSV, Google Sheets, LINE text", "นำเข้า"],
+    ["import", "เพิ่มข้อมูลเก่า", "นำเข้าออเดอร์เก่าด้วย CSV", "นำเข้า"],
     ["reports", "รายงานยอดขาย", "ยอดขายและสัดส่วนลูกค้า", "รายงาน"],
     ["tags", "อาการลูกค้า", "จัดการอาการลูกค้าและดูจำนวนลูกค้า", "อาการลูกค้า"],
     ["risk", "ลูกค้าเสี่ยงหาย", "AT RISK และ LOST", "แจ้งเตือน"]
@@ -927,106 +925,43 @@ function renderRisk() {
 function renderImport() {
   els.content.innerHTML = `
     <section class="section">
-      <div class="panel stack">
-        <div class="tab-row">
-          <button class="tab-button ${app.importMode === "paste" ? "active" : ""}" data-import-mode="paste" type="button">วางข้อความ</button>
-          <button class="tab-button ${app.importMode === "csv" ? "active" : ""}" data-import-mode="csv" type="button">Import CSV</button>
-          <button class="tab-button ${app.importMode === "manual" ? "active" : ""}" data-import-mode="manual" type="button">กรอกเอง</button>
+      <div class="panel stack import-drop">
+        <div class="section-title">
+          <h2>Import CSV ออเดอร์เก่า</h2>
+          <p>อัปโหลดไฟล์ .csv เพื่อตรวจสอบรายการก่อนบันทึก</p>
+        </div>
+        <p class="muted">ถ้าต้องการกรอกออเดอร์เก่าเอง ให้ไปที่หน้า Orders เลือกวันที่ แล้วกด Add Order</p>
+        <input class="file-input" id="csvFile" type="file" accept=".csv,text/csv">
+        <div class="inline">
+          <button class="button secondary" data-preview-csv type="button" ${app.csvImportText ? "" : "disabled"}>แสดงตัวอย่าง</button>
+          <button class="button primary" data-import="csv" type="button" ${app.csvPreview.length ? "" : "disabled"}>บันทึกออเดอร์</button>
+        </div>
+        ${app.csvPreviewSummary ? `
+          <p class="muted">พร้อมนำเข้า ${app.csvPreviewSummary.imported} · ซ้ำ ${app.csvPreviewSummary.duplicates} · ข้อมูลไม่ครบ ${app.csvPreviewSummary.invalid}</p>
+        ` : ""}
+        <div class="preview-list">
+          ${app.csvPreview.map(row => `
+            <div class="order-card">
+              <div class="order-top">
+                <strong>${escapeHtml(row.name)}</strong>
+                ${row.duplicate ? `<span class="badge risk">ซ้ำ - ข้าม</span>` : `<span class="badge new">พร้อมนำเข้า</span>`}
+              </div>
+              <div class="order-grid">
+                <div><span>วันที่</span><strong>${formatDate(row.date)}</strong></div>
+                <div><span>เลขออเดอร์</span><strong>${escapeHtml(row.orderNumber || "-")}</strong></div>
+                <div><span>เบอร์</span><strong>${escapeHtml(row.phone)}</strong></div>
+                <div><span>จำนวน</span><strong>${money(row.jars)} กระปุก</strong></div>
+                <div><span>ยอด</span><strong>${money(row.amount)} บาท</strong></div>
+                <div><span>สั่งจาก</span><strong>${escapeHtml(row.sourceChannel || "-")}</strong></div>
+                <div><span>Facebook / Line</span><strong>${escapeHtml(row.socialName || "-")}</strong></div>
+                <div><span>อาการลูกค้า</span><strong>${escapeHtml(row.tags || "-")}</strong></div>
+                <div><span>ของแถม</span><strong>${escapeHtml(row.freeGift || "-")}</strong></div>
+                <div><span>บัตร VIP</span><strong>${escapeHtml(row.vipCardStatus || "-")}</strong></div>
+              </div>
+            </div>
+          `).join("")}
         </div>
       </div>
-      ${app.importMode === "csv" ? `
-        <div class="import-drop">
-          <div class="section-title">
-            <h2>Import CSV ออเดอร์เก่า</h2>
-            <p>อัปโหลดไฟล์ .csv เพื่อตรวจสอบรายการก่อนบันทึก</p>
-          </div>
-          <input class="file-input" id="csvFile" type="file" accept=".csv,text/csv">
-          <div class="inline">
-            <button class="button secondary" data-preview-csv type="button" ${app.csvImportText ? "" : "disabled"}>แสดงตัวอย่าง</button>
-            <button class="button primary" data-import="csv" type="button" ${app.csvPreview.length ? "" : "disabled"}>บันทึกออเดอร์</button>
-          </div>
-          ${app.csvPreviewSummary ? `
-            <p class="muted">พร้อมนำเข้า ${app.csvPreviewSummary.imported} · ซ้ำ ${app.csvPreviewSummary.duplicates} · ข้อมูลไม่ครบ ${app.csvPreviewSummary.invalid}</p>
-          ` : ""}
-          <div class="preview-list">
-            ${app.csvPreview.map(row => `
-              <div class="order-card">
-                <div class="order-top">
-                  <strong>${escapeHtml(row.name)}</strong>
-                  ${row.duplicate ? `<span class="badge risk">ซ้ำ - ข้าม</span>` : `<span class="badge new">พร้อมนำเข้า</span>`}
-                </div>
-                <div class="order-grid">
-                  <div><span>วันที่</span><strong>${formatDate(row.date)}</strong></div>
-                  <div><span>เลขออเดอร์</span><strong>${escapeHtml(row.orderNumber || "-")}</strong></div>
-                  <div><span>เบอร์</span><strong>${escapeHtml(row.phone)}</strong></div>
-                  <div><span>จำนวน</span><strong>${money(row.jars)} กระปุก</strong></div>
-                  <div><span>ยอด</span><strong>${money(row.amount)} บาท</strong></div>
-                  <div><span>สั่งจาก</span><strong>${escapeHtml(row.sourceChannel || "-")}</strong></div>
-                  <div><span>Facebook / Line</span><strong>${escapeHtml(row.socialName || "-")}</strong></div>
-                  <div><span>อาการลูกค้า</span><strong>${escapeHtml(row.tags || "-")}</strong></div>
-                  <div><span>ของแถม</span><strong>${escapeHtml(row.freeGift || "-")}</strong></div>
-                  <div><span>บัตร VIP</span><strong>${escapeHtml(row.vipCardStatus || "-")}</strong></div>
-                </div>
-              </div>
-            `).join("")}
-          </div>
-        </div>
-      ` : app.importMode === "paste" ? `
-        <div class="import-drop">
-          <div class="section-title">
-            <h2>วางข้อความ LINE เก่า</h2>
-            <p>ระบบจะแยกชื่อ เบอร์ ที่อยู่ จำนวน ยอดเงิน ช่องทาง ชื่อเฟส/ไลน์ ของแถม และอาการลูกค้าก่อนบันทึก</p>
-          </div>
-          <textarea id="lineImport" spellcheck="false" placeholder="วางข้อความ LINE ที่ต้องการวิเคราะห์">${escapeHtml(app.lineImportText)}</textarea>
-          <div class="inline">
-            <button class="button secondary" data-parse-import type="button">วิเคราะห์ข้อมูล</button>
-            <button class="button primary" data-import="line" type="button">บันทึกข้อมูล</button>
-          </div>
-          <div class="preview-list">
-            ${app.importPreview.map(row => `
-              <div class="order-card">
-                <div class="order-top"><strong>${escapeHtml(row.name)}</strong><span>${escapeHtml(row.phone)}</span></div>
-                <div class="order-grid">
-                  <div><span>วันที่</span><strong>${formatDate(row.date)}</strong></div>
-                  <div><span>จำนวน</span><strong>${row.jars} กระปุก</strong></div>
-                  <div><span>ยอดเงิน</span><strong>${money(row.amount)} บาท</strong></div>
-                  <div><span>ช่องทาง</span><strong>${escapeHtml(row.sourceChannel || "-")}</strong></div>
-                  <div><span>ชื่อเฟส/ไลน์</span><strong>${escapeHtml(row.socialName || "-")}</strong></div>
-                  <div><span>ของแถม</span><strong>${escapeHtml(row.freeGift || "-")}</strong></div>
-                  <div><span>อาการลูกค้า</span><strong>${escapeHtml((row.tags || []).join(", ") || "-")}</strong></div>
-                </div>
-              </div>
-            `).join("")}
-          </div>
-        </div>
-      ` : `
-        <form class="import-drop" id="manualImportForm">
-          <div class="section-title">
-            <h2>กรอกออเดอร์เก่าเอง</h2>
-            <p>เหมาะสำหรับข้อมูลที่ parser อ่านไม่ได้</p>
-          </div>
-          <div class="form-grid">
-            <label>วันที่ซื้อ<input name="date" type="date" required></label>
-            <label>เวลา<input name="time" type="time"></label>
-            <label>ชื่อ<input name="name" required></label>
-            <label>เบอร์<input name="phone" required></label>
-            <label class="span-2">ที่อยู่<input name="address"></label>
-            <label>จำนวนกระปุก<input name="jars" type="number" min="1" value="1"></label>
-            <label>ยอดเงิน<input name="amount" type="number" min="0" value="${Number(app.data.settings.defaultJarPrice || 750)}"></label>
-            <label>ช่องทางที่ลูกค้าสั่งมา<input name="sourceChannel" placeholder="เช่น LINE OA, โทรศัพท์, ตัวแทน"></label>
-            <label>ชื่อเฟส/ชื่อไลน์ลูกค้า<input name="socialName"></label>
-            <label>ของแถมที่ลูกค้าได้<input name="freeGift"></label>
-            <label>สถานะบัตร VIP
-              <select name="vipCardStatus">
-                <option>ยังไม่ได้ส่งบัตร</option>
-                <option>ส่งบัตรแล้ว</option>
-              </select>
-            </label>
-            <label class="span-2">หมายเหตุ<input name="note"></label>
-          </div>
-          <button class="button primary" type="submit">บันทึกข้อมูล</button>
-        </form>
-      `}
     </section>
   `;
 }
@@ -1693,22 +1628,15 @@ async function copyText(text) {
 }
 
 async function handleImport(type) {
-  const content = type === "csv" ? app.csvImportText : document.querySelector("#lineImport")?.value || "";
+  const content = app.csvImportText;
   const payload = await api("/api/import", {
     method: "POST",
     body: JSON.stringify({ type, content })
   });
-  showToast(type === "csv"
-    ? `นำเข้า ${payload.imported} ออเดอร์ · ซ้ำ ${payload.duplicates || 0}`
-    : `Import สำเร็จ ${payload.imported} ออเดอร์`);
-  if (type === "line") {
-    app.lineImportText = content;
-  } else {
-    app.csvImportText = "";
-    app.csvPreview = [];
-    app.csvPreviewSummary = null;
-  }
-  app.importPreview = [];
+  showToast(`นำเข้า ${payload.imported} ออเดอร์ · ซ้ำ ${payload.duplicates || 0}`);
+  app.csvImportText = "";
+  app.csvPreview = [];
+  app.csvPreviewSummary = null;
   await loadState();
 }
 
@@ -1724,19 +1652,6 @@ async function previewCsvImport() {
     duplicates: payload.duplicates || 0,
     invalid: payload.invalid || 0
   };
-  renderImport();
-}
-
-async function parseImportPreview() {
-  const textarea = document.querySelector("#lineImport");
-  if (!textarea) return;
-  app.lineImportText = textarea.value;
-  const payload = await api("/api/parse-preview", {
-    method: "POST",
-    body: JSON.stringify({ content: textarea.value })
-  });
-  app.importPreview = payload.rows || [];
-  showToast(`วิเคราะห์ได้ ${app.importPreview.length} ออเดอร์`);
   renderImport();
 }
 
@@ -1815,16 +1730,7 @@ document.addEventListener("click", async event => {
   const importButton = event.target.closest("[data-import]");
   if (importButton) handleImport(importButton.dataset.import);
 
-  const parseButton = event.target.closest("[data-parse-import]");
-  if (parseButton) parseImportPreview();
-
   if (event.target.closest("[data-preview-csv]")) previewCsvImport();
-
-  const importMode = event.target.closest("[data-import-mode]");
-  if (importMode) {
-    app.importMode = importMode.dataset.importMode;
-    renderImport();
-  }
 
   if (event.target.closest("[data-reset-filters]")) {
     app.filters = { q: "", tag: "", status: "", vip: "" };
@@ -1855,14 +1761,6 @@ document.addEventListener("input", event => {
   if (filter) {
     app.filters[filter.dataset.filter] = filter.value;
     updateSearchResults();
-  }
-
-  if (event.target?.id === "lineImport") {
-    app.lineImportText = event.target.value;
-    if (app.importPreview.length) {
-      app.importPreview = [];
-      renderImport();
-    }
   }
 
   if (event.target?.id === "followupDaysPerUnit") {
@@ -1988,16 +1886,6 @@ document.addEventListener("submit", async event => {
         body: JSON.stringify(data)
       });
       showToast("เพิ่มทีมงานแล้ว");
-      await loadState();
-    }
-
-    if (form.id === "manualImportForm") {
-      const data = Object.fromEntries(new FormData(form).entries());
-      await api("/api/orders", {
-        method: "POST",
-        body: JSON.stringify(data)
-      });
-      showToast("บันทึกออเดอร์เก่าแล้ว");
       await loadState();
     }
 
