@@ -45,6 +45,7 @@ const app = {
   reportMonth: "",
   reportDate: "",
   ordersShowAll: false,
+  customersShowAll: false,
   filters: {
     q: "",
     tag: "",
@@ -624,24 +625,40 @@ function renderOrders() {
 
 function applyCustomerFilters() {
   const q = app.filters.q.trim().toLowerCase();
+  const selectedDate = app.data.summary?.selectedDate || els.workDate.value || todayISO();
   return app.data.customers.filter(customer => {
+    const dateMatch = app.customersShowAll || (customer.orders || []).some(order => order.date === selectedDate);
     const textMatch = !q || [customer.name, customer.phone, customer.address, ...(customer.tags || [])].join(" ").toLowerCase().includes(q);
     const tagMatch = !app.filters.tag || (customer.tags || []).includes(app.filters.tag);
     const statusMatch = !app.filters.status || customer.status === app.filters.status;
     const vipMatch = !app.filters.vip || customer.vipLevel === app.filters.vip;
-    return textMatch && tagMatch && statusMatch && vipMatch;
+    return dateMatch && textMatch && tagMatch && statusMatch && vipMatch;
   });
 }
 
 function renderSearch() {
+  const selectedDate = app.data.summary?.selectedDate || els.workDate.value || todayISO();
   const customers = sortByPriority(applyCustomerFilters());
   els.content.innerHTML = `
     <section class="section">
       <div class="panel stack">
-        <div class="section-title">
-          <h2>ค้นหาลูกค้า</h2>
-          <p>ค้นจากชื่อ เบอร์ อาการลูกค้า สถานะ และ VIP Level</p>
+        <div class="section-title section-title-actions">
+          <div>
+            <h2>${app.customersShowAll ? "ลูกค้าทั้งหมด" : `ลูกค้าที่สั่งซื้อวันที่ ${formatDate(selectedDate)}`}</h2>
+            <p>${app.customersShowAll ? "แสดงลูกค้าจากทุกวัน" : "แสดงเฉพาะลูกค้าที่มีออเดอร์ในวันที่เลือก"}</p>
+          </div>
+          <div class="orders-header-actions">
+            <label class="date-picker">
+              <span>วันที่</span>
+              <input type="date" data-customer-date value="${escapeHtml(selectedDate)}">
+            </label>
+            <label class="orders-show-all">
+              <input type="checkbox" data-customers-show-all ${app.customersShowAll ? "checked" : ""}>
+              <span>แสดงทั้งหมด</span>
+            </label>
+          </div>
         </div>
+        <p class="muted">ค้นจากชื่อ เบอร์ อาการลูกค้า สถานะ และ VIP Level</p>
         <div class="filters">
           <input data-filter="q" placeholder="ชื่อ เบอร์ อาการลูกค้า" value="${escapeHtml(app.filters.q)}">
           <select data-filter="tag">
@@ -1871,12 +1888,24 @@ document.addEventListener("change", event => {
 document.addEventListener("change", async event => {
   if (event.target === els.workDate) {
     app.ordersShowAll = false;
+    app.customersShowAll = false;
     await loadState();
   }
 
   if (event.target?.matches?.("[data-orders-show-all]")) {
     app.ordersShowAll = event.target.checked;
     renderOrders();
+  }
+
+  if (event.target?.matches?.("[data-customers-show-all]")) {
+    app.customersShowAll = event.target.checked;
+    renderSearch();
+  }
+
+  if (event.target?.matches?.("[data-customer-date]")) {
+    els.workDate.value = event.target.value;
+    app.customersShowAll = false;
+    await loadState();
   }
 
   if (event.target?.matches?.("[data-report-month]")) {
