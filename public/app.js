@@ -983,7 +983,16 @@ function summarizeSalesChannel(value) {
   const channel = String(value || "").trim();
   const normalized = channel.toLowerCase();
   if (!channel || channel === MISSING_CHANNEL_LABEL) return MISSING_CHANNEL_LABEL;
-  if (normalized.includes("facebook") || normalized.includes("fb") || channel.includes("เฟส")) return "Facebook";
+  if (
+    normalized.includes("facebook") ||
+    normalized.includes("fb") ||
+    channel.includes("เฟส") ||
+    channel.includes("เพจ") ||
+    channel.includes("page") ||
+    channel.includes("แฟนเพจ") ||
+    channel.includes("ไลฟ์") ||
+    channel.includes("inbox")
+  ) return "Facebook";
   if (normalized.includes("line") || channel.includes("ไลน์")) return "LINE";
   if (channel.includes("โทร") || normalized.includes("phone") || normalized.includes("call") || normalized.includes("tel")) return "โทร";
   return MISSING_CHANNEL_LABEL;
