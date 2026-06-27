@@ -215,6 +215,66 @@ function fallbackDuplicateKey(order = {}) {
   ]);
 }
 
+function normalizeDuplicateFieldValue(value) {
+  if (Array.isArray(value)) return [...new Set(value.map(item => normalizeImportText(item)).filter(Boolean))].sort();
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+  if (value === null || value === undefined) return "";
+  return normalizeImportText(value);
+}
+
+function normalizeDuplicateOrderPayload(order = {}) {
+  return {
+    orderNumber: normalizeDuplicateOrderNumber(order.orderNumber || order.order_number || ""),
+    name: normalizeImportText(order.name || order.customerName || order.customer_name || ""),
+    phone: normalizePhone(order.phone || ""),
+    alternatePhone: normalizePhone(order.alternatePhone || order.alternate_phone || ""),
+    address: normalizeImportText(order.address || ""),
+    date: toDateOnly(order.date || order.order_date || ""),
+    jars: Number(order.jars || order.quantity || 0) || 0,
+    amount: Number(order.amount || 0),
+    source: normalizeImportText(order.source || ""),
+    sourceChannel: normalizeImportText(order.sourceChannel || order.source_channel || ""),
+    originSource: normalizeImportText(order.originSource || order.origin_source || ""),
+    socialName: normalizeImportText(order.socialName || order.social_name || ""),
+    freeGift: normalizeImportText(order.freeGift || order.free_gift || ""),
+    vipCardStatus: normalizeImportText(order.vipCardStatus || order.vip_card_status || ""),
+    tags: normalizeDuplicateFieldValue(order.tags || []),
+    note: normalizeImportText(order.note || "")
+  };
+}
+
+function duplicateFingerprint(order = {}) {
+  return JSON.stringify(normalizeDuplicateOrderPayload(order));
+}
+
+function parseOrderDateTime(order = {}) {
+  const date = toDateOnly(order.date || order.order_date || "");
+  if (!date) return null;
+  const timeValue = String(order.time || order.order_time || "").trim();
+  const timeMatch = timeValue.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+  if (!timeMatch) {
+    const fallback = new Date(`${date}T00:00:00+07:00`);
+    return Number.isNaN(fallback.getTime()) ? null : fallback;
+  }
+  const [, hours, minutes, seconds = "00"] = timeMatch;
+  const exact = new Date(`${date}T${String(hours).padStart(2, "0")}:${minutes}:${seconds}+07:00`);
+  return Number.isNaN(exact.getTime()) ? null : exact;
+}
+
+function findExactDuplicateOrderWithin24Hours(db, payload = {}) {
+  const payloadFingerprint = duplicateFingerprint(payload);
+  const now = new Date();
+  const windowStart = now.getTime() - (24 * 60 * 60 * 1000);
+  return (db.orders || []).find(order => {
+    const orderDateTime = parseOrderDateTime(order);
+    if (!orderDateTime) return false;
+    const orderTime = orderDateTime.getTime();
+    if (orderTime < windowStart || orderTime > now.getTime()) return false;
+    const existingFingerprint = order.duplicateFingerprint || order.duplicate_fingerprint || duplicateFingerprint(order);
+    return existingFingerprint === payloadFingerprint;
+  }) || null;
+}
+
 function secretInputValue(input, currentValue) {
   const value = String(input || "").trim();
   if (!value || value === "__configured__") return currentValue || "";
@@ -548,6 +608,7 @@ function addOrder(db, payload) {
     alternatePhone: String(payload.alternatePhone || payload.alternate_phone || "").trim(),
     originSource: String(payload.originSource || payload.origin_source || "").trim(),
     lineMessageId: normalizeImportText(payload.lineMessageId || payload.line_message_id || ""),
+    duplicateFingerprint: duplicateFingerprint(payload),
     socialName: String(payload.socialName || payload.social_name || "").trim(),
     freeGift: String(payload.freeGift || payload.free_gift || "").trim(),
     vipCardStatus,
@@ -572,6 +633,8 @@ function findDuplicateOrder(db, payload = {}) {
     const existing = (db.orders || []).find(order => normalizeDuplicateOrderNumber(order.orderNumber || order.order_number || "") === orderNumber);
     if (existing) return existing;
   }
+  const recentExactDuplicate = findExactDuplicateOrderWithin24Hours(db, payload);
+  if (recentExactDuplicate) return recentExactDuplicate;
   if (lineMessageId) return null;
   const date = toDateOnly(payload.date || payload.orderDate || "");
   const phone = normalizePhone(payload.phone || "");
@@ -1138,7 +1201,11 @@ async function handleLineWebhookEvents(db, settings, events) {
           amount: normalized.amount,
           date: normalized.date
         }));
-        replies.push({ replyToken, messages: [{ type: "text", text: "ℹ️ Order already exists in OrderPilot CRM." }] });
+        const duplicateReplyText = normalized.lineMessageId
+          && normalizeImportText(error.order?.lineMessageId || error.order?.line_message_id || "") === normalized.lineMessageId
+          ? "ℹ️ Order already exists in OrderPilot CRM."
+          : "⚠️ Duplicate order detected. Order not imported.";
+        replies.push({ replyToken, messages: [{ type: "text", text: duplicateReplyText }] });
         continue;
       }
       debug.parser_status = "error";
