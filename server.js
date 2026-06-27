@@ -671,9 +671,16 @@ function parsePrimaryLineOrderForm(rawText) {
   const labelMap = new Map();
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index];
-    const matchedLabel = labels.find(label => line.toLowerCase() === label.toLowerCase());
+    const matchedLabel = labels.find(label => {
+      const normalizedLine = line.toLowerCase();
+      const normalizedLabel = label.toLowerCase();
+      const escapedLabel = normalizedLabel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      return normalizedLine === normalizedLabel
+        || new RegExp(`^${escapedLabel}\\s*[:：]`).test(normalizedLine);
+    });
     if (!matchedLabel) continue;
-    labelMap.set(matchedLabel, lines[index + 1] || "");
+    const inlineValue = line.slice(matchedLabel.length).replace(/^\s*[:：]\s*/, "").trim();
+    labelMap.set(matchedLabel, inlineValue || lines[index + 1] || "");
   }
   if (!labelMap.size) return null;
   const requiredLabels = ["ชื่อลูกค้า", "เบอร์โทร", "ที่อยู่จัดส่ง", "จำนวนกระปุก", "ยอดซื้อ"];
@@ -689,7 +696,9 @@ function parsePrimaryLineOrderForm(rawText) {
     address: normalizeImportText(get("ที่อยู่จัดส่ง")),
     date: normalizeImportDate(get("วันที่ซื้อ")) || toDateOnly(),
     jars: Number(get("จำนวนกระปุก").replace(/[^\d.]/g, "")) || parseQuantity(get("จำนวนกระปุก")) || 1,
-    amount: parseCurrency(get("ยอดซื้อ")),
+    amount: get("ยอดซื้อ")
+      ? parseCurrency(get("ยอดซื้อ")) ?? Number(get("ยอดซื้อ").replace(/,/g, "").replace(/[^\d.]/g, ""))
+      : null,
     source: "LINE",
     sourceChannel: normalizeImportText(get("ช่องทางการสั่งซื้อ") || "LINE"),
     originSource: normalizeImportText(get("ลูกค้ามาจาก")),
@@ -749,7 +758,9 @@ function parseLineOrder(rawText, defaultJarPrice = 750) {
   if (primary) {
     return {
       ...primary,
-      amount: Number.isFinite(Number(primary.amount)) ? Number(primary.amount) : Number(primary.jars || 1) * Number(defaultJarPrice || 750)
+      amount: Number.isFinite(Number(primary.amount)) && primary.amount !== ""
+        ? Number(primary.amount)
+        : Number(primary.jars || 1) * Number(defaultJarPrice || 750)
     };
   }
   const lines = textValue.split(/\n+/).map(line => line.trim()).filter(Boolean);
@@ -927,6 +938,7 @@ function isLineVerifyRequest(body = {}) {
 
 function looksLikeOrderMessage(textValue = "") {
   const text = String(textValue || "");
+  if (parsePrimaryLineOrderForm(text)) return true;
   const hasPhone = /(?<!\d)0\d{8,9}(?!\d)/.test(text);
   const hasAmount = /(?:ยอด|ราคา|รวม|amount|price|cod|เก็บเงินปลายทาง|บาท|฿|THB)/i.test(text);
   const hasQuantity = /(?:\d+\s*(?:กระปุก|ปุก|jar|jars|ขวด)|จำนวน|qty|quantity)/i.test(text);
