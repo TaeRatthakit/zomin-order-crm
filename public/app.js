@@ -508,15 +508,15 @@ function orderTable(orders) {
           <div class="order-summary">
             <div><span>จำนวน</span><strong>${Number(order.jars || 0)} กระปุก</strong></div>
             <div><span>ยอดเงิน</span><strong>${money(order.amount)} บาท</strong></div>
-            <div><span>ช่องทาง</span><strong>${escapeHtml(order.sourceChannel || order.source || "-")}</strong></div>
+            <div><span>ช่องทางการสั่งซื้อ</span><strong>${escapeHtml(order.sourceChannel || order.source || "-")}</strong></div>
           </div>
           <details class="order-details">
             <summary>ดูข้อมูลเพิ่มเติม</summary>
             <div class="order-grid">
               <div><span>เบอร์</span><strong>${escapeHtml(order.phone)}</strong></div>
               <div><span>เบอร์สำรอง</span><strong>${escapeHtml(order.alternatePhone || "-")}</strong></div>
-              <div><span>แหล่งที่มา</span><strong>${escapeHtml(order.originSource || "-")}</strong></div>
-              <div><span>ชื่อเฟส/ไลน์</span><strong>${escapeHtml(order.socialName || "-")}</strong></div>
+              <div><span>ลูกค้ามาจาก</span><strong>${escapeHtml(order.originSource || "-")}</strong></div>
+              <div><span>Facebook / LINE ลูกค้า</span><strong>${escapeHtml(order.socialName || "-")}</strong></div>
               <div><span>ของแถม</span><strong>${escapeHtml(order.freeGift || "-")}</strong></div>
               <div><span>บัตร VIP</span><strong>${escapeHtml(order.vipCardStatus || "-")}</strong></div>
               <div><span>อาการลูกค้า</span><strong>${escapeHtml((order.tags || []).join(", ") || "-")}</strong></div>
@@ -1471,7 +1471,7 @@ function renderCustomerDetail(customer) {
           <div class="mini-stat"><span>กระปุกล่าสุด</span><strong>${customer.lastJars}</strong></div>
         </div>
         <div class="info-card"><span>เบอร์</span><strong>${escapeHtml(customer.phone)}</strong></div>
-        <div class="info-card"><span>ที่อยู่ล่าสุด</span><strong>${escapeHtml(customer.address || "-")}</strong></div>
+        <div class="info-card"><span>ที่อยู่จัดส่ง</span><strong>${escapeHtml(customer.address || "-")}</strong></div>
         <form class="stack" id="customerEditForm">
           <input type="hidden" name="customerId" value="${customer.id}">
           <label>อาการลูกค้า
@@ -1504,9 +1504,9 @@ function renderCustomerDetail(customer) {
           ${customer.orders.slice().reverse().map(order => `
             <div class="timeline-item">
               <strong>${formatDate(order.date)} · ${order.jars} กระปุก · ${money(order.amount)} บาท</strong>
-              <span class="muted">ช่องทาง ${escapeHtml(displayOrderChannel(order))}</span>
-              <span class="muted">เบอร์สำรอง ${escapeHtml(order.alternatePhone || "-")} · แหล่งที่มา ${escapeHtml(order.originSource || "-")}</span>
-              <span class="muted">ชื่อเฟส/ไลน์ ${escapeHtml(order.socialName || "-")} · ของแถม ${escapeHtml(order.freeGift || "-")}</span>
+              <span class="muted">ช่องทางการสั่งซื้อ ${escapeHtml(displayOrderChannel(order))}</span>
+              <span class="muted">เบอร์สำรอง ${escapeHtml(order.alternatePhone || "-")} · ลูกค้ามาจาก ${escapeHtml(order.originSource || "-")}</span>
+              <span class="muted">Facebook / LINE ลูกค้า ${escapeHtml(order.socialName || "-")} · ของแถม ${escapeHtml(order.freeGift || "-")}</span>
               <span class="muted">บัตร VIP ${escapeHtml(order.vipCardStatus || "-")}</span>
               <span class="muted">อาการลูกค้า ${escapeHtml((order.tags || []).join(", ") || "-")} · หมายเหตุ ${escapeHtml(order.note || "-")}</span>
               ${order.vipCardReminder ? `<span class="muted">${escapeHtml(order.vipCardReminder)}</span>` : ""}
@@ -1595,6 +1595,11 @@ function syncViewFromLocation() {
 
 async function submitOrder(form) {
   const data = Object.fromEntries(new FormData(form).entries());
+  data.originSource = data.originSourceChoice === "อื่นๆ"
+    ? String(data.originSourceOther || "").trim()
+    : String(data.originSourceChoice || "").trim();
+  delete data.originSourceChoice;
+  delete data.originSourceOther;
   const orderId = app.editingOrderId;
   await api(orderId ? `/api/orders/${encodeURIComponent(orderId)}` : "/api/orders", {
     method: orderId ? "PUT" : "POST",
@@ -1632,7 +1637,6 @@ function openOrderDialog(order = null) {
       jars: order.jars,
       amount: order.amount,
       sourceChannel: displayOrderChannel(order) === MISSING_CHANNEL_LABEL ? "" : displayOrderChannel(order),
-      originSource: order.originSource,
       socialName: order.socialName,
       freeGift: order.freeGift,
       vipCardStatus: order.vipCardStatus,
@@ -1642,11 +1646,27 @@ function openOrderDialog(order = null) {
     Object.entries(fields).forEach(([name, value]) => {
       if (els.orderForm.elements[name]) els.orderForm.elements[name].value = value ?? "";
     });
+    const knownOriginSources = ["Facebook", "LINE", "โทรเข้า", "ลูกค้าบอกต่อ"];
+    const originSource = String(order.originSource || "");
+    els.orderForm.elements.originSourceChoice.value = knownOriginSources.includes(originSource)
+      ? originSource
+      : originSource ? "อื่นๆ" : "";
+    els.orderForm.elements.originSourceOther.value = knownOriginSources.includes(originSource) ? "" : originSource;
   } else {
     els.orderForm.elements.date.value = els.workDate.value || todayISO();
     els.orderForm.elements.amount.value = app.data?.settings?.defaultJarPrice || 750;
   }
+  syncOriginSourceFields();
   els.orderDialog.showModal();
+}
+
+function syncOriginSourceFields() {
+  const otherField = els.orderForm.querySelector("[data-origin-source-other]");
+  if (!otherField) return;
+  const showOther = els.orderForm.elements.originSourceChoice.value === "อื่นๆ";
+  otherField.hidden = !showOther;
+  els.orderForm.elements.originSourceOther.required = showOther;
+  if (!showOther) els.orderForm.elements.originSourceOther.value = "";
 }
 
 async function copyText(text) {
@@ -1842,6 +1862,10 @@ document.addEventListener("input", event => {
       </tr>
     `).join("");
   }
+});
+
+document.addEventListener("change", event => {
+  if (event.target === els.orderForm.elements.originSourceChoice) syncOriginSourceFields();
 });
 
 document.addEventListener("change", async event => {

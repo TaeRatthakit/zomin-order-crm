@@ -76,13 +76,31 @@
           <label>ชื่อลูกค้า<input name="name" required placeholder="เช่น คุณสมใจ"></label>
           <label>เบอร์โทร<input name="phone" required placeholder="0812345678"></label>
           <label>เบอร์สำรอง<input name="alternatePhone" placeholder="เบอร์โทรสำรอง"></label>
-          <label class="span-2">ที่อยู่ล่าสุด<input name="address" placeholder="ที่อยู่จัดส่ง"></label>
+          <label class="span-2">ที่อยู่จัดส่ง<input name="address" placeholder="ที่อยู่จัดส่ง"></label>
           <label>วันที่ซื้อ<input name="date" type="date" required></label>
           <label>จำนวนกระปุก<input name="jars" type="number" min="1" value="1" required></label>
           <label>ยอดซื้อ<input name="amount" type="number" min="0" step="1" required></label>
-          <label>ช่องทางที่ลูกค้าสั่งมา<input name="sourceChannel" placeholder="เช่น เพจงาดำ น้ำมันสกัดเย็น โซมิน, ไลน์บริษัท, โทรสั่ง"></label>
-          <label>แหล่งที่มา<input name="originSource" placeholder="เช่น โฆษณา Facebook, ลูกค้าแนะนำ"></label>
-          <label>ชื่อเฟส/ชื่อไลน์ลูกค้า<input name="socialName" placeholder="เช่น F: สมใจ / LINE: somjai"></label>
+          <label>ช่องทางการสั่งซื้อ
+            <input name="sourceChannel" list="orderChannelOptions" autocomplete="off" placeholder="เลือกหรือพิมพ์ช่องทางการสั่งซื้อ">
+            <datalist id="orderChannelOptions">
+              <option value="เพจงาดำ น้ำมันสกัดเย็น โซมิน"></option>
+              <option value="ไลน์บริษัท"></option>
+              <option value="โทรสั่ง"></option>
+              <option value="ตัวแทน"></option>
+            </datalist>
+          </label>
+          <label>ลูกค้ามาจาก
+            <select name="originSourceChoice">
+              <option value="">เลือกแหล่งที่มา</option>
+              <option value="Facebook">Facebook</option>
+              <option value="LINE">LINE</option>
+              <option value="โทรเข้า">โทรเข้า</option>
+              <option value="ลูกค้าบอกต่อ">ลูกค้าบอกต่อ</option>
+              <option value="อื่นๆ">อื่นๆ</option>
+            </select>
+          </label>
+          <label data-origin-source-other hidden>ระบุแหล่งที่มา<input name="originSourceOther" placeholder="ระบุแหล่งที่มา"></label>
+          <label>Facebook / LINE ลูกค้า<input name="socialName" placeholder="เช่น F: สมใจ / LINE: somjai"></label>
           <label>ของแถมที่ลูกค้าได้<input name="freeGift" placeholder="เช่น แถม 1 กระปุก, ค่าส่งฟรี"></label>
           <label>สถานะบัตร VIP
             <select name="vipCardStatus">
