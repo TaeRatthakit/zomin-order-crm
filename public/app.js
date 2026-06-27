@@ -45,6 +45,7 @@ const app = {
   ordersShowAll: false,
   customersShowAll: false,
   ordersFilterQ: "",
+  ordersFilterDraft: "",
   filters: {
     q: "",
     tag: "",
@@ -607,6 +608,7 @@ function followupRange() {
 function renderOrders() {
   const selectedDate = app.data.summary?.selectedDate || els.workDate.value || todayISO();
   const q = app.ordersFilterQ.trim().toLowerCase();
+  if (app.ordersFilterDraft === "") app.ordersFilterDraft = app.ordersFilterQ;
   const orders = app.data.orders.filter(order => {
     const dateMatch = app.ordersShowAll || order.date === selectedDate;
     const textMatch = !q || [
@@ -636,7 +638,10 @@ function renderOrders() {
         </div>
       </div>
       <div class="filters">
-        <input class="orders-search-input" data-order-filter="q" placeholder="ค้นหาเลขออเดอร์ ชื่อ หรือเบอร์โทร" value="${escapeHtml(app.ordersFilterQ)}">
+        <div class="orders-search-row">
+          <input class="orders-search-input" data-order-filter="q" placeholder="ค้นหาเลขออเดอร์ ชื่อ หรือเบอร์โทร" value="${escapeHtml(app.ordersFilterDraft)}">
+          <button class="button primary orders-search-button" data-order-search type="button">ค้นหา</button>
+        </div>
       </div>
       ${orderTable(orders)}
     </section>
@@ -1849,7 +1854,11 @@ document.addEventListener("input", event => {
 
   const orderFilter = event.target.closest("[data-order-filter]");
   if (orderFilter) {
-    app.ordersFilterQ = orderFilter.value;
+    app.ordersFilterDraft = orderFilter.value;
+  }
+
+  if (event.target.closest("[data-order-search]")) {
+    app.ordersFilterQ = app.ordersFilterDraft;
     renderOrders();
   }
 
@@ -1868,6 +1877,15 @@ document.addEventListener("input", event => {
 
 document.addEventListener("change", event => {
   if (event.target === els.orderForm.elements.originSourceChoice) syncOriginSourceFields();
+});
+
+document.addEventListener("keydown", event => {
+  if (event.key !== "Enter") return;
+  if (event.target?.matches?.("[data-order-filter]")) {
+    event.preventDefault();
+    app.ordersFilterQ = app.ordersFilterDraft;
+    renderOrders();
+  }
 });
 
 document.addEventListener("change", async event => {

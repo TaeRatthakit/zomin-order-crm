@@ -584,13 +584,32 @@ a.button {
   max-width: 360px;
   min-width: 0;
   min-height: 44px;
+}
+
+.orders-search-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
   grid-column: 1 / -1;
+  flex-wrap: wrap;
+}
+
+.orders-search-button {
+  min-height: 44px;
 }
 
 @media (max-width: 720px) {
   .orders-search-input {
     max-width: none;
+  }
+
+  .orders-search-row {
     grid-column: auto;
+  }
+
+  .orders-search-button {
+    width: 100%;
   }
 }
 
