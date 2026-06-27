@@ -584,11 +584,13 @@ a.button {
   max-width: 360px;
   min-width: 0;
   min-height: 44px;
+  grid-column: 1 / -1;
 }
 
 @media (max-width: 720px) {
   .orders-search-input {
     max-width: none;
+    grid-column: auto;
   }
 }
 
