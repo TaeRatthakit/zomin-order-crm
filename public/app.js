@@ -146,10 +146,16 @@ function clearSession() {
 }
 
 function todayISO() {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Bangkok",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).formatToParts(new Date());
+  const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
+  const y = values.year;
+  const m = values.month;
+  const day = values.day;
   return `${y}-${m}-${day}`;
 }
 
@@ -171,11 +177,28 @@ function money(value) {
 function formatDate(dateValue) {
   if (!dateValue) return "-";
   const [y, m, d] = String(dateValue).split("-").map(Number);
-  const date = new Date(y, m - 1, d);
+  const date = new Date(Date.UTC(y, m - 1, d, 12));
   return new Intl.DateTimeFormat("th-TH-u-ca-buddhist", {
+    timeZone: "Asia/Bangkok",
     day: "2-digit",
     month: "2-digit",
     year: "numeric"
+  }).format(date);
+}
+
+function formatDateTime(dateValue) {
+  if (!dateValue) return "-";
+  const date = new Date(dateValue);
+  if (Number.isNaN(date.getTime())) return escapeHtml(dateValue);
+  return new Intl.DateTimeFormat("th-TH-u-ca-buddhist", {
+    timeZone: "Asia/Bangkok",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23"
   }).format(date);
 }
 
@@ -203,7 +226,7 @@ function vipBadge(level) {
 }
 
 function tagsHtml(tags = []) {
-  if (!tags.length) return `<span class="muted">ไม่มี Tag</span>`;
+  if (!tags.length) return `<span class="muted">ไม่มีอาการลูกค้า</span>`;
   return `<div class="badge-list">${tags.map(tag => `<span class="tag">${escapeHtml(tag)}</span>`).join("")}</div>`;
 }
 
@@ -235,7 +258,7 @@ function titleFor(view) {
     more: "เพิ่มเติม",
     vip: "ลูกค้า VIP",
     risk: "ลูกค้าเสี่ยงหาย",
-    tags: "Tags",
+    tags: "อาการลูกค้า",
     import: "เพิ่มข้อมูลเก่า",
     reports: "รายงานยอดขาย",
     team: "จัดการทีมงาน",
@@ -491,9 +514,13 @@ function orderTable(orders) {
             <summary>ดูข้อมูลเพิ่มเติม</summary>
             <div class="order-grid">
               <div><span>เบอร์</span><strong>${escapeHtml(order.phone)}</strong></div>
+              <div><span>เบอร์สำรอง</span><strong>${escapeHtml(order.alternatePhone || "-")}</strong></div>
+              <div><span>แหล่งที่มา</span><strong>${escapeHtml(order.originSource || "-")}</strong></div>
               <div><span>ชื่อเฟส/ไลน์</span><strong>${escapeHtml(order.socialName || "-")}</strong></div>
               <div><span>ของแถม</span><strong>${escapeHtml(order.freeGift || "-")}</strong></div>
               <div><span>บัตร VIP</span><strong>${escapeHtml(order.vipCardStatus || "-")}</strong></div>
+              <div><span>อาการลูกค้า</span><strong>${escapeHtml((order.tags || []).join(", ") || "-")}</strong></div>
+              <div><span>หมายเหตุ</span><strong>${escapeHtml(order.note || "-")}</strong></div>
             </div>
             ${order.vipCardReminder ? `<p class="alert-text">${escapeHtml(order.vipCardReminder)}</p>` : ""}
             ${order.vipDiscountFlag ? `<p class="muted">${escapeHtml(order.vipDiscountFlag)}</p>` : ""}
@@ -613,12 +640,12 @@ function renderSearch() {
       <div class="panel stack">
         <div class="section-title">
           <h2>ค้นหาลูกค้า</h2>
-          <p>ค้นจากชื่อ เบอร์ Tag สถานะ และ VIP Level</p>
+          <p>ค้นจากชื่อ เบอร์ อาการลูกค้า สถานะ และ VIP Level</p>
         </div>
         <div class="filters">
-          <input data-filter="q" placeholder="ชื่อ เบอร์ Tag" value="${escapeHtml(app.filters.q)}">
+          <input data-filter="q" placeholder="ชื่อ เบอร์ อาการลูกค้า" value="${escapeHtml(app.filters.q)}">
           <select data-filter="tag">
-            <option value="">ทุก Tag</option>
+            <option value="">ทุกอาการลูกค้า</option>
             ${app.data.tags.map(tag => `<option value="${escapeHtml(tag)}" ${app.filters.tag === tag ? "selected" : ""}>${escapeHtml(tag)}</option>`).join("")}
           </select>
           <select data-filter="status">
@@ -730,7 +757,7 @@ function renderMore() {
     ["vip", "ลูกค้า VIP", "VIP / VVIP / SUPER VIP", "VIP"],
     ["import", "เพิ่มข้อมูลเก่า", "CSV, Google Sheets, LINE text", "นำเข้า"],
     ["reports", "รายงานยอดขาย", "ยอดขายและสัดส่วนลูกค้า", "รายงาน"],
-    ["tags", "Tags", "จัดการ Tag และดูจำนวนลูกค้า", "Tag"],
+    ["tags", "อาการลูกค้า", "จัดการอาการลูกค้าและดูจำนวนลูกค้า", "อาการลูกค้า"],
     ["risk", "ลูกค้าเสี่ยงหาย", "AT RISK และ LOST", "แจ้งเตือน"]
   ];
   const adminCards = [
@@ -790,15 +817,15 @@ function renderTags() {
     <section class="section">
       <form class="panel stack" id="tagsForm">
         <div class="section-title">
-          <h2>จัดการ Tags</h2>
-          <p>เพิ่ม Tag ได้ไม่จำกัด และกด Tag เพื่อกรองรายชื่อลูกค้าได้ทันที</p>
+          <h2>จัดการอาการลูกค้า</h2>
+          <p>เพิ่มอาการลูกค้าได้ไม่จำกัด และกดเพื่อกรองรายชื่อลูกค้าได้ทันที</p>
         </div>
         <div class="form-grid">
-          <label class="span-2">เพิ่ม Tag ใหม่
+          <label class="span-2">เพิ่มอาการลูกค้าใหม่
             <input name="name" required placeholder="เช่น ปวดเข่า, ซื้อให้แม่, โทรติดยาก">
           </label>
         </div>
-        <button class="button primary" type="submit">เพิ่ม Tag</button>
+        <button class="button primary" type="submit">เพิ่มอาการลูกค้า</button>
       </form>
       <div class="tag-grid">
         ${rows.map(row => `
@@ -923,7 +950,7 @@ function renderImport() {
                   <div><span>ยอด</span><strong>${money(row.amount)} บาท</strong></div>
                   <div><span>สั่งจาก</span><strong>${escapeHtml(row.sourceChannel || "-")}</strong></div>
                   <div><span>Facebook / Line</span><strong>${escapeHtml(row.socialName || "-")}</strong></div>
-                  <div><span>Tag</span><strong>${escapeHtml(row.tags || "-")}</strong></div>
+                  <div><span>อาการลูกค้า</span><strong>${escapeHtml(row.tags || "-")}</strong></div>
                   <div><span>ของแถม</span><strong>${escapeHtml(row.freeGift || "-")}</strong></div>
                   <div><span>บัตร VIP</span><strong>${escapeHtml(row.vipCardStatus || "-")}</strong></div>
                 </div>
@@ -935,7 +962,7 @@ function renderImport() {
         <div class="import-drop">
           <div class="section-title">
             <h2>วางข้อความ LINE เก่า</h2>
-            <p>ระบบจะแยกชื่อ เบอร์ ที่อยู่ จำนวน ยอดเงิน ช่องทาง ชื่อเฟส/ไลน์ ของแถม และ Tag ก่อนบันทึก</p>
+            <p>ระบบจะแยกชื่อ เบอร์ ที่อยู่ จำนวน ยอดเงิน ช่องทาง ชื่อเฟส/ไลน์ ของแถม และอาการลูกค้าก่อนบันทึก</p>
           </div>
           <textarea id="lineImport" spellcheck="false" placeholder="วางข้อความ LINE ที่ต้องการวิเคราะห์">${escapeHtml(app.lineImportText)}</textarea>
           <div class="inline">
@@ -953,7 +980,7 @@ function renderImport() {
                   <div><span>ช่องทาง</span><strong>${escapeHtml(row.sourceChannel || "-")}</strong></div>
                   <div><span>ชื่อเฟส/ไลน์</span><strong>${escapeHtml(row.socialName || "-")}</strong></div>
                   <div><span>ของแถม</span><strong>${escapeHtml(row.freeGift || "-")}</strong></div>
-                  <div><span>Tag</span><strong>${escapeHtml((row.tags || []).join(", ") || "-")}</strong></div>
+                  <div><span>อาการลูกค้า</span><strong>${escapeHtml((row.tags || []).join(", ") || "-")}</strong></div>
                 </div>
               </div>
             `).join("")}
@@ -1368,7 +1395,7 @@ function renderLineDebugTable() {
         <tbody>
           ${rows.map(row => `
             <tr>
-              <td>${escapeHtml(row.received_at || "-")}</td>
+              <td>${formatDateTime(row.received_at)}</td>
               <td>${escapeHtml(row.http_method || "-")} ${escapeHtml(String(row.http_body_length || "-"))}</td>
               <td>${row.http_is_line_request ? "Yes" : "No"}</td>
               <td>${escapeHtml(row.http_signature_validation || "-")}</td>
@@ -1447,13 +1474,13 @@ function renderCustomerDetail(customer) {
         <div class="info-card"><span>ที่อยู่ล่าสุด</span><strong>${escapeHtml(customer.address || "-")}</strong></div>
         <form class="stack" id="customerEditForm">
           <input type="hidden" name="customerId" value="${customer.id}">
-          <label>Tags
+          <label>อาการลูกค้า
             <input name="tags" value="${escapeHtml((customer.tags || []).join(", "))}">
           </label>
           <label>หมายเหตุลูกค้า
             <textarea name="note">${escapeHtml(customer.note || "")}</textarea>
           </label>
-          <button class="button secondary" type="submit">บันทึก Tags / หมายเหตุ</button>
+          <button class="button secondary" type="submit">บันทึกอาการลูกค้า / หมายเหตุ</button>
         </form>
         <form class="stack" id="contactForm">
           <input type="hidden" name="customerId" value="${customer.id}">
@@ -1478,8 +1505,10 @@ function renderCustomerDetail(customer) {
             <div class="timeline-item">
               <strong>${formatDate(order.date)} · ${order.jars} กระปุก · ${money(order.amount)} บาท</strong>
               <span class="muted">ช่องทาง ${escapeHtml(displayOrderChannel(order))}</span>
+              <span class="muted">เบอร์สำรอง ${escapeHtml(order.alternatePhone || "-")} · แหล่งที่มา ${escapeHtml(order.originSource || "-")}</span>
               <span class="muted">ชื่อเฟส/ไลน์ ${escapeHtml(order.socialName || "-")} · ของแถม ${escapeHtml(order.freeGift || "-")}</span>
               <span class="muted">บัตร VIP ${escapeHtml(order.vipCardStatus || "-")}</span>
+              <span class="muted">อาการลูกค้า ${escapeHtml((order.tags || []).join(", ") || "-")} · หมายเหตุ ${escapeHtml(order.note || "-")}</span>
               ${order.vipCardReminder ? `<span class="muted">${escapeHtml(order.vipCardReminder)}</span>` : ""}
               ${order.vipDiscountFlag ? `<span class="muted">${escapeHtml(order.vipDiscountFlag)}</span>` : ""}
             </div>
@@ -1597,15 +1626,18 @@ function openOrderDialog(order = null) {
     const fields = {
       name: order.customerName,
       phone: order.phone,
+      alternatePhone: order.alternatePhone,
       address: order.address,
       date: order.date,
       jars: order.jars,
       amount: order.amount,
       sourceChannel: displayOrderChannel(order) === MISSING_CHANNEL_LABEL ? "" : displayOrderChannel(order),
+      originSource: order.originSource,
       socialName: order.socialName,
       freeGift: order.freeGift,
       vipCardStatus: order.vipCardStatus,
-      tags: (order.tags || []).join(", ")
+      tags: (order.tags || []).join(", "),
+      note: order.note
     };
     Object.entries(fields).forEach(([name, value]) => {
       if (els.orderForm.elements[name]) els.orderForm.elements[name].value = value ?? "";
@@ -1931,7 +1963,7 @@ document.addEventListener("submit", async event => {
         method: "POST",
         body: JSON.stringify(data)
       });
-      showToast("เพิ่ม Tag แล้ว");
+      showToast("เพิ่มอาการลูกค้าแล้ว");
       form.reset();
       await loadState();
     }
