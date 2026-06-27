@@ -636,7 +636,7 @@ function renderOrders() {
         </div>
       </div>
       <div class="filters">
-        <input class="orders-search-input" data-order-filter="q" placeholder="เลขออเดอร์ ชื่อลูกค้า เบอร์โทร เบอร์สำรอง Facebook / LINE ลูกค้า อาการลูกค้า" value="${escapeHtml(app.ordersFilterQ)}">
+        <input class="orders-search-input" data-order-filter="q" placeholder="ค้นหาเลขออเดอร์ ชื่อ หรือเบอร์โทร" value="${escapeHtml(app.ordersFilterQ)}">
       </div>
       ${orderTable(orders)}
     </section>

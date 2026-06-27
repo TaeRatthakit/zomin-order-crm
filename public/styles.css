@@ -581,8 +581,15 @@ a.button {
 
 .orders-search-input {
   width: 100%;
+  max-width: 400px;
   min-width: 0;
   min-height: 44px;
+}
+
+@media (max-width: 720px) {
+  .orders-search-input {
+    max-width: none;
+  }
 }
 
 .form-grid {
