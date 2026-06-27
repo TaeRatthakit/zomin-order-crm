@@ -1681,7 +1681,8 @@ function syncOriginSourceFields() {
   const otherField = els.orderForm.querySelector("[data-origin-source-other]");
   if (!otherField) return;
   const showOther = els.orderForm.elements.originSourceChoice.value === "อื่นๆ";
-  otherField.hidden = !showOther;
+  otherField.toggleAttribute("hidden", !showOther);
+  otherField.setAttribute("aria-hidden", String(!showOther));
   els.orderForm.elements.originSourceOther.required = showOther;
   if (!showOther) els.orderForm.elements.originSourceOther.value = "";
 }
