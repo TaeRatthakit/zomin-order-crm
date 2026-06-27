@@ -648,10 +648,6 @@ function renderSearch() {
             <p>${app.customersShowAll ? "แสดงลูกค้าจากทุกวัน" : "แสดงเฉพาะลูกค้าที่มีออเดอร์ในวันที่เลือก"}</p>
           </div>
           <div class="orders-header-actions">
-            <label class="date-picker">
-              <span>วันที่</span>
-              <input type="date" data-customer-date value="${escapeHtml(selectedDate)}">
-            </label>
             <label class="orders-show-all">
               <input type="checkbox" data-customers-show-all ${app.customersShowAll ? "checked" : ""}>
               <span>แสดงทั้งหมด</span>
@@ -1901,12 +1897,6 @@ document.addEventListener("change", async event => {
   if (event.target?.matches?.("[data-customers-show-all]")) {
     app.customersShowAll = event.target.checked;
     renderSearch();
-  }
-
-  if (event.target?.matches?.("[data-customer-date]")) {
-    els.workDate.value = event.target.value;
-    app.customersShowAll = false;
-    await loadState();
   }
 
   if (event.target?.matches?.("[data-report-month]")) {
