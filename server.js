@@ -10,6 +10,7 @@ const {
   deleteCustomer,
   getImportJob,
   getActiveImportJob,
+  getLatestImportJob,
   saveImportJob,
   importOrdersBatch
 } = require("./lib/db");
@@ -376,7 +377,7 @@ async function handleImportJobsApi(req, res, url) {
 
   if (req.method === "GET" && url.pathname === "/api/import-jobs/active") {
     const type = url.searchParams.get("type") || "orders";
-    const job = await getActiveImportJob(type);
+    const job = await getActiveImportJob(type) || await getLatestImportJob(type);
     return json(res, 200, { ok: true, job: importJobView(job) });
   }
 
