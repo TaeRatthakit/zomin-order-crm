@@ -1583,6 +1583,7 @@ async function handleApi(req, res) {
       db.tags = Array.from(new Set([...(db.tags || []), ...(customer.tags || [])]));
     }
     Object.assign(order, {
+      orderNumber: body.orderNumber !== undefined ? normalizeImportText(body.orderNumber) : order.orderNumber,
       date: body.date ? toDateOnly(body.date) : order.date,
       jars: body.jars !== undefined ? Number(body.jars) : order.jars,
       amount: body.amount !== undefined ? Number(body.amount) : order.amount,
