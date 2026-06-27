@@ -500,11 +500,12 @@ function orderTable(orders) {
           <div class="order-top">
             <div>
               <strong>${escapeHtml(order.customerName)}</strong>
-              <span>${formatDate(order.date)} · ${escapeHtml(order.time || "-")}</span>
+              <span>${escapeHtml(order.orderNumber || "-")} · ${formatDate(order.date)} · ${escapeHtml(order.time || "-")}</span>
             </div>
             ${badge(order.status === "NEW" ? "NEW" : order.vipLevel)}
           </div>
           <div class="order-summary">
+            <div><span>เลขออเดอร์</span><strong>${escapeHtml(order.orderNumber || "-")}</strong></div>
             <div><span>จำนวน</span><strong>${Number(order.jars || 0)} กระปุก</strong></div>
             <div><span>ยอดเงิน</span><strong>${money(order.amount)} บาท</strong></div>
             <div><span>ช่องทางการสั่งซื้อ</span><strong>${escapeHtml(order.sourceChannel || order.source || "-")}</strong></div>
@@ -512,10 +513,16 @@ function orderTable(orders) {
           <details class="order-details">
             <summary>ดูข้อมูลเพิ่มเติม</summary>
             <div class="order-grid">
+              <div><span>วันที่ซื้อ</span><strong>${formatDate(order.date)}</strong></div>
+              <div><span>ช่องทางการสั่งซื้อ</span><strong>${escapeHtml(order.sourceChannel || order.source || "-")}</strong></div>
+              <div><span>Facebook / LINE ลูกค้า</span><strong>${escapeHtml(order.socialName || "-")}</strong></div>
+              <div><span>ชื่อลูกค้า</span><strong>${escapeHtml(order.customerName || "-")}</strong></div>
               <div><span>เบอร์</span><strong>${escapeHtml(order.phone)}</strong></div>
               <div><span>เบอร์สำรอง</span><strong>${escapeHtml(order.alternatePhone || "-")}</strong></div>
+              <div><span>ที่อยู่จัดส่ง</span><strong>${escapeHtml(order.address || "-")}</strong></div>
+              <div><span>จำนวนกระปุก</span><strong>${Number(order.jars || 0)}</strong></div>
+              <div><span>ยอดซื้อ</span><strong>${money(order.amount)} บาท</strong></div>
               <div><span>ลูกค้ามาจาก</span><strong>${escapeHtml(order.originSource || "-")}</strong></div>
-              <div><span>Facebook / LINE ลูกค้า</span><strong>${escapeHtml(order.socialName || "-")}</strong></div>
               <div><span>ของแถม</span><strong>${escapeHtml(order.freeGift || "-")}</strong></div>
               <div><span>บัตร VIP</span><strong>${escapeHtml(order.vipCardStatus || "-")}</strong></div>
               <div><span>อาการลูกค้า</span><strong>${escapeHtml((order.tags || []).join(", ") || "-")}</strong></div>
@@ -1615,15 +1622,16 @@ function openOrderDialog(order = null) {
   els.orderSubmitButton.textContent = order ? "บันทึกการแก้ไข" : "บันทึกออเดอร์";
   if (order) {
     const fields = {
+      orderNumber: order.orderNumber,
+      date: order.date,
+      sourceChannel: displayOrderChannel(order) === MISSING_CHANNEL_LABEL ? "" : displayOrderChannel(order),
+      socialName: order.socialName,
       name: order.customerName,
       phone: order.phone,
       alternatePhone: order.alternatePhone,
       address: order.address,
-      date: order.date,
       jars: order.jars,
       amount: order.amount,
-      sourceChannel: displayOrderChannel(order) === MISSING_CHANNEL_LABEL ? "" : displayOrderChannel(order),
-      socialName: order.socialName,
       freeGift: order.freeGift,
       vipCardStatus: order.vipCardStatus,
       tags: (order.tags || []).join(", "),

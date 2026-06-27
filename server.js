@@ -710,18 +710,19 @@ function parseLabel(textValue, labels) {
 }
 
 const PRIMARY_LINE_ORDER_FIELDS = [
+  ["orderNumber", "เลขออเดอร์"],
+  ["date", "วันที่ซื้อ"],
+  ["sourceChannel", "ช่องทางการสั่งซื้อ"],
+  ["socialName", "Facebook / LINE ลูกค้า"],
   ["name", "ชื่อลูกค้า"],
   ["phone", "เบอร์โทร"],
   ["alternatePhone", "เบอร์โทรสำรอง"],
   ["address", "ที่อยู่จัดส่ง"],
-  ["date", "วันที่ซื้อ"],
   ["jars", "จำนวนกระปุก"],
   ["amount", "ยอดซื้อ"],
-  ["sourceChannel", "ช่องทางการสั่งซื้อ"],
   ["originSource", "ลูกค้ามาจาก"],
-  ["socialName", "Facebook / Line ลูกค้า"],
   ["freeGift", "ของแถมที่ลูกค้าได้"],
-  ["vipCardStatus", "สถานะบัตร vip"],
+  ["vipCardStatus", "สถานะบัตร VIP"],
   ["tags", "อาการลูกค้า"],
   ["note", "หมายเหตุ"]
 ];
@@ -746,13 +747,14 @@ function parsePrimaryLineOrderForm(rawText) {
     labelMap.set(matchedLabel, inlineValue || lines[index + 1] || "");
   }
   if (!labelMap.size) return null;
-  const requiredLabels = ["ชื่อลูกค้า", "เบอร์โทร", "ที่อยู่จัดส่ง", "จำนวนกระปุก", "ยอดซื้อ"];
+  const requiredLabels = ["วันที่ซื้อ", "ชื่อลูกค้า", "เบอร์โทร", "ที่อยู่จัดส่ง", "จำนวนกระปุก", "ยอดซื้อ"];
   const hasPrimaryShape = requiredLabels.every(label => labelMap.has(label));
   if (!hasPrimaryShape) return null;
   const get = label => String(labelMap.get(label) || "").trim();
   const phone = normalizePhone(get("เบอร์โทร"));
   if (!phone) return null;
   return {
+    orderNumber: normalizeImportText(get("เลขออเดอร์")),
     name: normalizeImportText(get("ชื่อลูกค้า") || `ลูกค้า ${phone}`),
     phone,
     alternatePhone: normalizePhone(get("เบอร์โทรสำรอง")),
@@ -765,9 +767,9 @@ function parsePrimaryLineOrderForm(rawText) {
     source: "LINE",
     sourceChannel: normalizeImportText(get("ช่องทางการสั่งซื้อ") || "LINE"),
     originSource: normalizeImportText(get("ลูกค้ามาจาก")),
-    socialName: normalizeImportText(get("Facebook / Line ลูกค้า")),
+    socialName: normalizeImportText(get("Facebook / LINE ลูกค้า")),
     freeGift: normalizeImportText(get("ของแถมที่ลูกค้าได้")),
-    vipCardStatus: normalizeImportText(get("สถานะบัตร vip") || "ยังไม่ได้ส่งบัตร") || "ยังไม่ได้ส่งบัตร",
+    vipCardStatus: normalizeImportText(get("สถานะบัตร VIP") || "ยังไม่ได้ส่งบัตร") || "ยังไม่ได้ส่งบัตร",
     tags: splitTags(get("อาการลูกค้า")),
     note: normalizeImportText(get("หมายเหตุ")),
     rawText: textValue
@@ -851,8 +853,10 @@ function parseLineOrder(rawText, defaultJarPrice = 750) {
   const tagMatches = Array.from(textValue.matchAll(/#([^\s#]+)/g)).map(match => match[1].trim());
   const promoQuantityLine = lines.find(line => /\d+\s*(?:กระปุก|ปุก|ขวด)?\s*แถม\s*\d+\s*(?:กระปุก|ปุก|ขวด)?/.test(line));
   const note = promoQuantityLine ? promoQuantityLine : "";
+  const orderNumber = parseLabel(textValue, ["เลขออเดอร์", "order number", "order_number"]) || "";
 
   return {
+    orderNumber: normalizeImportText(orderNumber),
     name,
     phone,
     address: addressLine ? addressLine.replace(/^ที่อยู่\s*[:：-]?\s*/, "").trim() : "",
@@ -1285,6 +1289,7 @@ function parseDelimited(content) {
 
 function normalizeImportRow(row, defaultJarPrice) {
   const get = (...keys) => keys.map(key => row[key]).find(Boolean) || "";
+  const orderNumber = normalizeImportText(get("order_number", "order number", "เลขออเดอร์"));
   const jars = Number(get("jars", "jar", "จำนวนกระปุก", "กระปุก", "ซื้อกี่กระปุก", "qty", "quantity") || 1);
   const amountText = String(get("amount", "total", "ยอด", "ยอดซื้อ", "ราคา")).replace(/,/g, "").trim();
   const parsedAmount = amountText === "" ? NaN : Number(amountText);
@@ -1297,7 +1302,7 @@ function normalizeImportRow(row, defaultJarPrice) {
     "เคยได้บัตรvipแล้วหรือยัง"
   ));
   return {
-    orderNumber: normalizeImportText(get("order number", "order_number", "เลขออเดอร์")),
+    orderNumber,
     name: get("name", "customer", "customer name", "ชื่อ", "ชื่อลูกค้า", "ชื่อลูกค้ารับของ", "ลูกค้า"),
     phone: get("phone", "tel", "mobile", "เบอร์", "เบอร์โทร", "โทร"),
     address: get("address", "ที่อยู่"),
@@ -1323,7 +1328,7 @@ function normalizeImportRow(row, defaultJarPrice) {
       : /^(เคย|ใช่|มี|ส่งแล้ว|ได้แล้ว|yes|y|true|1)$/i.test(vipValue)
         ? "ส่งบัตรแล้ว"
         : vipValue,
-    rawText: JSON.stringify({ ...row, __orderNumber: normalizeImportText(get("order number", "order_number", "เลขออเดอร์")) })
+    rawText: JSON.stringify({ ...row, __orderNumber: orderNumber })
   };
 }
 
@@ -1339,13 +1344,20 @@ function csvDuplicateKey(order, db) {
 
 const csvMergeFields = [
   "orderNumber",
-  "phone",
-  "tags",
-  "items",
+  "date",
   "sourceChannel",
   "socialName",
+  "name",
+  "phone",
+  "alternatePhone",
+  "address",
+  "jars",
+  "amount",
   "freeGift",
-  "vipCardStatus"
+  "vipCardStatus",
+  "tags",
+  "originSource",
+  "note"
 ];
 
 function csvCompleteness(row) {
@@ -1841,20 +1853,23 @@ async function handleApi(req, res) {
         order_number: order.orderNumber || "",
         date: order.date,
         time: order.time || "",
+        source_channel: order.sourceChannel || "",
+        social_name: order.socialName || "",
+        source: order.source,
         customerName: order.customerName,
+        customer_name: order.customerName,
         phone: order.phone,
         alternate_phone: order.alternatePhone || "",
         address: order.address || "",
         quantity: order.jars,
         amount: order.amount,
-        source: order.source,
-        source_channel: order.sourceChannel || "",
-        origin_source: order.originSource || "",
         social_name: order.socialName || "",
         free_gift: order.freeGift || "",
         vip_card_status: order.vipCardStatus || "",
         vip_card_reminder: order.vipCardReminder || "",
         vip_discount_flag: order.vipDiscountFlag || "",
+        tags: (order.tags || []).join("|"),
+        origin_source: order.originSource || "",
         note: order.note || ""
       })));
     }
