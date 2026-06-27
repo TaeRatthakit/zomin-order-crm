@@ -392,6 +392,12 @@ async function handleImportJobsApi(req, res, url) {
     const active = await getActiveImportJob(type);
     if (active) {
       if (active.fingerprint === body.fingerprint && active.total === total) {
+        if (active.processed >= active.total) {
+          active.status = "completed";
+          active.completedAt = active.completedAt || new Date().toISOString();
+          active.lastError = "";
+          await saveImportJob(active);
+        }
         return json(res, 200, { ok: true, job: importJobView(active), resumed: true });
       }
       return json(res, 409, {
