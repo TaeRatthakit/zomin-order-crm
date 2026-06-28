@@ -14,7 +14,8 @@ const {
   previewLatestImportCleanup,
   cleanupImportJob,
   saveImportJob,
-  importOrdersBatch
+  importOrdersBatch,
+  verifyCustomerSync
 } = require("./lib/db");
 const {
   hashPassword,
@@ -1698,6 +1699,11 @@ async function handleApi(req, res) {
     return json(res, 200, { ok: true, user: publicUser(user) }, {
       "Set-Cookie": sessionCookie(session.token, session.expiresAt)
     });
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/verify/customer-sync") {
+    const verification = await verifyCustomerSync();
+    return json(res, verification.ok ? 200 : 409, { ok: verification.ok, verification });
   }
 
   if (isLineWebhook && req.method === "GET") {
