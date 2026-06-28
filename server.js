@@ -25,6 +25,7 @@ const {
   sessionCookie,
   clearSessionCookie
 } = require("./lib/auth");
+const { synchronizeCustomers } = require("./lib/customer-sync");
 
 const PORT = Number(process.env.PORT || 3000);
 const HOST = process.env.HOST || "0.0.0.0";
@@ -612,6 +613,7 @@ function customerScore(totalSpent, purchaseCount, firstPurchaseDate, lastPurchas
 }
 
 function enrichDb(db, selectedDate = toDateOnly()) {
+  synchronizeCustomers(db);
   const customers = db.customers.map(customer => {
     const orders = db.orders
       .filter(order => order.customerId === customer.id)
@@ -1737,10 +1739,7 @@ async function handleApi(req, res) {
   }
 
   if (req.method === "POST" && url.pathname === "/api/customers") {
-    const body = await readBody(req);
-    const customer = findOrCreateCustomer(db, body);
-    await writeDb(db);
-    return json(res, 200, { ok: true, customer });
+    return json(res, 409, { ok: false, error: "สร้างลูกค้าแยกเดี่ยวไม่ได้ กรุณาสร้างผ่านออเดอร์" });
   }
 
   if (req.method === "PUT" && url.pathname.startsWith("/api/customers/")) {
@@ -1749,9 +1748,6 @@ async function handleApi(req, res) {
     const customer = db.customers.find(item => item.id === id);
     if (!customer) return json(res, 404, { ok: false, error: "ไม่พบลูกค้า" });
     Object.assign(customer, {
-      name: body.name ?? customer.name,
-      phone: body.phone ? normalizePhone(body.phone) : customer.phone,
-      address: body.address ?? customer.address,
       tags: body.tags !== undefined ? splitTags(body.tags) : customer.tags,
       note: body.note ?? customer.note,
       lastContactDate: body.lastContactDate ?? customer.lastContactDate,
@@ -1795,15 +1791,15 @@ async function handleApi(req, res) {
     const order = db.orders.find(item => item.id === id);
     if (!order) return json(res, 404, { ok: false, error: "ไม่พบออเดอร์" });
     const customer = db.customers.find(item => item.id === order.customerId);
-    if (customer) {
-      if (body.name !== undefined) customer.name = String(body.name).trim();
-      if (body.phone !== undefined) customer.phone = normalizePhone(body.phone);
-      if (body.address !== undefined) customer.address = String(body.address).trim();
-      if (body.tags !== undefined) customer.tags = splitTags(body.tags);
+    if (customer && body.tags !== undefined) {
+      customer.tags = splitTags(body.tags);
       db.tags = Array.from(new Set([...(db.tags || []), ...(customer.tags || [])]));
     }
     Object.assign(order, {
       orderNumber: body.orderNumber !== undefined ? normalizeImportText(body.orderNumber) : order.orderNumber,
+      customerName: body.name !== undefined ? String(body.name).trim() : order.customerName,
+      phone: body.phone !== undefined ? normalizePhone(body.phone) : order.phone,
+      address: body.address !== undefined ? String(body.address).trim() : order.address,
       date: body.date ? toDateOnly(body.date) : order.date,
       jars: body.jars !== undefined ? Number(body.jars) : order.jars,
       amount: body.amount !== undefined ? Number(body.amount) : order.amount,
@@ -1824,7 +1820,8 @@ async function handleApi(req, res) {
     const id = url.pathname.split("/").pop();
     const orderIndex = db.orders.findIndex(item => item.id === id);
     if (orderIndex === -1) return json(res, 404, { ok: false, error: "ไม่พบออเดอร์" });
-    await deleteOrder(id);
+    db.orders.splice(orderIndex, 1);
+    await writeDb(db);
     return json(res, 200, { ok: true, deletedOrderId: id });
   }
 
