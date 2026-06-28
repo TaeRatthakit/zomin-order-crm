@@ -441,6 +441,8 @@ async function handleImportJobsApi(req, res, url) {
       skipped: 0,
       failed: 0,
       failedRows: [],
+      importedOrderIds: [],
+      importedCustomerIds: [],
       batchSize: Math.max(200, Math.min(500, Number(body.batchSize || 300))),
       createdAt: now,
       startedAt: now,
@@ -523,6 +525,8 @@ async function handleImportJobsApi(req, res, url) {
       job.skipped += result.skipped;
       job.failed += result.failed.length;
       job.failedRows.push(...result.failed);
+      job.importedOrderIds = Array.from(new Set([...(job.importedOrderIds || []), ...(result.importedOrderIds || [])]));
+      job.importedCustomerIds = Array.from(new Set([...(job.importedCustomerIds || []), ...(result.importedCustomerIds || [])]));
       if (job.processed >= job.total) {
         job.status = "completed";
         job.completedAt = new Date().toISOString();

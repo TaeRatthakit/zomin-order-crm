@@ -37,6 +37,7 @@ const app = {
   csvPreview: [],
   csvPreviewSummary: null,
   importJob: null,
+  importCleanup: null,
   importPreparing: false,
   importWorker: null,
   importPollTimer: null,
@@ -353,6 +354,16 @@ async function loadState() {
   if (!canAccessView(app.view)) {
     app.view = "more";
     navigateToView("more", true);
+  }
+  if (app.view === "import" && isAdmin()) {
+    try {
+      const payload = await api("/api/import-jobs/latest-cleanup-preview?type=orders");
+      app.importCleanup = payload.preview || null;
+    } catch {
+      app.importCleanup = null;
+    }
+  } else {
+    app.importCleanup = null;
   }
   render();
 }
@@ -975,6 +986,7 @@ function renderRisk() {
 
 function renderImport() {
   const job = app.importJob;
+  const cleanup = app.importCleanup;
   const busy = job && ["queued", "running"].includes(job.status);
   const statusLabels = {
     queued: "รอเริ่ม",
@@ -1027,6 +1039,18 @@ function renderImport() {
             <span>ดาวน์โหลดแถวที่ผิดพลาดได้</span>
           </div>
         `}
+        ${cleanup && cleanup.supported !== false ? `
+          <div class="import-final-summary">
+            <strong>Rollback Import</strong>
+            <span>ลบออเดอร์ล่าสุด ${money(cleanup.orderCount || 0)} รายการ และลูกค้าที่ไม่เหลือออเดอร์ ${money(cleanup.customerCount || 0)} รายการ</span>
+            <button class="button danger" data-rollback-import type="button" ${cleanup.orderCount ? "" : "disabled"}>Rollback Import</button>
+          </div>
+        ` : cleanup ? `
+          <div class="import-final-summary">
+            <strong>Rollback Import</strong>
+            <span>งานล่าสุดนี้ยังไม่รองรับการ rollback จากหน้านี้</span>
+          </div>
+        ` : ""}
         ${job?.status === "completed" ? `
           <div class="import-final-summary">
             <strong>สรุปการนำเข้า</strong>
@@ -1061,6 +1085,16 @@ async function refreshImportJob() {
   if (app.view === "import") renderImport();
   if (!app.importWorker && app.view === "import" && app.importJob && ["queued", "running"].includes(app.importJob.status)) {
     app.importPollTimer = setTimeout(() => refreshImportJob().catch(error => showToast(error.message)), 2000);
+  }
+}
+
+async function refreshImportCleanup() {
+  if (!isAdmin() || app.view !== "import") return;
+  try {
+    const payload = await api("/api/import-jobs/latest-cleanup-preview?type=orders");
+    app.importCleanup = payload.preview || null;
+  } catch {
+    app.importCleanup = null;
   }
 }
 
@@ -1920,6 +1954,18 @@ document.addEventListener("click", async event => {
       app.importJob = payload.job;
       renderImport();
     }
+  }
+
+  if (event.target.closest("[data-rollback-import]")) {
+    if (!app.importCleanup?.job?.id) return;
+    const payload = await api(`/api/import-jobs/${encodeURIComponent(app.importCleanup.job.id)}/cleanup`, {
+      method: "POST",
+      body: "{}"
+    });
+    app.importJob = payload.cleanup?.job || null;
+    app.importCleanup = null;
+    showToast(`Rollback เสร็จแล้ว: ลบออเดอร์ ${payload.cleanup?.deletedOrders || 0} รายการ`);
+    await loadState();
   }
 
   if (event.target.closest("[data-reset-filters]")) {
