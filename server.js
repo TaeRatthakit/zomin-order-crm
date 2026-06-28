@@ -11,6 +11,8 @@ const {
   getImportJob,
   getActiveImportJob,
   getLatestImportJob,
+  previewLatestImportCleanup,
+  cleanupImportJob,
   saveImportJob,
   importOrdersBatch
 } = require("./lib/db");
@@ -370,6 +372,17 @@ function importJobView(job) {
   };
 }
 
+function importCleanupView(preview) {
+  if (!preview) return null;
+  return {
+    job: importJobView(preview.job),
+    orderCount: Number(preview.orderCount || 0),
+    customerCount: Number(preview.customerCount || 0),
+    settingsKeys: preview.settingsKeys || [],
+    supported: preview.supported !== false
+  };
+}
+
 async function handleImportJobsApi(req, res, url) {
   const currentUser = requireUser(req, res);
   if (!currentUser) return true;
@@ -379,6 +392,13 @@ async function handleImportJobsApi(req, res, url) {
     const type = url.searchParams.get("type") || "orders";
     const job = await getActiveImportJob(type) || await getLatestImportJob(type);
     return json(res, 200, { ok: true, job: importJobView(job) });
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/import-jobs/latest-cleanup-preview") {
+    if (!requireAdmin(req, res)) return true;
+    const preview = await previewLatestImportCleanup(url.searchParams.get("type") || "orders");
+    if (!preview) return json(res, 404, { ok: false, error: "ไม่พบงานนำเข้าล่าสุด" });
+    return json(res, 200, { ok: true, preview: importCleanupView(preview) });
   }
 
   if (req.method === "POST" && url.pathname === "/api/import-jobs") {
@@ -442,6 +462,26 @@ async function handleImportJobsApi(req, res, url) {
   if (req.method === "GET" && parts.length === 3) {
     json(res, 200, { ok: true, job: importJobView(job) });
     return true;
+  }
+
+  if (req.method === "POST" && parts[3] === "cleanup") {
+    if (!requireAdmin(req, res)) return true;
+    try {
+      const result = await cleanupImportJob(jobId);
+      if (!result) return json(res, 404, { ok: false, error: "ไม่พบงานนำเข้า" });
+      return json(res, 200, {
+        ok: true,
+        cleanup: {
+          job: importJobView(result.job),
+          deletedOrders: result.deletedOrders || 0,
+          deletedCustomers: result.deletedCustomers || 0,
+          deletedImportRecords: result.deletedImportRecords || 0,
+          supported: result.supported !== false
+        }
+      });
+    } catch (error) {
+      return json(res, 400, { ok: false, error: error.message });
+    }
   }
 
   if (req.method === "POST" && parts[3] === "cancel") {
