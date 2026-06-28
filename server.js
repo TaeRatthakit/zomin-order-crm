@@ -15,7 +15,8 @@ const {
   cleanupImportJob,
   saveImportJob,
   importOrdersBatch,
-  verifyCustomerSync
+  verifyCustomerSync,
+  persistOrderMutation
 } = require("./lib/db");
 const {
   hashPassword,
@@ -741,6 +742,71 @@ function buildSummary(enriched, selectedDate = toDateOnly()) {
       VIP: dueCustomers.filter(customer => customer.vipLevel === "VIP").length,
       NORMAL: dueCustomers.filter(customer => customer.vipLevel === "NORMAL").length
     }
+  };
+}
+
+function orderMutationPayload(db, { orderId = "", deletedOrderId = "", previousCustomerIds = [], selectedDate = toDateOnly() } = {}) {
+  synchronizeCustomers(db);
+  const order = orderId ? (db.orders || []).find(item => item.id === orderId) || null : null;
+  const affectedCustomerIds = Array.from(new Set([
+    ...previousCustomerIds,
+    ...(order ? [order.customerId] : [])
+  ].filter(Boolean)));
+  const customerMap = new Map((db.customers || []).map(customer => [customer.id, customer]));
+  const customers = affectedCustomerIds.map(id => {
+    const customer = customerMap.get(id);
+    if (!customer) return null;
+    const customerOrders = (db.orders || [])
+      .filter(item => item.customerId === id)
+      .sort((a, b) => compareDate(a.date, b.date))
+      .map(item => ({
+        ...item,
+        sourceChannel: orderChannel(item),
+        socialName: item.socialName || item.social_name || "",
+        freeGift: item.freeGift || item.free_gift || "",
+        vipCardStatus: item.vipCardStatus || item.vip_card_status || "ยังไม่ได้ส่งบัตร"
+      }));
+    const hasVipCard = customerOrders.some(item => item.vipCardStatus === "ส่งบัตรแล้ว");
+    const contactLogs = (db.contactLogs || [])
+      .filter(log => log.customerId === id)
+      .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
+    return {
+      ...customer,
+      overdueDays: customer.followUpDate ? diffDays(customer.followUpDate, selectedDate) : 0,
+      note: customer.note || customer.lastContactNote || "",
+      contactLogs,
+      orders: customerOrders.map(item => ({
+        ...item,
+        tags: customer.tags || [],
+        status: customer.status || "",
+        vipLevel: customer.vipLevel || "NORMAL",
+        vipCardReminder: item.vipCardStatus !== "ส่งบัตรแล้ว" && !hasVipCard ? "ใส่บัตร VIP ในกล่อง" : "",
+        vipDiscountFlag: hasVipCard && /ไลน์บริษัท|line company|บริษัท/i.test(orderChannel(item))
+          ? "ลูกค้ามีบัตร VIP และสั่งผ่านไลน์บริษัท: รองรับส่วนลด VIP กระปุกละ 10 บาท"
+          : ""
+      }))
+    };
+  }).filter(Boolean);
+  const deletedCustomerIds = affectedCustomerIds.filter(id => !customerMap.has(id));
+  return {
+    order: order ? {
+      ...order,
+      customerName: customers.find(customer => customer.id === order.customerId)?.name || order.customerName || "",
+      phone: order.phone || customers.find(customer => customer.id === order.customerId)?.phone || "",
+      tags: customers.find(customer => customer.id === order.customerId)?.tags || [],
+      status: customers.find(customer => customer.id === order.customerId)?.status || "",
+      vipLevel: customers.find(customer => customer.id === order.customerId)?.vipLevel || "NORMAL",
+      sourceChannel: orderChannel(order),
+      socialName: order.socialName || order.social_name || "",
+      freeGift: order.freeGift || order.free_gift || "",
+      vipCardStatus: order.vipCardStatus || order.vip_card_status || "ยังไม่ได้ส่งบัตร"
+    } : null,
+    deletedOrderId,
+    affectedCustomerIds,
+    deletedCustomerIds,
+    customers,
+    tags: db.tags || [],
+    clientMutationId: ""
   };
 }
 
@@ -1787,8 +1853,14 @@ async function handleApi(req, res) {
       }
       throw error;
     }
-    await writeDb(db);
-    return json(res, 200, { ok: true, order });
+    const mutation = orderMutationPayload(db, {
+      orderId: order.id,
+      selectedDate: body.selectedDate || toDateOnly()
+    });
+    mutation.clientMutationId = String(body.clientMutationId || "");
+    if (typeof persistOrderMutation === "function") await persistOrderMutation(mutation);
+    else await writeDb(db);
+    return json(res, 200, { ok: true, mutation });
   }
 
   if (req.method === "PUT" && url.pathname.startsWith("/api/orders/")) {
@@ -1796,6 +1868,7 @@ async function handleApi(req, res) {
     const body = await readBody(req);
     const order = db.orders.find(item => item.id === id);
     if (!order) return json(res, 404, { ok: false, error: "ไม่พบออเดอร์" });
+    const previousCustomerIds = [order.customerId];
     const customer = db.customers.find(item => item.id === order.customerId);
     if (customer && body.tags !== undefined) {
       customer.tags = splitTags(body.tags);
@@ -1818,17 +1891,30 @@ async function handleApi(req, res) {
       vipCardStatus: body.vipCardStatus ?? order.vipCardStatus,
       note: body.note ?? order.note
     });
-    await writeDb(db);
-    return json(res, 200, { ok: true, order });
+    const mutation = orderMutationPayload(db, {
+      orderId: order.id,
+      previousCustomerIds,
+      selectedDate: body.selectedDate || toDateOnly()
+    });
+    mutation.clientMutationId = String(body.clientMutationId || "");
+    if (typeof persistOrderMutation === "function") await persistOrderMutation(mutation);
+    else await writeDb(db);
+    return json(res, 200, { ok: true, mutation });
   }
 
   if (req.method === "DELETE" && url.pathname.startsWith("/api/orders/")) {
     const id = url.pathname.split("/").pop();
     const orderIndex = db.orders.findIndex(item => item.id === id);
     if (orderIndex === -1) return json(res, 404, { ok: false, error: "ไม่พบออเดอร์" });
-    db.orders.splice(orderIndex, 1);
-    await writeDb(db);
-    return json(res, 200, { ok: true, deletedOrderId: id });
+    const [deletedOrder] = db.orders.splice(orderIndex, 1);
+    const mutation = orderMutationPayload(db, {
+      deletedOrderId: id,
+      previousCustomerIds: deletedOrder?.customerId ? [deletedOrder.customerId] : [],
+      selectedDate: url.searchParams.get("date") || toDateOnly()
+    });
+    if (typeof persistOrderMutation === "function") await persistOrderMutation(mutation);
+    else await writeDb(db);
+    return json(res, 200, { ok: true, mutation });
   }
 
   if (req.method === "POST" && url.pathname === "/api/import") {

@@ -41,6 +41,7 @@ const app = {
   importPreparing: false,
   importWorker: null,
   importPollTimer: null,
+  summaryRefreshTimer: null,
   currentUser: null,
   data: null,
   lineDebugRows: [],
@@ -509,54 +510,58 @@ function customerTable(customers, emptyText = "ไม่พบข้อมูล
   `;
 }
 
+function orderCard(order) {
+  return `
+    <article class="order-card" data-order-id="${escapeHtml(order.id)}">
+      <div class="order-top">
+        <div>
+          <strong>${escapeHtml(order.customerName)}</strong>
+          <span>${escapeHtml(order.orderNumber || "-")} · ${formatDate(order.date)} · ${escapeHtml(order.time || "-")}</span>
+        </div>
+        ${badge(order.status === "NEW" ? "NEW" : order.vipLevel)}
+      </div>
+      <div class="order-summary">
+        <div><span>เลขออเดอร์</span><strong>${escapeHtml(order.orderNumber || "-")}</strong></div>
+        <div><span>จำนวน</span><strong>${Number(order.jars || 0)} กระปุก</strong></div>
+        <div><span>ยอดเงิน</span><strong>${money(order.amount)} บาท</strong></div>
+        <div><span>ช่องทางการสั่งซื้อ</span><strong>${escapeHtml(order.sourceChannel || order.source || "-")}</strong></div>
+      </div>
+      <details class="order-details">
+        <summary>ดูข้อมูลเพิ่มเติม</summary>
+        <div class="order-grid">
+          <div><span>วันที่ซื้อ</span><strong>${formatDate(order.date)}</strong></div>
+          <div><span>ช่องทางการสั่งซื้อ</span><strong>${escapeHtml(order.sourceChannel || order.source || "-")}</strong></div>
+          <div><span>Facebook / LINE ลูกค้า</span><strong>${escapeHtml(order.socialName || "-")}</strong></div>
+          <div><span>ชื่อลูกค้า</span><strong>${escapeHtml(order.customerName || "-")}</strong></div>
+          <div><span>เบอร์</span><strong>${escapeHtml(order.phone)}</strong></div>
+          <div><span>เบอร์สำรอง</span><strong>${escapeHtml(order.alternatePhone || "-")}</strong></div>
+          <div><span>ที่อยู่จัดส่ง</span><strong>${escapeHtml(order.address || "-")}</strong></div>
+          <div><span>จำนวนกระปุก</span><strong>${Number(order.jars || 0)}</strong></div>
+          <div><span>ยอดซื้อ</span><strong>${money(order.amount)} บาท</strong></div>
+          <div><span>ลูกค้ามาจาก</span><strong>${escapeHtml(order.originSource || "-")}</strong></div>
+          <div><span>ของแถม</span><strong>${escapeHtml(order.freeGift || "-")}</strong></div>
+          <div><span>บัตร VIP</span><strong>${escapeHtml(order.vipCardStatus || "-")}</strong></div>
+          <div><span>อาการลูกค้า</span><strong>${escapeHtml((order.tags || []).join(", ") || "-")}</strong></div>
+          <div><span>หมายเหตุ</span><strong>${escapeHtml(order.note || "-")}</strong></div>
+        </div>
+        ${order.vipCardReminder ? `<p class="alert-text">${escapeHtml(order.vipCardReminder)}</p>` : ""}
+        ${order.vipDiscountFlag ? `<p class="muted">${escapeHtml(order.vipDiscountFlag)}</p>` : ""}
+      </details>
+      <div class="inline order-actions">
+        <button class="button ghost compact-action" data-open-customer="${escapeHtml(order.customerId)}">ดูรายละเอียด</button>
+        <button class="button secondary compact-action soft-action" data-edit-order="${escapeHtml(order.id)}">แก้ไข</button>
+        <button class="button danger compact-action trash-action" data-delete-order="${escapeHtml(order.id)}" aria-label="ลบออเดอร์">${iconSvg("trash")}<span>ลบ</span></button>
+      </div>
+    </article>
+  `;
+}
+
 function orderTable(orders) {
   if (!orders.length) return `<div class="empty-state">ยังไม่มีออเดอร์ในวันที่เลือก</div>`;
   const sorted = [...orders].sort((a, b) => String(b.date).localeCompare(String(a.date)));
   return `
-    <div class="order-list">
-      ${sorted.map(order => `
-        <article class="order-card">
-          <div class="order-top">
-            <div>
-              <strong>${escapeHtml(order.customerName)}</strong>
-              <span>${escapeHtml(order.orderNumber || "-")} · ${formatDate(order.date)} · ${escapeHtml(order.time || "-")}</span>
-            </div>
-            ${badge(order.status === "NEW" ? "NEW" : order.vipLevel)}
-          </div>
-          <div class="order-summary">
-            <div><span>เลขออเดอร์</span><strong>${escapeHtml(order.orderNumber || "-")}</strong></div>
-            <div><span>จำนวน</span><strong>${Number(order.jars || 0)} กระปุก</strong></div>
-            <div><span>ยอดเงิน</span><strong>${money(order.amount)} บาท</strong></div>
-            <div><span>ช่องทางการสั่งซื้อ</span><strong>${escapeHtml(order.sourceChannel || order.source || "-")}</strong></div>
-          </div>
-          <details class="order-details">
-            <summary>ดูข้อมูลเพิ่มเติม</summary>
-            <div class="order-grid">
-              <div><span>วันที่ซื้อ</span><strong>${formatDate(order.date)}</strong></div>
-              <div><span>ช่องทางการสั่งซื้อ</span><strong>${escapeHtml(order.sourceChannel || order.source || "-")}</strong></div>
-              <div><span>Facebook / LINE ลูกค้า</span><strong>${escapeHtml(order.socialName || "-")}</strong></div>
-              <div><span>ชื่อลูกค้า</span><strong>${escapeHtml(order.customerName || "-")}</strong></div>
-              <div><span>เบอร์</span><strong>${escapeHtml(order.phone)}</strong></div>
-              <div><span>เบอร์สำรอง</span><strong>${escapeHtml(order.alternatePhone || "-")}</strong></div>
-              <div><span>ที่อยู่จัดส่ง</span><strong>${escapeHtml(order.address || "-")}</strong></div>
-              <div><span>จำนวนกระปุก</span><strong>${Number(order.jars || 0)}</strong></div>
-              <div><span>ยอดซื้อ</span><strong>${money(order.amount)} บาท</strong></div>
-              <div><span>ลูกค้ามาจาก</span><strong>${escapeHtml(order.originSource || "-")}</strong></div>
-              <div><span>ของแถม</span><strong>${escapeHtml(order.freeGift || "-")}</strong></div>
-              <div><span>บัตร VIP</span><strong>${escapeHtml(order.vipCardStatus || "-")}</strong></div>
-              <div><span>อาการลูกค้า</span><strong>${escapeHtml((order.tags || []).join(", ") || "-")}</strong></div>
-              <div><span>หมายเหตุ</span><strong>${escapeHtml(order.note || "-")}</strong></div>
-            </div>
-            ${order.vipCardReminder ? `<p class="alert-text">${escapeHtml(order.vipCardReminder)}</p>` : ""}
-            ${order.vipDiscountFlag ? `<p class="muted">${escapeHtml(order.vipDiscountFlag)}</p>` : ""}
-          </details>
-          <div class="inline order-actions">
-            <button class="button ghost compact-action" data-open-customer="${escapeHtml(order.customerId)}">ดูรายละเอียด</button>
-            <button class="button secondary compact-action soft-action" data-edit-order="${escapeHtml(order.id)}">แก้ไข</button>
-            <button class="button danger compact-action trash-action" data-delete-order="${escapeHtml(order.id)}" aria-label="ลบออเดอร์">${iconSvg("trash")}<span>ลบ</span></button>
-          </div>
-        </article>
-      `).join("")}
+    <div class="order-list" id="orderList">
+      ${sorted.map(orderCard).join("")}
     </div>
   `;
 }
@@ -644,7 +649,7 @@ function renderOrders() {
       <div class="section-title section-title-actions">
         <div>
           <h2>${app.ordersShowAll ? "ออเดอร์ทั้งหมด" : `ออเดอร์วันที่ ${formatDate(selectedDate)}`}</h2>
-          <p>${app.ordersShowAll ? `แสดง ${money(orders.length)} ออเดอร์จากทุกวัน` : `แสดง ${money(orders.length)} ออเดอร์จากวันที่เลือก`}</p>
+          <p id="ordersCountText">${app.ordersShowAll ? `แสดง ${money(orders.length)} ออเดอร์จากทุกวัน` : `แสดง ${money(orders.length)} ออเดอร์จากวันที่เลือก`}</p>
         </div>
         <div class="orders-header-actions">
           <label class="orders-show-all">
@@ -742,6 +747,193 @@ function updateSearchResults() {
   if (!results) return;
   const customers = sortByPriority(applyCustomerFilters());
   results.innerHTML = customerTable(customers);
+}
+
+function monthKey(date) {
+  return String(date || "").slice(0, 7);
+}
+
+function buildLocalSummary(selectedDate = els.workDate.value || todayISO()) {
+  const summaryDate = selectedDate || todayISO();
+  const todayOrders = app.data.orders.filter(order => order.date === summaryDate);
+  const monthOrders = app.data.orders.filter(order => monthKey(order.date) === monthKey(summaryDate));
+  const dueCustomers = app.data.customers.filter(customer => customer.followUpDate && customer.followUpDate <= summaryDate);
+  return {
+    selectedDate: summaryDate,
+    salesToday: todayOrders.reduce((sum, order) => sum + Number(order.amount || 0), 0),
+    salesThisMonth: monthOrders.reduce((sum, order) => sum + Number(order.amount || 0), 0),
+    ordersToday: todayOrders.length,
+    ordersThisMonth: monthOrders.length,
+    jarsToday: todayOrders.reduce((sum, order) => sum + Number(order.jars || 0), 0),
+    jarsThisMonth: monthOrders.reduce((sum, order) => sum + Number(order.jars || 0), 0),
+    orderCount: app.data.orders.length,
+    customerCount: app.data.customers.length,
+    newCustomers: app.data.customers.filter(customer => customer.status === "NEW").length,
+    vip: app.data.customers.filter(customer => customer.vipLevel === "VIP").length,
+    vvip: app.data.customers.filter(customer => customer.vipLevel === "VVIP").length,
+    superVip: app.data.customers.filter(customer => customer.vipLevel === "SUPER VIP").length,
+    atRisk: app.data.customers.filter(customer => customer.status === "AT RISK").length,
+    lost: app.data.customers.filter(customer => customer.status === "LOST").length,
+    dueToday: dueCustomers.length,
+    dueByPriority: {
+      "SUPER VIP": dueCustomers.filter(customer => customer.vipLevel === "SUPER VIP").length,
+      VVIP: dueCustomers.filter(customer => customer.vipLevel === "VVIP").length,
+      VIP: dueCustomers.filter(customer => customer.vipLevel === "VIP").length,
+      NORMAL: dueCustomers.filter(customer => customer.vipLevel === "NORMAL").length
+    }
+  };
+}
+
+function queueSummaryRefresh() {
+  clearTimeout(app.summaryRefreshTimer);
+  app.summaryRefreshTimer = setTimeout(() => {
+    if (!app.data) return;
+    app.data.summary = buildLocalSummary(app.data.summary?.selectedDate || els.workDate.value || todayISO());
+    if (["dashboard", "followup", "reports", "vip", "risk"].includes(app.view)) render();
+  }, 0);
+}
+
+function upsertArrayItem(items, item) {
+  const index = items.findIndex(entry => entry.id === item.id);
+  if (index === -1) items.push(item);
+  else items[index] = item;
+}
+
+function applyOrderMutation(mutation) {
+  if (!mutation || !app.data) return;
+  const deletedOrderId = mutation.deletedOrderId || "";
+  if (deletedOrderId) {
+    app.data.orders = app.data.orders.filter(order => order.id !== deletedOrderId);
+  }
+  if (mutation.order) upsertArrayItem(app.data.orders, mutation.order);
+  const customerMap = new Map((mutation.customers || []).map(customer => [customer.id, customer]));
+  const deletedCustomerIds = new Set(mutation.deletedCustomerIds || []);
+  app.data.customers = app.data.customers.filter(customer => !deletedCustomerIds.has(customer.id));
+  for (const customer of mutation.customers || []) upsertArrayItem(app.data.customers, customer);
+  app.data.tags = Array.from(new Set([...(app.data.tags || []), ...(mutation.tags || [])])).sort((a, b) => a.localeCompare(b, "th"));
+  for (const order of app.data.orders) {
+    if (!(mutation.affectedCustomerIds || []).includes(order.customerId)) continue;
+    const customer = customerMap.get(order.customerId);
+    if (!customer) continue;
+    order.customerName = customer.name;
+    order.tags = customer.tags || [];
+    order.status = customer.status || "";
+    order.vipLevel = customer.vipLevel || "NORMAL";
+    if (!order.phone) order.phone = customer.phone || "";
+  }
+  queueSummaryRefresh();
+}
+
+function filteredOrdersForCurrentView() {
+  const selectedDate = app.data.summary?.selectedDate || els.workDate.value || todayISO();
+  const q = app.ordersFilterQ.trim().toLowerCase();
+  return app.data.orders.filter(order => {
+    const dateMatch = app.ordersShowAll || order.date === selectedDate;
+    const textMatch = !q || [
+      order.orderNumber,
+      order.customerName,
+      order.phone,
+      order.alternatePhone,
+      order.socialName,
+      order.tags,
+      order.note
+    ].join(" ").toLowerCase().includes(q);
+    return dateMatch && textMatch;
+  }).sort((a, b) => String(b.date).localeCompare(String(a.date)));
+}
+
+function patchOrdersView(mutation) {
+  if (app.view !== "orders") return;
+  const list = document.querySelector("#orderList");
+  const countText = document.querySelector("#ordersCountText");
+  const orders = filteredOrdersForCurrentView();
+  if (countText) {
+    countText.textContent = app.ordersShowAll
+      ? `แสดง ${money(orders.length)} ออเดอร์จากทุกวัน`
+      : `แสดง ${money(orders.length)} ออเดอร์จากวันที่เลือก`;
+  }
+  if (!list) {
+    renderOrders();
+    return;
+  }
+  if (!orders.length) {
+    renderOrders();
+    return;
+  }
+  if (mutation.deletedOrderId) {
+    const row = list.querySelector(`[data-order-id="${CSS.escape(mutation.deletedOrderId)}"]`);
+    if (row) row.remove();
+  }
+  if (mutation.clientMutationId && mutation.clientMutationId !== mutation.order?.id) {
+    const tempRow = list.querySelector(`[data-order-id="${CSS.escape(mutation.clientMutationId)}"]`);
+    if (tempRow) tempRow.remove();
+  }
+  if (mutation.order) {
+    const shouldDisplay = orders.some(order => order.id === mutation.order.id);
+    const existing = list.querySelector(`[data-order-id="${CSS.escape(mutation.order.id)}"]`);
+    if (!shouldDisplay && existing) existing.remove();
+    if (shouldDisplay) {
+      const markup = orderCard(mutation.order);
+      if (existing) existing.outerHTML = markup;
+      else list.insertAdjacentHTML("afterbegin", markup);
+    }
+  }
+  if (!list.children.length) renderOrders();
+}
+
+function cloneUiState() {
+  return JSON.parse(JSON.stringify({
+    orders: app.data.orders,
+    customers: app.data.customers,
+    summary: app.data.summary,
+    tags: app.data.tags
+  }));
+}
+
+function restoreUiState(snapshot) {
+  app.data.orders = snapshot.orders || [];
+  app.data.customers = snapshot.customers || [];
+  app.data.summary = snapshot.summary || app.data.summary;
+  app.data.tags = snapshot.tags || [];
+  render();
+}
+
+function optimisticOrderFromForm(data, orderId, clientMutationId) {
+  const existing = orderId ? app.data.orders.find(order => order.id === orderId) : null;
+  return {
+    ...(existing || {}),
+    id: orderId || clientMutationId,
+    customerId: existing?.customerId || `temp_customer_${clientMutationId}`,
+    orderNumber: data.orderNumber ?? existing?.orderNumber ?? "",
+    customerName: data.name ?? existing?.customerName ?? "",
+    phone: data.phone ?? existing?.phone ?? "",
+    alternatePhone: data.alternatePhone ?? existing?.alternatePhone ?? "",
+    address: data.address ?? existing?.address ?? "",
+    date: data.date || existing?.date || todayISO(),
+    time: existing?.time || "",
+    jars: Number(data.jars ?? existing?.jars ?? 1),
+    amount: Number(data.amount ?? existing?.amount ?? 0),
+    source: data.sourceChannel ?? existing?.source ?? "",
+    sourceChannel: data.sourceChannel ?? existing?.sourceChannel ?? "",
+    socialName: data.socialName ?? existing?.socialName ?? "",
+    originSource: data.originSource ?? existing?.originSource ?? "",
+    freeGift: data.freeGift ?? existing?.freeGift ?? "",
+    vipCardStatus: data.vipCardStatus ?? existing?.vipCardStatus ?? "",
+    note: data.note ?? existing?.note ?? "",
+    tags: splitTags(data.tags ?? existing?.tags ?? []),
+    status: existing?.status || "NEW",
+    vipLevel: existing?.vipLevel || "NORMAL"
+  };
+}
+
+function refreshVisibleCustomerPanels(mutation) {
+  const openCustomerId = els.customerDetail?.querySelector('input[name="customerId"]')?.value;
+  if (openCustomerId && (mutation.affectedCustomerIds || []).includes(openCustomerId)) {
+    const customer = app.data.customers.find(item => item.id === openCustomerId);
+    if (customer) renderCustomerDetail(customer);
+    else els.customerDialog.close();
+  }
+  if (app.view === "search") updateSearchResults();
 }
 
 function makeMessage(customer) {
@@ -1760,15 +1952,35 @@ async function submitOrder(form) {
   delete data.originSourceChoice;
   delete data.originSourceOther;
   const orderId = app.editingOrderId;
-  await api(orderId ? `/api/orders/${encodeURIComponent(orderId)}` : "/api/orders", {
-    method: orderId ? "PUT" : "POST",
-    body: JSON.stringify(data)
+  const snapshot = cloneUiState();
+  const clientMutationId = `tmp_${Date.now().toString(36)}`;
+  const optimisticOrder = optimisticOrderFromForm(data, orderId, clientMutationId);
+  applyOrderMutation({
+    order: optimisticOrder,
+    affectedCustomerIds: [optimisticOrder.customerId],
+    customers: [],
+    deletedCustomerIds: [],
+    clientMutationId
   });
+  patchOrdersView({ order: optimisticOrder, clientMutationId, affectedCustomerIds: [optimisticOrder.customerId] });
   app.editingOrderId = "";
   els.orderDialog.close();
   form.reset();
   showToast(orderId ? "แก้ไขออเดอร์แล้ว" : "บันทึกออเดอร์แล้ว");
-  await loadState();
+  try {
+    data.selectedDate = app.data.summary?.selectedDate || els.workDate.value || todayISO();
+    data.clientMutationId = clientMutationId;
+    const payload = await api(orderId ? `/api/orders/${encodeURIComponent(orderId)}` : "/api/orders", {
+      method: orderId ? "PUT" : "POST",
+      body: JSON.stringify(data)
+    });
+    applyOrderMutation(payload.mutation);
+    patchOrdersView(payload.mutation);
+    refreshVisibleCustomerPanels(payload.mutation);
+  } catch (error) {
+    restoreUiState(snapshot);
+    throw error;
+  }
 }
 
 function openDeleteOrderDialog(orderId) {
@@ -2103,13 +2315,28 @@ document.addEventListener("submit", async event => {
     }
 
     if (form.id === "deleteOrderForm" && app.deletingOrderId) {
-      await api(`/api/orders/${encodeURIComponent(app.deletingOrderId)}`, {
-        method: "DELETE"
-      });
+      const snapshot = cloneUiState();
+      const deletingOrder = app.data.orders.find(order => order.id === app.deletingOrderId);
+      const optimisticMutation = {
+        deletedOrderId: app.deletingOrderId,
+        affectedCustomerIds: deletingOrder?.customerId ? [deletingOrder.customerId] : []
+      };
+      applyOrderMutation(optimisticMutation);
+      patchOrdersView(optimisticMutation);
       app.deletingOrderId = "";
       els.deleteOrderDialog.close();
       showToast("ลบออเดอร์แล้ว");
-      await loadState();
+      try {
+        const payload = await api(`/api/orders/${encodeURIComponent(optimisticMutation.deletedOrderId)}?date=${encodeURIComponent(app.data.summary?.selectedDate || els.workDate.value || todayISO())}`, {
+          method: "DELETE"
+        });
+        applyOrderMutation(payload.mutation);
+        patchOrdersView(payload.mutation);
+        refreshVisibleCustomerPanels(payload.mutation);
+      } catch (error) {
+        restoreUiState(snapshot);
+        throw error;
+      }
     }
 
     if (form.id === "deleteCustomerForm" && app.deletingCustomerId) {
