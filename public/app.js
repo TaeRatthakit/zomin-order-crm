@@ -1315,21 +1315,21 @@ function renderImportInspection(inspection, busy) {
   const invalidItems = (inspection.invalidColumns || []).map(label => `<span class="import-warning-chip">${escapeHtml(label)}</span>`).join("");
   const previewRows = (inspection.previewRows || []).map(row => `
     <tr>
-      <td>${escapeHtml(row.orderNumber || "-")}</td>
-      <td>${escapeHtml(row.date || "-")}</td>
-      <td>${escapeHtml(row.sourceChannel || "-")}</td>
-      <td>${escapeHtml(row.socialName || "-")}</td>
-      <td>${escapeHtml(row.name || "-")}</td>
-      <td>${escapeHtml(row.phone || "-")}</td>
-      <td>${escapeHtml(row.alternatePhone || "-")}</td>
-      <td>${escapeHtml(row.address || "-")}</td>
-      <td>${escapeHtml(String(row.jars || ""))}</td>
-      <td>${escapeHtml(String(row.amount || ""))}</td>
-      <td>${escapeHtml(row.freeGift || "-")}</td>
-      <td>${escapeHtml(row.vipCardStatus || "-")}</td>
-      <td>${escapeHtml(row.tags || "-")}</td>
-      <td>${escapeHtml(row.originSource || "-")}</td>
-      <td>${escapeHtml(row.note || "-")}</td>
+      <td data-label="เลขออเดอร์">${escapeHtml(row.orderNumber || "-")}</td>
+      <td data-label="วันที่ซื้อ">${escapeHtml(row.date || "-")}</td>
+      <td data-label="ช่องทาง">${escapeHtml(row.sourceChannel || "-")}</td>
+      <td data-label="Facebook / LINE">${escapeHtml(row.socialName || "-")}</td>
+      <td data-label="ชื่อลูกค้า">${escapeHtml(row.name || "-")}</td>
+      <td data-label="เบอร์โทร">${escapeHtml(row.phone || "-")}</td>
+      <td data-label="เบอร์สำรอง">${escapeHtml(row.alternatePhone || "-")}</td>
+      <td data-label="ที่อยู่">${escapeHtml(row.address || "-")}</td>
+      <td data-label="กระปุก">${escapeHtml(String(row.jars || ""))}</td>
+      <td data-label="ยอดซื้อ">${escapeHtml(String(row.amount || ""))}</td>
+      <td data-label="ของแถม">${escapeHtml(row.freeGift || "-")}</td>
+      <td data-label="บัตร VIP">${escapeHtml(row.vipCardStatus || "-")}</td>
+      <td data-label="อาการลูกค้า">${escapeHtml(row.tags || "-")}</td>
+      <td data-label="ลูกค้ามาจาก">${escapeHtml(row.originSource || "-")}</td>
+      <td data-label="หมายเหตุ">${escapeHtml(row.note || "-")}</td>
     </tr>
   `).join("");
   return `
@@ -1367,8 +1367,8 @@ function renderImportInspection(inspection, busy) {
         </div>
       ` : ""}
       ${inspection.validationMessage ? `<p class="form-error">${escapeHtml(inspection.validationMessage)}</p>` : ""}
-      <div class="import-table-wrap">
-        <table class="table import-preview-table">
+      <div class="import-table-wrap mobile-stack-wrap">
+        <table class="table import-preview-table mobile-stack-table">
           <thead>
             <tr>
               <th>เลขออเดอร์</th>
@@ -1647,16 +1647,16 @@ function renderTeam() {
             <h2>สิทธิ์ผู้ใช้</h2>
             <p>Admin ดูทุกอย่างและแก้ไขได้, Staff ค้นหา เพิ่มข้อมูล ดู Follow-up และโทรลูกค้า</p>
           </div>
-          <div class="table-wrap">
-            <table>
+          <div class="table-wrap mobile-stack-wrap">
+            <table class="mobile-stack-table">
               <thead><tr><th>ชื่อ</th><th>สิทธิ์</th><th>เบอร์โทร</th><th>สถานะ</th></tr></thead>
               <tbody>
                 ${app.data.users.map(user => `
                   <tr>
-                    <td><strong>${escapeHtml(user.name)}</strong></td>
-                    <td>${badge(user.role)}</td>
-                    <td>${escapeHtml(user.phone || "-")}</td>
-                    <td>${user.active ? "เปิดใช้งาน" : "ปิดใช้งาน"}</td>
+                    <td data-label="ชื่อ"><strong>${escapeHtml(user.name)}</strong></td>
+                    <td data-label="สิทธิ์">${badge(user.role)}</td>
+                    <td data-label="เบอร์โทร">${escapeHtml(user.phone || "-")}</td>
+                    <td data-label="สถานะ">${user.active ? "เปิดใช้งาน" : "ปิดใช้งาน"}</td>
                   </tr>
                 `).join("")}
               </tbody>
@@ -1768,14 +1768,14 @@ function followUpSettingsPanel(daysPerUnit) {
     </label>
     <div class="panel tight followup-preview-panel">
       <strong>ตารางอ้างอิง</strong>
-      <div class="table-wrap">
-        <table class="rules-table">
+      <div class="table-wrap mobile-stack-wrap">
+        <table class="rules-table mobile-stack-table">
           <thead><tr><th>ลูกค้าได้รับทั้งหมด</th><th>ระบบติดตามอีก</th></tr></thead>
           <tbody id="followupPreviewBody">
             ${followUpPreviewRows(safeDays).map(row => `
               <tr>
-                <td>${row.units} กระปุก</td>
-                <td>${row.days} วัน</td>
+                <td data-label="ลูกค้าได้รับทั้งหมด">${row.units} กระปุก</td>
+                <td data-label="ระบบติดตามอีก">${row.days} วัน</td>
               </tr>
             `).join("")}
           </tbody>
@@ -1879,8 +1879,8 @@ function renderLineDebugTable() {
       <div class="mini-stat"><span>Handler reached</span><strong>${summary.last_http_request_received ? "Yes" : "No"}</strong></div>
     </div>
     ${rows.length ? `
-    <div class="table-wrap">
-      <table class="rules-table">
+    <div class="table-wrap mobile-stack-wrap">
+      <table class="rules-table mobile-stack-table">
         <thead>
           <tr>
             <th>Received</th>
@@ -1900,18 +1900,18 @@ function renderLineDebugTable() {
         <tbody>
           ${rows.map(row => `
             <tr>
-              <td>${formatDateTime(row.received_at)}</td>
-              <td>${escapeHtml(row.http_method || "-")} ${escapeHtml(String(row.http_body_length || "-"))}</td>
-              <td>${row.http_is_line_request ? "Yes" : "No"}</td>
-              <td>${escapeHtml(row.http_signature_validation || "-")}</td>
-              <td>${escapeHtml(row.event_type || "-")}</td>
-              <td>${escapeHtml(row.source_type || "-")}</td>
-              <td>${escapeHtml(row.groupId || "-")}</td>
-              <td>${escapeHtml(row.userId || "-")}</td>
-              <td>${escapeHtml(row.text || "-")}</td>
-              <td>${escapeHtml(row.parser_status || "-")}</td>
-              <td>${escapeHtml(row.supabase_insert_status || "-")}</td>
-              <td>${escapeHtml(row.error_message || "-")}</td>
+              <td data-label="Received">${formatDateTime(row.received_at)}</td>
+              <td data-label="HTTP">${escapeHtml(row.http_method || "-")} ${escapeHtml(String(row.http_body_length || "-"))}</td>
+              <td data-label="LINE">${row.http_is_line_request ? "Yes" : "No"}</td>
+              <td data-label="Signature">${escapeHtml(row.http_signature_validation || "-")}</td>
+              <td data-label="Event">${escapeHtml(row.event_type || "-")}</td>
+              <td data-label="Source">${escapeHtml(row.source_type || "-")}</td>
+              <td data-label="Group ID">${escapeHtml(row.groupId || "-")}</td>
+              <td data-label="User ID">${escapeHtml(row.userId || "-")}</td>
+              <td data-label="Text">${escapeHtml(row.text || "-")}</td>
+              <td data-label="Parser">${escapeHtml(row.parser_status || "-")}</td>
+              <td data-label="Insert">${escapeHtml(row.supabase_insert_status || "-")}</td>
+              <td data-label="Error">${escapeHtml(row.error_message || "-")}</td>
             </tr>
           `).join("")}
         </tbody>
