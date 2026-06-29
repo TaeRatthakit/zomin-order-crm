@@ -39,6 +39,9 @@ const MIME_TYPES = {
   ".css": "text/css; charset=utf-8",
   ".js": "application/javascript; charset=utf-8",
   ".json": "application/json; charset=utf-8",
+  ".csv": "text/csv; charset=utf-8",
+  ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  ".xls": "application/vnd.ms-excel",
   ".webmanifest": "application/manifest+json; charset=utf-8",
   ".svg": "image/svg+xml",
   ".png": "image/png",
@@ -154,10 +157,17 @@ function normalizeImportDate(value) {
   const textValue = normalizeImportText(value);
   if (!textValue) return "";
   if (/^\d{4}-\d{2}-\d{2}$/.test(textValue)) return textValue;
-  const match = textValue.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})$/);
+  const match = textValue.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})$/);
   if (!match) return toDateOnly(textValue);
-  const year = Number(match[3]) > 2400 ? Number(match[3]) - 543 : Number(match[3]);
-  return `${year}-${String(match[2]).padStart(2, "0")}-${String(match[1]).padStart(2, "0")}`;
+  const first = Number(match[1]);
+  const second = Number(match[2]);
+  let year = Number(match[3]);
+  if (year < 100) year = year >= 50 ? year + 2500 : year + 2000;
+  if (year > 2400) year -= 543;
+  const isMonthFirst = first <= 12 && second > 12;
+  const day = isMonthFirst ? second : first;
+  const month = isMonthFirst ? first : second;
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
 function publicUser(user) {
@@ -1577,7 +1587,7 @@ function normalizeImportRow(row, defaultJarPrice) {
   const jars = Number(get("jars", "jar", "จำนวนกระปุก", "กระปุก", "ซื้อกี่กระปุก", "qty", "quantity") || 1);
   const amountText = String(get("amount", "total", "ยอด", "ยอดซื้อ", "ราคา")).replace(/,/g, "").trim();
   const parsedAmount = amountText === "" ? NaN : Number(amountText);
-  const sourceChannel = get("source_channel", "source channel", "ช่องทาง", "ช่องทางสั่ง", "สั่งจาก", "source") || "Import";
+  const sourceChannel = get("source_channel", "source channel", "ช่องทางการสั่งซื้อ", "ช่องทาง", "ช่องทางสั่ง", "สั่งจาก", "source") || "Import";
   const vipValue = normalizeImportText(get(
     "vip_card_status",
     "vip card status",
@@ -1588,31 +1598,35 @@ function normalizeImportRow(row, defaultJarPrice) {
   return {
     orderNumber,
     name: get("name", "customer", "customer name", "ชื่อ", "ชื่อลูกค้า", "ชื่อลูกค้ารับของ", "ลูกค้า"),
-    phone: get("phone", "tel", "mobile", "เบอร์", "เบอร์โทร", "โทร"),
-    address: get("address", "ที่อยู่"),
+    phone: get("phone", "tel", "mobile", "เบอร์", "เบอร์โทร", "โทร", "โทรศัพท์", "เบอร์โทรศัพท์"),
+    alternatePhone: get("alternate_phone", "alternate phone", "secondary phone", "เบอร์โทรสำรอง", "เบอร์สำรอง", "โทรสำรอง"),
+    address: get("address", "ที่อยู่", "ที่อยู่จัดส่ง"),
     date: normalizeImportDate(get("date", "order date", "วันที่", "วันที่ซื้อ", "วันที่สั่งซื้อ")) || toDateOnly(),
     jars,
     amount: Number.isFinite(parsedAmount) ? parsedAmount : jars * defaultJarPrice,
-    tags: get("tags", "tag", "แท็ก"),
+    tags: get("tags", "tag", "แท็ก", "อาการลูกค้า", "อาการ"),
     items: get("items", "product", "สินค้า") || "Zomin",
     source: "Import",
     sourceChannel,
     socialName: get(
       "social_name",
       "social name",
+      "facebook / line ลูกค้า",
       "ชื่อเฟส",
       "ชื่อไลน์",
       "ชื่อ facebook หรือ ไลน์ ของลูกค้า",
       "facebook",
       "line"
     ),
-    freeGift: get("free_gift", "free gift", "ของแถม", "แถม"),
+    originSource: get("origin_source", "origin source", "ลูกค้ามาจาก", "มาจาก", "แหล่งที่มา"),
+    freeGift: get("free_gift", "free gift", "ของแถมที่ลูกค้าได้", "ของแถม", "แถม"),
     vipCardStatus: !vipValue
       ? ""
       : /^(เคย|ใช่|มี|ส่งแล้ว|ได้แล้ว|yes|y|true|1)$/i.test(vipValue)
         ? "ส่งบัตรแล้ว"
         : vipValue,
-    rawText: JSON.stringify({ ...row, __orderNumber: orderNumber })
+    note: get("note", "หมายเหตุ", "remark", "remarks"),
+    rawText: JSON.stringify({ ...row, __orderNumber: orderNumber, __alternatePhone: get("alternate_phone", "alternate phone", "secondary phone", "เบอร์โทรสำรอง", "เบอร์สำรอง", "โทรสำรอง"), __originSource: get("origin_source", "origin source", "ลูกค้ามาจาก", "มาจาก", "แหล่งที่มา") })
   };
 }
 
