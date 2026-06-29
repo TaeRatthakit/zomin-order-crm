@@ -1822,7 +1822,7 @@ function renderCustomerDetail(customer) {
         <div class="mini-stats">
           <div class="mini-stat"><span>ซื้อทั้งหมด</span><strong>${customer.purchaseCount} ครั้ง</strong></div>
           <div class="mini-stat"><span>รวม</span><strong>${customer.totalJars} กระปุก</strong></div>
-          <div class="mini-stat"><span>ยอดสะสม</span><strong>${money(customer.totalSpent)} บาท</strong></div>
+          <div class="mini-stat mini-stat-primary"><span>ยอดสะสม</span><strong>${money(customer.totalSpent)} บาท</strong></div>
           <div class="mini-stat"><span>Customer Score</span><strong>${money(customer.customerScore)}</strong></div>
         </div>
         <div class="mini-stats">

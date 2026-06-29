@@ -807,6 +807,12 @@ tr:last-child td {
   font-size: 17px;
 }
 
+.mini-stat-primary strong {
+  font-size: 24px;
+  line-height: 1.1;
+  color: #271b4b;
+}
+
 .bar-list {
   display: grid;
   gap: 10px;
