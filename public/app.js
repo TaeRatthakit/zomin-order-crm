@@ -1826,9 +1826,9 @@ function renderCustomerDetail(customer) {
           <div class="mini-stat"><span>Customer Score</span><strong>${money(customer.customerScore)}</strong></div>
         </div>
         <div class="mini-stats">
-          <div class="mini-stat"><span>ซื้อครั้งแรก</span><strong>${formatDate(customer.firstPurchaseDate)}</strong></div>
-          <div class="mini-stat"><span>ซื้อล่าสุด</span><strong>${formatDate(customer.lastPurchaseDate)}</strong></div>
-          <div class="mini-stat"><span>ควรทักอีก</span><strong>${formatDate(customer.followUpDate)}</strong></div>
+          <div class="mini-stat"><span>ซื้อครั้งแรก</span><strong>${formatShortDate(customer.firstPurchaseDate)}</strong></div>
+          <div class="mini-stat"><span>ซื้อล่าสุด</span><strong>${formatShortDate(customer.lastPurchaseDate)}</strong></div>
+          <div class="mini-stat"><span>ควรทักอีก</span><strong>${formatShortDate(customer.followUpDate)}</strong></div>
           <div class="mini-stat"><span>กระปุกล่าสุด</span><strong>${customer.lastJars}</strong></div>
         </div>
         <div class="info-card"><span>เบอร์</span><strong>${escapeHtml(customer.phone)}</strong></div>
@@ -1845,16 +1845,28 @@ function renderCustomerDetail(customer) {
         </form>
         <form class="stack" id="contactForm">
           <input type="hidden" name="customerId" value="${customer.id}">
-          <div class="form-grid">
-            <label>วันที่ติดต่อ<input name="date" type="date" value="${dateInputValue(customer.lastContactDate)}"></label>
-            <label>ผลลัพธ์
-              <select name="result">
-                ${["โทรติด", "ไม่รับ", "สนใจ", "ยังไม่หมด", "สั่งซื้อแล้ว", "โทรใหม่"].map(result => `<option>${result}</option>`).join("")}
-              </select>
+          <div class="contact-form-section">
+            <h3>บันทึกการติดต่อ</h3>
+            <div class="contact-primary-grid">
+              <label>วันที่ติดต่อ<input name="date" type="date" value="${dateInputValue(customer.lastContactDate)}"></label>
+              <label>ผลลัพธ์
+                <select name="result">
+                  ${["โทรติด", "ไม่รับ", "สนใจ", "ยังไม่หมด", "สั่งซื้อแล้ว", "โทรใหม่"].map(result => `<option>${result}</option>`).join("")}
+                </select>
+              </label>
+            </div>
+          </div>
+          <div class="contact-form-section">
+            <h3>นัดหมายครั้งถัดไป</h3>
+            <div class="contact-followup-grid">
+              <label class="contact-followup-date">นัดติดตามครั้งถัดไป<input name="nextFollowUpDate" type="date"></label>
+              <label class="contact-followup-staff">ผู้ติดต่อ<input name="staff" value="${escapeHtml(app.currentUser?.name || "")}"></label>
+            </div>
+          </div>
+          <div class="contact-form-section">
+            <label>หมายเหตุ
+              <input name="note" value="${escapeHtml(customer.lastContactNote || "")}">
             </label>
-            <label>นัดติดตามครั้งถัดไป<input name="nextFollowUpDate" type="date"></label>
-            <label>ผู้ติดต่อ<input name="staff" value="${escapeHtml(app.currentUser?.name || "")}"></label>
-            <label class="span-2">หมายเหตุ<input name="note" value="${escapeHtml(customer.lastContactNote || "")}"></label>
           </div>
           <button class="button primary" type="submit">บันทึกการติดต่อ</button>
         </form>
@@ -1864,7 +1876,7 @@ function renderCustomerDetail(customer) {
         <div class="timeline">
           ${customer.orders.slice().reverse().map(order => `
             <div class="timeline-item">
-              <strong>${formatDate(order.date)} · ${order.jars} กระปุก · ${money(order.amount)} บาท</strong>
+              <strong>${formatShortDate(order.date)} · ${order.jars} กระปุก · ${money(order.amount)} บาท</strong>
               <span class="muted">ช่องทางการสั่งซื้อ ${escapeHtml(displayOrderChannel(order))}</span>
               <span class="muted">เบอร์สำรอง ${escapeHtml(order.alternatePhone || "-")} · ลูกค้ามาจาก ${escapeHtml(order.originSource || "-")}</span>
               <span class="muted">Facebook / LINE ลูกค้า ${escapeHtml(order.socialName || "-")} · ของแถม ${escapeHtml(order.freeGift || "-")}</span>
@@ -1879,9 +1891,9 @@ function renderCustomerDetail(customer) {
         <div class="timeline">
           ${(customer.contactLogs || []).map(log => `
             <div class="timeline-item">
-              <strong>${formatDate(log.date)} · ${escapeHtml(log.result || "-")}</strong>
+              <strong>${formatShortDate(log.date)} · ${escapeHtml(log.result || "-")}</strong>
               <span class="muted">${escapeHtml(log.note || "-")}</span>
-              <span class="muted">ผู้ติดต่อ ${escapeHtml(log.staff || "-")}${log.nextFollowUpDate ? ` · นัด ${formatDate(log.nextFollowUpDate)}` : ""}</span>
+              <span class="muted">ผู้ติดต่อ ${escapeHtml(log.staff || "-")}${log.nextFollowUpDate ? ` · นัด ${formatShortDate(log.nextFollowUpDate)}` : ""}</span>
             </div>
           `).join("") || `<div class="empty-state">ยังไม่มีประวัติการติดต่อ</div>`}
         </div>

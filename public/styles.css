@@ -875,6 +875,31 @@ tr:last-child td {
   gap: 14px;
 }
 
+.contact-form-section {
+  display: grid;
+  gap: 10px;
+}
+
+.contact-form-section h3 {
+  margin: 0;
+}
+
+.contact-primary-grid,
+.contact-followup-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.contact-followup-grid {
+  grid-template-columns: minmax(0, 1.9fr) minmax(0, 1.1fr);
+  align-items: start;
+}
+
+.contact-followup-date,
+.contact-followup-staff {
+  min-width: 0;
+}
+
 .timeline {
   display: grid;
   gap: 8px;
@@ -1140,6 +1165,11 @@ tr:last-child td {
   .form-grid,
   .setting-row,
   .mini-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .contact-primary-grid,
+  .contact-followup-grid {
     grid-template-columns: 1fr;
   }
 
@@ -1732,6 +1762,14 @@ th {
   padding: 18px;
 }
 
+.customer-drawer .stack {
+  gap: 16px;
+}
+
+.customer-drawer .form-grid {
+  gap: 14px;
+}
+
 .dialog-header {
   border-bottom-color: var(--line);
 }
@@ -2123,6 +2161,10 @@ th {
 
   .detail-grid {
     grid-template-columns: 0.95fr 1.05fr;
+  }
+
+  .contact-primary-grid {
+    grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.7fr);
   }
 
   .more-grid {
