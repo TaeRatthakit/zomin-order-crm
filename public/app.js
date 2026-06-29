@@ -193,6 +193,13 @@ function formatDate(dateValue) {
   }).format(date);
 }
 
+function formatShortDate(dateValue) {
+  if (!dateValue) return "-";
+  const [y, m, d] = String(dateValue).split("-").map(Number);
+  const shortYear = String((y + 543) % 100).padStart(2, "0");
+  return `${String(d).padStart(2, "0")}/${String(m).padStart(2, "0")}/${shortYear}`;
+}
+
 function formatDateTime(dateValue) {
   if (!dateValue) return "-";
   const date = new Date(dateValue);
@@ -473,6 +480,14 @@ function customerRow(customer) {
   const vipSummary = customer.vipLevel && customer.vipLevel !== "NORMAL"
     ? `VIP ${escapeHtml(customer.vipLevel)}`
     : "VIP ❌";
+  const phoneRow = customer.phone
+    ? `
+      <div class="customer-card-phone">
+        <span>โทร</span>
+        <strong>${escapeHtml(customer.phone)}</strong>
+      </div>
+    `
+    : "";
   return `
     <article class="customer-list-card" data-customer="${customer.id}">
       <div class="customer-card-top">
@@ -486,15 +501,14 @@ function customerRow(customer) {
           ${badge(customer.status || "NORMAL")}
         </div>
       </div>
-      <div class="customer-card-phone">
-        <span>โทร</span>
-        <strong>${escapeHtml(customer.phone || "-")}</strong>
+      ${phoneRow}
+      <div class="customer-card-meta-row">
+        <span>ซื้อแล้ว ${customer.purchaseCount || 0} ครั้ง</span>
+        <strong>${money(customer.totalSpent)} บาท</strong>
       </div>
-      <div class="customer-card-summary customer-card-summary-compact">
-        <div><span>ซื้อแล้ว</span><strong>${customer.purchaseCount || 0} ครั้ง</strong></div>
-        <div><span>ยอดสะสม</span><strong>${money(customer.totalSpent)} บาท</strong></div>
-        <div><span>ล่าสุด</span><strong>${formatDate(customer.lastPurchaseDate)}</strong></div>
-        <div><span>สถานะ VIP</span><strong>${vipSummary}</strong></div>
+      <div class="customer-card-meta-row">
+        <span>ล่าสุด ${formatShortDate(customer.lastPurchaseDate)}</span>
+        <strong>${vipSummary}</strong>
       </div>
       ${customer.purchaseCount === 0 ? `
         <button class="button danger customer-delete-button" type="button" data-delete-customer="${escapeHtml(customer.id)}">ลบลูกค้า</button>
