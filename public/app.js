@@ -470,6 +470,9 @@ function renderLogin() {
 }
 
 function customerRow(customer) {
+  const vipSummary = customer.vipLevel && customer.vipLevel !== "NORMAL"
+    ? `VIP ${escapeHtml(customer.vipLevel)}`
+    : "VIP ❌";
   return `
     <article class="customer-list-card" data-customer="${customer.id}">
       <div class="customer-card-top">
@@ -477,25 +480,24 @@ function customerRow(customer) {
           <div class="avatar">${escapeHtml(initials(customer.name))}</div>
           <div>
             <h3>${escapeHtml(customer.name)}</h3>
-            <p>${escapeHtml(customer.phone)}</p>
           </div>
         </div>
         <div class="badge-stack">
-          ${vipBadge(customer.vipLevel)}
-          ${customer.status !== customer.vipLevel ? badge(customer.status) : ""}
+          ${badge(customer.status || "NORMAL")}
         </div>
       </div>
-      <div class="customer-purchase-frequency">ซื้อแล้ว ${customer.purchaseCount || 0} ครั้ง</div>
-      ${tagsHtml(customer.tags)}
-      <div class="customer-card-summary">
-        <div><span>ซื้อล่าสุด</span><strong>${formatDate(customer.lastPurchaseDate)}</strong></div>
-        <div><span>ซื้อแล้วกี่ครั้ง</span><strong>${customer.purchaseCount || 0} ครั้ง</strong></div>
-        <div><span>กระปุกสะสม</span><strong>${customer.totalJars || 0} กระปุก</strong></div>
+      <div class="customer-card-phone">
+        <span>โทร</span>
+        <strong>${escapeHtml(customer.phone || "-")}</strong>
+      </div>
+      <div class="customer-card-summary customer-card-summary-compact">
+        <div><span>ซื้อแล้ว</span><strong>${customer.purchaseCount || 0} ครั้ง</strong></div>
         <div><span>ยอดสะสม</span><strong>${money(customer.totalSpent)} บาท</strong></div>
-        <div><span>ควรทัก</span><strong>${formatDate(customer.followUpDate)}</strong></div>
+        <div><span>ล่าสุด</span><strong>${formatDate(customer.lastPurchaseDate)}</strong></div>
+        <div><span>สถานะ VIP</span><strong>${vipSummary}</strong></div>
       </div>
       ${customer.purchaseCount === 0 ? `
-        <button class="button danger" type="button" data-delete-customer="${escapeHtml(customer.id)}">ลบลูกค้า</button>
+        <button class="button danger customer-delete-button" type="button" data-delete-customer="${escapeHtml(customer.id)}">ลบลูกค้า</button>
       ` : ""}
     </article>
   `;
@@ -719,9 +721,8 @@ function renderSearch() {
             </label>
           </div>
         </div>
-        <p class="muted">ค้นจากชื่อ เบอร์ อาการลูกค้า สถานะ และ VIP Level</p>
-        <div class="filters">
-          <input data-filter="q" placeholder="ชื่อ เบอร์ อาการลูกค้า" value="${escapeHtml(app.filters.q)}">
+        <div class="filters customers-filters">
+          <input data-filter="q" placeholder="ค้นหาชื่อ เบอร์ อาการลูกค้า" value="${escapeHtml(app.filters.q)}">
           <select data-filter="tag">
             <option value="">ทุกอาการลูกค้า</option>
             ${app.data.tags.map(tag => `<option value="${escapeHtml(tag)}" ${app.filters.tag === tag ? "selected" : ""}>${escapeHtml(tag)}</option>`).join("")}

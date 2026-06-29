@@ -348,7 +348,7 @@ a.button {
 
 .section-title {
   display: grid;
-  gap: 4px;
+  gap: 3px;
 }
 
 .section-title-actions {
@@ -363,6 +363,7 @@ a.button {
 .muted {
   margin: 0;
   color: var(--muted);
+  font-size: 12px;
 }
 
 .metric-grid {
@@ -583,12 +584,12 @@ a.button {
   width: 100%;
   max-width: 360px;
   min-width: 0;
-  min-height: 44px;
+  min-height: 40px;
 }
 
 .orders-search-row {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   align-items: center;
   width: 100%;
   grid-column: 1 / -1;
@@ -596,7 +597,7 @@ a.button {
 }
 
 .orders-search-button {
-  min-height: 44px;
+  min-height: 40px;
 }
 
 @media (max-width: 720px) {
@@ -1192,14 +1193,14 @@ body {
 .main-panel {
   width: min(100%, 1120px);
   margin: 0 auto;
-  padding: 18px 16px 104px;
+  padding: 16px 16px 104px;
 }
 
 .topbar {
   align-items: stretch;
   flex-direction: column;
-  gap: 16px;
-  margin-bottom: 18px;
+  gap: 14px;
+  margin-bottom: 14px;
 }
 
 .eyebrow {
@@ -1214,12 +1215,12 @@ h1 {
 }
 
 h2 {
-  font-size: 21px;
+  font-size: 19px;
   font-weight: 900;
 }
 
 h3 {
-  font-size: 17px;
+  font-size: 16px;
   font-weight: 900;
 }
 
@@ -1240,12 +1241,12 @@ h3 {
 input,
 select,
 textarea {
-  min-height: 46px;
+  min-height: 42px;
   border-color: var(--line);
   border-radius: 8px;
   background: #ffffff;
-  padding: 11px 12px;
-  font-size: 15px;
+  padding: 9px 11px;
+  font-size: 14px;
 }
 
 textarea {
@@ -1262,7 +1263,7 @@ textarea:focus {
 .button,
 .icon-button,
 .tab-button {
-  min-height: 46px;
+  min-height: 42px;
   border-radius: 8px;
   font-weight: 900;
 }
@@ -1349,7 +1350,7 @@ textarea:focus {
 
 .content-area,
 .section {
-  gap: 16px;
+  gap: 12px;
 }
 
 .section-header {
@@ -1388,6 +1389,11 @@ textarea:focus {
 .metric-card {
   min-height: 122px;
   padding: 16px;
+}
+
+.panel,
+.import-drop {
+  padding: 14px;
 }
 
 .metric-card span {
@@ -1432,18 +1438,25 @@ textarea:focus {
 }
 
 .filters {
-  gap: 10px;
+  gap: 8px;
+}
+
+.customers-filters input,
+.customers-filters select,
+.customers-filters .button {
+  min-height: 40px;
+  font-size: 14px;
 }
 
 .customer-list {
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
 .customer-list-card {
   display: grid;
-  gap: 10px;
-  padding: 13px 14px;
+  gap: 7px;
+  padding: 10px 11px;
   cursor: pointer;
   transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
 }
@@ -1455,9 +1468,9 @@ textarea:focus {
 
 .customer-card-top {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 8px;
 }
 
 .customer-card-top h3,
@@ -1465,43 +1478,53 @@ textarea:focus {
   margin: 0;
 }
 
-.customer-card-top p {
-  margin-top: 3px;
-  color: var(--muted);
+.customer-card-top h3 {
+  font-size: 15px;
+  line-height: 1.2;
 }
 
-.customer-purchase-frequency {
-  display: inline-flex;
-  align-self: flex-start;
-  width: fit-content;
-  border-radius: 999px;
-  padding: 6px 10px;
-  background: #f6f1ff;
-  color: #5632e6;
-  font-size: 12px;
-  font-weight: 900;
-  line-height: 1;
+.customer-card-phone {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+
+.customer-card-phone span {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.customer-card-phone strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  line-height: 1.25;
 }
 
 .badge-stack {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: flex-end;
-  gap: 6px;
+  gap: 4px;
+  flex-shrink: 0;
 }
 
 .customer-card-summary {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
 }
 
 .customer-card-summary div,
 .mini-stat {
-  min-height: 58px;
+  min-height: 48px;
   border: 1px solid #eee7fb;
   border-radius: 8px;
-  padding: 8px 9px;
+  padding: 7px 8px;
   background: #fbf9ff;
 }
 
@@ -1510,7 +1533,7 @@ textarea:focus {
 .info-card span {
   display: block;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 800;
 }
 
@@ -1518,16 +1541,16 @@ textarea:focus {
 .mini-stat strong,
 .info-card strong {
   display: block;
-  margin-top: 4px;
-  font-size: 13px;
-  line-height: 1.28;
+  margin-top: 3px;
+  font-size: 12px;
+  line-height: 1.24;
 }
 
 .badge {
-  min-height: 26px;
+  min-height: 22px;
   border-radius: 999px;
-  padding: 4px 10px;
-  font-size: 11px;
+  padding: 3px 8px;
+  font-size: 10px;
   letter-spacing: 0;
 }
 
@@ -2241,20 +2264,37 @@ body {
 .customer-identity {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   min-width: 0;
+}
+
+.customer-identity > div:last-child,
+.customer-identity h3 {
+  min-width: 0;
+}
+
+.customer-identity h3 {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .avatar {
   display: grid;
   place-items: center;
-  width: 44px;
-  height: 44px;
+  width: 38px;
+  height: 38px;
   flex: 0 0 auto;
   border-radius: 50%;
   background: linear-gradient(135deg, #8b5cf6, #6d4aff);
   color: #ffffff;
   font-weight: 950;
+  font-size: 13px;
+}
+
+.customer-delete-button {
+  min-height: 34px;
+  padding: 6px 10px;
 }
 
 .avatar.large {
@@ -2603,8 +2643,8 @@ body {
   }
 
   .customer-list-card {
-    gap: 8px;
-    padding: 12px 12px 11px;
+    gap: 7px;
+    padding: 10px 10px 10px;
   }
 
   .customer-card-summary {
@@ -2613,7 +2653,7 @@ body {
   }
 
   .customer-card-summary div {
-    min-height: 52px;
+    min-height: 46px;
   }
 
   .order-card {
