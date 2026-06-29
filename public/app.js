@@ -79,6 +79,14 @@ function canAccessView(view) {
   return true;
 }
 
+function splitTags(input) {
+  if (Array.isArray(input)) return input.map(String).map(tag => tag.trim()).filter(Boolean);
+  return String(input || "")
+    .split(/[,\n|/]+/)
+    .map(tag => tag.trim())
+    .filter(Boolean);
+}
+
 function routeFromLocation() {
   if (location.hash) {
     const hashView = location.hash.replace("#", "");
