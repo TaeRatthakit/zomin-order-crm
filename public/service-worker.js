@@ -1,10 +1,11 @@
-const CACHE_NAME = "zomin-crm-pwa-v23";
+const CACHE_NAME = "zomin-crm-pwa-v24";
 const CORE_ASSETS = [
   "/",
   "/index.html",
   "/styles.css",
   "/app.js",
   "/import-worker.js",
+  "/xlsx.full.min.js",
   "/manifest.webmanifest",
   "/icons/apple-touch-icon.png",
   "/icons/icon-192.png",
