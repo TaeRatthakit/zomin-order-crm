@@ -321,7 +321,7 @@ function titleFor(view) {
 
 const moreSubpages = new Set([
   "vip", "risk", "tags", "import", "reports", "team", "settings",
-  "settingsFollowup", "settingsVip", "settingsLine"
+  "settingsFollowup", "settingsVip", "settingsLine", "lineDebug"
 ]);
 
 function renderSubpageNav() {
@@ -415,7 +415,7 @@ function renderNav() {
     els.nav.innerHTML = "";
     return;
   }
-  const activeGroup = ["vip", "risk", "tags", "import", "reports", "team", "settings"].includes(app.view) ? "more" : app.view;
+  const activeGroup = ["vip", "risk", "tags", "import", "reports", "team", "settings", "settingsFollowup", "settingsVip", "settingsLine", "lineDebug"].includes(app.view) ? "more" : app.view;
   els.nav.innerHTML = navItems
     .map(([id, path, label, icon]) => `
       <button class="nav-button ${activeGroup === id ? "active" : ""}" data-view="${id}" data-path="${path}" aria-label="${escapeHtml(label)}">
@@ -1066,6 +1066,7 @@ function renderMore() {
     ["settingsFollowup", "ตั้งค่า Follow-up", "1 กระปุก ใช้ได้กี่วัน", "Follow-up"],
     ["settingsVip", "ตั้งค่า VIP", "VIP / VVIP / SUPER VIP", "VIP"],
     ["settingsLine", "ตั้งค่า LINE OA", "Channel Secret, Token, Webhook", "LINE"],
+    ["lineDebug", "LINE Debug", "ดู webhook ล่าสุดและสถานะลายเซ็น", "Debug"],
     ["team", "จัดการผู้ใช้", "Admin และ Staff", "ทีม"]
   ];
   const visibleCards = isAdmin() ? [...cards, ...adminCards] : cards;
