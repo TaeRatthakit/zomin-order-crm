@@ -87,6 +87,31 @@ function splitTags(input) {
     .filter(Boolean);
 }
 
+function orderNumberSortParts(value) {
+  const text = String(value || "").trim();
+  const match = text.match(/^(\d+)(?:\s*\/\s*(\d+))?/);
+  if (!match) return { numeric: Number.POSITIVE_INFINITY, year: Number.POSITIVE_INFINITY, raw: text };
+  return {
+    numeric: Number(match[1]),
+    year: match[2] ? Number(match[2]) : Number.POSITIVE_INFINITY,
+    raw: text
+  };
+}
+
+function compareOrderNumberAscending(a, b) {
+  const first = orderNumberSortParts(a?.orderNumber);
+  const second = orderNumberSortParts(b?.orderNumber);
+  if (first.numeric !== second.numeric) return first.numeric - second.numeric;
+  if (first.year !== second.year) return first.year - second.year;
+  const dateCompare = String(a?.date || "").localeCompare(String(b?.date || ""));
+  if (dateCompare !== 0) return dateCompare;
+  return String(a?.id || "").localeCompare(String(b?.id || ""));
+}
+
+function sortOrdersAscending(orders) {
+  return [...orders].sort(compareOrderNumberAscending);
+}
+
 function routeFromLocation() {
   if (location.hash) {
     const hashView = location.hash.replace("#", "");
@@ -580,7 +605,7 @@ function orderCard(order) {
 
 function orderTable(orders) {
   if (!orders.length) return `<div class="empty-state">ยังไม่มีออเดอร์ในวันที่เลือก</div>`;
-  const sorted = [...orders].sort((a, b) => String(b.date).localeCompare(String(a.date)));
+  const sorted = sortOrdersAscending(orders);
   return `
     <div class="order-list" id="orderList">
       ${sorted.map(orderCard).join("")}
@@ -860,7 +885,7 @@ function filteredOrdersForCurrentView() {
       order.note
     ].join(" ").toLowerCase().includes(q);
     return dateMatch && textMatch;
-  }).sort((a, b) => String(b.date).localeCompare(String(a.date)));
+  }).sort(compareOrderNumberAscending);
 }
 
 function patchOrdersView(mutation) {
@@ -889,16 +914,7 @@ function patchOrdersView(mutation) {
     const tempRow = list.querySelector(`[data-order-id="${CSS.escape(mutation.clientMutationId)}"]`);
     if (tempRow) tempRow.remove();
   }
-  if (mutation.order) {
-    const shouldDisplay = orders.some(order => order.id === mutation.order.id);
-    const existing = list.querySelector(`[data-order-id="${CSS.escape(mutation.order.id)}"]`);
-    if (!shouldDisplay && existing) existing.remove();
-    if (shouldDisplay) {
-      const markup = orderCard(mutation.order);
-      if (existing) existing.outerHTML = markup;
-      else list.insertAdjacentHTML("afterbegin", markup);
-    }
-  }
+  list.innerHTML = orders.map(orderCard).join("");
   if (!list.children.length) renderOrders();
 }
 
