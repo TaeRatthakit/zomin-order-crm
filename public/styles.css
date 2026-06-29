@@ -1213,6 +1213,55 @@ tr:last-child td {
 }
 
 @media (max-width: 780px) {
+  .mobile-stack-wrap {
+    overflow-x: visible;
+  }
+
+  .mobile-stack-table {
+    min-width: 0;
+    table-layout: fixed;
+  }
+
+  .mobile-stack-table thead {
+    display: none;
+  }
+
+  .mobile-stack-table,
+  .mobile-stack-table tbody,
+  .mobile-stack-table tr,
+  .mobile-stack-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .mobile-stack-table tr {
+    border-bottom: 1px solid var(--line);
+    padding: 10px 0;
+  }
+
+  .mobile-stack-table tr:last-child {
+    border-bottom: 0;
+  }
+
+  .mobile-stack-table td {
+    border-bottom: 0;
+    padding: 6px 0;
+    overflow-wrap: anywhere;
+  }
+
+  .mobile-stack-table td::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 2px;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 800;
+  }
+
+  .mobile-stack-table td[colspan]::before {
+    content: none;
+  }
+
   .app-shell {
     grid-template-columns: 1fr;
   }
