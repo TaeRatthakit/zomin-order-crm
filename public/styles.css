@@ -1462,8 +1462,9 @@ textarea:focus {
 }
 
 .customer-list-card:hover {
-  transform: translateY(-1px);
+  transform: translateY(-2px);
   border-color: #cbb6ff;
+  box-shadow: 0 12px 24px rgba(109, 74, 255, 0.12);
 }
 
 .customer-card-top {
@@ -1538,6 +1539,10 @@ textarea:focus {
   line-height: 1.2;
   text-align: right;
   white-space: nowrap;
+}
+
+.customer-card-meta-row:last-of-type {
+  justify-content: flex-start;
 }
 
 .badge {
@@ -1707,9 +1712,24 @@ th {
   width: min(980px, calc(100vw - 20px));
 }
 
+.customer-drawer {
+  width: min(560px, calc(100vw - 20px));
+  max-width: 560px;
+  min-height: 100vh;
+  max-height: 100vh;
+  margin: 0 0 0 auto;
+  border-radius: 22px 0 0 22px !important;
+}
+
 .dialog form,
 .dialog-body {
   padding: 16px;
+}
+
+.customer-drawer form {
+  height: 100vh;
+  overflow: auto;
+  padding: 18px;
 }
 
 .dialog-header {

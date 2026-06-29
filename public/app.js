@@ -477,10 +477,8 @@ function renderLogin() {
 }
 
 function customerRow(customer) {
-  const vipSummary = customer.vipLevel && customer.vipLevel !== "NORMAL"
-    ? `VIP ${escapeHtml(customer.vipLevel)}`
-    : "VIP ❌";
-  const phoneRow = customer.phone
+  const hasPhone = customer.phone && String(customer.phone).trim() !== "-";
+  const phoneRow = hasPhone
     ? `
       <div class="customer-card-phone">
         <span>โทร</span>
@@ -508,7 +506,6 @@ function customerRow(customer) {
       </div>
       <div class="customer-card-meta-row">
         <span>ล่าสุด ${formatShortDate(customer.lastPurchaseDate)}</span>
-        <strong>${vipSummary}</strong>
       </div>
       ${customer.purchaseCount === 0 ? `
         <button class="button danger customer-delete-button" type="button" data-delete-customer="${escapeHtml(customer.id)}">ลบลูกค้า</button>
