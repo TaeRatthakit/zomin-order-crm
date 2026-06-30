@@ -9,6 +9,7 @@ const navItems = [
   ["aiInsights", "/ai-insight", "AI Insight", "stars"],
   ["broadcast", "/broadcast", "Broadcast", "send"],
   ["campaigns", "/campaigns", "แคมเปญ", "flag"],
+  ["pricing", "/pricing", "แพ็กเกจ", "stars"],
   ["settings", "/settings", "ตั้งค่า", "settings"],
   ["notifications", "/notifications", "แจ้งเตือน", "bell"]
 ];
@@ -27,6 +28,7 @@ const routeToView = {
   "/ai-insight": "aiInsights",
   "/broadcast": "broadcast",
   "/campaigns": "campaigns",
+  "/pricing": "pricing",
   "/vip": "vip",
   "/tags": "tags",
   "/import": "import",
@@ -332,6 +334,7 @@ function titleFor(view) {
     aiInsights: "AI Insight",
     broadcast: "Broadcast",
     campaigns: "แคมเปญ",
+    pricing: "แพ็กเกจ",
     notifications: "แจ้งเตือน",
     vip: "ลูกค้า VIP",
     risk: "ลูกค้าเสี่ยงหาย",
@@ -349,7 +352,7 @@ function titleFor(view) {
 
 const moreSubpages = new Set([
   "vip", "risk", "tags", "import", "reports", "team", "settings",
-  "settingsFollowup", "settingsVip", "settingsLine", "lineDebug"
+  "settingsFollowup", "settingsVip", "settingsLine", "lineDebug", "pricing"
 ]);
 
 function renderSubpageNav() {
@@ -449,6 +452,7 @@ function renderNav() {
     tags: "customers",
     import: "orders",
     team: "settings",
+    pricing: "pricing",
     settingsFollowup: "settings",
     settingsVip: "settings",
     settingsLine: "settings",
@@ -491,7 +495,7 @@ function metric(label, value, tone = "") {
 }
 
 function initials(name = "") {
-  return String(name).replace(/^คุณ/, "").trim().slice(0, 2) || "ZO";
+  return String(name).replace(/^คุณ/, "").trim().slice(0, 2) || "GP";
 }
 
 function monthlySalesRows() {
@@ -755,95 +759,84 @@ function renderLogin() {
 }
 
 function customerRow(customer) {
-  const hasPhone = customer.phone && String(customer.phone).trim() !== "-";
-  const phoneRow = hasPhone
-    ? `
-      <div class="customer-card-phone">
-        <span>โทร</span>
-        <strong>${escapeHtml(customer.phone)}</strong>
-      </div>
-    `
-    : "";
   return `
-    <article class="customer-list-card" data-customer="${customer.id}">
-      <div class="customer-card-top">
-        <div class="customer-identity">
-          <div class="avatar">${escapeHtml(initials(customer.name))}</div>
-          <div>
-            <h3>${escapeHtml(customer.name)}</h3>
-          </div>
+    <tr data-customer="${escapeHtml(customer.id)}">
+      <td data-label="ลูกค้า">
+        <button class="table-identity" type="button" data-open-customer="${escapeHtml(customer.id)}">
+          <span class="avatar">${escapeHtml(initials(customer.name))}</span>
+          <span>
+            <strong>${escapeHtml(customer.name)}</strong>
+            <small>${escapeHtml(customer.socialName || customer.address || "โปรไฟล์ลูกค้า")}</small>
+          </span>
+        </button>
+      </td>
+      <td data-label="เบอร์โทร">${escapeHtml(customer.phone || "-")}</td>
+      <td data-label="จำนวนซื้อ">${money(customer.purchaseCount || 0)} ครั้ง</td>
+      <td data-label="ยอดรวม">${money(customer.totalSpent)} บาท</td>
+      <td data-label="ซื้อล่าสุด">${formatShortDate(customer.lastPurchaseDate)}</td>
+      <td data-label="VIP">${vipBadge(customer.vipLevel)}</td>
+      <td data-label="สถานะ">${badge(customer.status || "NORMAL")}</td>
+      <td data-label="จัดการ">
+        <div class="table-actions">
+          <button class="button ghost compact-action" type="button" data-open-customer="${escapeHtml(customer.id)}">ดู</button>
+          ${customer.purchaseCount === 0 ? `<button class="button danger compact-action" type="button" data-delete-customer="${escapeHtml(customer.id)}">ลบ</button>` : ""}
         </div>
-        <div class="badge-stack">
-          ${badge(customer.status || "NORMAL")}
-        </div>
-      </div>
-      ${phoneRow}
-      <div class="customer-card-meta-row">
-        <span>ซื้อแล้ว ${customer.purchaseCount || 0} ครั้ง</span>
-        <strong>${money(customer.totalSpent)} บาท</strong>
-      </div>
-      <div class="customer-card-meta-row">
-        <span>ล่าสุด ${formatShortDate(customer.lastPurchaseDate)}</span>
-      </div>
-      ${customer.purchaseCount === 0 ? `
-        <button class="button danger customer-delete-button" type="button" data-delete-customer="${escapeHtml(customer.id)}">ลบลูกค้า</button>
-      ` : ""}
-    </article>
+      </td>
+    </tr>
   `;
 }
 
 function customerTable(customers, emptyText = "ไม่พบข้อมูลลูกค้า") {
   if (!customers.length) return `<div class="empty-state">${escapeHtml(emptyText)}</div>`;
   return `
-    <div class="customer-list">
-      ${customers.map(customerRow).join("")}
+    <div class="workspace-table-wrap mobile-stack-wrap">
+      <table class="workspace-table mobile-stack-table">
+        <thead>
+          <tr>
+            <th>ลูกค้า</th>
+            <th>เบอร์โทร</th>
+            <th>จำนวนซื้อ</th>
+            <th>ยอดรวม</th>
+            <th>ซื้อล่าสุด</th>
+            <th>VIP</th>
+            <th>สถานะ</th>
+            <th>จัดการ</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${customers.map(customerRow).join("")}
+        </tbody>
+      </table>
     </div>
   `;
 }
 
 function orderCard(order) {
   return `
-    <article class="order-card" data-order-id="${escapeHtml(order.id)}">
-      <div class="order-top">
-        <div>
-          <strong>${escapeHtml(order.customerName)}</strong>
-          <span>${escapeHtml(order.orderNumber || "-")} · ${formatDate(order.date)} · ${escapeHtml(order.time || "-")}</span>
+    <tr data-order-id="${escapeHtml(order.id)}">
+      <td data-label="ออเดอร์"><strong>${escapeHtml(order.orderNumber || "-")}</strong></td>
+      <td data-label="ลูกค้า">
+        <button class="table-identity" type="button" data-open-customer="${escapeHtml(order.customerId)}">
+          <span class="avatar">${escapeHtml(initials(order.customerName || "-"))}</span>
+          <span>
+            <strong>${escapeHtml(order.customerName || "-")}</strong>
+            <small>${escapeHtml(order.socialName || order.phone || "-")}</small>
+          </span>
+        </button>
+      </td>
+      <td data-label="วันที่">${formatShortDate(order.date)}</td>
+      <td data-label="ช่องทาง">${escapeHtml(displayOrderChannel(order))}</td>
+      <td data-label="จำนวน">${money(order.jars || 0)} กระปุก</td>
+      <td data-label="ยอดซื้อ">${money(order.amount)} บาท</td>
+      <td data-label="สถานะ">${badge(order.status === "NEW" ? "NEW" : order.vipLevel)}</td>
+      <td data-label="จัดการ">
+        <div class="table-actions">
+          <button class="button ghost compact-action" type="button" data-open-customer="${escapeHtml(order.customerId)}">ดู</button>
+          <button class="button secondary compact-action" type="button" data-edit-order="${escapeHtml(order.id)}">แก้ไข</button>
+          <button class="button danger compact-action" type="button" data-delete-order="${escapeHtml(order.id)}">ลบ</button>
         </div>
-        ${badge(order.status === "NEW" ? "NEW" : order.vipLevel)}
-      </div>
-      <div class="order-summary">
-        <div><span>เลขออเดอร์</span><strong>${escapeHtml(order.orderNumber || "-")}</strong></div>
-        <div><span>จำนวน</span><strong>${Number(order.jars || 0)} กระปุก</strong></div>
-        <div><span>ยอดเงิน</span><strong>${money(order.amount)} บาท</strong></div>
-        <div><span>ช่องทางการสั่งซื้อ</span><strong>${escapeHtml(order.sourceChannel || order.source || "-")}</strong></div>
-      </div>
-      <details class="order-details">
-        <summary>ดูข้อมูลเพิ่มเติม</summary>
-        <div class="order-grid">
-          <div><span>วันที่ซื้อ</span><strong>${formatDate(order.date)}</strong></div>
-          <div><span>ช่องทางการสั่งซื้อ</span><strong>${escapeHtml(order.sourceChannel || order.source || "-")}</strong></div>
-          <div><span>Facebook / LINE ลูกค้า</span><strong>${escapeHtml(order.socialName || "-")}</strong></div>
-          <div><span>ชื่อลูกค้า</span><strong>${escapeHtml(order.customerName || "-")}</strong></div>
-          <div><span>เบอร์</span><strong>${escapeHtml(order.phone)}</strong></div>
-          <div><span>เบอร์สำรอง</span><strong>${escapeHtml(order.alternatePhone || "-")}</strong></div>
-          <div><span>ที่อยู่จัดส่ง</span><strong>${escapeHtml(order.address || "-")}</strong></div>
-          <div><span>จำนวนกระปุก</span><strong>${Number(order.jars || 0)}</strong></div>
-          <div><span>ยอดซื้อ</span><strong>${money(order.amount)} บาท</strong></div>
-          <div><span>ลูกค้ามาจาก</span><strong>${escapeHtml(order.originSource || "-")}</strong></div>
-          <div><span>ของแถม</span><strong>${escapeHtml(order.freeGift || "-")}</strong></div>
-          <div><span>บัตร VIP</span><strong>${escapeHtml(order.vipCardStatus || "-")}</strong></div>
-          <div><span>อาการลูกค้า</span><strong>${escapeHtml((order.tags || []).join(", ") || "-")}</strong></div>
-          <div><span>หมายเหตุ</span><strong>${escapeHtml(order.note || "-")}</strong></div>
-        </div>
-        ${order.vipCardReminder ? `<p class="alert-text">${escapeHtml(order.vipCardReminder)}</p>` : ""}
-        ${order.vipDiscountFlag ? `<p class="muted">${escapeHtml(order.vipDiscountFlag)}</p>` : ""}
-      </details>
-      <div class="inline order-actions">
-        <button class="button ghost compact-action" data-open-customer="${escapeHtml(order.customerId)}">ดูรายละเอียด</button>
-        <button class="button secondary compact-action soft-action" data-edit-order="${escapeHtml(order.id)}">แก้ไข</button>
-        <button class="button danger compact-action trash-action" data-delete-order="${escapeHtml(order.id)}" aria-label="ลบออเดอร์">${iconSvg("trash")}<span>ลบ</span></button>
-      </div>
-    </article>
+      </td>
+    </tr>
   `;
 }
 
@@ -851,8 +844,24 @@ function orderTable(orders) {
   if (!orders.length) return `<div class="empty-state">ยังไม่มีออเดอร์ในวันที่เลือก</div>`;
   const sorted = sortOrdersAscending(orders);
   return `
-    <div class="order-list" id="orderList">
-      ${sorted.map(orderCard).join("")}
+    <div class="workspace-table-wrap mobile-stack-wrap" id="orderList">
+      <table class="workspace-table mobile-stack-table">
+        <thead>
+          <tr>
+            <th>ออเดอร์</th>
+            <th>ลูกค้า</th>
+            <th>วันที่</th>
+            <th>ช่องทาง</th>
+            <th>จำนวน</th>
+            <th>ยอดซื้อ</th>
+            <th>สถานะ</th>
+            <th>จัดการ</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${sorted.map(orderCard).join("")}
+        </tbody>
+      </table>
     </div>
   `;
 }
@@ -867,6 +876,7 @@ function renderDashboard() {
   const opportunities = opportunityCardsData();
   const revenueOpportunity = opportunities.reduce((sum, item) => sum + item.revenue, 0);
   const salesMax = Math.max(1, ...sales7.map(item => item.total));
+  const channels = channelPerformance().slice(0, 3);
   const yesterday = addDaysISO(s.selectedDate, -1);
   const yesterdayOrders = app.data.orders.filter(order => order.date === yesterday);
   const yesterdaySales = yesterdayOrders.reduce((sum, order) => sum + Number(order.amount || 0), 0);
@@ -884,6 +894,11 @@ function renderDashboard() {
   const priorityOpportunities = opportunities
     .slice()
     .sort((a, b) => b.revenue - a.revenue)
+    .slice(0, 4);
+  const vipCustomers = sortByPriority(app.data.customers.filter(customer => ["VIP", "VVIP", "SUPER VIP"].includes(customer.vipLevel))).slice(0, 4);
+  const lowStockProducts = groupedProducts()
+    .map(product => ({ ...product, stockEstimate: Math.max(0, 120 - product.soldCount) }))
+    .filter(product => product.stockEstimate <= 35)
     .slice(0, 4);
   const todayActions = [
     {
@@ -922,35 +937,46 @@ function renderDashboard() {
   ];
 
   els.content.innerHTML = `
-    <section class="section">
-      <div class="hero-banner">
-        <div class="hero-copy">
-          <span class="hero-tagline">Growup Pilot พร้อมแผนทำเงินรายวัน</span>
-          <h2>วันนี้คุณมีโอกาสเพิ่มรายได้</h2>
+    <section class="section saas-page dashboard-page">
+      <div class="page-identity hero-command">
+        <div class="page-identity-copy">
+          <span class="page-kicker">Business Command Center</span>
+          <h2>AI Morning Brief</h2>
+          <p>วันนี้เจ้าของธุรกิจควรโฟกัสงานที่เปลี่ยนเป็นรายได้ได้เร็วที่สุดจากยอดขาย ลูกค้า และสัญญาณในระบบ</p>
           <div class="hero-big-number">${money(revenueOpportunity)} บาท</div>
-          <p>Growup Pilot แนะนำจากออเดอร์ ลูกค้า และยอดขายล่าสุด</p>
           <div class="inline">
             <button class="button primary" type="button" data-view-shortcut="opportunities">ดูโอกาสทำเงิน</button>
+            <button class="button ghost" type="button" data-view-shortcut="broadcast">เตรียม Broadcast</button>
           </div>
         </div>
-        <div class="hero-side-card">
-          <span class="tag">Priority focus</span>
-          <h3>${escapeHtml(priorityOpportunities[0]?.title || "ยังไม่มีโอกาสที่พร้อมวันนี้")}</h3>
-          <p class="muted">${escapeHtml(priorityOpportunities[0]?.description || "เมื่อมีออเดอร์และลูกค้าเพิ่ม ระบบจะแนะนำงานที่ควรทำทันที")}</p>
-          <strong>${money(priorityOpportunities[0]?.revenue || 0)} บาท</strong>
+        <div class="identity-side-stack">
+          <article class="glass-card">
+            <span class="tag">Today&apos;s focus</span>
+            <h3>${escapeHtml(priorityOpportunities[0]?.title || "ยังไม่มีโอกาสเด่นวันนี้")}</h3>
+            <p class="muted">${escapeHtml(priorityOpportunities[0]?.description || "เมื่อมีข้อมูลเพิ่ม ระบบจะแนะนำ action ที่ทำเงินได้ก่อน")}</p>
+            <strong>${money(priorityOpportunities[0]?.revenue || 0)} บาท</strong>
+          </article>
+          <article class="glass-card compact">
+            <span class="tag">Revenue forecast</span>
+            <strong>${money(Math.round((s.salesToday || 0) + revenueOpportunity * 0.42))} บาท</strong>
+            <p class="muted">คาดการณ์แบบระมัดระวังถ้าทีมทำตาม action priority วันนี้</p>
+          </article>
         </div>
       </div>
-      <div class="metric-grid">
+      <div class="metric-grid premium-metric-grid">
         ${dashboardKpiCard({ label: "ยอดขายวันนี้", value: `${money(s.salesToday)} บาท`, tone: "accent", delta: salesDelta, hint: "ยอดรวมจากออเดอร์ที่ปิดแล้ววันนี้", icon: "฿" })}
         ${dashboardKpiCard({ label: "ออเดอร์วันนี้", value: money(s.ordersToday || 0), delta: ordersDelta, hint: "จำนวนออเดอร์ที่เข้ามาในวันทำงานนี้", icon: "◫" })}
         ${dashboardKpiCard({ label: "ลูกค้าใหม่วันนี้", value: money(newCustomersToday().length), tone: "green", delta: newCustomersDelta, hint: "ลูกค้าที่เพิ่งซื้อครั้งแรกในวันนี้", icon: "+" })}
         ${dashboardKpiCard({ label: "ลูกค้าเก่ากลับมาซื้อ", value: money(returningToday.length), delta: returningDelta, hint: "ลูกค้าเดิมที่ช่วยดันยอดได้เร็วที่สุด", icon: "⟳" })}
       </div>
-      <div class="dashboard-main-grid">
-        <div class="panel stack spotlight-panel">
-          <div class="section-title">
-            <h2>โอกาสเพิ่มรายได้วันนี้</h2>
-            <p>งานที่มีแนวโน้มเปลี่ยนเป็นยอดขายได้เร็วที่สุดในวันนี้</p>
+      <div class="dashboard-story-grid">
+        <div class="panel stack panel-premium spotlight-panel">
+          <div class="section-header">
+            <div class="section-title">
+              <h2>Today&apos;s Opportunities</h2>
+              <p>งานที่มีแนวโน้มเปลี่ยนเป็นยอดขายได้เร็วที่สุดในวันนี้</p>
+            </div>
+            <span class="status-dot live">สดจากข้อมูลล่าสุด</span>
           </div>
           <div class="dashboard-action-grid">
             ${priorityOpportunities.map((card, index) => dashboardActionCard({
@@ -964,48 +990,115 @@ function renderDashboard() {
             })).join("")}
           </div>
         </div>
-        <div class="panel stack summary-side-panel">
+        <div class="panel stack panel-premium summary-side-panel">
           <div class="section-title">
-            <h2>ภาพรวมวันนี้</h2>
-            <p>ดูตัวเลขสำคัญก่อนเริ่มทำงาน</p>
+            <h2>Quick snapshot</h2>
+            <p>ตัวเลขที่ช่วยตัดสินใจก่อนเริ่มวัน</p>
           </div>
           <div class="list-table premium-list">
-            <div class="list-row compact">
+            <div class="list-row compact elevated-row">
               <div><strong>ยอดขายเดือนนี้</strong><p class="muted">เทียบจากออเดอร์ที่บันทึกแล้ว</p></div>
               <strong>${money(s.salesThisMonth)} บาท</strong>
             </div>
-            <div class="list-row compact">
+            <div class="list-row compact elevated-row">
               <div><strong>ควรติดตามวันนี้</strong><p class="muted">ลูกค้าที่ถึงเวลาคุยต่อ</p></div>
               <strong>${money(s.dueToday)} ราย</strong>
             </div>
-            <div class="list-row compact">
+            <div class="list-row compact elevated-row">
               <div><strong>VIP / VVIP / SUPER</strong><p class="muted">ฐานลูกค้าคุณภาพของร้าน</p></div>
               <strong>${s.vip} / ${s.vvip} / ${s.superVip}</strong>
+            </div>
+            <div class="list-row compact elevated-row">
+              <div><strong>ช่องทางเด่น</strong><p class="muted">ช่องทางที่รายได้วิ่งดีที่สุดวันนี้</p></div>
+              <strong>${escapeHtml(channels[0]?.name || "ยังไม่มีข้อมูล")}</strong>
             </div>
           </div>
         </div>
       </div>
-      <div class="panel stack">
+      <div class="panel stack panel-premium">
         <div class="section-title">
-          <h2>วันนี้ควรทำอะไร</h2>
+          <h2>Quick Actions</h2>
           <p>ลิสต์งานที่ช่วยให้ได้เงินเพิ่ม ไม่ใช่แค่ดูรายงาน</p>
         </div>
         <div class="dashboard-action-grid">
           ${todayActions.map(card => dashboardActionCard(card)).join("")}
         </div>
       </div>
+      <div class="dashboard-command-grid">
+        <div class="panel stack panel-premium">
+          <div class="section-title">
+            <h2>Follow-up Tasks</h2>
+            <p>ลูกค้าที่ควรโทรหรือทักก่อนหมดวัน</p>
+          </div>
+          ${followupCards(due.slice(0, 4), true)}
+        </div>
+        <div class="panel stack panel-premium">
+          <div class="section-title">
+            <h2>VIP Customers</h2>
+            <p>ลูกค้ามูลค่าสูงที่ควรรักษาความสัมพันธ์</p>
+          </div>
+          <div class="list-table premium-list">
+            ${vipCustomers.map(customer => `
+              <button class="list-row rich-row elevated-row" type="button" data-open-customer="${escapeHtml(customer.id)}">
+                <div>
+                  <strong>${escapeHtml(customer.name)}</strong>
+                  <p class="muted">ยอดสะสม ${money(customer.totalSpent)} บาท · ซื้อ ${money(customer.purchaseCount || 0)} ครั้ง</p>
+                </div>
+                <div class="rich-row-side">
+                  ${vipBadge(customer.vipLevel)}
+                </div>
+              </button>
+            `).join("") || `<div class="empty-state">ยังไม่มีลูกค้า VIP ที่โดดเด่น</div>`}
+          </div>
+        </div>
+        <div class="panel stack panel-premium">
+          <div class="section-title">
+            <h2>Inventory Alerts</h2>
+            <p>สินค้าใกล้หมดที่อาจกระทบโอกาสทำเงิน</p>
+          </div>
+          <div class="list-table premium-list">
+            ${lowStockProducts.map(product => `
+              <div class="list-row rich-row elevated-row">
+                <div>
+                  <strong>${escapeHtml(product.name)}</strong>
+                  <p class="muted">คาดว่าสต๊อกเหลือ ${money(product.stockEstimate)} · ขายแล้ว ${money(product.soldCount)} ชิ้น</p>
+                </div>
+                <strong>${money(product.revenue)} บาท</strong>
+              </div>
+            `).join("") || `<div class="empty-state">ยังไม่มีสินค้าใกล้หมด</div>`}
+          </div>
+        </div>
+        <div class="panel stack panel-premium">
+          <div class="section-title">
+            <h2>AI Recommendations</h2>
+            <p>ข้อแนะนำที่พร้อมนำไปใช้ต่อทันที</p>
+          </div>
+          <div class="recommendation-list">
+            ${channels.map(channel => `
+              <article class="recommendation-card">
+                <strong>ดันช่องทาง ${escapeHtml(channel.name)}</strong>
+                <p class="muted">รายได้เฉลี่ยต่อออเดอร์ ${money(channel.roi)} บาท และยังเป็นช่องทางหลักของร้านในช่วงนี้</p>
+              </article>
+            `).join("")}
+            <article class="recommendation-card">
+              <strong>จัดลำดับรายชื่อลูกค้าก่อน 17:00</strong>
+              <p class="muted">กลุ่ม follow-up และลูกค้าเก่าที่ยังไม่ซื้อในเดือนนี้มีโอกาสปิดยอดเร็วที่สุด</p>
+            </article>
+          </div>
+        </div>
+      </div>
       <div class="dashboard-grid-2">
-        <div class="panel stack">
+        <div class="panel stack panel-premium">
           <div class="section-header">
             <div class="section-title">
-              <h2>ออเดอร์ล่าสุด</h2>
-              <p>เช็กความเคลื่อนไหวล่าสุดแบบรวดเร็ว</p>
+              <h2>Recent Activities</h2>
+              <p>ออเดอร์และกิจกรรมล่าสุดที่ควรเห็นในมุมเดียว</p>
             </div>
             <button class="button secondary" data-view-shortcut="orders">ไปหน้าออเดอร์</button>
           </div>
           <div class="list-table premium-list">
             ${recentOrders.map(order => `
-              <button class="list-row rich-row" type="button" data-open-customer="${escapeHtml(order.customerId)}">
+              <button class="list-row rich-row elevated-row" type="button" data-open-customer="${escapeHtml(order.customerId)}">
                 <div>
                   <strong>${escapeHtml(order.customerName || "-")}</strong>
                   <p class="muted">${escapeHtml(order.orderNumber || "-")} · ${formatDate(order.date)} · ${escapeHtml(displayOrderChannel(order))}</p>
@@ -1018,10 +1111,10 @@ function renderDashboard() {
             `).join("") || `<div class="empty-state">ยังไม่มีออเดอร์ล่าสุด</div>`}
           </div>
         </div>
-        <div class="panel stack sales-panel">
+        <div class="panel stack panel-premium sales-panel">
           <div class="section-title">
-            <h2>ยอดขาย 7 วันที่ผ่านมา</h2>
-            <p>มอง momentum ของร้านในสัปดาห์ล่าสุด</p>
+            <h2>Today&apos;s Revenue</h2>
+            <p>Momentum รายได้ย้อนหลัง 7 วัน พร้อมสัญญาณเร่งหรือชะลอ</p>
           </div>
           <div class="bar-list">
             ${sales7.map(item => `
@@ -1035,14 +1128,14 @@ function renderDashboard() {
         </div>
       </div>
       <div class="dashboard-grid-2">
-        <div class="panel stack">
+        <div class="panel stack panel-premium">
           <div class="section-title">
-            <h2>สินค้าขายดีวันนี้</h2>
+            <h2>Top Products</h2>
             <p>ใช้ข้อมูลสินค้าที่มีอยู่ในระบบ ถ้ายังไม่มีหลาย SKU จะแสดงภาพรวมตัวหลัก</p>
           </div>
           <div class="list-table premium-list">
             ${topProducts.map(product => `
-              <div class="list-row rich-row">
+              <div class="list-row rich-row elevated-row">
                 <div>
                   <strong>${escapeHtml(product.name)}</strong>
                   <p class="muted">ขายแล้ว ${money(product.soldCount)} ชิ้น · ${money(product.orderCount)} ออเดอร์</p>
@@ -1052,9 +1145,9 @@ function renderDashboard() {
             `).join("") || `<div class="empty-state">ยังไม่มีข้อมูลสินค้า</div>`}
           </div>
         </div>
-        <div class="panel stack">
+        <div class="panel stack panel-premium">
           <div class="section-title">
-            <h2>โอกาสทำเงินวันนี้</h2>
+            <h2>Sales Opportunities</h2>
             <p>รายการที่ลงมือแล้วมีโอกาสเห็นผลเร็วที่สุด</p>
           </div>
           ${followupCards(due.slice(0, 4), true)}
@@ -1106,10 +1199,13 @@ function renderOrders() {
     ].join(" ").toLowerCase().includes(q);
     return dateMatch && textMatch;
   });
+  const totalSales = orders.reduce((sum, order) => sum + Number(order.amount || 0), 0);
+  const topChannel = channelPerformance()[0]?.name || "ยังไม่มีข้อมูล";
   els.content.innerHTML = `
-    <section class="section">
-      <div class="section-title section-title-actions">
-        <div>
+    <section class="section saas-page orders-page">
+      <div class="page-identity workspace-hero orders-hero">
+        <div class="page-identity-copy">
+          <span class="page-kicker">Order Management Workspace</span>
           <h2>${app.ordersShowAll ? "ออเดอร์ทั้งหมด" : `ออเดอร์วันที่ ${formatDate(selectedDate)}`}</h2>
           <p id="ordersCountText">${app.ordersShowAll ? `แสดง ${money(orders.length)} ออเดอร์จากทุกวัน` : `แสดง ${money(orders.length)} ออเดอร์จากวันที่เลือก`}</p>
         </div>
@@ -1130,10 +1226,21 @@ function renderOrders() {
           </div>
         </div>
       </div>
-      <div class="filters">
-        <div class="orders-search-row">
-          <input class="orders-search-input" data-order-filter="q" placeholder="ค้นหาเลขออเดอร์ ชื่อ หรือเบอร์โทร" value="${escapeHtml(app.ordersFilterDraft)}">
-          <button class="button primary orders-search-button" data-order-search type="button">ค้นหา</button>
+      <div class="workspace-stat-grid">
+        ${metric("ยอดขายในมุมมองนี้", `${money(totalSales)} บาท`, "accent")}
+        ${metric("จำนวนออเดอร์", `${money(orders.length)} รายการ`)}
+        ${metric("ช่องทางเด่น", topChannel, "green")}
+      </div>
+      <div class="panel stack panel-premium">
+        <div class="section-title">
+          <h2>ค้นหาและกรองออเดอร์</h2>
+          <p>Import อยู่เฉพาะหน้านี้ตาม workflow เดิม พร้อม workspace ที่อ่านง่ายขึ้น</p>
+        </div>
+        <div class="filters">
+          <div class="orders-search-row">
+            <input class="orders-search-input" data-order-filter="q" placeholder="ค้นหาเลขออเดอร์ ชื่อ หรือเบอร์โทร" value="${escapeHtml(app.ordersFilterDraft)}">
+            <button class="button primary orders-search-button" data-order-search type="button">ค้นหา</button>
+          </div>
         </div>
       </div>
       ${orderTable(orders)}
@@ -1176,12 +1283,24 @@ function renderSearch() {
   const selectedDate = app.data.summary?.selectedDate || els.workDate.value || todayISO();
   const customers = sortByPriority(applyCustomerFilters());
   els.content.innerHTML = `
-    <section class="section">
-      <div class="panel stack">
+    <section class="section saas-page customers-page">
+      <div class="page-identity workspace-hero customers-hero">
+        <div class="page-identity-copy">
+          <span class="page-kicker">Customer Intelligence</span>
+          <h2>${app.customersShowAll ? "ลูกค้าทั้งหมด" : `ลูกค้าที่สั่งซื้อวันที่ ${formatDate(selectedDate)}`}</h2>
+          <p>${app.customersShowAll ? "ค้นหาลูกค้า ดูยอดซื้อรวม ครั้งที่ซื้อ และสถานะ VIP ได้ครบ" : "แสดงเฉพาะลูกค้าที่มีออเดอร์ในวันที่เลือก"}</p>
+        </div>
+        <div class="workspace-stat-grid compact">
+          ${metric("ลูกค้าในมุมมองนี้", `${money(customers.length)} ราย`)}
+          ${metric("VIP", `${money(customers.filter(customer => customer.vipLevel !== "NORMAL").length)} ราย`, "purple")}
+          ${metric("ยอดรวม", `${money(customers.reduce((sum, customer) => sum + Number(customer.totalSpent || 0), 0))} บาท`, "green")}
+        </div>
+      </div>
+      <div class="panel stack panel-premium">
         <div class="section-title section-title-actions">
           <div>
-            <h2>${app.customersShowAll ? "ลูกค้าทั้งหมด" : `ลูกค้าที่สั่งซื้อวันที่ ${formatDate(selectedDate)}`}</h2>
-            <p>${app.customersShowAll ? "ค้นหาลูกค้า ดูยอดซื้อรวม ครั้งที่ซื้อ และสถานะ VIP ได้ครบ" : "แสดงเฉพาะลูกค้าที่มีออเดอร์ในวันที่เลือก"}</p>
+            <h2>ค้นหาและจัดกลุ่มลูกค้า</h2>
+            <p>มุมมองแบบ workspace สำหรับทีมขายและทีมดูแลลูกค้า</p>
           </div>
           <div class="orders-header-actions">
             <label class="orders-show-all">
@@ -1215,10 +1334,10 @@ function renderSearch() {
 function renderOpportunities() {
   const cards = opportunityCardsData();
   els.content.innerHTML = `
-    <section class="section">
-      <div class="hero-banner">
-        <div class="hero-copy">
-          <span class="hero-tagline">Grow Today</span>
+    <section class="section saas-page opportunities-page">
+      <div class="page-identity workspace-hero opportunities-hero">
+        <div class="page-identity-copy">
+          <span class="page-kicker">Revenue Opportunity Engine</span>
           <h2>โอกาสทำเงินที่ควรลงมือวันนี้</h2>
           <p>รวมลูกค้าและสินค้าที่มีสัญญาณพร้อมสร้างรายได้เพิ่ม พร้อมปุ่มลัดไปหน้าที่เกี่ยวข้องทันที</p>
         </div>
@@ -1249,9 +1368,10 @@ function renderOpportunities() {
 function renderProducts() {
   const products = groupedProducts();
   els.content.innerHTML = `
-    <section class="section">
-      <div class="page-hero panel">
+    <section class="section saas-page products-page">
+      <div class="page-identity workspace-hero products-hero">
         <div>
+          <span class="page-kicker">Inventory Intelligence</span>
           <h2>สินค้าและสต๊อก</h2>
           <p>สรุปจากข้อมูลออเดอร์เดิมที่มีอยู่ในระบบ โดยคงความเข้ากันได้กับฐานข้อมูลปัจจุบัน</p>
         </div>
@@ -1282,9 +1402,16 @@ function renderProducts() {
 function renderMarketing() {
   const channels = channelPerformance();
   els.content.innerHTML = `
-    <section class="section">
+    <section class="section saas-page marketing-page">
+      <div class="page-identity workspace-hero marketing-hero">
+        <div class="page-identity-copy">
+          <span class="page-kicker">Marketing Performance Center</span>
+          <h2>การตลาดที่ควรเร่งวันนี้</h2>
+          <p>ดูช่องทางที่สร้างยอดได้ดีที่สุดจากออเดอร์ที่มีอยู่ พร้อมข้อเสนอ action สำหรับทีม</p>
+        </div>
+      </div>
       <div class="marketing-grid">
-        <div class="panel stack">
+        <div class="panel stack panel-premium">
           <div class="section-title">
             <h2>Channel performance</h2>
             <p>ดูช่องทางที่สร้างยอดได้ดีที่สุดจากออเดอร์ที่มีอยู่</p>
@@ -1299,7 +1426,7 @@ function renderMarketing() {
             `).join("")}
           </div>
         </div>
-        <div class="panel stack">
+        <div class="panel stack panel-premium">
           <div class="section-title">
             <h2>คำแนะนำการตลาด</h2>
             <p>แนะนำแบบปลอดภัยแม้ backend ด้าน campaign ยังไม่ครบ</p>
@@ -1420,7 +1547,6 @@ function filteredOrdersForCurrentView() {
 
 function patchOrdersView(mutation) {
   if (app.view !== "orders") return;
-  const list = document.querySelector("#orderList");
   const countText = document.querySelector("#ordersCountText");
   const orders = filteredOrdersForCurrentView();
   if (countText) {
@@ -1428,24 +1554,7 @@ function patchOrdersView(mutation) {
       ? `แสดง ${money(orders.length)} ออเดอร์จากทุกวัน`
       : `แสดง ${money(orders.length)} ออเดอร์จากวันที่เลือก`;
   }
-  if (!list) {
-    renderOrders();
-    return;
-  }
-  if (!orders.length) {
-    renderOrders();
-    return;
-  }
-  if (mutation.deletedOrderId) {
-    const row = list.querySelector(`[data-order-id="${CSS.escape(mutation.deletedOrderId)}"]`);
-    if (row) row.remove();
-  }
-  if (mutation.clientMutationId && mutation.clientMutationId !== mutation.order?.id) {
-    const tempRow = list.querySelector(`[data-order-id="${CSS.escape(mutation.clientMutationId)}"]`);
-    if (tempRow) tempRow.remove();
-  }
-  list.innerHTML = orders.map(orderCard).join("");
-  if (!list.children.length) renderOrders();
+  renderOrders();
 }
 
 function cloneUiState() {
@@ -1555,11 +1664,18 @@ function renderFollowup() {
     return customer.followUpDate >= range.start && customer.followUpDate <= range.end;
   }));
   els.content.innerHTML = `
-    <section class="section">
-      <div class="panel stack followup-toolbar">
-        <div class="section-title">
+    <section class="section saas-page notifications-page">
+      <div class="page-identity workspace-hero notifications-hero">
+        <div class="page-identity-copy">
+          <span class="page-kicker">Follow-up Task Manager</span>
           <h2>เตือนติดตามลูกค้า</h2>
           <p>${range.label} · ถึงวันที่ ${formatDate(range.end)}</p>
+        </div>
+      </div>
+      <div class="panel stack panel-premium followup-toolbar">
+        <div class="section-title">
+          <h2>เลือกช่วงงานติดตาม</h2>
+          <p>มุมมองเดียวสำหรับทีมขายและทีมดูแลลูกค้า</p>
         </div>
         <div class="tab-row" role="tablist" aria-label="ช่วงวันที่ Follow-up">
           ${[
@@ -1602,7 +1718,14 @@ function renderMore() {
   const visibleCards = isAdmin() ? [...cards, ...adminCards] : cards;
 
   els.content.innerHTML = `
-    <section class="section">
+    <section class="section saas-page settings-page">
+      <div class="page-identity workspace-hero settings-hero">
+        <div class="page-identity-copy">
+          <span class="page-kicker">Workspace Directory</span>
+          <h2>เครื่องมือและทางลัดเพิ่มเติม</h2>
+          <p>รวมพื้นที่ดูแลลูกค้า ความเสี่ยง การนำเข้า และการดูแลระบบ</p>
+        </div>
+      </div>
       <div class="more-grid">
         ${visibleCards.map(([view, title, desc, chip]) => `
           <button class="more-card" data-view-shortcut="${view}" type="button">
@@ -2100,7 +2223,14 @@ function renderReports() {
     .sort((a, b) => b.total - a.total);
 
   els.content.innerHTML = `
-    <section class="section">
+    <section class="section saas-page reports-page">
+      <div class="page-identity workspace-hero reports-hero">
+        <div class="page-identity-copy">
+          <span class="page-kicker">Executive Analytics</span>
+          <h2>รายงานสำหรับตัดสินใจ</h2>
+          <p>ติดตามยอดขาย ออเดอร์ ลูกค้า และช่องทางแบบอ่านเร็วในมุมของผู้บริหาร</p>
+        </div>
+      </div>
       <div class="metric-grid">
         ${metric("ยอดขายเดือนนี้", `${money(app.data.summary.salesThisMonth)} บาท`, "accent")}
         ${metric("ออเดอร์รวม", money(app.data.orders.length))}
@@ -2110,7 +2240,7 @@ function renderReports() {
         ${metric("ออเดอร์เดือนนี้", money(monthOrders.length))}
       </div>
       <div class="report-grid">
-        <div class="panel stack">
+        <div class="panel stack panel-premium">
           <div class="card-head">
             <h2>ยอดขายรายเดือน</h2>
             <label class="date-picker compact card-picker" aria-label="เลือกเดือนรายงานยอดขาย">
@@ -2130,7 +2260,7 @@ function renderReports() {
             `).join("")}
           </div>
         </div>
-        <div class="panel stack">
+        <div class="panel stack panel-premium">
           <div class="card-head">
             <h2>ยอดขายรายวัน</h2>
             <label class="date-picker compact card-picker" aria-label="เลือกวันที่รายงานยอดขายรายวัน">
@@ -2147,7 +2277,7 @@ function renderReports() {
             `).join("")}
           </div>
         </div>
-        <div class="panel stack">
+        <div class="panel stack panel-premium">
           <h2>ยอดขายตามช่องทาง</h2>
           <div class="bar-list">
             ${channelRows.map(({ channel, count, total }) => `
@@ -2160,7 +2290,7 @@ function renderReports() {
           </div>
         </div>
       </div>
-      <div class="panel stack">
+      <div class="panel stack panel-premium">
         <h2>Top customers</h2>
         ${customerTable(topCustomers)}
       </div>
@@ -2176,9 +2306,10 @@ function renderAiInsights() {
     `มีลูกค้าถึงกำหนด follow-up ${money(app.data.summary?.dueToday || 0)} ราย ซึ่งเป็นกลุ่มปิดขายซ้ำเร็วที่สุด`
   ];
   els.content.innerHTML = `
-    <section class="section">
-      <div class="page-hero panel">
+    <section class="section saas-page ai-page">
+      <div class="page-identity workspace-hero ai-hero">
         <div>
+          <span class="page-kicker">Business AI Assistant</span>
           <h2>AI Insight</h2>
           <p>${hasAi ? "พร้อมเชื่อมต่อ AI จากระบบเดิม" : "แสดงคำแนะนำแบบ fallback อย่างปลอดภัยเมื่อยังไม่ได้ตั้งค่า AI API"}</p>
         </div>
@@ -2204,9 +2335,16 @@ function renderBroadcast() {
     ["ลูกค้าที่ควรติดตาม", app.data.summary?.dueToday || 0]
   ];
   els.content.innerHTML = `
-    <section class="section">
+    <section class="section saas-page broadcast-page">
+      <div class="page-identity workspace-hero broadcast-hero">
+        <div class="page-identity-copy">
+          <span class="page-kicker">Customer Engagement</span>
+          <h2>Broadcast workspace</h2>
+          <p>เลือกกลุ่มลูกค้าและร่างข้อความพร้อมใช้ โดยไม่บังคับ backend ส่งจริง</p>
+        </div>
+      </div>
       <div class="broadcast-grid">
-        <div class="panel stack">
+        <div class="panel stack panel-premium">
           <div class="section-title">
             <h2>เลือกกลุ่มลูกค้า</h2>
             <p>เตรียม segment และข้อความได้ แม้ backend ส่งจริงยังไม่พร้อม</p>
@@ -2221,7 +2359,7 @@ function renderBroadcast() {
             </article>
           `).join("")}
         </div>
-        <div class="panel stack">
+        <div class="panel stack panel-premium">
           <div class="section-title">
             <h2>ร่างข้อความ Broadcast</h2>
             <p>ใช้เป็น draft สำหรับ LINE หรือช่องทางอื่นได้ทันที</p>
@@ -2241,7 +2379,14 @@ function renderBroadcast() {
 function renderCampaigns() {
   const channels = channelPerformance().slice(0, 3);
   els.content.innerHTML = `
-    <section class="section">
+    <section class="section saas-page campaigns-page">
+      <div class="page-identity workspace-hero campaigns-hero">
+        <div class="page-identity-copy">
+          <span class="page-kicker">Campaign Manager</span>
+          <h2>แคมเปญที่กำลังวิ่งและแคมเปญที่ควรวางแผนต่อ</h2>
+          <p>สรุปสถานะ งบประมาณ ROI และรายได้ที่คาดได้จากช่องทางหลัก</p>
+        </div>
+      </div>
       <div class="campaign-grid">
         ${channels.map((channel, index) => `
           <article class="campaign-card">
@@ -2266,7 +2411,14 @@ function renderNotifications() {
   const items = notificationItems();
   const followupCustomers = sortByPriority(app.data.customers.filter(customer => customer.followUpDate && customer.followUpDate <= (app.data.summary?.selectedDate || todayISO()))).slice(0, 5);
   els.content.innerHTML = `
-    <section class="section">
+    <section class="section saas-page notifications-page">
+      <div class="page-identity workspace-hero notifications-hero">
+        <div class="page-identity-copy">
+          <span class="page-kicker">Actionable Notifications</span>
+          <h2>ศูนย์แจ้งเตือนที่เปลี่ยนเป็นงานได้ทันที</h2>
+          <p>รวม duplicate orders, follow-up, VIP reminders, stock alerts และ sales opportunities</p>
+        </div>
+      </div>
       <div class="notification-grid">
         ${items.map(item => `
           <article class="notification-card">
@@ -2278,7 +2430,7 @@ function renderNotifications() {
           </article>
         `).join("")}
       </div>
-      <div class="panel stack">
+      <div class="panel stack panel-premium">
         <div class="section-title">
           <h2>ลูกค้าที่ควรติดตาม</h2>
           <p>เปิดต่อได้จากหน้านี้โดยตรง</p>
@@ -2291,9 +2443,16 @@ function renderNotifications() {
 
 function renderTeam() {
   els.content.innerHTML = `
-    <section class="section">
+    <section class="section saas-page settings-page">
+      <div class="page-identity workspace-hero settings-hero">
+        <div class="page-identity-copy">
+          <span class="page-kicker">Team Administration</span>
+          <h2>สิทธิ์ผู้ใช้และการเข้าถึงระบบ</h2>
+          <p>Admin ดูทุกอย่างและแก้ไขได้, Staff ค้นหา เพิ่มข้อมูล ดู Follow-up และโทรลูกค้า</p>
+        </div>
+      </div>
       <div class="two-col">
-        <div class="panel stack">
+        <div class="panel stack panel-premium">
           <div class="section-title">
             <h2>สิทธิ์ผู้ใช้</h2>
             <p>Admin ดูทุกอย่างและแก้ไขได้, Staff ค้นหา เพิ่มข้อมูล ดู Follow-up และโทรลูกค้า</p>
@@ -2314,7 +2473,7 @@ function renderTeam() {
             </table>
           </div>
         </div>
-        <form class="panel stack" id="teamForm">
+        <form class="panel stack panel-premium" id="teamForm">
           <div class="section-title">
             <h2>เพิ่มทีมงาน</h2>
             <p>สร้างผู้ใช้งานพร้อม Username / Password สำหรับเข้าสู่ระบบ</p>
@@ -2351,7 +2510,15 @@ function renderSettings() {
       : "มีค่าเดิมอยู่แล้ว เว้นว่างไว้เพื่อคงค่าเดิม"
     : "ยังไม่ได้ตั้งค่า";
   els.content.innerHTML = `
-    <section class="section">
+    <section class="section saas-page settings-page">
+      <div class="page-identity workspace-hero settings-hero">
+        <div class="page-identity-copy">
+          <span class="page-kicker">Professional SaaS Settings</span>
+          <h2>ตั้งค่าระบบและการเติบโตของร้าน</h2>
+          <p>จัดการ store profile, LINE, team, backup และพื้นที่สำหรับ subscription ในอนาคต</p>
+        </div>
+        <button class="button secondary" type="button" data-view-shortcut="pricing">ดูแพ็กเกจ</button>
+      </div>
       <div class="settings-sections">
         ${[
           ["Store profile", "ชื่อร้าน โลโก้ และข้อมูลพื้นฐาน"],
@@ -2408,6 +2575,55 @@ function renderSettings() {
         <form class="panel stack" id="rulesForm">
           ${followUpSettingsPanel(Number(settings.followUpDaysPerUnit || 15))}
         </form>
+      </div>
+    </section>
+  `;
+}
+
+function renderPricing() {
+  els.content.innerHTML = `
+    <section class="section saas-page pricing-page">
+      <div class="page-identity workspace-hero pricing-hero">
+        <div class="page-identity-copy">
+          <span class="page-kicker">Package / Pricing</span>
+          <h2>Growup Pilot สำหรับร้านที่กำลังโต</h2>
+          <p>โครงหน้าแพ็กเกจแบบ SaaS สำหรับรองรับ monthly และ yearly subscription ในอนาคต โดยยังไม่แตะ business logic การชำระเงินจริง</p>
+        </div>
+      </div>
+      <div class="pricing-grid">
+        <article class="pricing-card">
+          <span class="tag">Starter</span>
+          <h3>เริ่มต้นดูแลร้าน</h3>
+          <div class="pricing-price">฿0<span>/ทดลอง</span></div>
+          <p class="muted">เหมาะสำหรับทดลอง dashboard, orders, customers และ workflow พื้นฐาน</p>
+          <ul class="feature-list">
+            <li>จัดการออเดอร์และลูกค้า</li>
+            <li>Dashboard สรุปงานวันนี้</li>
+            <li>Import CSV / Excel</li>
+          </ul>
+        </article>
+        <article class="pricing-card featured">
+          <span class="tag">Growth</span>
+          <h3>Growup Pilot Pro</h3>
+          <div class="pricing-price">฿1,990<span>/เดือน</span></div>
+          <p class="muted">สำหรับธุรกิจที่ต้องการ AI insight, broadcast workflow และ command center เต็มรูปแบบ</p>
+          <ul class="feature-list">
+            <li>AI Morning Brief และ Opportunity Engine</li>
+            <li>Campaigns, Broadcast, Reports</li>
+            <li>Team access และการตั้งค่าร้านแบบ SaaS</li>
+          </ul>
+        </article>
+        <article class="pricing-card">
+          <span class="tag">Scale</span>
+          <h3>For multi-store teams</h3>
+          <div class="pricing-price">Custom<span>/yearly</span></div>
+          <p class="muted">พื้นที่รองรับแผน enterprise, multi-user workflow, billing และ support เฉพาะทีมขาย</p>
+          <ul class="feature-list">
+            <li>Store profile หลายสาขา</li>
+            <li>Advanced reporting และ export</li>
+            <li>Billing, backup และ onboarding เฉพาะองค์กร</li>
+          </ul>
+        </article>
       </div>
     </section>
   `;
@@ -2738,6 +2954,7 @@ function render() {
     aiInsights: renderAiInsights,
     broadcast: renderBroadcast,
     campaigns: renderCampaigns,
+    pricing: renderPricing,
     notifications: renderNotifications,
     team: renderTeam,
     settings: renderSettings,
