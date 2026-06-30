@@ -2789,11 +2789,6 @@ function syncViewFromLocation() {
 
 async function submitOrder(form) {
   const data = Object.fromEntries(new FormData(form).entries());
-  data.originSource = data.originSourceChoice === "อื่นๆ"
-    ? String(data.originSourceOther || "").trim()
-    : String(data.originSourceChoice || "").trim();
-  delete data.originSourceChoice;
-  delete data.originSourceOther;
   const orderId = app.editingOrderId;
   const snapshot = cloneUiState();
   const clientMutationId = `tmp_${Date.now().toString(36)}`;
@@ -2861,28 +2856,11 @@ function openOrderDialog(order = null) {
     Object.entries(fields).forEach(([name, value]) => {
       if (els.orderForm.elements[name]) els.orderForm.elements[name].value = value ?? "";
     });
-    const knownOriginSources = ["Facebook", "LINE", "โทรเข้า", "ลูกค้าบอกต่อ"];
-    const originSource = String(order.originSource || "");
-    els.orderForm.elements.originSourceChoice.value = knownOriginSources.includes(originSource)
-      ? originSource
-      : originSource ? "อื่นๆ" : "";
-    els.orderForm.elements.originSourceOther.value = knownOriginSources.includes(originSource) ? "" : originSource;
   } else {
     els.orderForm.elements.date.value = els.workDate.value || todayISO();
     els.orderForm.elements.amount.value = app.data?.settings?.defaultJarPrice || 750;
   }
-  syncOriginSourceFields();
   els.orderDialog.showModal();
-}
-
-function syncOriginSourceFields() {
-  const otherField = els.orderForm.querySelector("[data-origin-source-other]");
-  if (!otherField) return;
-  const showOther = els.orderForm.elements.originSourceChoice.value === "อื่นๆ";
-  otherField.toggleAttribute("hidden", !showOther);
-  otherField.setAttribute("aria-hidden", String(!showOther));
-  els.orderForm.elements.originSourceOther.required = showOther;
-  if (!showOther) els.orderForm.elements.originSourceOther.value = "";
 }
 
 async function copyText(text) {
@@ -3108,10 +3086,6 @@ document.addEventListener("input", event => {
       </tr>
     `).join("");
   }
-});
-
-document.addEventListener("change", event => {
-  if (event.target === els.orderForm.elements.originSourceChoice) syncOriginSourceFields();
 });
 
 document.addEventListener("keydown", event => {
