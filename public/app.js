@@ -729,7 +729,7 @@ function renderLogin() {
     <section class="login-layout">
       <div class="login-desktop-card">
         <aside class="login-brand-panel">
-          <div class="login-brand-mark"><span>G</span><i>▲</i></div>
+          <img class="login-brand-mark" src="/icons/logo.svg" alt="" aria-hidden="true">
           <div>
             <p class="eyebrow">Growup Pilot</p>
             <h2>ผู้ช่วยเจ้าของธุรกิจที่ทำให้ธุรกิจเติบโต</h2>
@@ -737,7 +737,7 @@ function renderLogin() {
           </div>
         </aside>
         <form class="login-card" id="loginForm">
-          <div class="login-logo"><span>G</span><i>▲</i></div>
+          <img class="login-logo" src="/icons/logo.svg" alt="" aria-hidden="true">
           <div class="section-title">
             <h2>Growup Pilot</h2>
           </div>

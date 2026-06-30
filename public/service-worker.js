@@ -1,4 +1,4 @@
-const CACHE_NAME = "growup-pilot-pwa-v27";
+const CACHE_NAME = "growup-pilot-pwa-v28";
 const CORE_ASSETS = [
   "/",
   "/index.html",
@@ -7,11 +7,16 @@ const CORE_ASSETS = [
   "/import-worker.js",
   "/xlsx.full.min.js",
   "/manifest.webmanifest",
+  "/icons/logo.svg",
+  "/icons/logo-dark.svg",
+  "/icons/logo-light.svg",
   "/icons/apple-touch-icon.png",
   "/icons/icon-192.png",
   "/icons/icon-512.png",
-  "/icons/maskable-icon-192.png",
-  "/icons/maskable-icon-512.png"
+  "/icons/maskable-192.png",
+  "/icons/maskable-512.png",
+  "/icons/favicon.png",
+  "/icons/favicon.ico"
 ];
 
 self.addEventListener("install", event => {
