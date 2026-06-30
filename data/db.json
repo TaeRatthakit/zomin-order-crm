@@ -84,7 +84,158 @@
   ],
   "customers": [
     {
-      "note": "ดูแลพิเศษ ชอบให้โทรช่วงเย็น",
+      "firstPurchaseDate": "2026-05-20",
+      "lastPurchaseDate": "2026-05-20",
+      "purchaseCount": 1,
+      "totalJars": 2,
+      "totalSpent": 1500,
+      "followUpDate": "2026-06-18",
+      "status": "NEW",
+      "vipLevel": "NORMAL",
+      "customerScore": 1500,
+      "id": "c_kanda",
+      "name": "คุณกานดา เจริญผล",
+      "phone": "0832295956",
+      "address": "18/2 ต.ทับเที่ยง อ.เมือง จ.ตรัง 92000",
+      "tags": [
+        "กรดไหลย้อน",
+        "จ่ายง่าย"
+      ],
+      "note": "โทรช่วงพักเที่ยง",
+      "createdAt": "2026-04-12",
+      "lastContactDate": "2026-06-12",
+      "lastContactNote": "รอเงินเดือน",
+      "assignedTo": "u_staff_1"
+    },
+    {
+      "firstPurchaseDate": "2026-05-25",
+      "lastPurchaseDate": "2026-05-25",
+      "purchaseCount": 1,
+      "totalJars": 2,
+      "totalSpent": 1500,
+      "followUpDate": "2026-06-23",
+      "status": "NEW",
+      "vipLevel": "NORMAL",
+      "customerScore": 1500,
+      "id": "c_duangjai",
+      "name": "คุณดวงใจ พลอยงาม",
+      "phone": "0998877665",
+      "address": "12/9 ต.บ่อยาง อ.เมือง จ.สงขลา 90000",
+      "tags": [
+        "นอนไม่หลับ",
+        "ซื้อให้แม่"
+      ],
+      "note": "ไม่สะดวกโทรตอนเย็น",
+      "createdAt": "2026-01-18",
+      "lastContactDate": "2026-06-01",
+      "lastContactNote": "ยังมีสินค้าเหลือ",
+      "assignedTo": "u_staff_1"
+    },
+    {
+      "firstPurchaseDate": "2026-06-12",
+      "lastPurchaseDate": "2026-06-12",
+      "purchaseCount": 1,
+      "totalJars": 1,
+      "totalSpent": 750,
+      "followUpDate": "2026-06-26",
+      "status": "NEW",
+      "vipLevel": "NORMAL",
+      "customerScore": 750,
+      "id": "c_thanapol",
+      "name": "คุณธนพล รุ่งเรือง",
+      "phone": "0953344556",
+      "address": "44/7 ต.ปากเพรียว อ.เมือง จ.สระบุรี 18000",
+      "tags": [
+        "ปวดข้อ"
+      ],
+      "note": "ลูกค้าใหม่จาก LINE",
+      "createdAt": "2026-06-12",
+      "lastContactDate": "",
+      "lastContactNote": "",
+      "assignedTo": "u_staff_1"
+    },
+    {
+      "firstPurchaseDate": "2026-01-15",
+      "lastPurchaseDate": "2026-01-15",
+      "purchaseCount": 1,
+      "totalJars": 3,
+      "totalSpent": 2250,
+      "followUpDate": "2026-02-28",
+      "status": "NEW",
+      "vipLevel": "NORMAL",
+      "customerScore": 2250,
+      "id": "c_nopporn",
+      "name": "คุณนพพร ศรีชัย",
+      "phone": "0831635695",
+      "address": "70/8 ต.ในเมือง อ.เมือง จ.นครราชสีมา 30000",
+      "tags": [
+        "ปวดเข่า",
+        "โทรติดยาก"
+      ],
+      "note": "ควรส่งข้อความก่อนโทร",
+      "createdAt": "2025-09-09",
+      "lastContactDate": "2026-02-01",
+      "lastContactNote": "ไม่รับสาย 2 ครั้ง",
+      "assignedTo": "u_staff_1"
+    },
+    {
+      "firstPurchaseDate": "2026-06-10",
+      "lastPurchaseDate": "2026-06-10",
+      "purchaseCount": 1,
+      "totalJars": 1,
+      "totalSpent": 750,
+      "followUpDate": "2026-06-24",
+      "status": "NEW",
+      "vipLevel": "NORMAL",
+      "customerScore": 750,
+      "id": "c_naree",
+      "name": "คุณนารี แสงทอง",
+      "phone": "0949988776",
+      "address": "7/9 ต.ปากน้ำ อ.เมือง จ.สมุทรปราการ 10270",
+      "tags": [
+        "นอนไม่หลับ",
+        "ซื้อให้แม่"
+      ],
+      "note": "",
+      "createdAt": "2026-06-10",
+      "lastContactDate": "",
+      "lastContactNote": "",
+      "assignedTo": "u_staff_1"
+    },
+    {
+      "firstPurchaseDate": "2025-10-20",
+      "lastPurchaseDate": "2026-06-05",
+      "purchaseCount": 2,
+      "totalJars": 19,
+      "totalSpent": 14250,
+      "followUpDate": "2026-12-16",
+      "status": "VVIP",
+      "vipLevel": "VVIP",
+      "customerScore": 7467,
+      "id": "c_pranee",
+      "name": "คุณปราณี ใจงาม",
+      "phone": "0862551899",
+      "address": "101 ม.3 ต.บ้านสวน อ.เมือง จ.ชลบุรี 20000",
+      "tags": [
+        "ซื้อให้แม่",
+        "VIP ดูแลพิเศษ"
+      ],
+      "note": "ลูกค้าเก่า ดูแลดี",
+      "createdAt": "2025-10-20",
+      "lastContactDate": "2026-06-10",
+      "lastContactNote": "ชอบแพ็กใหญ่",
+      "assignedTo": "u_admin"
+    },
+    {
+      "firstPurchaseDate": "2025-08-20",
+      "lastPurchaseDate": "2026-06-19",
+      "purchaseCount": 3,
+      "totalJars": 49,
+      "totalSpent": 36750,
+      "followUpDate": "2027-09-11",
+      "status": "SUPER VIP",
+      "vipLevel": "SUPER VIP",
+      "customerScore": 32640,
       "id": "c_pongsak",
       "name": "คุณพงศ์ศักดิ์ ขำดี",
       "phone": "0812345678",
@@ -94,13 +245,22 @@
         "ซื้อให้พ่อ",
         "VIP ดูแลพิเศษ"
       ],
+      "note": "ดูแลพิเศษ ชอบให้โทรช่วงเย็น",
       "createdAt": "2025-08-20",
       "lastContactDate": "2026-06-01",
       "lastContactNote": "ดูแลพิเศษ ชอบให้โทรช่วงเย็น",
       "assignedTo": "u_staff_1"
     },
     {
-      "note": "",
+      "firstPurchaseDate": "2026-05-20",
+      "lastPurchaseDate": "2026-05-20",
+      "purchaseCount": 1,
+      "totalJars": 2,
+      "totalSpent": 1500,
+      "followUpDate": "2026-06-18",
+      "status": "NEW",
+      "vipLevel": "NORMAL",
+      "customerScore": 1500,
       "id": "c_malee",
       "name": "คุณมาลี ทองดี",
       "phone": "0895551122",
@@ -110,13 +270,94 @@
         "ซื้อให้แม่",
         "จ่ายง่าย"
       ],
+      "note": "",
       "createdAt": "2026-05-20",
       "lastContactDate": "",
       "lastContactNote": "",
       "assignedTo": "u_staff_1"
     },
     {
-      "note": "ติดต่อได้ช่วงเช้า",
+      "firstPurchaseDate": "2026-04-20",
+      "lastPurchaseDate": "2026-04-20",
+      "purchaseCount": 1,
+      "totalJars": 1,
+      "totalSpent": 750,
+      "followUpDate": "2026-05-04",
+      "status": "NEW",
+      "vipLevel": "NORMAL",
+      "customerScore": 750,
+      "id": "c_rattana",
+      "name": "คุณรัตนา วงศ์ดี",
+      "phone": "0874445566",
+      "address": "22/6 ต.ท่าศาลา อ.เมือง จ.เชียงใหม่ 50000",
+      "tags": [
+        "ปวดหลัง",
+        "โทรติดยาก"
+      ],
+      "note": "นัดโทรซ้ำแต่ยังไม่รับสาย",
+      "createdAt": "2026-04-20",
+      "lastContactDate": "2026-05-10",
+      "lastContactNote": "นัดโทรซ้ำแต่ยังไม่รับสาย",
+      "assignedTo": "u_staff_1"
+    },
+    {
+      "firstPurchaseDate": "2026-06-01",
+      "lastPurchaseDate": "2026-06-01",
+      "purchaseCount": 1,
+      "totalJars": 6,
+      "totalSpent": 4500,
+      "followUpDate": "2026-08-29",
+      "status": "NEW",
+      "vipLevel": "NORMAL",
+      "customerScore": 4500,
+      "id": "c_wipa",
+      "name": "คุณวิภา แสงสุข",
+      "phone": "0891234567",
+      "address": "55/1 ต.สุเทพ อ.เมือง จ.เชียงใหม่ 50200",
+      "tags": [
+        "ปวดข้อ",
+        "ซื้อให้พ่อ"
+      ],
+      "note": "ชอบให้ทัก LINE ก่อนโทร",
+      "createdAt": "2026-06-01",
+      "lastContactDate": "2026-06-15",
+      "lastContactNote": "สนใจโปร 6 กระปุก",
+      "assignedTo": "u_staff_1"
+    },
+    {
+      "firstPurchaseDate": "2026-05-18",
+      "lastPurchaseDate": "2026-05-18",
+      "purchaseCount": 1,
+      "totalJars": 1,
+      "totalSpent": 750,
+      "followUpDate": "2026-06-01",
+      "status": "NEW",
+      "vipLevel": "NORMAL",
+      "customerScore": 750,
+      "id": "c_siriporn",
+      "name": "คุณศิริพร มั่นคง",
+      "phone": "0649595657",
+      "address": "9/4 แขวงลาดพร้าว เขตลาดพร้าว กรุงเทพฯ 10230",
+      "tags": [
+        "ปวดหลัง",
+        "ซื้อให้สามี"
+      ],
+      "note": "ตอบแชทเร็ว",
+      "createdAt": "2026-02-02",
+      "lastContactDate": "2026-05-20",
+      "lastContactNote": "ขอคิดดูก่อน",
+      "assignedTo": "u_staff_1"
+    },
+    {
+      "firstPurchaseDate": "2026-01-10",
+      "lastPurchaseDate": "2026-01-10",
+      "purchaseCount": 1,
+      "totalJars": 1,
+      "totalSpent": 750,
+      "followUpDate": "2026-01-24",
+      "status": "NEW",
+      "vipLevel": "NORMAL",
+      "customerScore": 750,
       "id": "c_somchai",
       "name": "คุณสมชาย ใจดี",
       "phone": "0862223344",
@@ -125,13 +366,22 @@
         "ปวดหลัง",
         "โทรติดยาก"
       ],
+      "note": "ติดต่อได้ช่วงเช้า",
       "createdAt": "2025-12-15",
       "lastContactDate": "2026-03-01",
       "lastContactNote": "ติดต่อได้ช่วงเช้า",
       "assignedTo": "u_staff_1"
     },
     {
-      "note": "สนใจแพ็ก 6 กระปุก",
+      "firstPurchaseDate": "2026-05-05",
+      "lastPurchaseDate": "2026-05-05",
+      "purchaseCount": 1,
+      "totalJars": 3,
+      "totalSpent": 2250,
+      "followUpDate": "2026-06-18",
+      "status": "NEW",
+      "vipLevel": "NORMAL",
+      "customerScore": 2250,
       "id": "c_orapan",
       "name": "คุณอรพรรณ ศรีสุข",
       "phone": "0637894561",
@@ -140,13 +390,22 @@
         "กรดไหลย้อน",
         "ซื้อให้สามี"
       ],
+      "note": "สนใจแพ็ก 6 กระปุก",
       "createdAt": "2026-03-10",
       "lastContactDate": "2026-05-18",
       "lastContactNote": "สนใจแพ็ก 6 กระปุก",
       "assignedTo": "u_admin"
     },
     {
-      "note": "สั่งรอบใหญ่ทุกไตรมาส",
+      "firstPurchaseDate": "2025-01-12",
+      "lastPurchaseDate": "2026-03-15",
+      "purchaseCount": 2,
+      "totalJars": 60,
+      "totalSpent": 45000,
+      "followUpDate": "2027-06-07",
+      "status": "SUPER VIP",
+      "vipLevel": "SUPER VIP",
+      "customerScore": 12617,
       "id": "c_company",
       "name": "บริษัทสุขภาพดี จำกัด",
       "phone": "021234567",
@@ -156,118 +415,22 @@
         "ตัวแทน",
         "SUPER VIP"
       ],
+      "note": "สั่งรอบใหญ่ทุกไตรมาส",
       "createdAt": "2025-01-12",
       "lastContactDate": "2026-06-03",
       "lastContactNote": "สั่งรอบใหญ่ทุกไตรมาส",
       "assignedTo": "u_admin"
     },
     {
-      "note": "",
-      "id": "c_naree",
-      "name": "คุณนารี แสงทอง",
-      "phone": "0949988776",
-      "address": "7/9 ต.ปากน้ำ อ.เมือง จ.สมุทรปราการ 10270",
-      "tags": [
-        "นอนไม่หลับ",
-        "ซื้อให้แม่"
-      ],
-      "createdAt": "2026-06-10",
-      "lastContactDate": "",
-      "lastContactNote": "",
-      "assignedTo": "u_staff_1"
-    },
-    {
-      "note": "นัดโทรซ้ำแต่ยังไม่รับสาย",
-      "id": "c_rattana",
-      "name": "คุณรัตนา วงศ์ดี",
-      "phone": "0874445566",
-      "address": "22/6 ต.ท่าศาลา อ.เมือง จ.เชียงใหม่ 50000",
-      "tags": [
-        "ปวดหลัง",
-        "โทรติดยาก"
-      ],
-      "createdAt": "2026-04-20",
-      "lastContactDate": "2026-05-10",
-      "lastContactNote": "นัดโทรซ้ำแต่ยังไม่รับสาย",
-      "assignedTo": "u_staff_1"
-    },
-    {
-      "note": "ชอบให้ทัก LINE ก่อนโทร",
-      "id": "c_wipa",
-      "name": "คุณวิภา แสงสุข",
-      "phone": "0891234567",
-      "address": "55/1 ต.สุเทพ อ.เมือง จ.เชียงใหม่ 50200",
-      "tags": [
-        "ปวดข้อ",
-        "ซื้อให้พ่อ"
-      ],
-      "createdAt": "2026-06-01",
-      "lastContactDate": "2026-06-15",
-      "lastContactNote": "สนใจโปร 6 กระปุก",
-      "assignedTo": "u_staff_1"
-    },
-    {
-      "note": "โทรช่วงพักเที่ยง",
-      "id": "c_kanda",
-      "name": "คุณกานดา เจริญผล",
-      "phone": "0832295956",
-      "address": "18/2 ต.ทับเที่ยง อ.เมือง จ.ตรัง 92000",
-      "tags": [
-        "กรดไหลย้อน",
-        "จ่ายง่าย"
-      ],
-      "createdAt": "2026-04-12",
-      "lastContactDate": "2026-06-12",
-      "lastContactNote": "รอเงินเดือน",
-      "assignedTo": "u_staff_1"
-    },
-    {
-      "note": "ควรส่งข้อความก่อนโทร",
-      "id": "c_nopporn",
-      "name": "คุณนพพร ศรีชัย",
-      "phone": "0831635695",
-      "address": "70/8 ต.ในเมือง อ.เมือง จ.นครราชสีมา 30000",
-      "tags": [
-        "ปวดเข่า",
-        "โทรติดยาก"
-      ],
-      "createdAt": "2025-09-09",
-      "lastContactDate": "2026-02-01",
-      "lastContactNote": "ไม่รับสาย 2 ครั้ง",
-      "assignedTo": "u_staff_1"
-    },
-    {
-      "note": "ลูกค้าเก่า ดูแลดี",
-      "id": "c_pranee",
-      "name": "คุณปราณี ใจงาม",
-      "phone": "0862551899",
-      "address": "101 ม.3 ต.บ้านสวน อ.เมือง จ.ชลบุรี 20000",
-      "tags": [
-        "ซื้อให้แม่",
-        "VIP ดูแลพิเศษ"
-      ],
-      "createdAt": "2025-10-20",
-      "lastContactDate": "2026-06-10",
-      "lastContactNote": "ชอบแพ็กใหญ่",
-      "assignedTo": "u_admin"
-    },
-    {
-      "note": "ตอบแชทเร็ว",
-      "id": "c_siriporn",
-      "name": "คุณศิริพร มั่นคง",
-      "phone": "0649595657",
-      "address": "9/4 แขวงลาดพร้าว เขตลาดพร้าว กรุงเทพฯ 10230",
-      "tags": [
-        "ปวดหลัง",
-        "ซื้อให้สามี"
-      ],
-      "createdAt": "2026-02-02",
-      "lastContactDate": "2026-05-20",
-      "lastContactNote": "ขอคิดดูก่อน",
-      "assignedTo": "u_staff_1"
-    },
-    {
-      "note": "ตัวแทนรายย่อย",
+      "firstPurchaseDate": "2026-03-02",
+      "lastPurchaseDate": "2026-06-01",
+      "purchaseCount": 2,
+      "totalJars": 60,
+      "totalSpent": 45000,
+      "followUpDate": "2027-08-24",
+      "status": "SUPER VIP",
+      "vipLevel": "SUPER VIP",
+      "customerScore": 58696,
       "id": "c_health_shop",
       "name": "ร้านสุขภาพบ้านเรา",
       "phone": "0924457788",
@@ -276,39 +439,11 @@
         "ตัวแทน",
         "ลูกค้าองค์กร"
       ],
+      "note": "ตัวแทนรายย่อย",
       "createdAt": "2025-05-05",
       "lastContactDate": "2026-06-05",
       "lastContactNote": "สนใจสต็อกเพิ่ม",
       "assignedTo": "u_admin"
-    },
-    {
-      "note": "ลูกค้าใหม่จาก LINE",
-      "id": "c_thanapol",
-      "name": "คุณธนพล รุ่งเรือง",
-      "phone": "0953344556",
-      "address": "44/7 ต.ปากเพรียว อ.เมือง จ.สระบุรี 18000",
-      "tags": [
-        "ปวดข้อ"
-      ],
-      "createdAt": "2026-06-12",
-      "lastContactDate": "",
-      "lastContactNote": "",
-      "assignedTo": "u_staff_1"
-    },
-    {
-      "note": "ไม่สะดวกโทรตอนเย็น",
-      "id": "c_duangjai",
-      "name": "คุณดวงใจ พลอยงาม",
-      "phone": "0998877665",
-      "address": "12/9 ต.บ่อยาง อ.เมือง จ.สงขลา 90000",
-      "tags": [
-        "นอนไม่หลับ",
-        "ซื้อให้แม่"
-      ],
-      "createdAt": "2026-01-18",
-      "lastContactDate": "2026-06-01",
-      "lastContactNote": "ยังมีสินค้าเหลือ",
-      "assignedTo": "u_staff_1"
     }
   ],
   "orders": [
@@ -321,7 +456,8 @@
       "jars": 6,
       "amount": 4500,
       "source": "Seed",
-      "rawText": ""
+      "rawText": "",
+      "phone": ""
     },
     {
       "time": "09:00",
@@ -332,7 +468,8 @@
       "jars": 13,
       "amount": 9750,
       "source": "Seed",
-      "rawText": ""
+      "rawText": "",
+      "phone": ""
     },
     {
       "time": "09:00",
@@ -343,7 +480,8 @@
       "jars": 30,
       "amount": 22500,
       "source": "Seed",
-      "rawText": ""
+      "rawText": "",
+      "phone": ""
     },
     {
       "time": "09:00",
@@ -354,7 +492,8 @@
       "jars": 2,
       "amount": 1500,
       "source": "Seed",
-      "rawText": ""
+      "rawText": "",
+      "phone": ""
     },
     {
       "time": "09:00",
@@ -365,7 +504,8 @@
       "jars": 1,
       "amount": 750,
       "source": "Seed",
-      "rawText": ""
+      "rawText": "",
+      "phone": ""
     },
     {
       "time": "09:00",
@@ -376,7 +516,8 @@
       "jars": 3,
       "amount": 2250,
       "source": "Seed",
-      "rawText": ""
+      "rawText": "",
+      "phone": ""
     },
     {
       "time": "09:00",
@@ -387,7 +528,8 @@
       "jars": 30,
       "amount": 22500,
       "source": "Seed",
-      "rawText": ""
+      "rawText": "",
+      "phone": ""
     },
     {
       "time": "09:00",
@@ -398,7 +540,8 @@
       "jars": 30,
       "amount": 22500,
       "source": "Seed",
-      "rawText": ""
+      "rawText": "",
+      "phone": ""
     },
     {
       "time": "09:00",
@@ -409,7 +552,8 @@
       "jars": 1,
       "amount": 750,
       "source": "Seed",
-      "rawText": ""
+      "rawText": "",
+      "phone": ""
     },
     {
       "time": "09:00",
@@ -420,7 +564,8 @@
       "jars": 1,
       "amount": 750,
       "source": "Seed",
-      "rawText": ""
+      "rawText": "",
+      "phone": ""
     },
     {
       "time": "10:20",
@@ -431,7 +576,8 @@
       "jars": 6,
       "amount": 4500,
       "source": "LINE",
-      "rawText": "คุณวิภา โทร 0891234567 4 กระปุก แถม 2 กระปุก รวม 4500 บาท #ปวดข้อ"
+      "rawText": "คุณวิภา โทร 0891234567 4 กระปุก แถม 2 กระปุก รวม 4500 บาท #ปวดข้อ",
+      "phone": ""
     },
     {
       "time": "14:10",
@@ -442,7 +588,8 @@
       "jars": 2,
       "amount": 1500,
       "source": "LINE",
-      "rawText": "โทร.083-229-5956 2 กระปุก 1,500 บาท"
+      "rawText": "โทร.083-229-5956 2 กระปุก 1,500 บาท",
+      "phone": ""
     },
     {
       "time": "09:30",
@@ -453,7 +600,8 @@
       "jars": 3,
       "amount": 2250,
       "source": "Import",
-      "rawText": ""
+      "rawText": "",
+      "phone": ""
     },
     {
       "time": "11:45",
@@ -464,7 +612,8 @@
       "jars": 13,
       "amount": 9750,
       "source": "LINE",
-      "rawText": "7 แถม 6 = 13 กระปุก รวม 9750 บาท"
+      "rawText": "7 แถม 6 = 13 กระปุก รวม 9750 บาท",
+      "phone": ""
     },
     {
       "time": "13:00",
@@ -475,7 +624,8 @@
       "jars": 6,
       "amount": 4500,
       "source": "Manual",
-      "rawText": ""
+      "rawText": "",
+      "phone": ""
     },
     {
       "time": "16:30",
@@ -486,7 +636,8 @@
       "jars": 1,
       "amount": 750,
       "source": "LINE",
-      "rawText": "06-4959-5657 1 กระปุก เก็บเงินปลายทาง 750 บาท"
+      "rawText": "06-4959-5657 1 กระปุก เก็บเงินปลายทาง 750 บาท",
+      "phone": ""
     },
     {
       "time": "10:00",
@@ -497,7 +648,8 @@
       "jars": 30,
       "amount": 22500,
       "source": "ตัวแทน",
-      "rawText": ""
+      "rawText": "",
+      "phone": ""
     },
     {
       "time": "10:00",
@@ -508,7 +660,8 @@
       "jars": 30,
       "amount": 22500,
       "source": "ตัวแทน",
-      "rawText": ""
+      "rawText": "",
+      "phone": ""
     },
     {
       "time": "18:20",
@@ -519,7 +672,8 @@
       "jars": 1,
       "amount": 750,
       "source": "LINE",
-      "rawText": "รับโซมินฟรี 1 กระปุก ของฟรี"
+      "rawText": "รับโซมินฟรี 1 กระปุก ของฟรี",
+      "phone": ""
     },
     {
       "time": "08:40",
@@ -530,7 +684,8 @@
       "jars": 2,
       "amount": 1500,
       "source": "LINE",
-      "rawText": ""
+      "rawText": "",
+      "phone": ""
     }
   ],
   "lineMessages": [],

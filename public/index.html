@@ -3,13 +3,13 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-    <meta name="theme-color" content="#0f766e">
-    <meta name="application-name" content="Zomin CRM">
+    <meta name="theme-color" content="#6d28d9">
+    <meta name="application-name" content="Growup Pilot">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-title" content="Zomin CRM">
+    <meta name="apple-mobile-web-app-title" content="Growup Pilot">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <title>Zomin Order CRM V3</title>
+    <title>Growup Pilot</title>
     <link rel="manifest" href="/manifest.webmanifest">
     <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
     <link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512.png">
@@ -20,10 +20,13 @@
     <div class="app-shell">
       <aside class="sidebar" aria-label="เมนูหลัก">
         <div class="brand">
-          <div class="brand-mark">Z</div>
-          <div>
-            <strong>Zomin CRM</strong>
-            <span>Order Workflow V3</span>
+          <div class="brand-mark" aria-hidden="true">
+            <span class="brand-mark-core">G</span>
+            <span class="brand-mark-jet">↗</span>
+          </div>
+          <div class="brand-text">
+            <strong>Growup</strong>
+            <span>Pilot</span>
           </div>
         </div>
         <nav id="mainNav" class="nav-list"></nav>
@@ -31,8 +34,9 @@
 
       <main class="main-panel">
         <header class="topbar">
-          <div>
-            <p class="eyebrow">Zomin Order CRM</p>
+          <div class="page-heading">
+            <button id="mobileMenuToggle" class="icon-button mobile-menu-toggle" type="button" aria-label="เปิดเมนู">☰</button>
+            <p class="eyebrow">Growup Pilot</p>
             <h1 id="pageTitle">Dashboard</h1>
             <div id="subpageNav" class="subpage-nav" hidden></div>
           </div>

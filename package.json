@@ -1,7 +1,7 @@
 {
   "name": "zomin-order-crm",
   "version": "3.0.0",
-  "description": "Zomin Order CRM V3 Phase 1 - local web app with prepared LINE webhook",
+  "description": "Growup Pilot - local CRM web app with prepared LINE webhook",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

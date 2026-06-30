@@ -19,14 +19,14 @@ async function main() {
   const admin = existing || {
     id: "u_admin",
     username,
-    name: process.env.ADMIN_NAME || "Zomin Admin",
+    name: process.env.ADMIN_NAME || "Growup Admin",
     role: "Admin",
     phone: process.env.ADMIN_PHONE || "",
     active: true
   };
 
   admin.username = username;
-  admin.name = process.env.ADMIN_NAME || admin.name || "Zomin Admin";
+  admin.name = process.env.ADMIN_NAME || admin.name || "Growup Admin";
   admin.role = "Admin";
   admin.phone = process.env.ADMIN_PHONE || admin.phone || "";
   admin.active = true;
