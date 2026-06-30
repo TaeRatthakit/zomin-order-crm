@@ -3,34 +3,42 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <meta name="description" content="Growup Pilot ผู้ช่วยธุรกิจสำหรับจัดการลูกค้า ออเดอร์ โอกาสทำเงิน และการเติบโตของร้านในที่เดียว">
     <meta name="theme-color" content="#6d28d9">
     <meta name="application-name" content="Growup Pilot">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="Growup Pilot">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Growup Pilot">
+    <meta property="og:description" content="Growup Pilot ผู้ช่วยธุรกิจสำหรับจัดการลูกค้า ออเดอร์ โอกาสทำเงิน และการเติบโตของร้านในที่เดียว">
+    <meta property="og:url" content="https://www.growuppilot.com">
+    <meta property="og:site_name" content="Growup Pilot">
+    <meta property="og:image" content="https://www.growuppilot.com/icons/icon-512.png">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Growup Pilot">
+    <meta name="twitter:description" content="Growup Pilot ผู้ช่วยธุรกิจสำหรับจัดการลูกค้า ออเดอร์ โอกาสทำเงิน และการเติบโตของร้านในที่เดียว">
+    <meta name="twitter:url" content="https://www.growuppilot.com">
+    <meta name="twitter:image" content="https://www.growuppilot.com/icons/icon-512.png">
     <title>Growup Pilot</title>
-    <link rel="manifest" href="/manifest.webmanifest?v=20260630-favicon-refresh">
-    <link rel="icon" href="/favicon.ico?v=20260630-favicon-refresh" sizes="any">
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=20260630-favicon-refresh">
-    <link rel="icon" type="image/png" href="/favicon.png?v=20260630-favicon-refresh">
-    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=20260630-favicon-refresh">
-    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=20260630-favicon-refresh">
-    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=20260630-favicon-refresh">
-    <link rel="stylesheet" href="/styles.css?v=20260630-ui-refresh">
+    <link rel="manifest" href="/manifest.webmanifest?v=20260630-redesign-merge">
+    <link rel="icon" href="/favicon.ico?v=20260630-redesign-merge" sizes="any">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=20260630-redesign-merge">
+    <link rel="icon" type="image/png" href="/favicon.png?v=20260630-redesign-merge">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=20260630-redesign-merge">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=20260630-redesign-merge">
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=20260630-redesign-merge">
+    <link rel="stylesheet" href="/styles.css?v=20260630-redesign-merge">
   </head>
   <body>
     <div class="app-shell">
       <aside class="sidebar" aria-label="เมนูหลัก">
         <div class="brand">
-          <div class="brand-mark" aria-hidden="true">
-            <span class="brand-mark-orbit"></span>
-            <span class="brand-mark-core">G</span>
-            <span class="brand-mark-jet">▲</span>
-          </div>
+          <img class="brand-mark" src="/icons/logo.png" alt="" aria-hidden="true">
           <div class="brand-text">
-            <strong>Growup</strong>
-            <span>Pilot</span>
+            <strong>Growup Pilot</strong>
+            <span>Business AI Assistant</span>
           </div>
         </div>
         <nav id="mainNav" class="nav-list"></nav>
@@ -107,6 +115,17 @@
             </select>
           </label>
           <label>อาการลูกค้า<input name="tags" placeholder="คั่นด้วย comma เช่น ปวดเข่า, ซื้อให้แม่"></label>
+          <label>ลูกค้ามาจาก
+            <select name="originSourceChoice">
+              <option value="">เลือกแหล่งที่มา</option>
+              <option value="Facebook">Facebook</option>
+              <option value="LINE">LINE</option>
+              <option value="โทรเข้า">โทรเข้า</option>
+              <option value="ลูกค้าบอกต่อ">ลูกค้าบอกต่อ</option>
+              <option value="อื่นๆ">อื่นๆ</option>
+            </select>
+          </label>
+          <label data-origin-source-other hidden>ระบุแหล่งที่มา<input name="originSourceOther" placeholder="ระบุแหล่งที่มา"></label>
           <label class="span-2">หมายเหตุ<textarea name="note" placeholder="หมายเหตุเกี่ยวกับออเดอร์"></textarea></label>
         </div>
         <div class="dialog-actions">
@@ -163,9 +182,9 @@
       </form>
     </dialog>
 
-    <script src="/app.js?v=20260630-ui-refresh"></script>
+    <script src="/app.js?v=20260630-redesign-merge"></script>
     <script>
-      const swUrl = "/service-worker.js?v=20260630-favicon-refresh";
+      const swUrl = "/service-worker.js?v=20260630-redesign-merge";
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", () => {
           navigator.serviceWorker.register(swUrl).then(registration => registration.update()).catch(() => {});
