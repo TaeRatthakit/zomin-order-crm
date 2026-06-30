@@ -518,6 +518,52 @@ function monthlyChart() {
   `;
 }
 
+function dashboardDelta(todayValue, yesterdayValue, unit = "") {
+  const today = Number(todayValue || 0);
+  const yesterday = Number(yesterdayValue || 0);
+  const diff = today - yesterday;
+  const trend = diff > 0 ? "up" : diff < 0 ? "down" : "flat";
+  const prefix = diff > 0 ? "+" : diff < 0 ? "-" : "";
+  const amount = Math.abs(diff);
+  const formatted = unit === "currency" ? `${money(amount)} บาท` : money(amount);
+  const summary = diff === 0 ? "เท่ากับเมื่อวาน" : `${prefix}${formatted} เทียบกับเมื่อวาน`;
+  return { diff, trend, summary };
+}
+
+function dashboardKpiCard({ label, value, icon, tone = "", delta, hint }) {
+  return `
+    <article class="metric-card dashboard-kpi ${tone}">
+      <div class="metric-top">
+        <span>${escapeHtml(label)}</span>
+        <div class="metric-icon" aria-hidden="true">${icon}</div>
+      </div>
+      <strong>${escapeHtml(value)}</strong>
+      <div class="metric-foot">
+        <span class="trend trend-${escapeHtml(delta.trend)}">${escapeHtml(delta.summary)}</span>
+        <small>${escapeHtml(hint)}</small>
+      </div>
+    </article>
+  `;
+}
+
+function dashboardActionCard({ title, reason, revenue, action, targetView, icon, emphasis = "" }) {
+  return `
+    <article class="dashboard-action-card ${emphasis}">
+      <div class="dashboard-action-top">
+        <div class="metric-icon large" aria-hidden="true">${icon}</div>
+        <span class="tag">โอกาสวันนี้</span>
+      </div>
+      <h3>${escapeHtml(title)}</h3>
+      <p class="muted">${escapeHtml(reason)}</p>
+      <div class="dashboard-action-revenue">${money(revenue)} บาท</div>
+      <div class="dashboard-action-footer">
+        <span>Estimated revenue</span>
+        <button class="button ${emphasis ? "primary" : "secondary"}" type="button" data-view-shortcut="${escapeHtml(targetView)}">${escapeHtml(action)}</button>
+      </div>
+    </article>
+  `;
+}
+
 function brandName() {
   return app.data?.settings?.businessName || "Growup";
 }
@@ -683,7 +729,7 @@ function renderLogin() {
     <section class="login-layout">
       <div class="login-desktop-card">
         <aside class="login-brand-panel">
-          <div class="login-brand-mark">G</div>
+          <div class="login-brand-mark"><span>G</span><i>▲</i></div>
           <div>
             <p class="eyebrow">Growup Pilot</p>
             <h2>CRM โตไวสไตล์ SaaS สำหรับร้านที่อยากโตแบบมีระบบ</h2>
@@ -691,7 +737,7 @@ function renderLogin() {
           </div>
         </aside>
         <form class="login-card" id="loginForm">
-          <div class="login-logo">G</div>
+          <div class="login-logo"><span>G</span><i>▲</i></div>
           <div class="section-title">
             <h2>Growup</h2>
             <p>Pilot</p>
@@ -822,25 +868,132 @@ function renderDashboard() {
   const opportunities = opportunityCardsData();
   const revenueOpportunity = opportunities.reduce((sum, item) => sum + item.revenue, 0);
   const salesMax = Math.max(1, ...sales7.map(item => item.total));
+  const yesterday = addDaysISO(s.selectedDate, -1);
+  const yesterdayOrders = app.data.orders.filter(order => order.date === yesterday);
+  const yesterdaySales = yesterdayOrders.reduce((sum, order) => sum + Number(order.amount || 0), 0);
+  const yesterdayOrderCount = yesterdayOrders.length;
+  const yesterdayNewCustomers = app.data.customers.filter(customer => customer.firstPurchaseDate === yesterday).length;
+  const yesterdayReturning = app.data.orders.filter(order => order.date === yesterday)
+    .filter(order => {
+      const customer = app.data.customers.find(item => item.id === order.customerId);
+      return Number(customer?.purchaseCount || 0) > 1;
+    }).length;
+  const salesDelta = dashboardDelta(s.salesToday, yesterdaySales, "currency");
+  const ordersDelta = dashboardDelta(s.ordersToday || 0, yesterdayOrderCount);
+  const newCustomersDelta = dashboardDelta(newCustomersToday().length, yesterdayNewCustomers);
+  const returningDelta = dashboardDelta(returningToday.length, yesterdayReturning);
+  const priorityOpportunities = opportunities
+    .slice()
+    .sort((a, b) => b.revenue - a.revenue)
+    .slice(0, 4);
+  const todayActions = [
+    {
+      title: "โทรหาลูกค้าเก่า",
+      reason: "ลูกค้าเก่าที่ยังไม่ซื้อในเดือนนี้ตอบรับไวที่สุดเมื่อมีคนโทรตาม",
+      revenue: opportunities.find(item => item.id === "sleeping")?.revenue || 0,
+      action: "ดูลูกค้าเก่า",
+      targetView: "customers",
+      icon: "☎",
+      emphasis: "featured"
+    },
+    {
+      title: "ติดตามลูกค้า VIP",
+      reason: "ลูกค้าใกล้ VIP และลูกค้าเดิมมูลค่าสูงมีโอกาสปิดยอดเฉลี่ยมากกว่า",
+      revenue: Math.round((opportunities.find(item => item.id === "vip")?.revenue || 0) * 0.7),
+      action: "ดูรายชื่อ VIP",
+      targetView: "customers",
+      icon: "✦"
+    },
+    {
+      title: "ส่ง Broadcast",
+      reason: "ใช้ Broadcast กระตุ้นลูกค้าที่ยังเงียบและลูกค้าที่ถึงเวลาติดตาม",
+      revenue: Math.round((opportunities.find(item => item.id === "followup")?.revenue || 0) * 0.8),
+      action: "เตรียมข้อความ",
+      targetView: "broadcast",
+      icon: "✉"
+    },
+    {
+      title: "ดันโปรขายดี",
+      reason: "สินค้าขายดีและช่องทางทำเงินเด่นควรถูกโปรโมตต่อในวันนี้",
+      revenue: Math.round((opportunities.find(item => item.id === "best-seller")?.revenue || 0) * 0.9),
+      action: "ดูสินค้าเด่น",
+      targetView: "products",
+      icon: "↗"
+    }
+  ];
 
   els.content.innerHTML = `
     <section class="section">
       <div class="hero-banner">
         <div class="hero-copy">
-          <span class="hero-tagline">Growup Pilot พร้อมโอกาสโตวันนี้</span>
-          <h2>มองภาพร้านให้ชัดขึ้น แล้วลงมือกับโอกาสที่ทำเงินได้ทันที</h2>
-          <p>สรุปยอดขาย, ลูกค้า, สินค้าขายดี และรายการที่ควรตามต่อในหน้าหลักเดียว</p>
+          <span class="hero-tagline">Growup Pilot พร้อมแผนทำเงินรายวัน</span>
+          <h2>วันนี้คุณมีโอกาสเพิ่มรายได้</h2>
+          <div class="hero-big-number">${money(revenueOpportunity)} บาท</div>
+          <p>Growup Pilot แนะนำจากออเดอร์ ลูกค้า และยอดขายล่าสุด</p>
+          <div class="inline">
+            <button class="button primary" type="button" data-view-shortcut="opportunities">ดูโอกาสทำเงิน</button>
+          </div>
+        </div>
+        <div class="hero-side-card">
+          <span class="tag">Priority focus</span>
+          <h3>${escapeHtml(priorityOpportunities[0]?.title || "ยังไม่มีโอกาสที่พร้อมวันนี้")}</h3>
+          <p class="muted">${escapeHtml(priorityOpportunities[0]?.description || "เมื่อมีออเดอร์และลูกค้าเพิ่ม ระบบจะแนะนำงานที่ควรทำทันที")}</p>
+          <strong>${money(priorityOpportunities[0]?.revenue || 0)} บาท</strong>
         </div>
       </div>
       <div class="metric-grid">
-        ${metric("ยอดขายวันนี้", `${money(s.salesToday)} บาท`, "accent")}
-        ${metric("ออเดอร์วันนี้", money(s.ordersToday || 0))}
-        ${metric("ลูกค้าใหม่วันนี้", money(newCustomersToday().length), "green")}
-        ${metric("ลูกค้าเก่ากลับมาซื้อ", money(returningToday.length))}
-        ${metric("โอกาสเพิ่มรายได้วันนี้", `${money(revenueOpportunity)} บาท`, "purple")}
-        ${metric("ยอดขายเดือนนี้", `${money(s.salesThisMonth)} บาท`)}
-        ${metric("ควรติดตามวันนี้", money(s.dueToday), "warn")}
-        ${metric("VIP / VVIP / SUPER", `${s.vip} / ${s.vvip} / ${s.superVip}`)}
+        ${dashboardKpiCard({ label: "ยอดขายวันนี้", value: `${money(s.salesToday)} บาท`, tone: "accent", delta: salesDelta, hint: "ยอดรวมจากออเดอร์ที่ปิดแล้ววันนี้", icon: "฿" })}
+        ${dashboardKpiCard({ label: "ออเดอร์วันนี้", value: money(s.ordersToday || 0), delta: ordersDelta, hint: "จำนวนออเดอร์ที่เข้ามาในวันทำงานนี้", icon: "◫" })}
+        ${dashboardKpiCard({ label: "ลูกค้าใหม่วันนี้", value: money(newCustomersToday().length), tone: "green", delta: newCustomersDelta, hint: "ลูกค้าที่เพิ่งซื้อครั้งแรกในวันนี้", icon: "+" })}
+        ${dashboardKpiCard({ label: "ลูกค้าเก่ากลับมาซื้อ", value: money(returningToday.length), delta: returningDelta, hint: "ลูกค้าเดิมที่ช่วยดันยอดได้เร็วที่สุด", icon: "⟳" })}
+      </div>
+      <div class="dashboard-main-grid">
+        <div class="panel stack spotlight-panel">
+          <div class="section-title">
+            <h2>โอกาสเพิ่มรายได้วันนี้</h2>
+            <p>งานที่มีแนวโน้มเปลี่ยนเป็นยอดขายได้เร็วที่สุดในวันนี้</p>
+          </div>
+          <div class="dashboard-action-grid">
+            ${priorityOpportunities.map((card, index) => dashboardActionCard({
+              title: card.title,
+              reason: card.description,
+              revenue: card.revenue,
+              action: card.action,
+              targetView: card.targetView,
+              icon: index === 0 ? "↗" : index === 1 ? "★" : index === 2 ? "☎" : "▣",
+              emphasis: index === 0 ? "featured" : ""
+            })).join("")}
+          </div>
+        </div>
+        <div class="panel stack summary-side-panel">
+          <div class="section-title">
+            <h2>ภาพรวมวันนี้</h2>
+            <p>ดูตัวเลขสำคัญก่อนเริ่มทำงาน</p>
+          </div>
+          <div class="list-table premium-list">
+            <div class="list-row compact">
+              <div><strong>ยอดขายเดือนนี้</strong><p class="muted">เทียบจากออเดอร์ที่บันทึกแล้ว</p></div>
+              <strong>${money(s.salesThisMonth)} บาท</strong>
+            </div>
+            <div class="list-row compact">
+              <div><strong>ควรติดตามวันนี้</strong><p class="muted">ลูกค้าที่ถึงเวลาคุยต่อ</p></div>
+              <strong>${money(s.dueToday)} ราย</strong>
+            </div>
+            <div class="list-row compact">
+              <div><strong>VIP / VVIP / SUPER</strong><p class="muted">ฐานลูกค้าคุณภาพของร้าน</p></div>
+              <strong>${s.vip} / ${s.vvip} / ${s.superVip}</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="panel stack">
+        <div class="section-title">
+          <h2>วันนี้ควรทำอะไร</h2>
+          <p>ลิสต์งานที่ช่วยให้ได้เงินเพิ่ม ไม่ใช่แค่ดูรายงาน</p>
+        </div>
+        <div class="dashboard-action-grid">
+          ${todayActions.map(card => dashboardActionCard(card)).join("")}
+        </div>
       </div>
       <div class="dashboard-grid-2">
         <div class="panel stack">
@@ -851,19 +1004,22 @@ function renderDashboard() {
             </div>
             <button class="button secondary" data-view-shortcut="orders">ไปหน้าออเดอร์</button>
           </div>
-          <div class="list-table">
+          <div class="list-table premium-list">
             ${recentOrders.map(order => `
-              <button class="list-row" type="button" data-open-customer="${escapeHtml(order.customerId)}">
+              <button class="list-row rich-row" type="button" data-open-customer="${escapeHtml(order.customerId)}">
                 <div>
                   <strong>${escapeHtml(order.customerName || "-")}</strong>
                   <p class="muted">${escapeHtml(order.orderNumber || "-")} · ${formatDate(order.date)} · ${escapeHtml(displayOrderChannel(order))}</p>
                 </div>
-                <strong>${money(order.amount)} บาท</strong>
+                <div class="rich-row-side">
+                  ${badge(order.status === "NEW" ? "NEW" : order.vipLevel)}
+                  <strong>${money(order.amount)} บาท</strong>
+                </div>
               </button>
             `).join("") || `<div class="empty-state">ยังไม่มีออเดอร์ล่าสุด</div>`}
           </div>
         </div>
-        <div class="panel stack">
+        <div class="panel stack sales-panel">
           <div class="section-title">
             <h2>ยอดขาย 7 วันที่ผ่านมา</h2>
             <p>มอง momentum ของร้านในสัปดาห์ล่าสุด</p>
@@ -885,9 +1041,9 @@ function renderDashboard() {
             <h2>สินค้าขายดีวันนี้</h2>
             <p>ใช้ข้อมูลสินค้าที่มีอยู่ในระบบ ถ้ายังไม่มีหลาย SKU จะแสดงภาพรวมตัวหลัก</p>
           </div>
-          <div class="list-table">
+          <div class="list-table premium-list">
             ${topProducts.map(product => `
-              <div class="list-row">
+              <div class="list-row rich-row">
                 <div>
                   <strong>${escapeHtml(product.name)}</strong>
                   <p class="muted">ขายแล้ว ${money(product.soldCount)} ชิ้น · ${money(product.orderCount)} ออเดอร์</p>
