@@ -10,10 +10,13 @@
     <meta name="apple-mobile-web-app-title" content="Growup Pilot">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <title>Growup Pilot</title>
-    <link rel="manifest" href="/manifest.webmanifest?v=20260630-ui-refresh">
-    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
-    <link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512.png">
-    <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png">
+    <link rel="manifest" href="/manifest.webmanifest?v=20260630-favicon-refresh">
+    <link rel="icon" href="/favicon.ico?v=20260630-favicon-refresh" sizes="any">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=20260630-favicon-refresh">
+    <link rel="icon" type="image/png" href="/favicon.png?v=20260630-favicon-refresh">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=20260630-favicon-refresh">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=20260630-favicon-refresh">
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=20260630-favicon-refresh">
     <link rel="stylesheet" href="/styles.css?v=20260630-ui-refresh">
   </head>
   <body>
@@ -162,7 +165,7 @@
 
     <script src="/app.js?v=20260630-ui-refresh"></script>
     <script>
-      const swUrl = "/service-worker.js?v=20260630-ui-refresh";
+      const swUrl = "/service-worker.js?v=20260630-favicon-refresh";
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", () => {
           navigator.serviceWorker.register(swUrl).then(registration => registration.update()).catch(() => {});

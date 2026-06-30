@@ -1,17 +1,23 @@
-const CACHE_NAME = "growup-pilot-pwa-v26";
+const CACHE_NAME = "growup-pilot-pwa-v27";
 const CORE_ASSETS = [
   "/",
   "/index.html",
+  "/favicon.ico?v=20260630-favicon-refresh",
+  "/favicon.svg?v=20260630-favicon-refresh",
+  "/favicon.png?v=20260630-favicon-refresh",
+  "/favicon-16x16.png?v=20260630-favicon-refresh",
+  "/favicon-32x32.png?v=20260630-favicon-refresh",
+  "/apple-touch-icon.png?v=20260630-favicon-refresh",
   "/styles.css?v=20260630-ui-refresh",
   "/app.js?v=20260630-ui-refresh",
   "/import-worker.js",
   "/xlsx.full.min.js",
-  "/manifest.webmanifest?v=20260630-ui-refresh",
-  "/icons/apple-touch-icon.png",
-  "/icons/icon-192.png",
-  "/icons/icon-512.png",
-  "/icons/maskable-icon-192.png",
-  "/icons/maskable-icon-512.png"
+  "/manifest.webmanifest?v=20260630-favicon-refresh",
+  "/icons/apple-touch-icon.png?v=20260630-favicon-refresh",
+  "/icons/icon-192.png?v=20260630-favicon-refresh",
+  "/icons/icon-512.png?v=20260630-favicon-refresh",
+  "/icons/maskable-icon-192.png?v=20260630-favicon-refresh",
+  "/icons/maskable-icon-512.png?v=20260630-favicon-refresh"
 ];
 
 self.addEventListener("install", event => {
