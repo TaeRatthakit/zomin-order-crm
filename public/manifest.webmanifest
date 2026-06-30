@@ -1,7 +1,7 @@
 {
   "name": "Growup Pilot",
-  "short_name": "Growup",
-  "description": "Growup Pilot สำหรับจัดการลูกค้า ออเดอร์ และโอกาสเติบโตของร้าน",
+  "short_name": "Growup Pilot",
+  "description": "Growup Pilot ผู้ช่วยธุรกิจสำหรับจัดการลูกค้า ออเดอร์ โอกาสทำเงิน และการเติบโตของร้าน",
   "lang": "th",
   "start_url": "/dashboard",
   "scope": "/",

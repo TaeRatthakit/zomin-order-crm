@@ -1,5 +1,5 @@
 {
-  "name": "zomin-order-crm",
+  "name": "growup-pilot",
   "version": "3.0.0",
   "description": "Growup Pilot - local CRM web app with prepared LINE webhook",
   "main": "server.js",
@@ -15,7 +15,8 @@
     "migrate:supabase": "node scripts/migrate-json-to-supabase.js"
   },
   "keywords": [
-    "zomin",
+    "growup-pilot",
+    "growup",
     "crm",
     "orders",
     "line-webhook"

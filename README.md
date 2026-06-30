@@ -1,6 +1,6 @@
-# Zomin Order CRM V3
+# Growup Pilot
 
-เว็บแอพ CRM สำหรับจัดการออเดอร์ Zomin ตาม Workflow V3 Phase 1
+เว็บแอพ CRM สำหรับจัดการออเดอร์ ลูกค้า และโอกาสเติบโตของร้านด้วย Growup Pilot
 
 ## วิธีรัน
 
@@ -118,7 +118,7 @@ POST /api/line/webhook
   "events": [
     {
       "message": {
-        "text": "คุณวิภา\nโทร 0891234567\nZomin 3 กระปุก รวม 2250 บาท\n#ปวดข้อ"
+        "text": "คุณวิภา\nโทร 0891234567\nGrowup 3 กระปุก รวม 2250 บาท\n#ปวดข้อ"
       }
     }
   ]

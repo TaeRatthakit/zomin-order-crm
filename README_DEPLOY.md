@@ -1,10 +1,10 @@
-# Zomin Order CRM Production Deploy
+# Growup Pilot Production Deploy
 
 ## 1. Backup เวอร์ชันที่รันได้
 
 ทำไว้แล้วใน repo นี้:
 
-- Commit: `7d9a6cd Backup working Zomin CRM before production prep`
+- Commit: `7d9a6cd Backup working app before production prep`
 - Branch: `backup/pre-production-ready-local-json`
 
 ## 2. Local JSON Mode

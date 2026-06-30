@@ -1,15 +1,15 @@
-# Zomin Order CRM Progress Report
+# Growup Pilot Progress Report
 
 Updated: 2026-06-20
 
 ## Current Status
 
-Zomin Order CRM V3 has been upgraded from local-only demo toward production-ready Phase 1.
+Growup Pilot has been upgraded from local-only demo toward production-ready Phase 1.
 
 Backup already exists:
 
 - Backup branch: `backup/pre-production-ready-local-json`
-- Backup commit: `7d9a6cd Backup working Zomin CRM before production prep`
+- Backup commit: `7d9a6cd Backup working app before production prep`
 
 ## Completed
 

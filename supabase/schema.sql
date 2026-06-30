@@ -1,4 +1,4 @@
--- Zomin Order CRM V3 production schema for Supabase/Postgres.
+-- Growup Pilot production schema for Supabase/Postgres.
 -- Run this once in Supabase SQL Editor before migrating data.
 
 create extension if not exists pgcrypto;
@@ -54,7 +54,7 @@ create table if not exists public.orders (
   customer_name text default '',
   phone text default '',
   address text default '',
-  items text not null default 'Zomin',
+  items text not null default 'Growup',
   quantity integer not null default 1,
   amount numeric(12,2) not null default 0,
   order_date date not null,

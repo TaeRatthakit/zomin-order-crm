@@ -105,11 +105,11 @@ const db = {
     }
   ],
   orders: [
-    { id: "o_1001", customerId: "c_pongsak", date: daysAgo(260), time: "10:00", items: "Zomin", jars: 6, amount: 4500, source: "LINE", rawText: "" },
-    { id: "o_1002", customerId: "c_pongsak", date: daysAgo(160), time: "13:00", items: "Zomin", jars: 13, amount: 9750, source: "โทรศัพท์", rawText: "" },
-    { id: "o_1003", customerId: "c_pongsak", date: daysAgo(31), time: "18:20", items: "Zomin", jars: 12, amount: 9000, source: "LINE", rawText: "" },
-    { id: "o_1004", customerId: "c_malee", date: daysAgo(30), time: "09:30", items: "Zomin", jars: 2, amount: 1500, source: "LINE", rawText: "" },
-    { id: "o_1005", customerId: "c_wipa", date: daysAgo(15), time: "14:10", items: "Zomin", jars: 4, amount: 3000, source: "Import", rawText: "คุณวิภา โทร 0891234567 4 กระปุก รวม 3000 บาท" }
+    { id: "o_1001", customerId: "c_pongsak", date: daysAgo(260), time: "10:00", items: "Growup", jars: 6, amount: 4500, source: "LINE", rawText: "" },
+    { id: "o_1002", customerId: "c_pongsak", date: daysAgo(160), time: "13:00", items: "Growup", jars: 13, amount: 9750, source: "โทรศัพท์", rawText: "" },
+    { id: "o_1003", customerId: "c_pongsak", date: daysAgo(31), time: "18:20", items: "Growup", jars: 12, amount: 9000, source: "LINE", rawText: "" },
+    { id: "o_1004", customerId: "c_malee", date: daysAgo(30), time: "09:30", items: "Growup", jars: 2, amount: 1500, source: "LINE", rawText: "" },
+    { id: "o_1005", customerId: "c_wipa", date: daysAgo(15), time: "14:10", items: "Growup", jars: 4, amount: 3000, source: "Import", rawText: "คุณวิภา โทร 0891234567 4 กระปุก รวม 3000 บาท" }
   ],
   lineMessages: [],
   contactLogs: [
