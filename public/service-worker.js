@@ -1,4 +1,4 @@
-const CACHE_NAME = "growup-pilot-pwa-v28";
+const CACHE_NAME = "growup-pilot-pwa-v29";
 const CORE_ASSETS = [
   "/",
   "/index.html",
