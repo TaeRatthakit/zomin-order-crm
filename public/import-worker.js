@@ -192,7 +192,7 @@ function normalizePreparedRows(rows, defaultJarPrice) {
       tags: value("tags"),
       originSource: value("originSource"),
       note: value("note"),
-      items: value("items") || "Zomin",
+      items: value("items") || "Growup",
       source: "Import"
     };
     normalized.rawText = JSON.stringify({

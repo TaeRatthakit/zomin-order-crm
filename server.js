@@ -894,7 +894,7 @@ function addOrder(db, payload) {
     address: normalizeImportText(payload.address || customer.address),
     date: toDateOnly(payload.date || new Date()),
     time: String(payload.time || bangkokTime()),
-    items: String(payload.items || "Zomin").trim(),
+    items: String(payload.items || "Growup").trim(),
     jars,
     amount,
     source: isPlaceholderChannel(payload.source) ? "" : String(payload.source || sourceChannel || "").trim(),
@@ -1486,7 +1486,7 @@ async function handleLineWebhookEvents(db, settings, events) {
         amount: normalized.amount,
         date: normalized.date
       }));
-      replies.push({ replyToken, messages: [{ type: "text", text: "✅ นำเข้าออเดอร์เข้า OrderPilot CRM เรียบร้อยแล้ว" }] });
+      replies.push({ replyToken, messages: [{ type: "text", text: "✅ นำเข้าออเดอร์เข้า Growup Pilot เรียบร้อยแล้ว" }] });
     } catch (error) {
       if (error.code === "ORDER_DUPLICATE") {
         debug.parser_status = "duplicate";
@@ -1501,7 +1501,7 @@ async function handleLineWebhookEvents(db, settings, events) {
         }));
         const duplicateReplyText = normalized.lineMessageId
           && normalizeImportText(error.order?.lineMessageId || error.order?.line_message_id || "") === normalized.lineMessageId
-          ? "ℹ️ Order already exists in OrderPilot CRM."
+          ? "ℹ️ Order already exists in Growup Pilot."
           : "⚠️ พบออเดอร์ซ้ำ ระบบไม่นำเข้า CRM\n\nพบออเดอร์ที่มีรายละเอียดตรงกันภายใน 24 ชั่วโมง\nกรุณาตรวจสอบก่อนส่งซ้ำ";
         replies.push({ replyToken, messages: [{ type: "text", text: duplicateReplyText }] });
         continue;
@@ -1605,7 +1605,7 @@ function normalizeImportRow(row, defaultJarPrice) {
     jars,
     amount: Number.isFinite(parsedAmount) ? parsedAmount : jars * defaultJarPrice,
     tags: get("tags", "tag", "แท็ก", "อาการลูกค้า", "อาการ"),
-    items: get("items", "product", "สินค้า") || "Zomin",
+    items: get("items", "product", "สินค้า") || "Growup",
     source: "Import",
     sourceChannel,
     socialName: get(
@@ -1789,7 +1789,7 @@ async function handleApi(req, res) {
   if (isLineWebhook && req.method === "GET") {
     return json(res, 200, {
       ok: true,
-      message: "Zomin LINE webhook endpoint is ready. Use POST /api/line/webhook."
+      message: "Growup Pilot LINE webhook endpoint is ready. Use POST /api/line/webhook."
     });
   }
 
@@ -2294,7 +2294,7 @@ const server = http.createServer(appHandler);
 
 if (require.main === module) {
   server.listen(PORT, HOST, () => {
-    console.log(`Zomin Order CRM is running at http://${HOST}:${PORT}`);
+    console.log(`Growup Pilot is running at http://${HOST}:${PORT}`);
   });
 }
 

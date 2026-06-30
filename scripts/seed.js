@@ -9,7 +9,7 @@ function daysAgo(days) {
 
 const db = {
   settings: {
-    businessName: "Zomin",
+    businessName: "Growup",
     defaultJarPrice: 750,
     vipThresholds: {
       vip: 5000,
@@ -17,8 +17,8 @@ const db = {
       superVip: 20000
     },
     messageTemplates: {
-      normal: "สวัสดีค่ะ {{name}} จาก Zomin นะคะ รอบก่อนสั่ง {{jars}} กระปุก ตอนนี้ถึงรอบดูแลต่อเนื่องแล้ว ต้องการให้จัดส่งเพิ่มไหมคะ",
-      vip: "สวัสดีค่ะ {{name}} ลูกค้า VIP ของ Zomin รอบดูแลต่อเนื่องมาถึงแล้ว ทีมงานเตรียมโปรพิเศษไว้ให้ค่ะ"
+      normal: "สวัสดีค่ะ {{name}} จาก Growup นะคะ รอบก่อนสั่ง {{jars}} กระปุก ตอนนี้ถึงรอบดูแลต่อเนื่องแล้ว ต้องการให้จัดส่งเพิ่มไหมคะ",
+      vip: "สวัสดีค่ะ {{name}} ลูกค้า VIP ของ Growup รอบดูแลต่อเนื่องมาถึงแล้ว ทีมงานเตรียมโปรพิเศษไว้ให้ค่ะ"
     },
     followUpDaysPerUnit: 15,
     lineChannelId: "",
@@ -127,7 +127,7 @@ const db = {
 
 Promise.resolve(writeDb(db))
   .then(() => {
-    console.log(`Seeded Zomin CRM data using ${provider} provider.`);
+    console.log(`Seeded Growup Pilot data using ${provider} provider.`);
     console.log("Demo login: admin / admin123, staff / staff123");
   })
   .catch(error => {

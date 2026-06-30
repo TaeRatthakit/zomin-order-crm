@@ -13,7 +13,7 @@ const DEFAULT_FOLLOW_UP_RULES = [
 
 function defaultSettings(settings = {}) {
   return {
-    businessName: settings.businessName || "Zomin",
+    businessName: settings.businessName || "Growup",
     defaultJarPrice: Number(settings.defaultJarPrice || 750),
     vipThresholds: settings.vipThresholds || {
       vip: 5000,
@@ -21,8 +21,8 @@ function defaultSettings(settings = {}) {
       superVip: 20000
     },
     messageTemplates: settings.messageTemplates || {
-      normal: "สวัสดีค่ะ {{name}} จาก Zomin นะคะ รอบก่อนสั่ง {{jars}} กระปุก ตอนนี้ถึงรอบดูแลต่อเนื่องแล้ว ต้องการให้จัดส่งเพิ่มไหมคะ",
-      vip: "สวัสดีค่ะ {{name}} ลูกค้า VIP ของ Zomin รอบดูแลต่อเนื่องมาถึงแล้ว ทีมงานเตรียมโปรพิเศษไว้ให้ค่ะ"
+      normal: "สวัสดีค่ะ {{name}} จาก Growup นะคะ รอบก่อนสั่ง {{jars}} กระปุก ตอนนี้ถึงรอบดูแลต่อเนื่องแล้ว ต้องการให้จัดส่งเพิ่มไหมคะ",
+      vip: "สวัสดีค่ะ {{name}} ลูกค้า VIP ของ Growup รอบดูแลต่อเนื่องมาถึงแล้ว ทีมงานเตรียมโปรพิเศษไว้ให้ค่ะ"
     },
     followUpDaysPerUnit: Number(settings.followUpDaysPerUnit || 15),
     lineChannelId: settings.lineChannelId || "",
@@ -55,7 +55,7 @@ async function main() {
     user = {
       id: "u_admin",
       username,
-      name: process.env.ADMIN_NAME || "Zomin Admin",
+      name: process.env.ADMIN_NAME || "Growup Admin",
       role: "Admin",
       phone: process.env.ADMIN_PHONE || "",
       active: true
@@ -64,7 +64,7 @@ async function main() {
   }
 
   user.username = username;
-  user.name = process.env.ADMIN_NAME || user.name || "Zomin Admin";
+  user.name = process.env.ADMIN_NAME || user.name || "Growup Admin";
   user.role = "Admin";
   user.phone = process.env.ADMIN_PHONE || user.phone || "";
   user.active = true;
