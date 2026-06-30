@@ -63,6 +63,14 @@ function text(res, status, body, contentType = "text/plain; charset=utf-8") {
   res.end(body);
 }
 
+function staticCacheHeaders(filePath) {
+  const ext = path.extname(filePath);
+  if (ext === ".html" || path.basename(filePath) === "service-worker.js") {
+    return { "Cache-Control": "no-store" };
+  }
+  return { "Cache-Control": "public, max-age=0, must-revalidate" };
+}
+
 function readBody(req) {
   return new Promise((resolve, reject) => {
     let body = "";
@@ -1724,12 +1732,20 @@ function serveStatic(req, res) {
       filePath = path.join(PUBLIC_DIR, "index.html");
       return fs.readFile(filePath, (fallbackError, fallbackFile) => {
         if (fallbackError) return text(res, 404, "Not found");
-        text(res, 200, fallbackFile, MIME_TYPES[".html"]);
+        res.writeHead(200, {
+          "Content-Type": MIME_TYPES[".html"],
+          ...staticCacheHeaders(filePath)
+        });
+        res.end(fallbackFile);
       });
     }
     if (error) return text(res, 404, "Not found");
     const ext = path.extname(filePath);
-    text(res, 200, file, MIME_TYPES[ext] || "application/octet-stream");
+    res.writeHead(200, {
+      "Content-Type": MIME_TYPES[ext] || "application/octet-stream",
+      ...staticCacheHeaders(filePath)
+    });
+    res.end(file);
   });
 }
 

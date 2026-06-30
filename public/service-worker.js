@@ -1,12 +1,12 @@
-const CACHE_NAME = "growup-pilot-pwa-v25";
+const CACHE_NAME = "growup-pilot-pwa-v26";
 const CORE_ASSETS = [
   "/",
   "/index.html",
-  "/styles.css",
-  "/app.js",
+  "/styles.css?v=20260630-ui-refresh",
+  "/app.js?v=20260630-ui-refresh",
   "/import-worker.js",
   "/xlsx.full.min.js",
-  "/manifest.webmanifest",
+  "/manifest.webmanifest?v=20260630-ui-refresh",
   "/icons/apple-touch-icon.png",
   "/icons/icon-192.png",
   "/icons/icon-512.png",
