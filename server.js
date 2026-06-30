@@ -1487,7 +1487,7 @@ async function handleLineWebhookEvents(db, settings, events) {
         amount: normalized.amount,
         date: normalized.date
       }));
-      replies.push({ replyToken, messages: [{ type: "text", text: "✅ นำเข้าออเดอร์เข้า Growup Pilot เรียบร้อยแล้ว" }] });
+      replies.push({ replyToken, messages: [{ type: "text", text: "✅ นำเข้าออเดอร์เรียบร้อยแล้ว\nGrowup Pilot บันทึกข้อมูลเรียบร้อย" }] });
     } catch (error) {
       if (error.code === "ORDER_DUPLICATE") {
         debug.parser_status = "duplicate";
@@ -1502,7 +1502,7 @@ async function handleLineWebhookEvents(db, settings, events) {
         }));
         const duplicateReplyText = normalized.lineMessageId
           && normalizeImportText(error.order?.lineMessageId || error.order?.line_message_id || "") === normalized.lineMessageId
-          ? "ℹ️ Order already exists in Growup Pilot."
+          ? "ℹ️ ออเดอร์นี้มีอยู่แล้วใน Growup Pilot"
           : "⚠️ พบออเดอร์ซ้ำ ระบบไม่นำเข้า CRM\n\nพบออเดอร์ที่มีรายละเอียดตรงกันภายใน 24 ชั่วโมง\nกรุณาตรวจสอบก่อนส่งซ้ำ";
         replies.push({ replyToken, messages: [{ type: "text", text: duplicateReplyText }] });
         continue;
