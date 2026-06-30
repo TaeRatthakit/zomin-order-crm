@@ -1,18 +1,32 @@
 const navItems = [
   ["dashboard", "/dashboard", "หน้าหลัก", "home"],
-  ["search", "/customers", "ลูกค้า", "users"],
+  ["opportunities", "/opportunities", "โอกาสทำเงิน", "spark"],
   ["orders", "/orders", "ออเดอร์", "clipboard"],
-  ["followup", "/follow-up", "เตือน", "bell"],
-  ["more", "/more", "เพิ่มเติม", "more"]
+  ["customers", "/customers", "ลูกค้า", "users"],
+  ["products", "/products", "สินค้า", "box"],
+  ["marketing", "/marketing", "การตลาด", "megaphone"],
+  ["reports", "/reports", "รายงาน", "chart"],
+  ["aiInsights", "/ai-insight", "AI Insight", "stars"],
+  ["broadcast", "/broadcast", "Broadcast", "send"],
+  ["campaigns", "/campaigns", "แคมเปญ", "flag"],
+  ["settings", "/settings", "ตั้งค่า", "settings"],
+  ["notifications", "/notifications", "แจ้งเตือน", "bell"]
 ];
 
 const routeToView = {
   "/": "dashboard",
   "/dashboard": "dashboard",
-  "/customers": "search",
+  "/customers": "customers",
   "/orders": "orders",
-  "/follow-up": "followup",
-  "/more": "more",
+  "/follow-up": "notifications",
+  "/notifications": "notifications",
+  "/more": "settings",
+  "/opportunities": "opportunities",
+  "/products": "products",
+  "/marketing": "marketing",
+  "/ai-insight": "aiInsights",
+  "/broadcast": "broadcast",
+  "/campaigns": "campaigns",
   "/vip": "vip",
   "/tags": "tags",
   "/import": "import",
@@ -64,7 +78,7 @@ const app = {
   deletingCustomerId: ""
 };
 
-const adminViews = new Set(["settings", "settingsFollowup", "settingsVip", "settingsLine", "lineDebug", "team"]);
+const adminViews = new Set(["settingsFollowup", "settingsVip", "settingsLine", "lineDebug", "team"]);
 
 function isAdmin() {
   return app.currentUser?.role === "Admin";
@@ -114,10 +128,11 @@ function sortOrdersAscending(orders) {
 
 function routeFromLocation() {
   if (location.hash) {
-    const hashView = location.hash.replace("#", "");
-    if (hashView === "customers") return "search";
-    if (hashView === "follow-up") return "followup";
-    return hashView || "dashboard";
+    const hashView = location.hash.replace("#", "") || "dashboard";
+    if (hashView === "search") return "customers";
+    if (hashView === "followup" || hashView === "follow-up") return "notifications";
+    if (hashView === "more") return "settings";
+    return hashView;
   }
   return routeToView[location.pathname] || "dashboard";
 }
@@ -135,6 +150,14 @@ function iconSvg(name) {
     users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
     clipboard: '<rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M8 11h8"/><path d="M8 16h6"/>',
     bell: '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>',
+    spark: '<path d="M12 3 9.5 9.5 3 12l6.5 2.5L12 21l2.5-6.5L21 12l-6.5-2.5z"/>',
+    box: '<path d="M21 8.5 12 13 3 8.5"/><path d="M3 8.5 12 3l9 5.5v7L12 21l-9-5.5z"/><path d="M12 13v8"/>',
+    megaphone: '<path d="M3 11v2"/><path d="M6 10v4"/><path d="M19 7v10"/><path d="M6 10l13-3v10L6 14z"/><path d="M6 14l2 6h3"/>',
+    chart: '<path d="M4 19h16"/><path d="M7 15V9"/><path d="M12 15V5"/><path d="M17 15v-3"/>',
+    stars: '<path d="m12 3 1.8 4.2L18 9l-4.2 1.8L12 15l-1.8-4.2L6 9l4.2-1.8z"/><path d="m19 16 .9 2.1L22 19l-2.1.9L19 22l-.9-2.1L16 19l2.1-.9z"/><path d="M5 16.5 6 19l2.5 1-2.5 1L5 23l-1-2.5L1.5 19 4 18z"/>',
+    send: '<path d="M22 2 11 13"/><path d="m22 2-7 20-4-9-9-4z"/>',
+    flag: '<path d="M4 21V5"/><path d="M4 5h11l-1.5 4L15 13H4"/>',
+    settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 8 19.4a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 8a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V3a2 2 0 1 1 4 0v.09A1.7 1.7 0 0 0 16 4.6a1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9c0 .38.14.74.4 1a1.7 1.7 0 0 0 1.1.4H21a2 2 0 1 1 0 4h-.09c-.41 0-.81.15-1.1.4a1.7 1.7 0 0 0-.41 1.1Z"/>',
     trash: '<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="m19 6-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/>',
     more: '<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>'
   };
@@ -300,15 +323,20 @@ function titleFor(view) {
   const titles = {
     login: "เข้าสู่ระบบ",
     dashboard: "หน้าหลัก",
-    search: "ลูกค้า",
+    opportunities: "โอกาสทำเงิน",
     orders: "ออเดอร์",
-    followup: "เตือน",
-    more: "เพิ่มเติม",
+    customers: "ลูกค้า",
+    products: "สินค้า",
+    marketing: "การตลาด",
+    reports: "รายงาน",
+    aiInsights: "AI Insight",
+    broadcast: "Broadcast",
+    campaigns: "แคมเปญ",
+    notifications: "แจ้งเตือน",
     vip: "ลูกค้า VIP",
     risk: "ลูกค้าเสี่ยงหาย",
     tags: "อาการลูกค้า",
     import: "เพิ่มข้อมูลเก่า",
-    reports: "รายงานยอดขาย",
     team: "จัดการทีมงาน",
     settings: "ตั้งค่า",
     settingsFollowup: "ตั้งค่า Follow-up",
@@ -332,9 +360,9 @@ function renderSubpageNav() {
   }
   els.subpageNav.hidden = false;
   els.subpageNav.innerHTML = `
-    <button class="subpage-back" type="button" data-view-shortcut="more" aria-label="กลับไปหน้าเพิ่มเติม">←</button>
+    <button class="subpage-back" type="button" data-view-shortcut="settings" aria-label="กลับไปหน้าตั้งค่า">←</button>
     <nav class="breadcrumb" aria-label="Breadcrumb">
-      <button type="button" data-view-shortcut="more">เพิ่มเติม</button>
+      <button type="button" data-view-shortcut="settings">ตั้งค่า</button>
       <span aria-hidden="true">›</span>
       <span>${escapeHtml(titleFor(app.view))}</span>
     </nav>
@@ -394,8 +422,8 @@ async function loadState() {
     navigateToView("dashboard", true);
   }
   if (!canAccessView(app.view)) {
-    app.view = "more";
-    navigateToView("more", true);
+    app.view = "settings";
+    navigateToView("settings", true);
   }
   if (app.view === "import" && isAdmin()) {
     try {
@@ -415,7 +443,18 @@ function renderNav() {
     els.nav.innerHTML = "";
     return;
   }
-  const activeGroup = ["vip", "risk", "tags", "import", "reports", "team", "settings", "settingsFollowup", "settingsVip", "settingsLine", "lineDebug"].includes(app.view) ? "more" : app.view;
+  const activeGroupMap = {
+    vip: "settings",
+    risk: "notifications",
+    tags: "customers",
+    import: "orders",
+    team: "settings",
+    settingsFollowup: "settings",
+    settingsVip: "settings",
+    settingsLine: "settings",
+    lineDebug: "settings"
+  };
+  const activeGroup = activeGroupMap[app.view] || app.view;
   els.nav.innerHTML = navItems
     .map(([id, path, label, icon]) => `
       <button class="nav-button ${activeGroup === id ? "active" : ""}" data-view="${id}" data-path="${path}" aria-label="${escapeHtml(label)}">
@@ -479,23 +518,183 @@ function monthlyChart() {
   `;
 }
 
+function brandName() {
+  return app.data?.settings?.businessName || "Growup";
+}
+
+function last7DaysSales() {
+  const base = app.data.summary?.selectedDate || todayISO();
+  return Array.from({ length: 7 }, (_, index) => {
+    const date = addDaysISO(base, index - 6);
+    const total = app.data.orders
+      .filter(order => order.date === date)
+      .reduce((sum, order) => sum + Number(order.amount || 0), 0);
+    return { date, total };
+  });
+}
+
+function ordersToday() {
+  const selectedDate = app.data.summary?.selectedDate || todayISO();
+  return app.data.orders.filter(order => order.date === selectedDate);
+}
+
+function newCustomersToday() {
+  const selectedDate = app.data.summary?.selectedDate || todayISO();
+  return app.data.customers.filter(customer => customer.firstPurchaseDate === selectedDate);
+}
+
+function repeatCustomersToday() {
+  const selectedDate = app.data.summary?.selectedDate || todayISO();
+  const ids = new Set(app.data.orders.filter(order => order.date === selectedDate).map(order => order.customerId));
+  return app.data.customers.filter(customer => ids.has(customer.id) && Number(customer.purchaseCount || 0) > 1);
+}
+
+function estimatedOpportunityRevenue(customers, ratio = 0.35, fallback = 750) {
+  return customers.reduce((sum, customer) => {
+    const base = Number(customer.lastAmount || customer.totalSpent / Math.max(customer.purchaseCount || 1, 1) || fallback);
+    return sum + Math.round(base * ratio);
+  }, 0);
+}
+
+function groupedProducts() {
+  const map = new Map();
+  for (const order of app.data.orders) {
+    const name = String(order.items || "Growup Formula").trim() || "Growup Formula";
+    if (!map.has(name)) {
+      map.set(name, {
+        name,
+        soldCount: 0,
+        orderCount: 0,
+        revenue: 0
+      });
+    }
+    const item = map.get(name);
+    item.soldCount += Number(order.jars || 0);
+    item.orderCount += 1;
+    item.revenue += Number(order.amount || 0);
+  }
+  return [...map.values()].sort((a, b) => b.revenue - a.revenue);
+}
+
+function channelPerformance() {
+  const map = new Map();
+  for (const order of app.data.orders) {
+    const name = summarizeSalesChannel(displayOrderChannel(order));
+    if (!map.has(name)) map.set(name, { name, orders: 0, revenue: 0 });
+    const item = map.get(name);
+    item.orders += 1;
+    item.revenue += Number(order.amount || 0);
+  }
+  return [...map.values()]
+    .map(item => ({
+      ...item,
+      roi: item.orders ? Math.round(item.revenue / item.orders) : 0
+    }))
+    .sort((a, b) => b.revenue - a.revenue);
+}
+
+function notificationItems() {
+  const selectedDate = app.data.summary?.selectedDate || todayISO();
+  const duplicates = [];
+  const seen = new Map();
+  for (const order of app.data.orders) {
+    const key = `${String(order.orderNumber || "").trim().toLowerCase()}|${order.date}`;
+    if (!String(order.orderNumber || "").trim()) continue;
+    if (seen.has(key)) duplicates.push(order);
+    else seen.set(key, order.id);
+  }
+  const due = app.data.customers.filter(customer => customer.followUpDate && customer.followUpDate <= selectedDate);
+  const vip = app.data.customers.filter(customer => customer.vipLevel === "NORMAL" && Number(customer.totalSpent || 0) >= Number(app.data.settings.vipThresholds?.vip || 5000) * 0.8);
+  const lowStock = groupedProducts().map(product => ({
+    ...product,
+    stockEstimate: Math.max(0, 120 - product.soldCount)
+  })).filter(product => product.stockEstimate <= 25);
+  const opportunities = opportunityCardsData();
+  return [
+    { type: "duplicate orders", title: "ออเดอร์ซ้ำที่ควรตรวจสอบ", count: duplicates.length, detail: "ตรวจเลขออเดอร์ซ้ำก่อนปิดยอด" },
+    { type: "follow-up customers", title: "ลูกค้าที่ควรติดตาม", count: due.length, detail: "พร้อมโทรหรือ Broadcast ได้ทันที" },
+    { type: "VIP reminders", title: "ลูกค้าใกล้เป็น VIP", count: vip.length, detail: "กระตุ้นอีกนิดเพื่อเพิ่มโอกาสซื้อซ้ำ" },
+    { type: "stock alerts", title: "สินค้าใกล้หมดสต๊อก", count: lowStock.length, detail: "เช็ก stock ก่อนรอบขายถัดไป" },
+    { type: "sales opportunities", title: "โอกาสเพิ่มรายได้วันนี้", count: opportunities.length, detail: `มูลค่าประมาณ ${money(opportunities.reduce((sum, item) => sum + item.revenue, 0))} บาท` }
+  ];
+}
+
+function opportunityCardsData() {
+  const selectedMonth = (app.data.summary?.selectedDate || todayISO()).slice(0, 7);
+  const notBoughtThisMonth = app.data.customers.filter(customer => !customer.lastPurchaseDate || !String(customer.lastPurchaseDate).startsWith(selectedMonth));
+  const noVip = app.data.customers.filter(customer => customer.vipLevel === "NORMAL" && Number(customer.totalSpent || 0) > 0);
+  const due = app.data.customers.filter(customer => customer.followUpDate && customer.followUpDate <= (app.data.summary?.selectedDate || todayISO()));
+  const bestSellerProducts = groupedProducts().slice(0, 3);
+  const lowStockProducts = groupedProducts().map(product => ({
+    ...product,
+    stockEstimate: Math.max(0, 120 - product.soldCount)
+  })).filter(product => product.stockEstimate <= 25);
+  return [
+    {
+      id: "sleeping",
+      title: "ลูกค้าเก่ายังไม่ซื้อในเดือนนี้",
+      count: notBoughtThisMonth.length,
+      revenue: estimatedOpportunityRevenue(notBoughtThisMonth, 0.42),
+      action: "เปิดรายชื่อลูกค้า",
+      targetView: "customers",
+      description: "รีเทิร์นลูกค้าเดิมที่เคยสั่งแล้ว แต่เดือนนี้ยังเงียบอยู่"
+    },
+    {
+      id: "vip",
+      title: "ลูกค้ายังไม่ได้ VIP",
+      count: noVip.length,
+      revenue: estimatedOpportunityRevenue(noVip, 0.28),
+      action: "ดูโอกาสอัป VIP",
+      targetView: "customers",
+      description: "เสนอชุดใหญ่หรือสิทธิพิเศษเพื่อดันยอดสะสม"
+    },
+    {
+      id: "followup",
+      title: "ลูกค้าที่ควรติดตาม",
+      count: due.length,
+      revenue: estimatedOpportunityRevenue(due, 0.36),
+      action: "เปิดแจ้งเตือน",
+      targetView: "notifications",
+      description: "กลุ่มพร้อมปิดการขายซ้ำเร็วที่สุด"
+    },
+    {
+      id: "best-seller",
+      title: "สินค้าขายดีที่ควรดันต่อ",
+      count: bestSellerProducts.length,
+      revenue: bestSellerProducts.reduce((sum, item) => sum + Math.round(item.revenue * 0.18), 0),
+      action: "ไปหน้าสินค้า",
+      targetView: "products",
+      description: "สินค้าที่ยอดดีอยู่แล้ว เหมาะกับโปรโมชันต่อเนื่อง"
+    },
+    {
+      id: "low-stock",
+      title: "สินค้าใกล้หมดสต๊อก",
+      count: lowStockProducts.length,
+      revenue: lowStockProducts.reduce((sum, item) => sum + Math.round(item.revenue * 0.1), 0),
+      action: "เช็กสต๊อก",
+      targetView: "products",
+      description: "กันไม่ให้พลาดยอดขายเพราะของหมด"
+    }
+  ];
+}
+
 function renderLogin() {
   els.content.innerHTML = `
     <section class="login-layout">
       <div class="login-desktop-card">
         <aside class="login-brand-panel">
-          <div class="login-brand-mark">Z</div>
+          <div class="login-brand-mark">G</div>
           <div>
-            <p class="eyebrow">Zomin CRM</p>
-            <h2>Order Management System</h2>
-            <p>จัดการออเดอร์ ลูกค้า การติดตาม และข้อมูลทีมขายในที่เดียว</p>
+            <p class="eyebrow">Growup Pilot</p>
+            <h2>CRM โตไวสไตล์ SaaS สำหรับร้านที่อยากโตแบบมีระบบ</h2>
+            <p>จัดการออเดอร์ ลูกค้า โอกาสทำเงิน การตลาด และข้อมูลทีมขายในหน้าตาใหม่ที่สะอาด อ่านง่าย และพร้อมขยายต่อ</p>
           </div>
         </aside>
         <form class="login-card" id="loginForm">
-          <div class="login-logo">Z</div>
+          <div class="login-logo">G</div>
           <div class="section-title">
-            <h2>Zomin Order CRM</h2>
-            <p>Mobile CRM สำหรับทีมขาย Zomin</p>
+            <h2>Growup</h2>
+            <p>Pilot</p>
           </div>
           <label>Username
             <input name="username" autocomplete="username" required placeholder="Username">
@@ -616,33 +815,94 @@ function orderTable(orders) {
 function renderDashboard() {
   const s = app.data.summary;
   const due = sortByPriority(app.data.customers.filter(customer => customer.followUpDate && customer.followUpDate <= s.selectedDate)).slice(0, 8);
+  const sales7 = last7DaysSales();
+  const topProducts = groupedProducts().slice(0, 5);
+  const recentOrders = sortOrdersAscending(app.data.orders.filter(order => order.date <= s.selectedDate)).slice(-5).reverse();
+  const returningToday = repeatCustomersToday();
+  const opportunities = opportunityCardsData();
+  const revenueOpportunity = opportunities.reduce((sum, item) => sum + item.revenue, 0);
+  const salesMax = Math.max(1, ...sales7.map(item => item.total));
 
   els.content.innerHTML = `
     <section class="section">
+      <div class="hero-banner">
+        <div class="hero-copy">
+          <span class="hero-tagline">Growup Pilot พร้อมโอกาสโตวันนี้</span>
+          <h2>มองภาพร้านให้ชัดขึ้น แล้วลงมือกับโอกาสที่ทำเงินได้ทันที</h2>
+          <p>สรุปยอดขาย, ลูกค้า, สินค้าขายดี และรายการที่ควรตามต่อในหน้าหลักเดียว</p>
+        </div>
+      </div>
       <div class="metric-grid">
         ${metric("ยอดขายวันนี้", `${money(s.salesToday)} บาท`, "accent")}
         ${metric("ออเดอร์วันนี้", money(s.ordersToday || 0))}
-        ${metric("กระปุกวันนี้", money(s.jarsToday || 0), "green")}
-        ${metric("ลูกค้าทั้งหมด", money(s.customerCount))}
-        ${metric("ยอดขายเดือนนี้", `${money(s.salesThisMonth)} บาท`, "purple")}
-        ${metric("ออเดอร์เดือนนี้", money(s.ordersThisMonth || 0))}
-        ${metric("ควรทักวันนี้", money(s.dueToday), "warn")}
+        ${metric("ลูกค้าใหม่วันนี้", money(newCustomersToday().length), "green")}
+        ${metric("ลูกค้าเก่ากลับมาซื้อ", money(returningToday.length))}
+        ${metric("โอกาสเพิ่มรายได้วันนี้", `${money(revenueOpportunity)} บาท`, "purple")}
+        ${metric("ยอดขายเดือนนี้", `${money(s.salesThisMonth)} บาท`)}
+        ${metric("ควรติดตามวันนี้", money(s.dueToday), "warn")}
         ${metric("VIP / VVIP / SUPER", `${s.vip} / ${s.vvip} / ${s.superVip}`)}
       </div>
-      <div class="two-col">
+      <div class="dashboard-grid-2">
         <div class="panel stack">
           <div class="section-header">
             <div class="section-title">
-              <h2>ควรโทรวันนี้ ${money(s.dueToday)} คน</h2>
-              <p>เรียงตาม SUPER VIP, VVIP, VIP, NORMAL และ Customer Score</p>
+              <h2>ออเดอร์ล่าสุด</h2>
+              <p>เช็กความเคลื่อนไหวล่าสุดแบบรวดเร็ว</p>
             </div>
-            <button class="button secondary" data-view-shortcut="followup">เปิดคิวโทร</button>
+            <button class="button secondary" data-view-shortcut="orders">ไปหน้าออเดอร์</button>
           </div>
-          ${followupCards(due.slice(0, 5), true)}
+          <div class="list-table">
+            ${recentOrders.map(order => `
+              <button class="list-row" type="button" data-open-customer="${escapeHtml(order.customerId)}">
+                <div>
+                  <strong>${escapeHtml(order.customerName || "-")}</strong>
+                  <p class="muted">${escapeHtml(order.orderNumber || "-")} · ${formatDate(order.date)} · ${escapeHtml(displayOrderChannel(order))}</p>
+                </div>
+                <strong>${money(order.amount)} บาท</strong>
+              </button>
+            `).join("") || `<div class="empty-state">ยังไม่มีออเดอร์ล่าสุด</div>`}
+          </div>
         </div>
         <div class="panel stack">
-          <h2>กราฟยอดขายรายเดือน</h2>
-          ${monthlyChart()}
+          <div class="section-title">
+            <h2>ยอดขาย 7 วันที่ผ่านมา</h2>
+            <p>มอง momentum ของร้านในสัปดาห์ล่าสุด</p>
+          </div>
+          <div class="bar-list">
+            ${sales7.map(item => `
+              <div class="bar-row">
+                <strong>${formatShortDate(item.date)}</strong>
+                <div class="bar-track"><div class="bar-fill" style="width:${Math.max(5, item.total / salesMax * 100)}%"></div></div>
+                <span>${money(item.total)}</span>
+              </div>
+            `).join("")}
+          </div>
+        </div>
+      </div>
+      <div class="dashboard-grid-2">
+        <div class="panel stack">
+          <div class="section-title">
+            <h2>สินค้าขายดีวันนี้</h2>
+            <p>ใช้ข้อมูลสินค้าที่มีอยู่ในระบบ ถ้ายังไม่มีหลาย SKU จะแสดงภาพรวมตัวหลัก</p>
+          </div>
+          <div class="list-table">
+            ${topProducts.map(product => `
+              <div class="list-row">
+                <div>
+                  <strong>${escapeHtml(product.name)}</strong>
+                  <p class="muted">ขายแล้ว ${money(product.soldCount)} ชิ้น · ${money(product.orderCount)} ออเดอร์</p>
+                </div>
+                <strong>${money(product.revenue)} บาท</strong>
+              </div>
+            `).join("") || `<div class="empty-state">ยังไม่มีข้อมูลสินค้า</div>`}
+          </div>
+        </div>
+        <div class="panel stack">
+          <div class="section-title">
+            <h2>โอกาสทำเงินวันนี้</h2>
+            <p>รายการที่ลงมือแล้วมีโอกาสเห็นผลเร็วที่สุด</p>
+          </div>
+          ${followupCards(due.slice(0, 4), true)}
         </div>
       </div>
     </section>
@@ -703,7 +963,16 @@ function renderOrders() {
             <input type="checkbox" data-orders-show-all ${app.ordersShowAll ? "checked" : ""}>
             <span>แสดงทั้งหมด</span>
           </label>
-          <button class="button primary" data-open-order>เพิ่มออเดอร์</button>
+          <button class="button primary" data-open-order>+ เพิ่มออเดอร์</button>
+          <div class="import-menu">
+            <button class="button secondary" type="button" data-toggle-import-menu>Import ▾</button>
+            <div id="ordersImportMenu" class="import-dropdown" hidden>
+              <button class="dropdown-item" type="button" data-orders-import-action="csv">Import CSV</button>
+              <button class="dropdown-item" type="button" data-orders-import-action="excel">Import Excel</button>
+              <a class="dropdown-item" href="/api/export/orders">Export</a>
+              <a class="dropdown-item" href="/templates/order-import-template.xlsx" download>Download Template</a>
+            </div>
+          </div>
         </div>
       </div>
       <div class="filters">
@@ -757,7 +1026,7 @@ function renderSearch() {
         <div class="section-title section-title-actions">
           <div>
             <h2>${app.customersShowAll ? "ลูกค้าทั้งหมด" : `ลูกค้าที่สั่งซื้อวันที่ ${formatDate(selectedDate)}`}</h2>
-            <p>${app.customersShowAll ? "แสดงลูกค้าจากทุกวัน" : "แสดงเฉพาะลูกค้าที่มีออเดอร์ในวันที่เลือก"}</p>
+            <p>${app.customersShowAll ? "ค้นหาลูกค้า ดูยอดซื้อรวม ครั้งที่ซื้อ และสถานะ VIP ได้ครบ" : "แสดงเฉพาะลูกค้าที่มีออเดอร์ในวันที่เลือก"}</p>
           </div>
           <div class="orders-header-actions">
             <label class="orders-show-all">
@@ -784,6 +1053,112 @@ function renderSearch() {
         </div>
       </div>
       <div id="searchResults">${customerTable(customers)}</div>
+    </section>
+  `;
+}
+
+function renderOpportunities() {
+  const cards = opportunityCardsData();
+  els.content.innerHTML = `
+    <section class="section">
+      <div class="hero-banner">
+        <div class="hero-copy">
+          <span class="hero-tagline">Grow Today</span>
+          <h2>โอกาสทำเงินที่ควรลงมือวันนี้</h2>
+          <p>รวมลูกค้าและสินค้าที่มีสัญญาณพร้อมสร้างรายได้เพิ่ม พร้อมปุ่มลัดไปหน้าที่เกี่ยวข้องทันที</p>
+        </div>
+      </div>
+      <div class="opportunity-grid">
+        ${cards.map(card => `
+          <article class="opportunity-card">
+            <div>
+              <span class="tag">${money(card.count)} รายการ</span>
+            </div>
+            <div class="stack">
+              <h3>${escapeHtml(card.title)}</h3>
+              <p class="muted">${escapeHtml(card.description)}</p>
+            </div>
+            <div class="opportunity-score">${money(card.revenue)} บาท</div>
+            <div class="opportunity-meta">
+              <span>Estimated revenue</span>
+              <strong>${money(card.revenue)} บาท</strong>
+            </div>
+            <button class="button primary" type="button" data-view-shortcut="${escapeHtml(card.targetView)}">${escapeHtml(card.action)}</button>
+          </article>
+        `).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderProducts() {
+  const products = groupedProducts();
+  els.content.innerHTML = `
+    <section class="section">
+      <div class="page-hero panel">
+        <div>
+          <h2>สินค้าและสต๊อก</h2>
+          <p>สรุปจากข้อมูลออเดอร์เดิมที่มีอยู่ในระบบ โดยคงความเข้ากันได้กับฐานข้อมูลปัจจุบัน</p>
+        </div>
+        <button class="button secondary" type="button" data-view-shortcut="reports">ดูรายงานสินค้า</button>
+      </div>
+      <div class="product-grid">
+        ${products.map((product, index) => {
+          const stockEstimate = Math.max(0, 120 - product.soldCount);
+          const status = stockEstimate <= 25 ? "ใกล้หมด" : index === 0 ? "ขายดี" : "พร้อมขาย";
+          return `
+            <article class="product-card">
+              <div class="inline"><span class="tag">${escapeHtml(status)}</span></div>
+              <h3>${escapeHtml(product.name)}</h3>
+              <div class="mini-stats">
+                <div class="mini-stat"><span>Stock</span><strong>${money(stockEstimate)}</strong></div>
+                <div class="mini-stat"><span>ขายแล้ว</span><strong>${money(product.soldCount)}</strong></div>
+                <div class="mini-stat"><span>ออเดอร์</span><strong>${money(product.orderCount)}</strong></div>
+                <div class="mini-stat"><span>ยอดขาย</span><strong>${money(product.revenue)} บาท</strong></div>
+              </div>
+            </article>
+          `;
+        }).join("") || `<div class="empty-state">ยังไม่มีข้อมูลสินค้า</div>`}
+      </div>
+    </section>
+  `;
+}
+
+function renderMarketing() {
+  const channels = channelPerformance();
+  els.content.innerHTML = `
+    <section class="section">
+      <div class="marketing-grid">
+        <div class="panel stack">
+          <div class="section-title">
+            <h2>Channel performance</h2>
+            <p>ดูช่องทางที่สร้างยอดได้ดีที่สุดจากออเดอร์ที่มีอยู่</p>
+          </div>
+          <div class="bar-list">
+            ${channels.map(channel => `
+              <div class="bar-row">
+                <strong>${escapeHtml(channel.name)}</strong>
+                <div class="bar-track"><div class="bar-fill" style="width:${Math.max(6, channel.revenue / Math.max(...channels.map(item => item.revenue), 1) * 100)}%"></div></div>
+                <span>${money(channel.revenue)} บาท</span>
+              </div>
+            `).join("")}
+          </div>
+        </div>
+        <div class="panel stack">
+          <div class="section-title">
+            <h2>คำแนะนำการตลาด</h2>
+            <p>แนะนำแบบปลอดภัยแม้ backend ด้าน campaign ยังไม่ครบ</p>
+          </div>
+          <article class="insight-card">
+            <h3>Recommended promotion</h3>
+            <p class="muted">ดันช่องทาง ${escapeHtml(channels[0]?.name || "หลัก")} ต่ออีก 7 วัน พร้อมชุดข้อเสนอสำหรับลูกค้าเก่าที่ยังไม่ซื้อในเดือนนี้</p>
+            <div class="mini-stats">
+              <div class="mini-stat"><span>ROI proxy</span><strong>${money(channels[0]?.roi || 0)}</strong></div>
+              <div class="mini-stat"><span>Broadcast suggestion</span><strong>${money(opportunityCardsData()[0]?.count || 0)} รายชื่อ</strong></div>
+            </div>
+          </article>
+        </div>
+      </div>
     </section>
   `;
 }
@@ -835,7 +1210,7 @@ function queueSummaryRefresh() {
   app.summaryRefreshTimer = setTimeout(() => {
     if (!app.data) return;
     app.data.summary = buildLocalSummary(app.data.summary?.selectedDate || els.workDate.value || todayISO());
-    if (["dashboard", "followup", "reports", "vip", "risk"].includes(app.view)) render();
+  if (["dashboard", "notifications", "reports", "vip", "risk", "customers", "opportunities"].includes(app.view)) render();
   }, 0);
 }
 
@@ -970,12 +1345,12 @@ function refreshVisibleCustomerPanels(mutation) {
     if (customer) renderCustomerDetail(customer);
     else els.customerDialog.close();
   }
-  if (app.view === "search") updateSearchResults();
+  if (app.view === "customers") updateSearchResults();
 }
 
 function makeMessage(customer) {
   const name = customer.name.replace(/^คุณ/, "คุณ");
-  return `สวัสดีค่ะ ${name} จาก Zomin นะคะ รอบก่อนสั่ง ${customer.lastJars || 1} กระปุก ตอนนี้ใกล้ถึงรอบดูแลต่อเนื่องแล้วค่ะ ต้องการให้จัดส่งเพิ่มไหมคะ`;
+  return `สวัสดีค่ะ ${name} จาก Growup นะคะ รอบก่อนสั่ง ${customer.lastJars || 1} กระปุก ตอนนี้ใกล้ถึงรอบดูแลต่อเนื่องแล้วค่ะ ต้องการให้จัดส่งเพิ่มไหมคะ`;
 }
 
 function followupCards(customers, compact = false) {
@@ -1638,6 +2013,127 @@ function renderReports() {
   `;
 }
 
+function renderAiInsights() {
+  const hasAi = Boolean(app.data.settings?.openaiApiKeyConfigured);
+  const cards = [
+    `ลูกค้าเก่าที่ยังไม่ซื้อในเดือนนี้มี ${money(opportunityCardsData()[0]?.count || 0)} ราย ควรเริ่มจากกลุ่มยอดสะสมสูงก่อน`,
+    `ช่องทาง ${channelPerformance()[0]?.name || "หลัก"} ทำยอดเด่นสุดในตอนนี้ ควรเพิ่มงบหรือความถี่คอนเทนต์`,
+    `มีลูกค้าถึงกำหนด follow-up ${money(app.data.summary?.dueToday || 0)} ราย ซึ่งเป็นกลุ่มปิดขายซ้ำเร็วที่สุด`
+  ];
+  els.content.innerHTML = `
+    <section class="section">
+      <div class="page-hero panel">
+        <div>
+          <h2>AI Insight</h2>
+          <p>${hasAi ? "พร้อมเชื่อมต่อ AI จากระบบเดิม" : "แสดงคำแนะนำแบบ fallback อย่างปลอดภัยเมื่อยังไม่ได้ตั้งค่า AI API"}</p>
+        </div>
+        <span class="tag">${hasAi ? "AI พร้อมใช้งาน" : "Fallback mode"}</span>
+      </div>
+      <div class="cards-grid">
+        ${cards.map((text, index) => `
+          <article class="insight-card">
+            <span class="tag">Insight ${index + 1}</span>
+            <h3>${index === 0 ? "ลูกค้าที่ควรเร่งตาม" : index === 1 ? "ช่องทางที่ควรดันเพิ่ม" : "งานด่วนวันนี้"}</h3>
+            <p class="muted">${escapeHtml(text)}</p>
+          </article>
+        `).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderBroadcast() {
+  const segments = [
+    ["ลูกค้าเก่ายังไม่ซื้อเดือนนี้", opportunityCardsData()[0]?.count || 0],
+    ["ลูกค้าใกล้เป็น VIP", notificationItems()[2]?.count || 0],
+    ["ลูกค้าที่ควรติดตาม", app.data.summary?.dueToday || 0]
+  ];
+  els.content.innerHTML = `
+    <section class="section">
+      <div class="broadcast-grid">
+        <div class="panel stack">
+          <div class="section-title">
+            <h2>เลือกกลุ่มลูกค้า</h2>
+            <p>เตรียม segment และข้อความได้ แม้ backend ส่งจริงยังไม่พร้อม</p>
+          </div>
+          ${segments.map(([label, count]) => `
+            <article class="segment-card">
+              <div class="section-title">
+                <h3>${escapeHtml(label)}</h3>
+                <span class="tag">${money(count)} ราย</span>
+              </div>
+              <button class="button secondary" type="button" data-copy="ส่งข้อความถึงกลุ่ม ${label}">คัดลอกชื่อกลุ่ม</button>
+            </article>
+          `).join("")}
+        </div>
+        <div class="panel stack">
+          <div class="section-title">
+            <h2>ร่างข้อความ Broadcast</h2>
+            <p>ใช้เป็น draft สำหรับ LINE หรือช่องทางอื่นได้ทันที</p>
+          </div>
+          <label>ข้อความ
+            <textarea readonly>สวัสดีค่ะจาก Growup วันนี้มีข้อเสนอพิเศษสำหรับลูกค้าเดิม หากสนใจให้ทีมช่วยสรุปชุดที่เหมาะกับคุณ ตอบกลับได้เลยนะคะ</textarea>
+          </label>
+          <div class="inline">
+            <button class="button primary" type="button" data-copy="สวัสดีค่ะจาก Growup วันนี้มีข้อเสนอพิเศษสำหรับลูกค้าเดิม หากสนใจให้ทีมช่วยสรุปชุดที่เหมาะกับคุณ ตอบกลับได้เลยนะคะ">คัดลอกข้อความ</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function renderCampaigns() {
+  const channels = channelPerformance().slice(0, 3);
+  els.content.innerHTML = `
+    <section class="section">
+      <div class="campaign-grid">
+        ${channels.map((channel, index) => `
+          <article class="campaign-card">
+            <div class="section-title">
+              <h3>แคมเปญ ${escapeHtml(channel.name)}</h3>
+              <span class="tag">${index === 0 ? "กำลังรัน" : "วางแผน"}</span>
+            </div>
+            <div class="campaign-meta">
+              <div><span>Status</span><strong>${index === 0 ? "Active" : "Draft"}</strong></div>
+              <div><span>Budget</span><strong>${money(Math.max(1500, Math.round(channel.revenue * 0.08)))} บาท</strong></div>
+              <div><span>ROI</span><strong>${money(channel.roi)}</strong></div>
+              <div><span>Estimated revenue</span><strong>${money(Math.round(channel.revenue * 0.25))} บาท</strong></div>
+            </div>
+          </article>
+        `).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderNotifications() {
+  const items = notificationItems();
+  const followupCustomers = sortByPriority(app.data.customers.filter(customer => customer.followUpDate && customer.followUpDate <= (app.data.summary?.selectedDate || todayISO()))).slice(0, 5);
+  els.content.innerHTML = `
+    <section class="section">
+      <div class="notification-grid">
+        ${items.map(item => `
+          <article class="notification-card">
+            <div class="section-title">
+              <h3>${escapeHtml(item.title)}</h3>
+              <span class="tag">${money(item.count)} รายการ</span>
+            </div>
+            <p class="muted">${escapeHtml(item.detail)}</p>
+          </article>
+        `).join("")}
+      </div>
+      <div class="panel stack">
+        <div class="section-title">
+          <h2>ลูกค้าที่ควรติดตาม</h2>
+          <p>เปิดต่อได้จากหน้านี้โดยตรง</p>
+        </div>
+        ${followupCards(followupCustomers)}
+      </div>
+    </section>
+  `;
+}
+
 function renderTeam() {
   els.content.innerHTML = `
     <section class="section">
@@ -1701,13 +2197,30 @@ function renderSettings() {
     : "ยังไม่ได้ตั้งค่า";
   els.content.innerHTML = `
     <section class="section">
+      <div class="settings-sections">
+        ${[
+          ["Store profile", "ชื่อร้าน โลโก้ และข้อมูลพื้นฐาน"],
+          ["LINE settings", "เชื่อม LINE OA และ webhook"],
+          ["Subscription plan", "เตรียมโครง monthly / yearly plan"],
+          ["Billing", "พื้นที่สำหรับใบแจ้งหนี้และการชำระเงินในอนาคต"],
+          ["User/account", "สิทธิ์ผู้ใช้และทีมงาน"],
+          ["Import/Export", "จัดการย้ายข้อมูลเข้าออกระบบ"],
+          ["Backup", "สำรองข้อมูลและกู้คืน"]
+        ].map(([title, desc]) => `
+          <article class="more-card">
+            <span>${escapeHtml(title)}</span>
+            <strong>${escapeHtml(desc)}</strong>
+            <small>พร้อมขยายต่อในอนาคต โดยยังไม่กระทบระบบเดิม</small>
+          </article>
+        `).join("")}
+      </div>
       <div class="two-col">
         <form class="panel stack" id="settingsForm">
           <div class="section-title">
             <h2>ตั้งค่าระบบ</h2>
-            <p>VIP, Template ข้อความ, LINE OA และสิทธิ์ Staff</p>
+            <p>Store profile, VIP, Template ข้อความ, LINE OA และสิทธิ์ Staff</p>
           </div>
-          <label>ชื่อธุรกิจ<input name="businessName" value="${escapeHtml(settings.businessName || "Zomin")}"></label>
+          <label>ชื่อธุรกิจ<input name="businessName" value="${escapeHtml(settings.businessName || "Growup")}"></label>
           <label>ราคาต่อกระปุกเริ่มต้น<input name="defaultJarPrice" type="number" min="0" value="${Number(settings.defaultJarPrice || 750)}"></label>
           <div class="form-grid">
             <label>VIP Threshold<input name="vipThreshold" type="number" min="0" value="${Number(thresholds.vip || 5000)}"></label>
@@ -2052,19 +2565,25 @@ function render() {
   renderNav();
   updateShell();
   els.pageTitle.textContent = titleFor(app.view);
+  document.title = app.view === "login" ? "Growup Pilot" : `${titleFor(app.view)} | Growup Pilot`;
   renderSubpageNav();
   const renderer = {
     login: renderLogin,
     dashboard: renderDashboard,
+    opportunities: renderOpportunities,
     orders: renderOrders,
-    search: renderSearch,
-    followup: renderFollowup,
-    more: renderMore,
+    customers: renderSearch,
+    products: renderProducts,
+    marketing: renderMarketing,
     vip: renderVip,
     risk: renderRisk,
     tags: renderTags,
     import: renderImport,
     reports: renderReports,
+    aiInsights: renderAiInsights,
+    broadcast: renderBroadcast,
+    campaigns: renderCampaigns,
+    notifications: renderNotifications,
     team: renderTeam,
     settings: renderSettings,
     settingsFollowup: renderSettingsFollowup,
@@ -2102,8 +2621,8 @@ function syncViewFromLocation() {
     return;
   }
   if (!canAccessView(nextView)) {
-    app.view = "more";
-    navigateToView("more", true);
+    app.view = "settings";
+    navigateToView("settings", true);
     showToast("เมนูนี้ต้องใช้สิทธิ์ Admin");
     render();
     return;
@@ -2248,11 +2767,21 @@ async function previewCsvImport() {
 }
 
 document.addEventListener("click", async event => {
+  if (event.target.closest("#mobileMenuToggle")) {
+    document.body.classList.toggle("sidebar-open");
+  }
+
   const navButton = event.target.closest("[data-view]");
-  if (navButton) setView(navButton.dataset.view);
+  if (navButton) {
+    setView(navButton.dataset.view);
+    document.body.classList.remove("sidebar-open");
+  }
 
   const shortcut = event.target.closest("[data-view-shortcut]");
-  if (shortcut) setView(shortcut.dataset.viewShortcut);
+  if (shortcut) {
+    setView(shortcut.dataset.viewShortcut);
+    document.body.classList.remove("sidebar-open");
+  }
 
   if (event.target.closest("[data-open-order]") && app.view === "orders") openOrderDialog();
 
@@ -2275,7 +2804,7 @@ document.addEventListener("click", async event => {
   const tagFilter = event.target.closest("[data-tag-filter]");
   if (tagFilter) {
     app.filters = { q: "", tag: tagFilter.dataset.tagFilter, status: "", vip: "" };
-    setView("search");
+    setView("customers");
   }
 
   const followupModeButton = event.target.closest("[data-followup-mode]");
@@ -2298,6 +2827,22 @@ document.addEventListener("click", async event => {
 
   const copyButton = event.target.closest("[data-copy]");
   if (copyButton) copyText(copyButton.dataset.copy);
+
+  if (event.target.closest("[data-toggle-import-menu]")) {
+    const menu = document.querySelector("#ordersImportMenu");
+    if (menu) menu.hidden = !menu.hidden;
+  } else {
+    const menu = document.querySelector("#ordersImportMenu");
+    if (menu && !event.target.closest("#ordersImportMenu")) menu.hidden = true;
+  }
+
+  const importActionButton = event.target.closest("[data-orders-import-action]");
+  if (importActionButton) {
+    const action = importActionButton.dataset.ordersImportAction;
+    const menu = document.querySelector("#ordersImportMenu");
+    if (menu) menu.hidden = true;
+    if (action === "csv" || action === "excel") setView("import");
+  }
 
   if (event.target.closest("[data-copy-webhook]")) {
     copyText(`${location.origin}/api/line/webhook`);
