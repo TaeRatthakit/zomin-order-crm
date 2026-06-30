@@ -863,9 +863,10 @@ function addOrder(db, payload) {
     error.order = duplicate;
     throw error;
   }
-  const customer = payload.customerId
+  const existingCustomer = payload.customerId
     ? db.customers.find(item => item.id === payload.customerId)
-    : findOrCreateCustomer(db, payload);
+    : null;
+  const customer = existingCustomer || findOrCreateCustomer(db, payload);
 
   if (!customer) throw new Error("ไม่พบลูกค้า");
 
