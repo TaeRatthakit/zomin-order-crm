@@ -534,17 +534,91 @@ function dashboardDelta(todayValue, yesterdayValue, unit = "") {
   return { diff, trend, summary };
 }
 
-function dashboardKpiCard({ label, value, icon, tone = "", delta, hint }) {
+function dashboardTrendSeries(metric, length = 10) {
+  const selectedDate = app.data.summary?.selectedDate || todayISO();
+  return Array.from({ length }, (_, index) => {
+    const date = addDaysISO(selectedDate, index - (length - 1));
+    const dayOrders = app.data.orders.filter(order => order.date === date);
+    const daySales = dayOrders.reduce((sum, order) => sum + Number(order.amount || 0), 0);
+    const month = monthKey(date);
+    const monthOrders = app.data.orders.filter(order => monthKey(order.date) === month && order.date <= date);
+    const dueCustomers = app.data.customers.filter(customer => customer.followUpDate && customer.followUpDate <= date);
+    const silentCustomers = app.data.customers.filter(customer => !customer.lastPurchaseDate || !String(customer.lastPurchaseDate).startsWith(month));
+    if (metric === "salesToday") return daySales;
+    if (metric === "salesThisMonth") return monthOrders.reduce((sum, order) => sum + Number(order.amount || 0), 0);
+    if (metric === "ordersToday") return dayOrders.length;
+    if (metric === "ordersThisMonth") return monthOrders.length;
+    if (metric === "profitToday") return Math.round(daySales * 0.32);
+    if (metric === "opportunityToday") return estimatedOpportunityRevenue(dueCustomers, 0.36) + estimatedOpportunityRevenue(silentCustomers, 0.18);
+    return 0;
+  });
+}
+
+function dashboardSparkline(series = [], tone = "violet") {
+  const values = series.map(value => Number(value || 0));
+  const width = 280;
+  const height = 92;
+  const padding = 6;
+  const max = Math.max(...values, 1);
+  const min = Math.min(...values, 0);
+  const range = Math.max(max - min, 1);
+  const points = values.map((value, index) => {
+    const x = padding + (index * (width - padding * 2)) / Math.max(values.length - 1, 1);
+    const y = height - padding - ((value - min) / range) * (height - padding * 2);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  });
+  const linePath = points.map((point, index) => `${index === 0 ? "M" : "L"} ${point}`).join(" ");
+  const areaPath = `${linePath} L ${width - padding},${height - padding} L ${padding},${height - padding} Z`;
+  const toneMap = {
+    violet: { stroke: "#bf5cff", glow: "rgba(191, 92, 255, 0.85)", fill: "rgba(177, 95, 255, 0.26)" },
+    blue: { stroke: "#4e73ff", glow: "rgba(78, 115, 255, 0.82)", fill: "rgba(78, 115, 255, 0.24)" },
+    gold: { stroke: "#ffd24a", glow: "rgba(255, 210, 74, 0.82)", fill: "rgba(255, 210, 74, 0.22)" },
+    pink: { stroke: "#ff5caa", glow: "rgba(255, 92, 170, 0.82)", fill: "rgba(255, 92, 170, 0.22)" }
+  };
+  const palette = toneMap[tone] || toneMap.violet;
+  const [lastX, lastY] = (points[points.length - 1] || `${width - padding},${height / 2}`).split(",");
   return `
-    <article class="metric-card dashboard-kpi ${tone}">
-      <div class="metric-top">
-        <span>${escapeHtml(label)}</span>
-        <div class="metric-icon" aria-hidden="true">${icon}</div>
+    <svg class="dashboard-sparkline tone-${escapeHtml(tone)}" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" aria-hidden="true">
+      <defs>
+        <linearGradient id="spark-fill-${tone}" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stop-color="${palette.fill}" />
+          <stop offset="100%" stop-color="rgba(255,255,255,0)" />
+        </linearGradient>
+      </defs>
+      <path class="dashboard-sparkline-area" d="${areaPath}" fill="url(#spark-fill-${tone})"></path>
+      <path class="dashboard-sparkline-line" d="${linePath}" stroke="${palette.stroke}" style="--spark-glow:${palette.glow};"></path>
+      <circle class="dashboard-sparkline-point" cx="${lastX}" cy="${lastY}" r="4.5" fill="${palette.stroke}" style="--spark-glow:${palette.glow};"></circle>
+    </svg>
+  `;
+}
+
+function dashboardCardIcon(kind) {
+  const icons = {
+    sales: '<path d="M12 3v18"/><path d="M16.5 7.5c0-1.9-2-3.5-4.5-3.5S7.5 5.6 7.5 7.5 9.5 11 12 11s4.5 1.6 4.5 3.5-2 3.5-4.5 3.5-4.5-1.6-4.5-3.5"/>',
+    calendar: '<rect x="3.5" y="5.5" width="17" height="15" rx="3"/><path d="M7 3.5v4"/><path d="M17 3.5v4"/><path d="M3.5 10.5h17"/>',
+    orders: '<rect x="3" y="3" width="18" height="18" rx="4"/><path d="M8 7.5h8"/><path d="M8 12h8"/><path d="M8 16.5h5"/>',
+    profit: '<path d="M4 16 9 11l3 3 8-8"/><path d="M16 6h4v4"/><path d="M4 20h16"/>',
+    target: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><path d="M12 4v3"/><path d="M20 12h-3"/><path d="m17.5 6.5-2 2"/>'
+  };
+  return `<svg class="metric-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icons[kind] || icons.sales}</svg>`;
+}
+
+function dashboardKpiCard({ label, value, icon, tone = "", delta, hint, series, area }) {
+  return `
+    <article class="metric-card dashboard-kpi dashboard-kpi-card ${tone}" style="grid-area:${escapeHtml(area)};">
+      <div class="metric-top dashboard-kpi-head">
+        <div>
+          <span class="dashboard-kpi-label">${escapeHtml(label)}</span>
+          <strong>${escapeHtml(value)}</strong>
+        </div>
+        <div class="metric-icon dashboard-icon-shell" aria-hidden="true">${icon}</div>
       </div>
-      <strong>${escapeHtml(value)}</strong>
-      <div class="metric-foot">
+      <div class="metric-foot dashboard-kpi-foot">
         <span class="trend trend-${escapeHtml(delta.trend)}">${escapeHtml(delta.summary)}</span>
         <small>${escapeHtml(hint)}</small>
+      </div>
+      <div class="dashboard-kpi-chart-wrap">
+        ${dashboardSparkline(series, tone)}
       </div>
     </article>
   `;
@@ -868,289 +942,60 @@ function orderTable(orders) {
 
 function renderDashboard() {
   const s = app.data.summary;
-  const due = sortByPriority(app.data.customers.filter(customer => customer.followUpDate && customer.followUpDate <= s.selectedDate)).slice(0, 8);
-  const sales7 = last7DaysSales();
-  const topProducts = groupedProducts().slice(0, 5);
-  const recentOrders = sortOrdersAscending(app.data.orders.filter(order => order.date <= s.selectedDate)).slice(-5).reverse();
-  const returningToday = repeatCustomersToday();
   const opportunities = opportunityCardsData();
-  const revenueOpportunity = opportunities.reduce((sum, item) => sum + item.revenue, 0);
-  const salesMax = Math.max(1, ...sales7.map(item => item.total));
-  const channels = channelPerformance().slice(0, 3);
   const yesterday = addDaysISO(s.selectedDate, -1);
   const yesterdayOrders = app.data.orders.filter(order => order.date === yesterday);
   const yesterdaySales = yesterdayOrders.reduce((sum, order) => sum + Number(order.amount || 0), 0);
   const yesterdayOrderCount = yesterdayOrders.length;
-  const yesterdayNewCustomers = app.data.customers.filter(customer => customer.firstPurchaseDate === yesterday).length;
-  const yesterdayReturning = app.data.orders.filter(order => order.date === yesterday)
-    .filter(order => {
-      const customer = app.data.customers.find(item => item.id === order.customerId);
-      return Number(customer?.purchaseCount || 0) > 1;
-    }).length;
+  const monthStart = `${String(s.selectedDate).slice(0, 8)}01`;
+  const monthToDateOrders = app.data.orders.filter(order => order.date >= monthStart && order.date <= s.selectedDate);
+  const previousMonthReference = addDaysISO(monthStart, -1);
+  const previousMonthKey = monthKey(previousMonthReference);
+  const previousMonthOrders = app.data.orders.filter(order => monthKey(order.date) === previousMonthKey);
+  const previousMonthSales = previousMonthOrders.reduce((sum, order) => sum + Number(order.amount || 0), 0);
+  const revenueOpportunity = opportunities.reduce((sum, item) => sum + item.revenue, 0);
+  const estimatedProfitToday = Math.round((s.salesToday || 0) * 0.32);
+  const previousOpportunityRevenue = estimatedOpportunityRevenue(
+    app.data.customers.filter(customer => customer.followUpDate && customer.followUpDate <= yesterday),
+    0.36
+  ) + estimatedOpportunityRevenue(
+    app.data.customers.filter(customer => !customer.lastPurchaseDate || !String(customer.lastPurchaseDate).startsWith(previousMonthKey)),
+    0.18
+  );
   const salesDelta = dashboardDelta(s.salesToday, yesterdaySales, "currency");
+  const salesMonthDelta = dashboardDelta(s.salesThisMonth || 0, previousMonthSales, "currency");
   const ordersDelta = dashboardDelta(s.ordersToday || 0, yesterdayOrderCount);
-  const newCustomersDelta = dashboardDelta(newCustomersToday().length, yesterdayNewCustomers);
-  const returningDelta = dashboardDelta(returningToday.length, yesterdayReturning);
-  const priorityOpportunities = opportunities
-    .slice()
-    .sort((a, b) => b.revenue - a.revenue)
-    .slice(0, 4);
-  const vipCustomers = sortByPriority(app.data.customers.filter(customer => ["VIP", "VVIP", "SUPER VIP"].includes(customer.vipLevel))).slice(0, 4);
-  const lowStockProducts = groupedProducts()
-    .map(product => ({ ...product, stockEstimate: Math.max(0, 120 - product.soldCount) }))
-    .filter(product => product.stockEstimate <= 35)
-    .slice(0, 4);
-  const todayActions = [
-    {
-      title: "โทรหาลูกค้าเก่า",
-      reason: "ลูกค้าเก่าที่ยังไม่ซื้อในเดือนนี้ตอบรับไวที่สุดเมื่อมีคนโทรตาม",
-      revenue: opportunities.find(item => item.id === "sleeping")?.revenue || 0,
-      action: "ดูลูกค้าเก่า",
-      targetView: "customers",
-      icon: "☎",
-      emphasis: "featured"
-    },
-    {
-      title: "ติดตามลูกค้า VIP",
-      reason: "ลูกค้าใกล้ VIP และลูกค้าเดิมมูลค่าสูงมีโอกาสปิดยอดเฉลี่ยมากกว่า",
-      revenue: Math.round((opportunities.find(item => item.id === "vip")?.revenue || 0) * 0.7),
-      action: "ดูรายชื่อ VIP",
-      targetView: "customers",
-      icon: "✦"
-    },
-    {
-      title: "ส่ง Broadcast",
-      reason: "ใช้ Broadcast กระตุ้นลูกค้าที่ยังเงียบและลูกค้าที่ถึงเวลาติดตาม",
-      revenue: Math.round((opportunities.find(item => item.id === "followup")?.revenue || 0) * 0.8),
-      action: "เตรียมข้อความ",
-      targetView: "broadcast",
-      icon: "✉"
-    },
-    {
-      title: "ดันโปรขายดี",
-      reason: "สินค้าขายดีและช่องทางทำเงินเด่นควรถูกโปรโมตต่อในวันนี้",
-      revenue: Math.round((opportunities.find(item => item.id === "best-seller")?.revenue || 0) * 0.9),
-      action: "ดูสินค้าเด่น",
-      targetView: "products",
-      icon: "↗"
-    }
-  ];
+  const ordersMonthDelta = dashboardDelta(s.ordersThisMonth || 0, previousMonthOrders.length);
+  const profitDelta = dashboardDelta(estimatedProfitToday, Math.round(yesterdaySales * 0.32), "currency");
+  const opportunityDelta = dashboardDelta(revenueOpportunity, previousOpportunityRevenue, "currency");
+  const compactDate = new Intl.DateTimeFormat("th-TH-u-ca-buddhist", {
+    timeZone: "Asia/Bangkok",
+    day: "numeric",
+    month: "long",
+    year: "numeric"
+  }).format(new Date(`${s.selectedDate}T12:00:00+07:00`));
 
   els.content.innerHTML = `
-    <section class="section saas-page dashboard-page">
-      <div class="page-identity hero-command">
-        <div class="page-identity-copy">
-          <span class="page-kicker">Business Command Center</span>
-          <h2>AI Morning Brief</h2>
-          <p>วันนี้เจ้าของธุรกิจควรโฟกัสงานที่เปลี่ยนเป็นรายได้ได้เร็วที่สุดจากยอดขาย ลูกค้า และสัญญาณในระบบ</p>
-          <div class="hero-big-number">${money(revenueOpportunity)} บาท</div>
-          <div class="inline">
-            <button class="button primary" type="button" data-view-shortcut="opportunities">ดูโอกาสทำเงิน</button>
-            <button class="button ghost" type="button" data-view-shortcut="broadcast">เตรียม Broadcast</button>
+    <section class="section saas-page dashboard-page dashboard-premium-home">
+      <div class="dashboard-home-shell">
+        <div class="dashboard-home-header">
+          <div class="dashboard-home-copy">
+            <span class="page-kicker">Growup Pilot Dashboard</span>
+            <h2>ภาพรวมธุรกิจของวันนี้</h2>
+            <p>สรุป KPI หลักในสไตล์พรีเมียมแบบกระชับ อ่านง่าย และพร้อมใช้งานทั้งเดสก์ท็อป แท็บเล็ต และมือถือ</p>
+          </div>
+          <div class="dashboard-home-meta">
+            <span class="dashboard-meta-chip">อัปเดตจากข้อมูลวันที่ ${escapeHtml(compactDate)}</span>
+            <span class="dashboard-meta-chip">เดือนนี้ ${money(monthToDateOrders.length)} ออเดอร์</span>
           </div>
         </div>
-        <div class="identity-side-stack">
-          <article class="glass-card">
-            <span class="tag">Today&apos;s focus</span>
-            <h3>${escapeHtml(priorityOpportunities[0]?.title || "ยังไม่มีโอกาสเด่นวันนี้")}</h3>
-            <p class="muted">${escapeHtml(priorityOpportunities[0]?.description || "เมื่อมีข้อมูลเพิ่ม ระบบจะแนะนำ action ที่ทำเงินได้ก่อน")}</p>
-            <strong>${money(priorityOpportunities[0]?.revenue || 0)} บาท</strong>
-          </article>
-          <article class="glass-card compact">
-            <span class="tag">Revenue forecast</span>
-            <strong>${money(Math.round((s.salesToday || 0) + revenueOpportunity * 0.42))} บาท</strong>
-            <p class="muted">คาดการณ์แบบระมัดระวังถ้าทีมทำตาม action priority วันนี้</p>
-          </article>
-        </div>
-      </div>
-      <div class="metric-grid premium-metric-grid">
-        ${dashboardKpiCard({ label: "ยอดขายวันนี้", value: `${money(s.salesToday)} บาท`, tone: "accent", delta: salesDelta, hint: "ยอดรวมจากออเดอร์ที่ปิดแล้ววันนี้", icon: "฿" })}
-        ${dashboardKpiCard({ label: "ออเดอร์วันนี้", value: money(s.ordersToday || 0), delta: ordersDelta, hint: "จำนวนออเดอร์ที่เข้ามาในวันทำงานนี้", icon: "◫" })}
-        ${dashboardKpiCard({ label: "ลูกค้าใหม่วันนี้", value: money(newCustomersToday().length), tone: "green", delta: newCustomersDelta, hint: "ลูกค้าที่เพิ่งซื้อครั้งแรกในวันนี้", icon: "+" })}
-        ${dashboardKpiCard({ label: "ลูกค้าเก่ากลับมาซื้อ", value: money(returningToday.length), delta: returningDelta, hint: "ลูกค้าเดิมที่ช่วยดันยอดได้เร็วที่สุด", icon: "⟳" })}
-      </div>
-      <div class="dashboard-story-grid">
-        <div class="panel stack panel-premium spotlight-panel">
-          <div class="section-header">
-            <div class="section-title">
-              <h2>Today&apos;s Opportunities</h2>
-              <p>งานที่มีแนวโน้มเปลี่ยนเป็นยอดขายได้เร็วที่สุดในวันนี้</p>
-            </div>
-            <span class="status-dot live">สดจากข้อมูลล่าสุด</span>
-          </div>
-          <div class="dashboard-action-grid">
-            ${priorityOpportunities.map((card, index) => dashboardActionCard({
-              title: card.title,
-              reason: card.description,
-              revenue: card.revenue,
-              action: card.action,
-              targetView: card.targetView,
-              icon: index === 0 ? "↗" : index === 1 ? "★" : index === 2 ? "☎" : "▣",
-              emphasis: index === 0 ? "featured" : ""
-            })).join("")}
-          </div>
-        </div>
-        <div class="panel stack panel-premium summary-side-panel">
-          <div class="section-title">
-            <h2>Quick snapshot</h2>
-            <p>ตัวเลขที่ช่วยตัดสินใจก่อนเริ่มวัน</p>
-          </div>
-          <div class="list-table premium-list">
-            <div class="list-row compact elevated-row">
-              <div><strong>ยอดขายเดือนนี้</strong><p class="muted">เทียบจากออเดอร์ที่บันทึกแล้ว</p></div>
-              <strong>${money(s.salesThisMonth)} บาท</strong>
-            </div>
-            <div class="list-row compact elevated-row">
-              <div><strong>ควรติดตามวันนี้</strong><p class="muted">ลูกค้าที่ถึงเวลาคุยต่อ</p></div>
-              <strong>${money(s.dueToday)} ราย</strong>
-            </div>
-            <div class="list-row compact elevated-row">
-              <div><strong>VIP / VVIP / SUPER</strong><p class="muted">ฐานลูกค้าคุณภาพของร้าน</p></div>
-              <strong>${s.vip} / ${s.vvip} / ${s.superVip}</strong>
-            </div>
-            <div class="list-row compact elevated-row">
-              <div><strong>ช่องทางเด่น</strong><p class="muted">ช่องทางที่รายได้วิ่งดีที่สุดวันนี้</p></div>
-              <strong>${escapeHtml(channels[0]?.name || "ยังไม่มีข้อมูล")}</strong>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="panel stack panel-premium">
-        <div class="section-title">
-          <h2>Quick Actions</h2>
-          <p>ลิสต์งานที่ช่วยให้ได้เงินเพิ่ม ไม่ใช่แค่ดูรายงาน</p>
-        </div>
-        <div class="dashboard-action-grid">
-          ${todayActions.map(card => dashboardActionCard(card)).join("")}
-        </div>
-      </div>
-      <div class="dashboard-command-grid">
-        <div class="panel stack panel-premium">
-          <div class="section-title">
-            <h2>Follow-up Tasks</h2>
-            <p>ลูกค้าที่ควรโทรหรือทักก่อนหมดวัน</p>
-          </div>
-          ${followupCards(due.slice(0, 4), true)}
-        </div>
-        <div class="panel stack panel-premium">
-          <div class="section-title">
-            <h2>VIP Customers</h2>
-            <p>ลูกค้ามูลค่าสูงที่ควรรักษาความสัมพันธ์</p>
-          </div>
-          <div class="list-table premium-list">
-            ${vipCustomers.map(customer => `
-              <button class="list-row rich-row elevated-row" type="button" data-open-customer="${escapeHtml(customer.id)}">
-                <div>
-                  <strong>${escapeHtml(customer.name)}</strong>
-                  <p class="muted">ยอดสะสม ${money(customer.totalSpent)} บาท · ซื้อ ${money(customer.purchaseCount || 0)} ครั้ง</p>
-                </div>
-                <div class="rich-row-side">
-                  ${vipBadge(customer.vipLevel)}
-                </div>
-              </button>
-            `).join("") || `<div class="empty-state">ยังไม่มีลูกค้า VIP ที่โดดเด่น</div>`}
-          </div>
-        </div>
-        <div class="panel stack panel-premium">
-          <div class="section-title">
-            <h2>Inventory Alerts</h2>
-            <p>สินค้าใกล้หมดที่อาจกระทบโอกาสทำเงิน</p>
-          </div>
-          <div class="list-table premium-list">
-            ${lowStockProducts.map(product => `
-              <div class="list-row rich-row elevated-row">
-                <div>
-                  <strong>${escapeHtml(product.name)}</strong>
-                  <p class="muted">คาดว่าสต๊อกเหลือ ${money(product.stockEstimate)} · ขายแล้ว ${money(product.soldCount)} ชิ้น</p>
-                </div>
-                <strong>${money(product.revenue)} บาท</strong>
-              </div>
-            `).join("") || `<div class="empty-state">ยังไม่มีสินค้าใกล้หมด</div>`}
-          </div>
-        </div>
-        <div class="panel stack panel-premium">
-          <div class="section-title">
-            <h2>AI Recommendations</h2>
-            <p>ข้อแนะนำที่พร้อมนำไปใช้ต่อทันที</p>
-          </div>
-          <div class="recommendation-list">
-            ${channels.map(channel => `
-              <article class="recommendation-card">
-                <strong>ดันช่องทาง ${escapeHtml(channel.name)}</strong>
-                <p class="muted">รายได้เฉลี่ยต่อออเดอร์ ${money(channel.roi)} บาท และยังเป็นช่องทางหลักของร้านในช่วงนี้</p>
-              </article>
-            `).join("")}
-            <article class="recommendation-card">
-              <strong>จัดลำดับรายชื่อลูกค้าก่อน 17:00</strong>
-              <p class="muted">กลุ่ม follow-up และลูกค้าเก่าที่ยังไม่ซื้อในเดือนนี้มีโอกาสปิดยอดเร็วที่สุด</p>
-            </article>
-          </div>
-        </div>
-      </div>
-      <div class="dashboard-grid-2">
-        <div class="panel stack panel-premium">
-          <div class="section-header">
-            <div class="section-title">
-              <h2>Recent Activities</h2>
-              <p>ออเดอร์และกิจกรรมล่าสุดที่ควรเห็นในมุมเดียว</p>
-            </div>
-            <button class="button secondary" data-view-shortcut="orders">ไปหน้าออเดอร์</button>
-          </div>
-          <div class="list-table premium-list">
-            ${recentOrders.map(order => `
-              <button class="list-row rich-row elevated-row" type="button" data-open-customer="${escapeHtml(order.customerId)}">
-                <div>
-                  <strong>${escapeHtml(order.customerName || "-")}</strong>
-                  <p class="muted">${escapeHtml(order.orderNumber || "-")} · ${formatDate(order.date)} · ${escapeHtml(displayOrderChannel(order))}</p>
-                </div>
-                <div class="rich-row-side">
-                  ${badge(order.status === "NEW" ? "NEW" : order.vipLevel)}
-                  <strong>${money(order.amount)} บาท</strong>
-                </div>
-              </button>
-            `).join("") || `<div class="empty-state">ยังไม่มีออเดอร์ล่าสุด</div>`}
-          </div>
-        </div>
-        <div class="panel stack panel-premium sales-panel">
-          <div class="section-title">
-            <h2>Today&apos;s Revenue</h2>
-            <p>Momentum รายได้ย้อนหลัง 7 วัน พร้อมสัญญาณเร่งหรือชะลอ</p>
-          </div>
-          <div class="bar-list">
-            ${sales7.map(item => `
-              <div class="bar-row">
-                <strong>${formatShortDate(item.date)}</strong>
-                <div class="bar-track"><div class="bar-fill" style="width:${Math.max(5, item.total / salesMax * 100)}%"></div></div>
-                <span>${money(item.total)}</span>
-              </div>
-            `).join("")}
-          </div>
-        </div>
-      </div>
-      <div class="dashboard-grid-2">
-        <div class="panel stack panel-premium">
-          <div class="section-title">
-            <h2>Top Products</h2>
-            <p>ใช้ข้อมูลสินค้าที่มีอยู่ในระบบ ถ้ายังไม่มีหลาย SKU จะแสดงภาพรวมตัวหลัก</p>
-          </div>
-          <div class="list-table premium-list">
-            ${topProducts.map(product => `
-              <div class="list-row rich-row elevated-row">
-                <div>
-                  <strong>${escapeHtml(product.name)}</strong>
-                  <p class="muted">ขายแล้ว ${money(product.soldCount)} ชิ้น · ${money(product.orderCount)} ออเดอร์</p>
-                </div>
-                <strong>${money(product.revenue)} บาท</strong>
-              </div>
-            `).join("") || `<div class="empty-state">ยังไม่มีข้อมูลสินค้า</div>`}
-          </div>
-        </div>
-        <div class="panel stack panel-premium">
-          <div class="section-title">
-            <h2>Sales Opportunities</h2>
-            <p>รายการที่ลงมือแล้วมีโอกาสเห็นผลเร็วที่สุด</p>
-          </div>
-          ${followupCards(due.slice(0, 4), true)}
+        <div class="dashboard-kpi-grid premium-metric-grid">
+          ${dashboardKpiCard({ label: "ยอดขายวันนี้", value: `${money(s.salesToday)} บาท`, tone: "violet", delta: salesDelta, hint: "ยอดรวมจากออเดอร์ที่ปิดแล้ววันนี้", icon: dashboardCardIcon("sales"), series: dashboardTrendSeries("salesToday"), area: "sales-today" })}
+          ${dashboardKpiCard({ label: "ยอดขายเดือนนี้", value: `${money(s.salesThisMonth)} บาท`, tone: "violet", delta: salesMonthDelta, hint: "ยอดสะสมตั้งแต่ต้นเดือนถึงวันทำงานนี้", icon: dashboardCardIcon("calendar"), series: dashboardTrendSeries("salesThisMonth"), area: "sales-month" })}
+          ${dashboardKpiCard({ label: "ออเดอร์วันนี้", value: money(s.ordersToday || 0), tone: "blue", delta: ordersDelta, hint: "จำนวนออเดอร์ที่เข้ามาในวันทำงานนี้", icon: dashboardCardIcon("orders"), series: dashboardTrendSeries("ordersToday"), area: "orders-today" })}
+          ${dashboardKpiCard({ label: "ออเดอร์เดือนนี้", value: money(s.ordersThisMonth || 0), tone: "blue", delta: ordersMonthDelta, hint: "ออเดอร์สะสมของเดือนปัจจุบัน", icon: dashboardCardIcon("calendar"), series: dashboardTrendSeries("ordersThisMonth"), area: "orders-month" })}
+          ${dashboardKpiCard({ label: "กำไรวันนี้", value: `${money(estimatedProfitToday)} บาท`, tone: "gold", delta: profitDelta, hint: "ประมาณการ 32% ของยอดขายวันนี้จากข้อมูลปัจจุบัน", icon: dashboardCardIcon("profit"), series: dashboardTrendSeries("profitToday"), area: "profit-today" })}
+          ${dashboardKpiCard({ label: "โอกาสสร้างยอดขายวันนี้", value: `${money(revenueOpportunity)} บาท`, tone: "pink", delta: opportunityDelta, hint: `${money(opportunities.reduce((sum, item) => sum + item.count, 0))} โอกาสจากลูกค้าและสินค้าที่ควรเร่งต่อ`, icon: dashboardCardIcon("target"), series: dashboardTrendSeries("opportunityToday"), area: "opportunity-today" })}
         </div>
       </div>
     </section>
