@@ -1,24 +1,24 @@
-const CACHE_NAME = "growup-pilot-pwa-v32";
+const CACHE_NAME = "growup-pilot-pwa-v33";
 const CORE_ASSETS = [
   "/",
   "/index.html",
-  "/favicon.ico?v=20260701-favicon-refresh",
-  "/favicon.png?v=20260701-favicon-refresh",
-  "/favicon-16x16.png?v=20260701-favicon-refresh",
-  "/favicon-32x32.png?v=20260701-favicon-refresh",
-  "/favicon-48x48.png?v=20260701-favicon-refresh",
-  "/apple-touch-icon.png?v=20260701-favicon-refresh",
+  "/favicon.ico?v=20260701-favicon-restore",
+  "/favicon.png?v=20260701-favicon-restore",
+  "/favicon-16x16.png?v=20260701-favicon-restore",
+  "/favicon-32x32.png?v=20260701-favicon-restore",
+  "/favicon-48x48.png?v=20260701-favicon-restore",
+  "/apple-touch-icon.png?v=20260701-favicon-restore",
   "/styles.css?v=20260701-growup-logo-transparent",
   "/app.js?v=20260701-growup-logo-transparent",
   "/import-worker.js",
   "/xlsx.full.min.js",
-  "/manifest.webmanifest?v=20260701-favicon-refresh",
+  "/manifest.webmanifest?v=20260701-favicon-restore",
   "/icons/logo.png?v=20260701-growup-logo-transparent",
-  "/icons/apple-touch-icon.png?v=20260701-favicon-refresh",
-  "/icons/icon-192.png?v=20260701-favicon-refresh",
-  "/icons/icon-512.png?v=20260701-favicon-refresh",
-  "/icons/maskable-icon-192.png?v=20260701-favicon-refresh",
-  "/icons/maskable-icon-512.png?v=20260701-favicon-refresh"
+  "/icons/apple-touch-icon.png?v=20260701-favicon-restore",
+  "/icons/icon-192.png?v=20260701-favicon-restore",
+  "/icons/icon-512.png?v=20260701-favicon-restore",
+  "/icons/maskable-icon-192.png?v=20260701-favicon-restore",
+  "/icons/maskable-icon-512.png?v=20260701-favicon-restore"
 ];
 
 self.addEventListener("install", event => {
