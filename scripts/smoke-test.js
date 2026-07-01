@@ -57,6 +57,23 @@ function fail(message) {
   throw new Error(`Smoke test failed: ${message}`);
 }
 
+function bangkokNow() {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Bangkok",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false
+  }).formatToParts(new Date());
+  const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
+  return {
+    date: `${values.year}-${values.month}-${values.day}`,
+    time: `${values.hour}:${values.minute}`
+  };
+}
+
 async function main() {
   process.env.NODE_ENV = "development";
   process.env.DATABASE_PROVIDER = "json";
@@ -108,6 +125,55 @@ async function main() {
 
   const webhookHealth = await request("/api/line/webhook");
   if (webhookHealth.status !== 200) fail(`LINE webhook health returned ${webhookHealth.status}`);
+
+  const nowInBangkok = bangkokNow();
+  const duplicateBase = {
+    orderNumber: "DUP-BASE-001",
+    name: "  Somchai   Dee  ",
+    phone: "089-111 2222",
+    address: " 123/4   Bangkok ",
+    date: nowInBangkok.date,
+    time: nowInBangkok.time,
+    jars: 2,
+    amount: 1500,
+    lineMessageId: "line-msg-a"
+  };
+  const firstOrder = await request("/api/orders", {
+    method: "POST",
+    headers: { cookie, "content-type": "application/json" },
+    body: JSON.stringify(duplicateBase)
+  });
+  if (firstOrder.status !== 200) fail(`first duplicate-check order returned ${firstOrder.status}: ${firstOrder.text}`);
+
+  const differentAmount = await request("/api/orders", {
+    method: "POST",
+    headers: { cookie, "content-type": "application/json" },
+    body: JSON.stringify({
+      ...duplicateBase,
+      orderNumber: "DUP-BASE-002",
+      amount: 1600,
+      lineMessageId: "line-msg-b"
+    })
+  });
+  if (differentAmount.status !== 200) {
+    fail(`different amount should import normally, got ${differentAmount.status}: ${differentAmount.text}`);
+  }
+
+  const exactDuplicate = await request("/api/orders", {
+    method: "POST",
+    headers: { cookie, "content-type": "application/json" },
+    body: JSON.stringify({
+      ...duplicateBase,
+      orderNumber: "DUP-BASE-003",
+      name: "somchai dee",
+      phone: "0891112222",
+      address: "123/4 bangkok",
+      lineMessageId: "line-msg-c"
+    })
+  });
+  if (exactDuplicate.status !== 409) {
+    fail(`exact duplicate should be blocked, got ${exactDuplicate.status}: ${exactDuplicate.text}`);
+  }
 
   console.log("Smoke test passed.");
 }

@@ -230,54 +230,27 @@ function orderChannel(order = {}) {
   return channel || "";
 }
 
-function normalizeDuplicateOrderNumber(value) {
+function normalizeDuplicateText(value) {
   return normalizeImportText(value).toLowerCase();
 }
 
-function duplicateOrderKey(order = {}) {
-  const orderNumber = normalizeDuplicateOrderNumber(order.orderNumber || order.order_number || "");
-  if (orderNumber) return `order:${orderNumber}`;
-  return `fallback:${toDateOnly(order.date || order.order_date || "")}|${normalizePhone(order.phone || "")}|${Number(order.amount || 0)}`;
+function normalizeDuplicateNumber(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : 0;
 }
 
-function fallbackDuplicateKey(order = {}) {
-  return JSON.stringify([
-    toDateOnly(order.date || order.order_date || ""),
-    normalizePhone(order.phone || ""),
-    Number(order.amount || 0)
-  ]);
-}
-
-function normalizeDuplicateFieldValue(value) {
-  if (Array.isArray(value)) return [...new Set(value.map(item => normalizeImportText(item)).filter(Boolean))].sort();
-  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
-  if (value === null || value === undefined) return "";
-  return normalizeImportText(value);
-}
-
-function normalizeDuplicateOrderPayload(order = {}) {
+function normalizeDuplicateComparisonFields(order = {}) {
   return {
-    orderNumber: normalizeDuplicateOrderNumber(order.orderNumber || order.order_number || ""),
-    name: normalizeImportText(order.name || order.customerName || order.customer_name || ""),
-    phone: normalizePhone(order.phone || ""),
-    alternatePhone: normalizePhone(order.alternatePhone || order.alternate_phone || ""),
-    address: normalizeImportText(order.address || ""),
-    date: toDateOnly(order.date || order.order_date || ""),
-    jars: Number(order.jars || order.quantity || 0) || 0,
-    amount: Number(order.amount || 0),
-    source: normalizeImportText(order.source || ""),
-    sourceChannel: normalizeImportText(order.sourceChannel || order.source_channel || ""),
-    originSource: normalizeImportText(order.originSource || order.origin_source || ""),
-    socialName: normalizeImportText(order.socialName || order.social_name || ""),
-    freeGift: normalizeImportText(order.freeGift || order.free_gift || ""),
-    vipCardStatus: normalizeImportText(order.vipCardStatus || order.vip_card_status || ""),
-    tags: normalizeDuplicateFieldValue(order.tags || []),
-    note: normalizeImportText(order.note || "")
+    customer_name: normalizeDuplicateText(order.name || order.customerName || order.customer_name || ""),
+    phone_number: normalizePhone(order.phone || order.phone_number || ""),
+    shipping_address: normalizeDuplicateText(order.address || order.shippingAddress || order.shipping_address || ""),
+    quantity: normalizeDuplicateNumber(order.jars || order.quantity || 0),
+    total_amount: normalizeDuplicateNumber(order.amount || order.totalAmount || order.total_amount || 0)
   };
 }
 
 function duplicateFingerprint(order = {}) {
-  return JSON.stringify(normalizeDuplicateOrderPayload(order));
+  return JSON.stringify(normalizeDuplicateComparisonFields(order));
 }
 
 function parseOrderDateTime(order = {}) {
@@ -295,7 +268,7 @@ function parseOrderDateTime(order = {}) {
 }
 
 function findExactDuplicateOrderWithin24Hours(db, payload = {}) {
-  const payloadFingerprint = duplicateFingerprint(payload);
+  const payloadFields = normalizeDuplicateComparisonFields(payload);
   const now = new Date();
   const windowStart = now.getTime() - (24 * 60 * 60 * 1000);
   return (db.orders || []).find(order => {
@@ -303,8 +276,15 @@ function findExactDuplicateOrderWithin24Hours(db, payload = {}) {
     if (!orderDateTime) return false;
     const orderTime = orderDateTime.getTime();
     if (orderTime < windowStart || orderTime > now.getTime()) return false;
-    const existingFingerprint = order.duplicateFingerprint || order.duplicate_fingerprint || duplicateFingerprint(order);
-    return existingFingerprint === payloadFingerprint;
+    const existingFields = normalizeDuplicateComparisonFields(order);
+    const matchedFields = Object.keys(payloadFields).filter(key => existingFields[key] === payloadFields[key]);
+    if (matchedFields.length !== 5) return false;
+    order.__duplicateMatch = {
+      matchedFields,
+      payload: payloadFields,
+      existing: existingFields
+    };
+    return true;
   }) || null;
 }
 
@@ -866,6 +846,15 @@ function findOrCreateCustomer(db, payload) {
 function addOrder(db, payload) {
   const duplicate = findDuplicateOrder(db, payload);
   if (duplicate) {
+    console.log("Duplicate order detected", JSON.stringify({
+      matchedFields: duplicate.__duplicateMatch?.matchedFields || [],
+      payload: duplicate.__duplicateMatch?.payload || normalizeDuplicateComparisonFields(payload),
+      existing: duplicate.__duplicateMatch?.existing || normalizeDuplicateComparisonFields(duplicate),
+      existingOrderId: duplicate.id || "",
+      existingOrderNumber: duplicate.orderNumber || duplicate.order_number || "",
+      existingDate: duplicate.date || duplicate.order_date || "",
+      existingTime: duplicate.time || duplicate.order_time || ""
+    }));
     const error = new Error("duplicate");
     error.code = "ORDER_DUPLICATE";
     error.order = duplicate;
@@ -924,29 +913,9 @@ function addOrder(db, payload) {
 }
 
 function findDuplicateOrder(db, payload = {}) {
-  const lineMessageId = normalizeImportText(payload.lineMessageId || payload.line_message_id || "");
-  if (lineMessageId) {
-    const existing = (db.orders || []).find(order =>
-      normalizeImportText(order.lineMessageId || order.line_message_id || "") === lineMessageId
-    );
-    if (existing) return existing;
-  }
-  const orderNumber = normalizeDuplicateOrderNumber(payload.orderNumber || payload.order_number || "");
-  if (orderNumber) {
-    const existing = (db.orders || []).find(order => normalizeDuplicateOrderNumber(order.orderNumber || order.order_number || "") === orderNumber);
-    if (existing) return existing;
-  }
   const recentExactDuplicate = findExactDuplicateOrderWithin24Hours(db, payload);
   if (recentExactDuplicate) return recentExactDuplicate;
-  if (lineMessageId) return null;
-  const date = toDateOnly(payload.date || payload.orderDate || "");
-  const phone = normalizePhone(payload.phone || "");
-  const amount = Number(payload.amount || 0);
-  return (db.orders || []).find(order =>
-    toDateOnly(order.date) === date &&
-    normalizePhone(order.phone || "") === phone &&
-    Number(order.amount || 0) === amount
-  ) || null;
+  return null;
 }
 
 function missingRequiredOrderFields(order = {}) {
