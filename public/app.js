@@ -74,6 +74,7 @@ const app = {
   productsFilterStatus: "",
   editingOrderId: "",
   editingProductId: "",
+  productSavePending: false,
   deletingOrderId: "",
   deletingCustomerId: ""
 };
@@ -192,6 +193,8 @@ const els = {
   productForm: document.querySelector("#productForm"),
   productDialogTitle: document.querySelector("#productDialogTitle"),
   productImagePreview: document.querySelector("#productImagePreview"),
+  productSubmitButton: document.querySelector("#productSubmitButton"),
+  productImageFileInput: document.querySelector("#productImageFileInput"),
   productDetailDialog: document.querySelector("#productDetailDialog"),
   productDetailTitle: document.querySelector("#productDetailTitle"),
   productDetail: document.querySelector("#productDetail")
@@ -817,7 +820,7 @@ function additionalCostTotal(settings = app.data?.settings || {}) {
 
 function normalizeProductRecords(settings = app.data?.settings || {}) {
   const stored = Array.isArray(settings.products) ? settings.products : [];
-  return stored.map((product, index) => ({
+  const normalized = stored.map((product, index) => ({
     id: String(product?.id || `product_${index + 1}`),
     image: String(product?.image || "").trim(),
     name: String(product?.name || "").trim(),
@@ -833,6 +836,13 @@ function normalizeProductRecords(settings = app.data?.settings || {}) {
     followUpRule: String(product?.followUpRule || "1 ชิ้น = 15 วัน").trim() || "1 ชิ้น = 15 วัน",
     archived: Boolean(product?.archived)
   })).filter(product => product.name);
+  const unique = new Map();
+  for (const product of normalized) {
+    const key = `${String(product.sku || "").trim().toLowerCase()}|${String(product.name || "").trim().toLowerCase()}`;
+    const existing = unique.get(key);
+    if (!existing || (existing.archived && !product.archived)) unique.set(key, product);
+  }
+  return [...unique.values()];
 }
 
 function productStatsMap() {
@@ -3270,6 +3280,7 @@ function renderCustomerDetail(customer) {
 
 function openProductDialog(product = null) {
   app.editingProductId = product?.id || "";
+  app.productSavePending = false;
   els.productForm.reset();
   els.productDialogTitle.textContent = product ? "แก้ไขสินค้า" : "เพิ่มสินค้า";
   if (product) {
@@ -3295,6 +3306,8 @@ function openProductDialog(product = null) {
     els.productForm.elements.followUpRule.value = "1 ชิ้น = 15 วัน";
     els.productForm.elements.status.value = "พร้อมขาย";
   }
+  if (els.productImageFileInput) els.productImageFileInput.value = "";
+  setProductSaveState(false);
   updateProductImagePreview(els.productForm.elements.image.value, product?.name || "");
   els.productDialog.showModal();
 }
@@ -3307,6 +3320,14 @@ function updateProductImagePreview(imageUrl = "", productName = "") {
     return;
   }
   els.productImagePreview.textContent = label;
+}
+
+function setProductSaveState(isSaving) {
+  app.productSavePending = isSaving;
+  if (!els.productSubmitButton) return;
+  els.productSubmitButton.disabled = isSaving;
+  els.productSubmitButton.dataset.loading = isSaving ? "true" : "false";
+  els.productSubmitButton.textContent = isSaving ? "กำลังบันทึก..." : "บันทึกสินค้า";
 }
 
 function renderProductDetail(product) {
@@ -3563,6 +3584,10 @@ document.addEventListener("click", async event => {
     renderProducts();
   }
 
+  if (event.target.closest("[data-pick-product-image]")) {
+    els.productImageFileInput?.click();
+  }
+
   if (event.target.closest("[data-focus-product-image]")) {
     els.productForm?.elements?.image?.focus();
   }
@@ -3570,6 +3595,7 @@ document.addEventListener("click", async event => {
   if (event.target.closest("[data-clear-product-image]")) {
     if (els.productForm?.elements?.image) {
       els.productForm.elements.image.value = "";
+      if (els.productImageFileInput) els.productImageFileInput.value = "";
       updateProductImagePreview("", els.productForm.elements.name?.value || "");
     }
   }
@@ -3799,6 +3825,8 @@ document.addEventListener("click", async event => {
   if (event.target.closest("[data-close-customer]")) els.customerDialog.close();
   if (event.target.closest("[data-close-product]")) {
     app.editingProductId = "";
+    app.productSavePending = false;
+    setProductSaveState(false);
     els.productDialog.close();
   }
   if (event.target.closest("[data-close-product-detail]")) els.productDetailDialog.close();
@@ -3906,6 +3934,19 @@ document.addEventListener("change", async event => {
     startCsvImport(file);
   }
 
+  if (event.target === els.productImageFileInput) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = loadEvent => {
+      const result = String(loadEvent.target?.result || "");
+      if (!result) return;
+      els.productForm.elements.image.value = result;
+      updateProductImagePreview(result, els.productForm.elements.name?.value || "");
+    };
+    reader.readAsDataURL(file);
+  }
+
   if (event.target?.id === "importSheetSelect" && app.importWorker) {
     app.importPreparing = true;
     renderImport();
@@ -3940,20 +3981,28 @@ document.addEventListener("submit", async event => {
     }
 
     if (form.id === "productForm") {
+      if (app.productSavePending) return;
+      setProductSaveState(true);
       const data = Object.fromEntries(new FormData(form).entries());
+      delete data.imageFile;
       data.followUpEnabled = form.elements.followUpEnabled.checked;
       const editingProduct = productRowsData().find(item => item.id === app.editingProductId);
       const useCreate = !app.editingProductId || editingProduct?.derived;
       const url = useCreate ? "/api/products" : `/api/products/${encodeURIComponent(app.editingProductId)}`;
       const method = useCreate ? "POST" : "PUT";
-      await api(url, {
-        method,
-        body: JSON.stringify(data)
-      });
-      app.editingProductId = "";
-      els.productDialog.close();
-      showToast("บันทึกสินค้าแล้ว");
-      await loadState();
+      try {
+        await api(url, {
+          method,
+          body: JSON.stringify(data)
+        });
+        app.editingProductId = "";
+        if (els.productImageFileInput) els.productImageFileInput.value = "";
+        els.productDialog.close();
+        showToast("บันทึกสินค้าแล้ว");
+        await loadState();
+      } finally {
+        setProductSaveState(false);
+      }
     }
 
     if (form.id === "deleteOrderForm" && app.deletingOrderId) {

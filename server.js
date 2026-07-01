@@ -213,7 +213,7 @@ function normalizeSettingsCostRows(rows = [], fieldName) {
 }
 
 function normalizeProductRecords(products = []) {
-  return (Array.isArray(products) ? products : [])
+  const normalized = (Array.isArray(products) ? products : [])
     .map((product, index) => ({
       id: String(product?.id || `product_${index + 1}`),
       image: String(product?.image || "").trim(),
@@ -227,10 +227,24 @@ function normalizeProductRecords(products = []) {
       status: String(product?.status || "พร้อมขาย").trim() || "พร้อมขาย",
       followUpEnabled: product?.followUpEnabled !== false,
       followUpDays: Math.max(1, Number(product?.followUpDays || 15)),
-      followUpRule: String(product?.followUpRule || "1 item = 15 days").trim() || "1 item = 15 days",
+      followUpRule: String(product?.followUpRule || "1 ชิ้น = 15 วัน").trim() || "1 ชิ้น = 15 วัน",
       archived: Boolean(product?.archived)
     }))
     .filter(product => product.name);
+  const unique = new Map();
+  for (const product of normalized) {
+    const key = `${String(product.sku || "").trim().toLowerCase()}|${String(product.name || "").trim().toLowerCase()}`;
+    const existing = unique.get(key);
+    if (!existing || (existing.archived && !product.archived)) unique.set(key, product);
+  }
+  return [...unique.values()];
+}
+
+function normalizedProductIdentity(product = {}) {
+  return {
+    sku: String(product?.sku || "").trim().toLowerCase(),
+    name: String(product?.name || "").trim().toLowerCase()
+  };
 }
 
 function publicSettings(settings = {}) {
@@ -2129,11 +2143,28 @@ async function handleApi(req, res) {
     const body = await readBody(req);
     const incoming = normalizeProductRecords([body])[0];
     if (!incoming?.name) return json(res, 400, { ok: false, error: "กรุณาระบุชื่อสินค้า" });
-    const product = { ...incoming, id: incoming.id || uid("product") };
     const products = normalizeProductRecords(db.settings.products);
-    products.push(product);
+    const incomingIdentity = normalizedProductIdentity(incoming);
+    const existingIndex = products.findIndex(item => {
+      const identity = normalizedProductIdentity(item);
+      return (
+        (incoming.id && item.id === incoming.id) ||
+        (incomingIdentity.sku && incomingIdentity.sku === identity.sku) ||
+        (incomingIdentity.name && incomingIdentity.name === identity.name)
+      );
+    });
+    const product = existingIndex >= 0
+      ? normalizeProductRecords([{
+          ...products[existingIndex],
+          ...incoming,
+          id: products[existingIndex].id,
+          archived: false
+        }])[0]
+      : { ...incoming, id: incoming.id || uid("product"), archived: false };
+    if (existingIndex >= 0) products[existingIndex] = product;
+    else products.push(product);
     const productCosts = normalizeSettingsCostRows(db.settings.productCosts, "costPerJar");
-    const existingCostIndex = productCosts.findIndex(item => item.name === product.name);
+    const existingCostIndex = productCosts.findIndex(item => item.id === product.id || item.name === product.name);
     const costRow = {
       id: product.id,
       name: product.name,

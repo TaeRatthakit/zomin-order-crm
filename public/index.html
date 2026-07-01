@@ -200,11 +200,13 @@
               <div id="productImagePreview" class="product-thumb large product-image-preview">GP</div>
               <div class="product-image-editor-copy">
                 <strong>รูปสินค้า</strong>
-                <span>ใส่ลิงก์รูปภาพ หรือเปลี่ยนรูปได้ทันที</span>
+                <span>อัปโหลดจากเครื่องหรือใส่ลิงก์รูปภาพได้ทันที</span>
               </div>
             </div>
             <div class="product-image-editor-actions">
-              <button class="button ghost" type="button" data-focus-product-image>เปลี่ยนรูป</button>
+              <input id="productImageFileInput" name="imageFile" type="file" accept="image/*" hidden>
+              <button class="button ghost" type="button" data-pick-product-image>อัปโหลดรูป</button>
+              <button class="button ghost" type="button" data-focus-product-image>ใช้ลิงก์รูป</button>
               <button class="button ghost" type="button" data-clear-product-image>ลบรูป</button>
             </div>
             <label>ลิงก์รูปภาพ<input name="image" placeholder="https://..." data-product-image-input></label>
@@ -233,7 +235,7 @@
         </div>
         <div class="dialog-actions">
           <button class="button ghost" type="button" data-close-product>ยกเลิก</button>
-          <button class="button primary" type="submit">บันทึกสินค้า</button>
+          <button class="button primary" type="submit" id="productSubmitButton">บันทึกสินค้า</button>
         </div>
       </form>
     </dialog>
