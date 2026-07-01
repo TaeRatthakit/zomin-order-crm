@@ -42,6 +42,7 @@
           </div>
         </div>
         <nav id="mainNav" class="nav-list"></nav>
+        <div id="sidebarFooter" class="sidebar-footer" hidden></div>
       </aside>
 
       <main class="main-panel">
@@ -53,6 +54,10 @@
             <div id="subpageNav" class="subpage-nav" hidden></div>
           </div>
           <div class="top-actions">
+            <button id="headerNotificationButton" class="icon-button notification-button" type="button" aria-label="แจ้งเตือน">
+              <span class="notification-button-icon" aria-hidden="true">🔔</span>
+              <span id="headerNotificationBadge" class="notification-badge" hidden>0</span>
+            </button>
             <div id="userPill" class="user-pill" hidden></div>
             <label class="date-picker">
               <span>วันที่ทำงาน</span>

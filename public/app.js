@@ -4,14 +4,9 @@ const navItems = [
   ["orders", "/orders", "ออเดอร์", "clipboard"],
   ["customers", "/customers", "ลูกค้า", "users"],
   ["products", "/products", "สินค้า", "box"],
-  ["marketing", "/marketing", "การตลาด", "megaphone"],
   ["reports", "/reports", "รายงาน", "chart"],
   ["aiInsights", "/ai-insight", "AI Insight", "stars"],
-  ["broadcast", "/broadcast", "Broadcast", "send"],
-  ["campaigns", "/campaigns", "แคมเปญ", "flag"],
-  ["pricing", "/pricing", "แพ็กเกจ", "stars"],
-  ["settings", "/settings", "ตั้งค่า", "settings"],
-  ["notifications", "/notifications", "แจ้งเตือน", "bell"]
+  ["settings", "/settings", "ตั้งค่า", "settings"]
 ];
 
 const routeToView = {
@@ -168,12 +163,15 @@ function iconSvg(name) {
 
 const els = {
   nav: document.querySelector("#mainNav"),
+  sidebarFooter: document.querySelector("#sidebarFooter"),
   pageTitle: document.querySelector("#pageTitle"),
   subpageNav: document.querySelector("#subpageNav"),
   content: document.querySelector("#content"),
   workDate: document.querySelector("#workDate"),
   toast: document.querySelector("#toast"),
   userPill: document.querySelector("#userPill"),
+  headerNotificationButton: document.querySelector("#headerNotificationButton"),
+  headerNotificationBadge: document.querySelector("#headerNotificationBadge"),
   orderDialog: document.querySelector("#orderDialog"),
   orderForm: document.querySelector("#orderForm"),
   orderDialogTitle: document.querySelector("#orderDialogTitle"),
@@ -444,6 +442,10 @@ async function loadState() {
 function renderNav() {
   if (app.view === "login") {
     els.nav.innerHTML = "";
+    if (els.sidebarFooter) {
+      els.sidebarFooter.hidden = true;
+      els.sidebarFooter.innerHTML = "";
+    }
     return;
   }
   const activeGroupMap = {
@@ -469,13 +471,31 @@ function renderNav() {
     .join("");
 }
 
+function sidebarNotificationCount() {
+  if (!app.data) return 0;
+  return notificationItems().reduce((sum, item) => sum + Number(item.count || 0), 0);
+}
+
 function updateShell() {
   document.body.classList.toggle("login-view", app.view === "login");
   if (!els.userPill) return;
   if (!app.currentUser || app.view === "login") {
     els.userPill.hidden = true;
     els.userPill.innerHTML = "";
+    if (els.sidebarFooter) {
+      els.sidebarFooter.hidden = true;
+      els.sidebarFooter.innerHTML = "";
+    }
+    if (els.headerNotificationBadge) {
+      els.headerNotificationBadge.hidden = true;
+      els.headerNotificationBadge.textContent = "0";
+    }
     return;
+  }
+  const notificationCount = sidebarNotificationCount();
+  if (els.headerNotificationBadge) {
+    els.headerNotificationBadge.hidden = notificationCount <= 0;
+    els.headerNotificationBadge.textContent = String(notificationCount);
   }
   els.userPill.hidden = false;
   els.userPill.innerHTML = `
@@ -483,6 +503,27 @@ function updateShell() {
     <strong>${escapeHtml(app.currentUser.role)}</strong>
     <button type="button" data-logout>ออก</button>
   `;
+  if (els.sidebarFooter) {
+    els.sidebarFooter.hidden = false;
+    els.sidebarFooter.innerHTML = `
+      <article class="sidebar-upgrade-card">
+        <div class="sidebar-upgrade-icon" aria-hidden="true">👑</div>
+        <div class="sidebar-upgrade-copy">
+          <strong>อัปเกรดเป็น Pro</strong>
+          <span>ปลดล็อกฟีเจอร์ขั้นสูง</span>
+        </div>
+        <button class="button primary" type="button" data-view-shortcut="pricing">อัปเกรดเลย</button>
+      </article>
+      <article class="sidebar-profile-card">
+        <div class="sidebar-profile-avatar" aria-hidden="true">${escapeHtml(initials(app.currentUser.name || "GP"))}</div>
+        <div class="sidebar-profile-copy">
+          <strong>${escapeHtml(app.currentUser.name)}</strong>
+          <span>${escapeHtml(app.currentUser.role === "Admin" ? "เจ้าของธุรกิจ" : "ทีมงาน")}</span>
+        </div>
+        <button class="sidebar-profile-action" type="button" data-logout aria-label="ออกจากระบบ">⌄</button>
+      </article>
+    `;
+  }
 }
 
 function metric(label, value, tone = "") {
@@ -3257,6 +3298,11 @@ async function previewCsvImport() {
 document.addEventListener("click", async event => {
   if (event.target.closest("#mobileMenuToggle")) {
     document.body.classList.toggle("sidebar-open");
+  }
+
+  if (event.target.closest("#headerNotificationButton")) {
+    setView("notifications");
+    return;
   }
 
   const navButton = event.target.closest("[data-view]");
