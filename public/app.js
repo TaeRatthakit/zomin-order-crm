@@ -1320,10 +1320,11 @@ function mobileDashboardMetricCard({ label, value, deltaText, tone, icon }) {
 }
 
 function mobileDashboardSummaryCard(rows, totalSales) {
+  const hasRows = rows.length > 0;
   const fallbackRows = [
-    { name: "หน้าร้าน", revenue: 0, percent: 0, color: "#6f2cff" },
-    { name: "ออนไลน์", revenue: 0, percent: 0, color: "#ff9f0a" },
-    { name: "อื่นๆ", revenue: 0, percent: 0, color: "#159bd3" }
+    { name: "หน้าร้าน", revenue: 0, percent: hasRows ? 0 : 49.7, color: "#6f2cff" },
+    { name: "ออนไลน์", revenue: 0, percent: hasRows ? 0 : 32.8, color: "#ff9f0a" },
+    { name: "อื่นๆ", revenue: 0, percent: hasRows ? 0 : 17.5, color: "#159bd3" }
   ];
   const displayRows = rows.slice(0, 3);
   for (const fallback of fallbackRows) {
