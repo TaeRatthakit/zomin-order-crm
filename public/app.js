@@ -5,16 +5,16 @@ const desktopNavItems = [
   ["customers", "/customers", "ลูกค้า", "users"],
   ["products", "/products", "สินค้า", "box"],
   ["reports", "/reports", "รายงาน", "chart"],
-  ["aiInsights", "/ai-insight", "AI Insight", "stars"],
+  ["aiInsights", "/ai-insight", "ข้อมูลเชิงลึกจาก AI", "stars"],
   ["settings", "/settings", "ตั้งค่า", "settings"]
 ];
 
 const mobileNavItems = [
-  ["dashboard", "/dashboard", "Home", "home"],
-  ["reports", "/reports", "Reports", "chart"],
-  ["orders", "/orders", "Orders", "clipboard"],
-  ["opportunities", "/opportunities", "Money Opportunities", "spark"],
-  ["settings", "/settings", "Business Management", "briefcase"]
+  ["dashboard", "/dashboard", "หน้าหลัก", "home"],
+  ["reports", "/reports", "รายงาน", "chart"],
+  ["orders", "/orders", "ออเดอร์", "clipboard"],
+  ["opportunities", "/opportunities", "โอกาสทำเงิน", "spark"],
+  ["settings", "/settings", "จัดการธุรกิจ", "briefcase"]
 ];
 
 const routeToView = {
@@ -362,15 +362,15 @@ function sortByPriority(customers) {
 function titleFor(view) {
   const titles = {
     login: "เข้าสู่ระบบ",
-    dashboard: "หน้าหลัก",
+    dashboard: "แดชบอร์ด",
     opportunities: "โอกาสทำเงิน",
     orders: "ออเดอร์",
     customers: "ลูกค้า",
     products: "สินค้า",
     marketing: "การตลาด",
     reports: "รายงาน",
-    aiInsights: "AI Insight",
-    broadcast: "Broadcast",
+    aiInsights: "ข้อมูลเชิงลึกจาก AI",
+    broadcast: "กระจายข้อความ",
     campaigns: "แคมเปญ",
     pricing: "แพ็กเกจ",
     notifications: "แจ้งเตือน",
@@ -387,12 +387,16 @@ function titleFor(view) {
     settingsUsers: "ผู้ใช้งานและสิทธิ์",
     settingsImportExport: "นำเข้า / ส่งออก",
     settingsSubscription: "แพ็กเกจ",
-    settingsFollowup: "ตั้งค่า Follow-up",
+    settingsFollowup: "ตั้งค่าการติดตาม",
     settingsVip: "ตั้งค่า VIP",
     settingsLine: "ตั้งค่า LINE OA",
-    lineDebug: "LINE Debug"
+    lineDebug: "ตรวจสอบไลน์"
   };
   return titles[view] || "หน้าหลัก";
+}
+
+function isMobileViewport() {
+  return window.matchMedia("(max-width: 820px)").matches;
 }
 
 const moreSubpages = new Set([
@@ -513,13 +517,15 @@ function renderNav() {
     settingsFollowup: "settings",
     settingsVip: "settings",
     settingsLine: "settings",
-    lineDebug: "settings",
-    customers: "settings",
-    products: "settings",
-    aiInsights: "settings"
+    lineDebug: "settings"
   };
+  if (isMobileViewport()) {
+    activeGroupMap.customers = "settings";
+    activeGroupMap.products = "settings";
+    activeGroupMap.aiInsights = "settings";
+  }
   const activeGroup = activeGroupMap[app.view] || app.view;
-  const navItems = window.matchMedia("(max-width: 780px)").matches ? mobileNavItems : desktopNavItems;
+  const navItems = isMobileViewport() ? mobileNavItems : desktopNavItems;
   els.nav.innerHTML = navItems
     .map(([id, path, label, icon]) => `
       <button class="nav-button ${activeGroup === id ? "active" : ""}" data-view="${id}" data-path="${path}" aria-label="${escapeHtml(label)}">
@@ -537,6 +543,8 @@ function sidebarNotificationCount() {
 
 function updateShell() {
   document.body.classList.toggle("login-view", app.view === "login");
+  document.body.classList.toggle("mobile-app-shell", isMobileViewport());
+  document.body.classList.toggle("desktop-app-shell", !isMobileViewport());
   if (!els.headerProfile) return;
   if (els.workDateDisplay) {
     els.workDateDisplay.textContent = formatDatePill(els.workDate?.value || app.data?.summary?.selectedDate || todayISO());
@@ -1225,6 +1233,278 @@ function orderTable(orders) {
   `;
 }
 
+function dashboardChangeText(currentValue, previousValue, unit = "") {
+  const current = Number(currentValue || 0);
+  const previous = Number(previousValue || 0);
+  if (previous <= 0) {
+    if (current <= 0) return "0.0%";
+    return "+100.0%";
+  }
+  const percent = ((current - previous) / previous) * 100;
+  const sign = percent > 0 ? "+" : "";
+  return `${sign}${percent.toFixed(1)}%${unit}`;
+}
+
+function dashboardChannelRows(selectedDate) {
+  const colors = ["#8b3dff", "#ffb11f", "#23c7ff", "#49e58f"];
+  const todaysOrders = app.data.orders.filter(order => order.date === selectedDate);
+  const map = new Map();
+  for (const order of todaysOrders) {
+    const channel = summarizeSalesChannel(displayOrderChannel(order));
+    if (!map.has(channel)) map.set(channel, { name: channel, revenue: 0 });
+    map.get(channel).revenue += Number(order.amount || 0);
+  }
+  const rows = [...map.values()].sort((a, b) => b.revenue - a.revenue);
+  const total = rows.reduce((sum, row) => sum + row.revenue, 0);
+  return rows.slice(0, 4).map((row, index) => ({
+    ...row,
+    color: colors[index % colors.length],
+    percent: total ? (row.revenue / total) * 100 : 0
+  }));
+}
+
+function mobileDashboardAlertItems() {
+  const colors = ["purple", "amber", "cyan"];
+  const icons = ["bell", "profit", "clipboard"];
+  const times = ["10 นาทีที่แล้ว", "1 ชั่วโมงที่แล้ว", "2 ชั่วโมงที่แล้ว"];
+  return notificationItems()
+    .filter(item => Number(item.count || 0) > 0)
+    .slice(0, 3)
+    .map((item, index) => ({
+      ...item,
+      tone: colors[index % colors.length],
+      icon: icons[index % icons.length],
+      time: times[index] || "เมื่อสักครู่"
+    }));
+}
+
+function mobileDashboardMetricCard({ label, value, deltaText, tone, icon }) {
+  return `
+    <article class="mobile-kpi-card mobile-kpi-${tone}">
+      <div class="mobile-kpi-icon" aria-hidden="true">${dashboardCardIcon(icon)}</div>
+      <span class="mobile-kpi-label">${escapeHtml(label)}</span>
+      <strong>${escapeHtml(value)}</strong>
+      <span class="mobile-kpi-delta">${escapeHtml(deltaText)} ↗</span>
+    </article>
+  `;
+}
+
+function mobileDashboardSummaryCard(rows, totalSales) {
+  const gradient = rows.length
+    ? rows.map((row, index) => {
+      const start = rows.slice(0, index).reduce((sum, item) => sum + item.percent, 0);
+      return `${row.color} ${start}% ${start + row.percent}%`;
+    }).join(", ")
+    : "#8b3dff 0% 100%";
+  return `
+    <article class="mobile-summary-card">
+      <div class="mobile-summary-head">
+        <h3>ภาพรวมธุรกิจวันนี้</h3>
+        <span aria-hidden="true">›</span>
+      </div>
+      <div class="mobile-summary-body">
+        <div class="mobile-summary-donut" style="--donut-gradient:${gradient};">
+          <div>
+            <span>ยอดขายรวม</span>
+            <strong>${money(totalSales)}</strong>
+            <small>บาท</small>
+          </div>
+        </div>
+        <div class="mobile-summary-legend">
+          ${rows.map(row => `
+            <div class="mobile-summary-row">
+              <span class="mobile-summary-name"><i style="background:${row.color}"></i>${escapeHtml(row.name)}</span>
+              <strong>${money(row.revenue)} บาท</strong>
+              <span>${row.percent.toFixed(1)}%</span>
+            </div>
+          `).join("")}
+        </div>
+      </div>
+    </article>
+  `;
+}
+
+function mobileDashboardAlertsCard(items) {
+  return `
+    <article class="mobile-alerts-card">
+      <div class="mobile-summary-head">
+        <h3>แจ้งเตือนสำคัญ</h3>
+        <button class="mobile-link-button" type="button" data-view-shortcut="notifications">ดูทั้งหมด</button>
+      </div>
+      <div class="mobile-alerts-list">
+        ${items.map(item => `
+          <button class="mobile-alert-item" type="button" data-view-shortcut="notifications">
+            <span class="mobile-alert-icon ${item.tone}" aria-hidden="true">${dashboardCardIcon(item.icon)}</span>
+            <span class="mobile-alert-copy">
+              <strong>${escapeHtml(item.title)} ${money(item.count)} รายการ</strong>
+              <small>${escapeHtml(item.detail)}</small>
+            </span>
+            <span class="mobile-alert-meta">
+              <small>${escapeHtml(item.time)}</small>
+              <i class="mobile-alert-dot ${item.tone}"></i>
+            </span>
+          </button>
+        `).join("") || `<div class="empty-state">ยังไม่มีแจ้งเตือนสำหรับวันนี้</div>`}
+      </div>
+    </article>
+  `;
+}
+
+function renderMobileDashboard(viewModel) {
+  const { s, compactDate, salesDelta, ordersDelta, profitDelta, opportunityDelta, estimatedProfitToday, opportunityCount, channelRows, alerts } = viewModel;
+  els.content.innerHTML = `
+    <section class="section saas-page mobile-dashboard-page">
+      <div class="mobile-dashboard-shell">
+        <section class="mobile-hero-card">
+          <div class="mobile-hero-copy">
+            <h2>จัดการธุรกิจให้เติบโต</h2>
+            <p>ดูภาพรวมยอดขาย กำไร และโอกาสสำคัญของวันนี้ได้ในหน้าเดียว</p>
+            <span class="mobile-hero-date">ข้อมูลวันที่ ${escapeHtml(compactDate)}</span>
+          </div>
+          <div class="mobile-hero-stage" aria-hidden="true">
+            <div class="mobile-stage-orbit orbit-top">${dashboardCardIcon("sales")}</div>
+            <div class="mobile-stage-orbit orbit-left">${dashboardCardIcon("users")}</div>
+            <div class="mobile-stage-orbit orbit-right">${dashboardCardIcon("chart")}</div>
+            <div class="mobile-stage-platform"></div>
+            <div class="mobile-stage-bars">
+              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+            <div class="mobile-stage-arrow"></div>
+          </div>
+        </section>
+
+        <section class="mobile-kpi-grid">
+          ${mobileDashboardMetricCard({ label: "ยอดขายวันนี้", value: `${money(s.salesToday)} บาท`, deltaText: dashboardChangeText(s.salesToday, s.salesToday - salesDelta.diff), tone: "green", icon: "sales" })}
+          ${mobileDashboardMetricCard({ label: "ออเดอร์วันนี้", value: money(s.ordersToday || 0), deltaText: dashboardChangeText(s.ordersToday || 0, (s.ordersToday || 0) - ordersDelta.diff), tone: "amber", icon: "orders" })}
+          ${mobileDashboardMetricCard({ label: "กำไรวันนี้", value: `${money(estimatedProfitToday)} บาท`, deltaText: dashboardChangeText(estimatedProfitToday, estimatedProfitToday - profitDelta.diff), tone: "violet", icon: "profit" })}
+          ${mobileDashboardMetricCard({ label: "โอกาสทำเงิน", value: money(opportunityCount), deltaText: dashboardChangeText(opportunityCount, Math.max(0, opportunityCount - 1)), tone: "cyan", icon: "target" })}
+        </section>
+
+        ${mobileDashboardSummaryCard(channelRows, s.salesToday || 0)}
+        ${mobileDashboardAlertsCard(alerts)}
+      </div>
+    </section>
+  `;
+}
+
+function desktopInsightTable(rows) {
+  if (!rows.length) return `<div class="empty-state">ยังไม่มีข้อมูลช่องทางขายของวันนี้</div>`;
+  return rows.map(row => `
+    <div class="desktop-channel-row">
+      <span class="desktop-channel-label"><i style="background:${row.color}"></i>${escapeHtml(row.name)}</span>
+      <strong>${money(row.revenue)} บาท</strong>
+      <span>${row.percent.toFixed(1)}%</span>
+    </div>
+  `).join("");
+}
+
+function desktopOpportunityRows(rows) {
+  return rows.slice(0, 4).map(item => `
+    <button class="desktop-opportunity-row" type="button" data-view-shortcut="${escapeHtml(item.targetView)}">
+      <span>
+        <strong>${escapeHtml(item.title)}</strong>
+        <small>${escapeHtml(item.description)}</small>
+      </span>
+      <span class="desktop-opportunity-meta">${money(item.revenue)} บาท</span>
+    </button>
+  `).join("");
+}
+
+function renderDesktopDashboard(viewModel) {
+  const { s, compactDate, monthToDateOrders, estimatedProfitToday, revenueOpportunity, channelRows, todaysOrders, opportunities, alerts } = viewModel;
+  const topOrders = [...todaysOrders].sort((a, b) => Number(b.amount || 0) - Number(a.amount || 0)).slice(0, 5);
+  els.content.innerHTML = `
+    <section class="section saas-page desktop-dashboard-page">
+      <div class="desktop-dashboard-shell">
+        <section class="desktop-hero-panel">
+          <div class="desktop-hero-copy">
+            <span class="page-kicker">ภาพรวมประจำวัน</span>
+            <h2>แดชบอร์ดผู้บริหาร Growup Pilot</h2>
+            <p>ดูยอดขาย กำไร ออเดอร์ และโอกาสทำเงินในมุมมองกว้างที่ออกแบบมาสำหรับหน้าจอเดสก์ท็อปโดยเฉพาะ</p>
+          </div>
+          <div class="desktop-hero-meta">
+            <span class="dashboard-meta-chip">วันที่ทำงาน ${escapeHtml(compactDate)}</span>
+            <span class="dashboard-meta-chip">ออเดอร์เดือนนี้ ${money(monthToDateOrders.length)} รายการ</span>
+          </div>
+        </section>
+
+        <section class="desktop-kpi-grid">
+          ${dashboardKpiCard({ label: "ยอดขายวันนี้", value: `${money(s.salesToday)} บาท`, tone: "violet", delta: viewModel.salesDelta, hint: "รวมยอดจากออเดอร์ที่ปิดแล้วในวันนี้", icon: dashboardCardIcon("sales"), series: dashboardTrendSeries("salesToday"), area: "sales-today" })}
+          ${dashboardKpiCard({ label: "ออเดอร์วันนี้", value: money(s.ordersToday || 0), tone: "blue", delta: viewModel.ordersDelta, hint: "จำนวนออเดอร์ใหม่ที่บันทึกในวันนี้", icon: dashboardCardIcon("orders"), series: dashboardTrendSeries("ordersToday"), area: "orders-today" })}
+          ${dashboardKpiCard({ label: "กำไรวันนี้", value: `${money(estimatedProfitToday)} บาท`, tone: "gold", delta: viewModel.profitDelta, hint: "ยอดขายหักต้นทุนสินค้าและต้นทุนเพิ่มเติมแล้ว", icon: dashboardCardIcon("profit"), series: dashboardTrendSeries("profitToday"), area: "profit-today" })}
+          ${dashboardKpiCard({ label: "มูลค่าโอกาสทำเงิน", value: `${money(revenueOpportunity)} บาท`, tone: "pink", delta: viewModel.opportunityDelta, hint: "มูลค่ารวมจากโอกาสที่ควรเร่งติดตามวันนี้", icon: dashboardCardIcon("target"), series: dashboardTrendSeries("opportunityToday"), area: "opportunity-today" })}
+        </section>
+
+        <section class="desktop-dashboard-grid">
+          <article class="panel desktop-chart-panel">
+            <div class="section-header">
+              <div>
+                <h3>รายได้ 6 เดือนล่าสุด</h3>
+                <p class="muted">ดูแนวโน้มยอดขายรวมย้อนหลังเพื่อเทียบจังหวะการเติบโต</p>
+              </div>
+            </div>
+            ${monthlyChart()}
+          </article>
+
+          <article class="panel desktop-opportunities-panel">
+            <div class="section-header">
+              <div>
+                <h3>โอกาสทำเงินที่ควรทำก่อน</h3>
+                <p class="muted">คัดจากลูกค้าที่ควรติดตาม สินค้าขายดี และรายการที่กำลังจะปิดยอดได้เร็ว</p>
+              </div>
+            </div>
+            <div class="desktop-opportunity-list">
+              ${desktopOpportunityRows(opportunities)}
+            </div>
+          </article>
+
+          <article class="panel desktop-channel-panel">
+            <div class="section-header">
+              <div>
+                <h3>สัดส่วนยอดขายวันนี้</h3>
+                <p class="muted">แบ่งตามช่องทางขายที่สร้างยอดในวันทำงานนี้</p>
+              </div>
+            </div>
+            <div class="desktop-channel-list">
+              ${desktopInsightTable(channelRows)}
+            </div>
+          </article>
+
+          <article class="panel desktop-alert-panel">
+            <div class="section-header">
+              <div>
+                <h3>สรุปแจ้งเตือนสำคัญ</h3>
+                <p class="muted">ประเด็นที่ต้องตามต่อเพื่อรักษายอดขายและป้องกันการพลาดโอกาส</p>
+              </div>
+            </div>
+            <div class="desktop-alert-list">
+              ${alerts.map(item => `
+                <button class="desktop-alert-row" type="button" data-view-shortcut="notifications">
+                  <span>${escapeHtml(item.title)}</span>
+                  <strong>${money(item.count)} รายการ</strong>
+                </button>
+              `).join("") || `<div class="empty-state">ยังไม่มีแจ้งเตือนสำคัญ</div>`}
+            </div>
+          </article>
+        </section>
+
+        <article class="panel desktop-orders-panel">
+          <div class="section-header">
+            <div>
+              <h3>ออเดอร์มูลค่าสูงของวันนี้</h3>
+              <p class="muted">เรียงจากยอดซื้อสูงสุดเพื่อช่วยโฟกัสลูกค้าที่สำคัญก่อน</p>
+            </div>
+          </div>
+          ${orderTable(topOrders)}
+        </article>
+      </div>
+    </section>
+  `;
+}
+
 function renderDashboard() {
   const s = app.data.summary;
   const opportunities = opportunityCardsData();
@@ -1263,49 +1543,38 @@ function renderDashboard() {
     month: "long",
     year: "numeric"
   }).format(new Date(`${s.selectedDate}T12:00:00+07:00`));
+  const channelRows = dashboardChannelRows(s.selectedDate);
+  const viewModel = {
+    s,
+    compactDate,
+    salesDelta,
+    ordersDelta,
+    profitDelta,
+    opportunityDelta,
+    estimatedProfitToday,
+    productCostsToday,
+    additionalCostsToday,
+    revenueOpportunity,
+    opportunityCount: opportunities.reduce((sum, item) => sum + item.count, 0),
+    monthToDateOrders,
+    todaysOrders,
+    opportunities,
+    channelRows,
+    alerts: mobileDashboardAlertItems()
+  };
 
-  els.content.innerHTML = `
-    <section class="section saas-page dashboard-page dashboard-premium-home">
-      <div class="dashboard-home-shell">
-        <div class="dashboard-home-header hero-banner">
-          <div class="dashboard-home-copy hero-copy">
-            <span class="page-kicker">Growup Pilot Dashboard</span>
-            <h2>จัดการธุรกิจให้เติบโต</h2>
-            <p>สรุป KPI สำคัญในหน้ามือถือที่อ่านง่าย ใช้งานเร็ว และยังคงธีม Dark Premium ของ Growup Pilot ไว้ครบถ้วน</p>
-          </div>
-          <div class="dashboard-hero-art" aria-hidden="true">
-            <div class="hero-orbit hero-orbit-a">${dashboardCardIcon("sales")}</div>
-            <div class="hero-orbit hero-orbit-b">${dashboardCardIcon("orders")}</div>
-            <div class="hero-orbit hero-orbit-c">${dashboardCardIcon("target")}</div>
-            <div class="hero-growth-bars">
-              <span></span>
-              <span></span>
-              <span></span>
-              <span></span>
-            </div>
-            <div class="hero-growth-arrow"></div>
-          </div>
-        </div>
-        <div class="dashboard-home-meta">
-          <span class="dashboard-meta-chip">อัปเดตจากข้อมูลวันที่ ${escapeHtml(compactDate)}</span>
-          <span class="dashboard-meta-chip">เดือนนี้ ${money(monthToDateOrders.length)} ออเดอร์</span>
-        </div>
-        <div class="dashboard-kpi-grid premium-metric-grid dashboard-kpi-grid-mobile">
-          ${dashboardKpiCard({ label: "Sales Today", value: `${money(s.salesToday)} บาท`, tone: "violet", delta: salesDelta, hint: "ยอดรวมจากออเดอร์ที่ปิดแล้ววันนี้", icon: dashboardCardIcon("sales"), series: dashboardTrendSeries("salesToday"), area: "sales-today" })}
-          ${dashboardKpiCard({ label: "Orders Today", value: money(s.ordersToday || 0), tone: "blue", delta: ordersDelta, hint: "จำนวนออเดอร์ที่เข้ามาในวันทำงานนี้", icon: dashboardCardIcon("orders"), series: dashboardTrendSeries("ordersToday"), area: "orders-today" })}
-          ${dashboardKpiCard({ label: "Profit Today", value: `${money(estimatedProfitToday)} บาท`, tone: "gold", delta: profitDelta, hint: `ยอดขายวันนี้ - ต้นทุนสินค้า ${money(productCostsToday)} - ต้นทุนเพิ่มเติม ${money(additionalCostsToday)}`, icon: dashboardCardIcon("profit"), series: dashboardTrendSeries("profitToday"), area: "profit-today" })}
-          ${dashboardKpiCard({ label: "Money Opportunities", value: `${money(opportunities.reduce((sum, item) => sum + item.count, 0))}`, tone: "pink", delta: opportunityDelta, hint: `${money(revenueOpportunity)} บาท ที่ควรเร่งปิดการขาย`, icon: dashboardCardIcon("target"), series: dashboardTrendSeries("opportunityToday"), area: "opportunity-today" })}
-        </div>
-      </div>
-    </section>
-  `;
+  if (isMobileViewport()) {
+    renderMobileDashboard(viewModel);
+    return;
+  }
+  renderDesktopDashboard(viewModel);
 }
 
 const businessManagementItems = [
-  { view: "settingsStore", title: "Settings", description: "ข้อมูลร้านค้า การเงิน สิทธิ์ และการตั้งค่าระบบ", icon: iconSvg("settings") },
-  { view: "products", title: "Products", description: "คลังสินค้า สต๊อก และข้อมูลสินค้าทั้งหมด", icon: iconSvg("box") },
-  { view: "customers", title: "Customers", description: "ดูโปรไฟล์ลูกค้า การติดตาม และสถานะ VIP", icon: iconSvg("users") },
-  { view: "aiInsights", title: "AI Insight", description: "คำแนะนำเชิงธุรกิจจากข้อมูลล่าสุดของร้าน", icon: iconSvg("stars") }
+  { view: "settingsStore", title: "ตั้งค่า", description: "ข้อมูลร้านค้า การเงิน สิทธิ์ และการตั้งค่าระบบ", icon: iconSvg("settings") },
+  { view: "products", title: "สินค้า", description: "คลังสินค้า สต๊อก และข้อมูลสินค้าทั้งหมด", icon: iconSvg("box") },
+  { view: "customers", title: "ลูกค้า", description: "ดูโปรไฟล์ลูกค้า การติดตาม และสถานะ VIP", icon: iconSvg("users") },
+  { view: "aiInsights", title: "ข้อมูลเชิงลึกจาก AI", description: "คำแนะนำเชิงธุรกิจจากข้อมูลล่าสุดของร้าน", icon: iconSvg("stars") }
 ];
 
 function renderSettings() {
@@ -1314,9 +1583,9 @@ function renderSettings() {
       <div class="stack settings-workspace settings-menu-workspace">
         <div class="settings-page-hero">
           <div class="page-identity-copy">
-            <span class="page-kicker">Growup Pilot</span>
-            <h2>Business Management</h2>
-            <p>รวมเมนูบริหารธุรกิจที่ใช้งานบ่อยไว้ในหน้าเดียวสำหรับมือถือ โดยยังคงเชื่อมกับหน้าจริงและ logic เดิมทั้งหมด</p>
+            <span class="page-kicker">จัดการธุรกิจ</span>
+            <h2>${isMobileViewport() ? "ศูนย์รวมเมนูธุรกิจ" : "ตั้งค่าและเมนูธุรกิจ"}</h2>
+            <p>${isMobileViewport() ? "รวมเมนูที่เหลือสำหรับหน้ามือถือไว้ในแท็บเดียว เพื่อให้ใช้งานเร็วและเป็นระเบียบ" : "รวมเมนูตั้งค่า สินค้า ลูกค้า และข้อมูลเชิงลึกจาก AI ไว้ในหน้าเดียวสำหรับการจัดการธุรกิจ"}</p>
           </div>
         </div>
         <div class="settings-menu-list business-management-list">
@@ -2591,16 +2860,16 @@ function renderAiInsights() {
     <section class="section saas-page ai-page">
       <div class="page-identity workspace-hero ai-hero">
         <div>
-          <span class="page-kicker">Business AI Assistant</span>
-          <h2>AI Insight</h2>
+          <span class="page-kicker">ผู้ช่วยวิเคราะห์ธุรกิจ</span>
+          <h2>ข้อมูลเชิงลึกจาก AI</h2>
           <p>${hasAi ? "พร้อมเชื่อมต่อ AI จากระบบเดิม" : "แสดงคำแนะนำแบบ fallback อย่างปลอดภัยเมื่อยังไม่ได้ตั้งค่า AI API"}</p>
         </div>
-        <span class="tag">${hasAi ? "AI พร้อมใช้งาน" : "Fallback mode"}</span>
+        <span class="tag">${hasAi ? "AI พร้อมใช้งาน" : "โหมดสำรอง"}</span>
       </div>
       <div class="cards-grid">
         ${cards.map((text, index) => `
           <article class="insight-card">
-            <span class="tag">Insight ${index + 1}</span>
+            <span class="tag">อินไซต์ ${index + 1}</span>
             <h3>${index === 0 ? "ลูกค้าที่ควรเร่งตาม" : index === 1 ? "ช่องทางที่ควรดันเพิ่ม" : "งานด่วนวันนี้"}</h3>
             <p class="muted">${escapeHtml(text)}</p>
           </article>
