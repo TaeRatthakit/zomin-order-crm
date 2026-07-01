@@ -3005,11 +3005,9 @@ function syncViewFromLocation() {
 
 async function submitOrder(form) {
   const data = Object.fromEntries(new FormData(form).entries());
-  data.originSource = data.originSourceChoice === "อื่นๆ"
-    ? String(data.originSourceOther || "").trim()
-    : String(data.originSourceChoice || "").trim();
+  const preservedOriginSource = String(form.dataset.originSourceValue || "").trim();
+  data.originSource = String(data.originSourceChoice || "").trim() || preservedOriginSource;
   delete data.originSourceChoice;
-  delete data.originSourceOther;
   const orderId = app.editingOrderId;
   const snapshot = cloneUiState();
   const clientMutationId = `tmp_${Date.now().toString(36)}`;
@@ -3055,6 +3053,7 @@ function openDeleteCustomerDialog(customerId) {
 function openOrderDialog(order = null) {
   app.editingOrderId = order?.id || "";
   els.orderForm.reset();
+  delete els.orderForm.dataset.originSourceValue;
   els.orderDialogTitle.textContent = order ? "แก้ไขออเดอร์" : "เพิ่มออเดอร์";
   els.orderSubmitButton.textContent = order ? "บันทึกการแก้ไข" : "บันทึกออเดอร์";
   if (order) {
@@ -3079,26 +3078,19 @@ function openOrderDialog(order = null) {
     });
     const knownOriginSources = ["Facebook", "LINE", "โทรเข้า", "ลูกค้าบอกต่อ"];
     const originSource = String(order.originSource || "");
-    els.orderForm.elements.originSourceChoice.value = knownOriginSources.includes(originSource)
-      ? originSource
-      : originSource ? "อื่นๆ" : "";
-    els.orderForm.elements.originSourceOther.value = knownOriginSources.includes(originSource) ? "" : originSource;
+    els.orderForm.elements.originSourceChoice.value = knownOriginSources.includes(originSource) ? originSource : "";
+    if (originSource && !knownOriginSources.includes(originSource)) {
+      els.orderForm.dataset.originSourceValue = originSource;
+    }
   } else {
     els.orderForm.elements.date.value = els.workDate.value || todayISO();
     els.orderForm.elements.amount.value = app.data?.settings?.defaultJarPrice || 750;
   }
-  syncOriginSourceFields();
   els.orderDialog.showModal();
 }
 
 function syncOriginSourceFields() {
-  const otherField = els.orderForm.querySelector("[data-origin-source-other]");
-  if (!otherField) return;
-  const showOther = els.orderForm.elements.originSourceChoice.value === "อื่นๆ";
-  otherField.toggleAttribute("hidden", !showOther);
-  otherField.setAttribute("aria-hidden", String(!showOther));
-  els.orderForm.elements.originSourceOther.required = showOther;
-  if (!showOther) els.orderForm.elements.originSourceOther.value = "";
+  return;
 }
 
 async function copyText(text) {
