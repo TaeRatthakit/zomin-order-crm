@@ -570,7 +570,10 @@ function updateShell() {
   }
   els.headerProfile.hidden = false;
   els.headerProfile.innerHTML = `
-    <div class="header-profile-avatar" aria-hidden="true">${escapeHtml(initials(app.currentUser.name || "GP"))}</div>
+    <div class="header-profile-avatar" aria-hidden="true">
+      <span class="header-profile-avatar-core">${escapeHtml(initials(app.currentUser.name || "GP"))}</span>
+      <span class="header-profile-badge">👑</span>
+    </div>
     <div class="header-profile-copy">
       <strong>${escapeHtml(app.currentUser.name)}</strong>
       <span>${escapeHtml(app.currentUser.role === "Admin" ? "เจ้าของร้าน" : "ทีมงาน")}</span>
@@ -1358,9 +1361,11 @@ function renderMobileDashboard(viewModel) {
       <div class="mobile-dashboard-shell">
         <section class="mobile-hero-card">
           <div class="mobile-hero-copy">
-            <h2>จัดการธุรกิจให้เติบโต</h2>
-            <p>ดูภาพรวมยอดขาย กำไร และโอกาสสำคัญของวันนี้ได้ในหน้าเดียว</p>
-            <span class="mobile-hero-date">ข้อมูลวันที่ ${escapeHtml(compactDate)}</span>
+            <h2>
+              <span>จัดการธุรกิจ</span>
+              <em>ให้เติบโต</em>
+              <small>ไปกับ Growup</small>
+            </h2>
           </div>
           <div class="mobile-hero-stage" aria-hidden="true">
             <div class="mobile-stage-orbit orbit-top">${dashboardCardIcon("sales")}</div>
@@ -1375,12 +1380,17 @@ function renderMobileDashboard(viewModel) {
             </div>
             <div class="mobile-stage-arrow"></div>
           </div>
+          <div class="mobile-hero-dots" aria-hidden="true">
+            <span class="is-active"></span>
+            <span></span>
+            <span></span>
+          </div>
         </section>
 
         <section class="mobile-kpi-grid">
-          ${mobileDashboardMetricCard({ label: "ยอดขายวันนี้", value: `${money(s.salesToday)} บาท`, deltaText: dashboardChangeText(s.salesToday, s.salesToday - salesDelta.diff), tone: "green", icon: "sales" })}
+          ${mobileDashboardMetricCard({ label: "ยอดขายวันนี้", value: money(s.salesToday), deltaText: dashboardChangeText(s.salesToday, s.salesToday - salesDelta.diff), tone: "green", icon: "sales" })}
           ${mobileDashboardMetricCard({ label: "ออเดอร์วันนี้", value: money(s.ordersToday || 0), deltaText: dashboardChangeText(s.ordersToday || 0, (s.ordersToday || 0) - ordersDelta.diff), tone: "amber", icon: "orders" })}
-          ${mobileDashboardMetricCard({ label: "กำไรวันนี้", value: `${money(estimatedProfitToday)} บาท`, deltaText: dashboardChangeText(estimatedProfitToday, estimatedProfitToday - profitDelta.diff), tone: "violet", icon: "profit" })}
+          ${mobileDashboardMetricCard({ label: "กำไรวันนี้", value: money(estimatedProfitToday), deltaText: dashboardChangeText(estimatedProfitToday, estimatedProfitToday - profitDelta.diff), tone: "violet", icon: "profit" })}
           ${mobileDashboardMetricCard({ label: "โอกาสทำเงิน", value: money(opportunityCount), deltaText: dashboardChangeText(opportunityCount, Math.max(0, opportunityCount - 1)), tone: "cyan", icon: "target" })}
         </section>
 
