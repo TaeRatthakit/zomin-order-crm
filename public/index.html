@@ -189,19 +189,32 @@
       <form id="productForm" method="dialog">
         <div class="dialog-header">
           <div>
-            <p class="eyebrow">Product</p>
+            <p class="eyebrow">สินค้า</p>
             <h2 id="productDialogTitle">เพิ่มสินค้า</h2>
           </div>
           <button class="icon-button" type="button" data-close-product aria-label="ปิด">×</button>
         </div>
         <div class="form-grid">
-          <label>รูปภาพ URL<input name="image" placeholder="https://..."></label>
+          <div class="span-2 product-image-editor">
+            <div class="product-image-preview-wrap">
+              <div id="productImagePreview" class="product-thumb large product-image-preview">GP</div>
+              <div class="product-image-editor-copy">
+                <strong>รูปสินค้า</strong>
+                <span>ใส่ลิงก์รูปภาพ หรือเปลี่ยนรูปได้ทันที</span>
+              </div>
+            </div>
+            <div class="product-image-editor-actions">
+              <button class="button ghost" type="button" data-focus-product-image>เปลี่ยนรูป</button>
+              <button class="button ghost" type="button" data-clear-product-image>ลบรูป</button>
+            </div>
+            <label>ลิงก์รูปภาพ<input name="image" placeholder="https://..." data-product-image-input></label>
+          </div>
           <label>ชื่อสินค้า<input name="name" required></label>
           <label>SKU<input name="sku" required></label>
-          <label>Sale Price<input name="salePrice" type="number" min="0" step="0.01" required></label>
-          <label>Cost per Item<input name="costPerItem" type="number" min="0" step="0.01" required></label>
-          <label>Stock Quantity<input name="stockQuantity" type="number" min="0" step="1" required></label>
-          <label>Low Stock Alert<input name="lowStockAlert" type="number" min="0" step="1" required></label>
+          <label>ราคาขาย<input name="salePrice" type="number" min="0" step="0.01" required></label>
+          <label>ต้นทุนต่อชิ้น<input name="costPerItem" type="number" min="0" step="0.01" required></label>
+          <label>จำนวนสต๊อก<input name="stockQuantity" type="number" min="0" step="1" required></label>
+          <label>แจ้งเตือนสต๊อกต่ำ<input name="lowStockAlert" type="number" min="0" step="1" required></label>
           <label>สถานะ
             <select name="status">
               <option>พร้อมขาย</option>
@@ -210,13 +223,13 @@
               <option>ปิดการขาย</option>
             </select>
           </label>
-          <label class="span-2">Description<textarea name="description" placeholder="รายละเอียดสินค้า"></textarea></label>
+          <label class="span-2">รายละเอียดสินค้า<textarea name="description" placeholder="รายละเอียดสินค้า"></textarea></label>
           <label class="inline">
             <input name="followUpEnabled" type="checkbox" checked style="width:auto">
-            Customer Follow-up Enabled
+            เปิดใช้งานติดตามลูกค้า
           </label>
-          <label>Follow-up after X days<input name="followUpDays" type="number" min="1" step="1" value="15"></label>
-          <label class="span-2">Follow-up rule<input name="followUpRule" value="1 item = 15 days"></label>
+          <label>ติดตามหลังผ่านไปกี่วัน<input name="followUpDays" type="number" min="1" step="1" value="15"></label>
+          <label class="span-2">กติกาการติดตาม<input name="followUpRule" value="1 ชิ้น = 15 วัน"></label>
         </div>
         <div class="dialog-actions">
           <button class="button ghost" type="button" data-close-product>ยกเลิก</button>
@@ -229,7 +242,7 @@
       <form method="dialog">
         <div class="dialog-header">
           <div>
-            <p class="eyebrow">Product Details</p>
+            <p class="eyebrow">รายละเอียดสินค้า</p>
             <h2 id="productDetailTitle">สินค้า</h2>
           </div>
           <button class="icon-button" type="button" data-close-product-detail aria-label="ปิด">×</button>

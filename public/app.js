@@ -191,6 +191,7 @@ const els = {
   productDialog: document.querySelector("#productDialog"),
   productForm: document.querySelector("#productForm"),
   productDialogTitle: document.querySelector("#productDialogTitle"),
+  productImagePreview: document.querySelector("#productImagePreview"),
   productDetailDialog: document.querySelector("#productDetailDialog"),
   productDetailTitle: document.querySelector("#productDetailTitle"),
   productDetail: document.querySelector("#productDetail")
@@ -829,7 +830,7 @@ function normalizeProductRecords(settings = app.data?.settings || {}) {
     status: String(product?.status || "พร้อมขาย").trim() || "พร้อมขาย",
     followUpEnabled: product?.followUpEnabled !== false,
     followUpDays: Math.max(1, Number(product?.followUpDays || 15)),
-    followUpRule: String(product?.followUpRule || "1 item = 15 days").trim() || "1 item = 15 days",
+    followUpRule: String(product?.followUpRule || "1 ชิ้น = 15 วัน").trim() || "1 ชิ้น = 15 วัน",
     archived: Boolean(product?.archived)
   })).filter(product => product.name);
 }
@@ -905,7 +906,7 @@ function productRowsData() {
       status: "พร้อมขาย",
       followUpEnabled: true,
       followUpDays: 15,
-      followUpRule: "1 item = 15 days",
+      followUpRule: "1 ชิ้น = 15 วัน",
       archived: false,
       revenue: stats.revenue,
       soldCount: stats.soldCount,
@@ -1445,17 +1446,18 @@ function renderProducts() {
   const totalStock = products.reduce((sum, product) => sum + Number(product.stockQuantity || 0), 0);
   els.content.innerHTML = `
     <section class="section saas-page products-page">
-      <div class="page-identity workspace-hero products-hero">
-        <div class="page-identity-copy">
-          <span class="page-kicker">Inventory Intelligence</span>
+      <div class="page-identity workspace-hero products-hero products-hero-compact">
+        <div class="products-hero-copy">
+          <span class="page-kicker">ภาพรวมสินค้า</span>
           <h2>สินค้า</h2>
           <p>จัดการสินค้าและติดตามสต๊อกทั้งหมด</p>
         </div>
-        <div class="workspace-stat-grid compact">
+        <div class="products-hero-stats">
           ${metric("ยอดขายรวม", `${money(totalRevenue)} บาท`)}
           ${metric("ขายแล้ว", money(totalSold))}
           ${metric("ออเดอร์", money(totalOrders))}
           ${metric("สต๊อกรวม", money(totalStock))}
+          <button class="button primary products-add-button" type="button" data-add-product>+ เพิ่มสินค้า</button>
         </div>
       </div>
       <div class="panel stack panel-premium products-workspace">
@@ -1463,30 +1465,30 @@ function renderProducts() {
           <div class="products-toolbar-left">
             <input class="orders-search-input" data-products-filter="q" placeholder="ค้นหาสินค้า..." value="${escapeHtml(app.productsFilterQ)}">
             <select data-products-filter="status">
-              <option value="">สถานะ</option>
+              <option value="">ทั้งหมด</option>
               ${["พร้อมขาย", "ใกล้หมด", "เหลือน้อย", "ปิดการขาย"].map(status => `<option value="${escapeHtml(status)}" ${app.productsFilterStatus === status ? "selected" : ""}>${escapeHtml(status)}</option>`).join("")}
             </select>
           </div>
-          <button class="button primary" type="button" data-add-product>+ เพิ่มสินค้า</button>
+          <button class="button ghost" type="button" data-products-filter-reset>ล้างตัวกรอง</button>
         </div>
         <div class="workspace-table-wrap mobile-stack-wrap">
           <table class="workspace-table mobile-stack-table products-table">
             <thead>
               <tr>
-                <th>Product</th>
-                <th>Sales</th>
-                <th>Sold</th>
-                <th>Orders</th>
-                <th>Stock</th>
-                <th>Customer Follow-up</th>
-                <th>Status</th>
-                <th>Actions</th>
+                <th>สินค้า</th>
+                <th>ยอดขาย</th>
+                <th>ขายแล้ว</th>
+                <th>ออเดอร์</th>
+                <th>สต๊อก</th>
+                <th>ติดตามลูกค้า</th>
+                <th>สถานะ</th>
+                <th>จัดการ</th>
               </tr>
             </thead>
             <tbody>
               ${products.map(product => `
                 <tr data-product-id="${escapeHtml(product.id)}">
-                  <td data-label="Product">
+                  <td data-label="สินค้า">
                     <div class="table-identity product-identity">
                       <span class="product-thumb">${product.image ? `<img src="${escapeHtml(product.image)}" alt="${escapeHtml(product.name)}">` : escapeHtml(initials(product.name))}</span>
                       <span>
@@ -1495,18 +1497,18 @@ function renderProducts() {
                       </span>
                     </div>
                   </td>
-                  <td data-label="Sales"><strong>${money(product.revenue)} บาท</strong></td>
-                  <td data-label="Sold">${money(product.soldCount)} ชิ้น</td>
-                  <td data-label="Orders">${money(product.orderCount)}</td>
-                  <td data-label="Stock"><strong>${money(product.stockQuantity)} ชิ้น</strong></td>
-                  <td data-label="Customer Follow-up">
+                  <td data-label="ยอดขาย"><strong>${money(product.revenue)} บาท</strong></td>
+                  <td data-label="ขายแล้ว">${money(product.soldCount)} ชิ้น</td>
+                  <td data-label="ออเดอร์">${money(product.orderCount)}</td>
+                  <td data-label="สต๊อก"><strong>${money(product.stockQuantity)} ชิ้น</strong></td>
+                  <td data-label="ติดตามลูกค้า">
                     <div class="product-followup-cell">
                       <span class="tag">${product.followUpEnabled ? `${money(product.followUpDays)} วัน` : "ปิด"}</span>
-                      <small>${escapeHtml(product.followUpRule)}</small>
+                      <small>${escapeHtml(product.followUpRule || "1 ชิ้น = 15 วัน")}</small>
                     </div>
                   </td>
-                  <td data-label="Status"><span class="badge ${product.computedStatus === "พร้อมขาย" ? "vip" : product.computedStatus === "ใกล้หมด" ? "risk" : product.computedStatus === "เหลือน้อย" ? "lost" : "normal"}">${escapeHtml(product.computedStatus)}</span></td>
-                  <td data-label="Actions">
+                  <td data-label="สถานะ"><span class="badge ${product.computedStatus === "พร้อมขาย" ? "vip" : product.computedStatus === "ใกล้หมด" ? "risk" : product.computedStatus === "เหลือน้อย" ? "lost" : "normal"}">${escapeHtml(product.computedStatus)}</span></td>
+                  <td data-label="จัดการ">
                     <div class="table-actions">
                       <button class="button ghost compact-action" type="button" data-edit-product="${escapeHtml(product.id)}">✎</button>
                       <button class="button ghost compact-action" type="button" data-product-details="${escapeHtml(product.id)}">⋯</button>
@@ -3290,10 +3292,21 @@ function openProductDialog(product = null) {
   } else {
     els.productForm.elements.followUpEnabled.checked = true;
     els.productForm.elements.followUpDays.value = 15;
-    els.productForm.elements.followUpRule.value = "1 item = 15 days";
+    els.productForm.elements.followUpRule.value = "1 ชิ้น = 15 วัน";
     els.productForm.elements.status.value = "พร้อมขาย";
   }
+  updateProductImagePreview(els.productForm.elements.image.value, product?.name || "");
   els.productDialog.showModal();
+}
+
+function updateProductImagePreview(imageUrl = "", productName = "") {
+  if (!els.productImagePreview) return;
+  const label = initials(productName || "สินค้า");
+  if (String(imageUrl || "").trim()) {
+    els.productImagePreview.innerHTML = `<img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(productName || "สินค้า")}">`;
+    return;
+  }
+  els.productImagePreview.textContent = label;
 }
 
 function renderProductDetail(product) {
@@ -3310,20 +3323,20 @@ function renderProductDetail(product) {
     <div class="detail-grid">
       <div class="panel stack detail-card">
         <div class="mini-stats">
-          <div class="mini-stat"><span>Sale Price</span><strong>${money(product.salePrice)} บาท</strong></div>
-          <div class="mini-stat"><span>Cost per Item</span><strong>${money(product.costPerItem)} บาท</strong></div>
-          <div class="mini-stat"><span>Stock</span><strong>${money(product.stockQuantity)} ชิ้น</strong></div>
-          <div class="mini-stat"><span>Low Stock Alert</span><strong>${money(product.lowStockAlert)} ชิ้น</strong></div>
-          <div class="mini-stat"><span>Follow-up</span><strong>${product.followUpEnabled ? `${money(product.followUpDays)} วัน` : "ปิด"}</strong></div>
-          <div class="mini-stat"><span>Rule</span><strong>${escapeHtml(product.followUpRule)}</strong></div>
+          <div class="mini-stat"><span>ราคาขาย</span><strong>${money(product.salePrice)} บาท</strong></div>
+          <div class="mini-stat"><span>ต้นทุนต่อชิ้น</span><strong>${money(product.costPerItem)} บาท</strong></div>
+          <div class="mini-stat"><span>สต๊อก</span><strong>${money(product.stockQuantity)} ชิ้น</strong></div>
+          <div class="mini-stat"><span>แจ้งเตือนสต๊อกต่ำ</span><strong>${money(product.lowStockAlert)} ชิ้น</strong></div>
+          <div class="mini-stat"><span>ติดตามลูกค้า</span><strong>${product.followUpEnabled ? `${money(product.followUpDays)} วัน` : "ปิด"}</strong></div>
+          <div class="mini-stat"><span>กติกา</span><strong>${escapeHtml(product.followUpRule)}</strong></div>
         </div>
       </div>
       <div class="panel stack detail-card">
         <div class="mini-stats">
-          <div class="mini-stat"><span>Sales</span><strong>${money(product.revenue)} บาท</strong></div>
-          <div class="mini-stat"><span>Sold</span><strong>${money(product.soldCount)} ชิ้น</strong></div>
-          <div class="mini-stat"><span>Orders</span><strong>${money(product.orderCount)}</strong></div>
-          <div class="mini-stat"><span>Customer Follow-up</span><strong>${money(product.followUpCustomers)} ราย</strong></div>
+          <div class="mini-stat"><span>ยอดขาย</span><strong>${money(product.revenue)} บาท</strong></div>
+          <div class="mini-stat"><span>ขายแล้ว</span><strong>${money(product.soldCount)} ชิ้น</strong></div>
+          <div class="mini-stat"><span>ออเดอร์</span><strong>${money(product.orderCount)}</strong></div>
+          <div class="mini-stat"><span>ลูกค้าที่ต้องติดตาม</span><strong>${money(product.followUpCustomers)} ราย</strong></div>
         </div>
       </div>
     </div>
@@ -3542,6 +3555,23 @@ document.addEventListener("click", async event => {
 
   if (event.target.closest("[data-add-product]")) {
     openProductDialog();
+  }
+
+  if (event.target.closest("[data-products-filter-reset]")) {
+    app.productsFilterQ = "";
+    app.productsFilterStatus = "";
+    renderProducts();
+  }
+
+  if (event.target.closest("[data-focus-product-image]")) {
+    els.productForm?.elements?.image?.focus();
+  }
+
+  if (event.target.closest("[data-clear-product-image]")) {
+    if (els.productForm?.elements?.image) {
+      els.productForm.elements.image.value = "";
+      updateProductImagePreview("", els.productForm.elements.name?.value || "");
+    }
   }
 
   const editProductButton = event.target.closest("[data-edit-product]");
@@ -3813,6 +3843,14 @@ document.addEventListener("input", event => {
     if (productFilter.dataset.productsFilter === "q") app.productsFilterQ = productFilter.value;
     if (productFilter.dataset.productsFilter === "status") app.productsFilterStatus = productFilter.value;
     renderProducts();
+  }
+
+  if (event.target?.matches?.("[data-product-image-input]")) {
+    updateProductImagePreview(event.target.value, els.productForm?.elements?.name?.value || "");
+  }
+
+  if (event.target?.name === "name" && event.target.form?.id === "productForm") {
+    updateProductImagePreview(els.productForm?.elements?.image?.value || "", event.target.value);
   }
 });
 
