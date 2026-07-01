@@ -70,7 +70,10 @@ const app = {
     status: "",
     vip: ""
   },
+  productsFilterQ: "",
+  productsFilterStatus: "",
   editingOrderId: "",
+  editingProductId: "",
   deletingOrderId: "",
   deletingCustomerId: ""
 };
@@ -184,7 +187,13 @@ const els = {
   logoutForm: document.querySelector("#logoutForm"),
   customerDialog: document.querySelector("#customerDialog"),
   customerDetail: document.querySelector("#customerDetail"),
-  dialogCustomerName: document.querySelector("#dialogCustomerName")
+  dialogCustomerName: document.querySelector("#dialogCustomerName"),
+  productDialog: document.querySelector("#productDialog"),
+  productForm: document.querySelector("#productForm"),
+  productDialogTitle: document.querySelector("#productDialogTitle"),
+  productDetailDialog: document.querySelector("#productDetailDialog"),
+  productDetailTitle: document.querySelector("#productDetailTitle"),
+  productDetail: document.querySelector("#productDetail")
 };
 
 async function restoreSession() {
@@ -805,6 +814,115 @@ function additionalCostTotal(settings = app.data?.settings || {}) {
     .reduce((sum, item) => sum + Number(item.amount || 0), 0);
 }
 
+function normalizeProductRecords(settings = app.data?.settings || {}) {
+  const stored = Array.isArray(settings.products) ? settings.products : [];
+  return stored.map((product, index) => ({
+    id: String(product?.id || `product_${index + 1}`),
+    image: String(product?.image || "").trim(),
+    name: String(product?.name || "").trim(),
+    sku: String(product?.sku || "").trim(),
+    description: String(product?.description || "").trim(),
+    salePrice: Number(product?.salePrice || 0),
+    costPerItem: Number(product?.costPerItem || 0),
+    stockQuantity: Number(product?.stockQuantity || 0),
+    lowStockAlert: Number(product?.lowStockAlert || 0),
+    status: String(product?.status || "พร้อมขาย").trim() || "พร้อมขาย",
+    followUpEnabled: product?.followUpEnabled !== false,
+    followUpDays: Math.max(1, Number(product?.followUpDays || 15)),
+    followUpRule: String(product?.followUpRule || "1 item = 15 days").trim() || "1 item = 15 days",
+    archived: Boolean(product?.archived)
+  })).filter(product => product.name);
+}
+
+function productStatsMap() {
+  const map = new Map();
+  for (const order of app.data.orders) {
+    const key = normalizeProductName(order.items || "Growup Formula");
+    if (!key) continue;
+    if (!map.has(key)) {
+      map.set(key, {
+        revenue: 0,
+        soldCount: 0,
+        orderCount: 0,
+        lastOrderDate: "",
+        followUpCustomers: 0
+      });
+    }
+    const item = map.get(key);
+    item.revenue += Number(order.amount || 0);
+    item.soldCount += Number(order.jars || 0);
+    item.orderCount += 1;
+    item.lastOrderDate = String(order.date || "") > item.lastOrderDate ? String(order.date || "") : item.lastOrderDate;
+  }
+  for (const customer of app.data.customers) {
+    for (const order of customer.orders || []) {
+      const key = normalizeProductName(order.items || "Growup Formula");
+      if (!key || !map.has(key)) continue;
+      if (customer.followUpDate) map.get(key).followUpCustomers += 1;
+    }
+  }
+  return map;
+}
+
+function productStatus(product, stats) {
+  if (product.archived) return "เก็บถาวร";
+  if (product.status && !["พร้อมขาย", "ใกล้หมด", "เหลือน้อย", "ปิดการขาย"].includes(product.status)) return product.status;
+  if (product.stockQuantity <= 0) return "ปิดการขาย";
+  if (product.stockQuantity <= Number(product.lowStockAlert || 0)) return "ใกล้หมด";
+  if (product.stockQuantity <= Math.max(Number(product.lowStockAlert || 0) * 2, 10)) return "เหลือน้อย";
+  return product.status || "พร้อมขาย";
+}
+
+function productRowsData() {
+  const statsByName = productStatsMap();
+  const stored = normalizeProductRecords();
+  const merged = [];
+  const seen = new Set();
+  for (const product of stored) {
+    const stats = statsByName.get(product.name) || { revenue: 0, soldCount: 0, orderCount: 0, lastOrderDate: "", followUpCustomers: 0 };
+    merged.push({
+      ...product,
+      revenue: stats.revenue,
+      soldCount: stats.soldCount,
+      orderCount: stats.orderCount,
+      followUpCustomers: stats.followUpCustomers,
+      computedStatus: productStatus(product, stats)
+    });
+    seen.add(product.name);
+  }
+  for (const [name, stats] of statsByName.entries()) {
+    if (seen.has(name)) continue;
+    merged.push({
+      id: `derived_${name.toLowerCase().replace(/[^a-z0-9]+/gi, "_")}`,
+      image: "",
+      name,
+      sku: "",
+      description: "",
+      salePrice: stats.soldCount ? Math.round(stats.revenue / Math.max(stats.soldCount, 1)) : 0,
+      costPerItem: 0,
+      stockQuantity: 0,
+      lowStockAlert: 0,
+      status: "พร้อมขาย",
+      followUpEnabled: true,
+      followUpDays: 15,
+      followUpRule: "1 item = 15 days",
+      archived: false,
+      revenue: stats.revenue,
+      soldCount: stats.soldCount,
+      orderCount: stats.orderCount,
+      followUpCustomers: stats.followUpCustomers,
+      computedStatus: "พร้อมขาย",
+      derived: true
+    });
+  }
+  const q = app.productsFilterQ.trim().toLowerCase();
+  return merged
+    .filter(product => !product.archived)
+    .filter(product => !q || [product.name, product.sku, product.description].join(" ").toLowerCase().includes(q))
+    .filter(product => !app.productsFilterStatus || product.computedStatus === app.productsFilterStatus)
+    .sort((a, b) => b.revenue - a.revenue || a.name.localeCompare(b.name, "th"));
+}
+
 function channelPerformance() {
   const map = new Map();
   for (const order of app.data.orders) {
@@ -1320,34 +1438,86 @@ function renderOpportunities() {
 }
 
 function renderProducts() {
-  const products = groupedProducts();
+  const products = productRowsData();
+  const totalRevenue = products.reduce((sum, product) => sum + Number(product.revenue || 0), 0);
+  const totalSold = products.reduce((sum, product) => sum + Number(product.soldCount || 0), 0);
+  const totalOrders = products.reduce((sum, product) => sum + Number(product.orderCount || 0), 0);
+  const totalStock = products.reduce((sum, product) => sum + Number(product.stockQuantity || 0), 0);
   els.content.innerHTML = `
     <section class="section saas-page products-page">
       <div class="page-identity workspace-hero products-hero">
-        <div>
+        <div class="page-identity-copy">
           <span class="page-kicker">Inventory Intelligence</span>
-          <h2>สินค้าและสต๊อก</h2>
-          <p>สรุปจากข้อมูลออเดอร์เดิมที่มีอยู่ในระบบ โดยคงความเข้ากันได้กับฐานข้อมูลปัจจุบัน</p>
+          <h2>สินค้า</h2>
+          <p>จัดการสินค้าและติดตามสต๊อกทั้งหมด</p>
         </div>
-        <button class="button secondary" type="button" data-view-shortcut="reports">ดูรายงานสินค้า</button>
+        <div class="workspace-stat-grid compact">
+          ${metric("ยอดขายรวม", `${money(totalRevenue)} บาท`)}
+          ${metric("ขายแล้ว", money(totalSold))}
+          ${metric("ออเดอร์", money(totalOrders))}
+          ${metric("สต๊อกรวม", money(totalStock))}
+        </div>
       </div>
-      <div class="product-grid">
-        ${products.map((product, index) => {
-          const stockEstimate = Math.max(0, 120 - product.soldCount);
-          const status = stockEstimate <= 25 ? "ใกล้หมด" : index === 0 ? "ขายดี" : "พร้อมขาย";
-          return `
-            <article class="product-card">
-              <div class="inline"><span class="tag">${escapeHtml(status)}</span></div>
-              <h3>${escapeHtml(product.name)}</h3>
-              <div class="mini-stats">
-                <div class="mini-stat"><span>Stock</span><strong>${money(stockEstimate)}</strong></div>
-                <div class="mini-stat"><span>ขายแล้ว</span><strong>${money(product.soldCount)}</strong></div>
-                <div class="mini-stat"><span>ออเดอร์</span><strong>${money(product.orderCount)}</strong></div>
-                <div class="mini-stat"><span>ยอดขาย</span><strong>${money(product.revenue)} บาท</strong></div>
-              </div>
-            </article>
-          `;
-        }).join("") || `<div class="empty-state">ยังไม่มีข้อมูลสินค้า</div>`}
+      <div class="panel stack panel-premium products-workspace">
+        <div class="products-toolbar">
+          <div class="products-toolbar-left">
+            <input class="orders-search-input" data-products-filter="q" placeholder="ค้นหาสินค้า..." value="${escapeHtml(app.productsFilterQ)}">
+            <select data-products-filter="status">
+              <option value="">สถานะ</option>
+              ${["พร้อมขาย", "ใกล้หมด", "เหลือน้อย", "ปิดการขาย"].map(status => `<option value="${escapeHtml(status)}" ${app.productsFilterStatus === status ? "selected" : ""}>${escapeHtml(status)}</option>`).join("")}
+            </select>
+          </div>
+          <button class="button primary" type="button" data-add-product>+ เพิ่มสินค้า</button>
+        </div>
+        <div class="workspace-table-wrap mobile-stack-wrap">
+          <table class="workspace-table mobile-stack-table products-table">
+            <thead>
+              <tr>
+                <th>Product</th>
+                <th>Sales</th>
+                <th>Sold</th>
+                <th>Orders</th>
+                <th>Stock</th>
+                <th>Customer Follow-up</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${products.map(product => `
+                <tr data-product-id="${escapeHtml(product.id)}">
+                  <td data-label="Product">
+                    <div class="table-identity product-identity">
+                      <span class="product-thumb">${product.image ? `<img src="${escapeHtml(product.image)}" alt="${escapeHtml(product.name)}">` : escapeHtml(initials(product.name))}</span>
+                      <span>
+                        <strong>${escapeHtml(product.name)}</strong>
+                        <small>${escapeHtml(product.sku || "ยังไม่มี SKU")} · ${money(product.salePrice)} บาท</small>
+                      </span>
+                    </div>
+                  </td>
+                  <td data-label="Sales"><strong>${money(product.revenue)} บาท</strong></td>
+                  <td data-label="Sold">${money(product.soldCount)} ชิ้น</td>
+                  <td data-label="Orders">${money(product.orderCount)}</td>
+                  <td data-label="Stock"><strong>${money(product.stockQuantity)} ชิ้น</strong></td>
+                  <td data-label="Customer Follow-up">
+                    <div class="product-followup-cell">
+                      <span class="tag">${product.followUpEnabled ? `${money(product.followUpDays)} วัน` : "ปิด"}</span>
+                      <small>${escapeHtml(product.followUpRule)}</small>
+                    </div>
+                  </td>
+                  <td data-label="Status"><span class="badge ${product.computedStatus === "พร้อมขาย" ? "vip" : product.computedStatus === "ใกล้หมด" ? "risk" : product.computedStatus === "เหลือน้อย" ? "lost" : "normal"}">${escapeHtml(product.computedStatus)}</span></td>
+                  <td data-label="Actions">
+                    <div class="table-actions">
+                      <button class="button ghost compact-action" type="button" data-edit-product="${escapeHtml(product.id)}">✎</button>
+                      <button class="button ghost compact-action" type="button" data-product-details="${escapeHtml(product.id)}">⋯</button>
+                      <button class="button danger compact-action" type="button" data-archive-product="${escapeHtml(product.id)}">🗑</button>
+                    </div>
+                  </td>
+                </tr>
+              `).join("") || `<tr><td colspan="8"><div class="empty-state">ยังไม่มีข้อมูลสินค้า</div></td></tr>`}
+            </tbody>
+          </table>
+        </div>
       </div>
     </section>
   `;
@@ -3096,6 +3266,71 @@ function renderCustomerDetail(customer) {
   els.customerDialog.showModal();
 }
 
+function openProductDialog(product = null) {
+  app.editingProductId = product?.id || "";
+  els.productForm.reset();
+  els.productDialogTitle.textContent = product ? "แก้ไขสินค้า" : "เพิ่มสินค้า";
+  if (product) {
+    Object.entries({
+      image: product.image,
+      name: product.name,
+      sku: product.sku,
+      description: product.description,
+      salePrice: product.salePrice,
+      costPerItem: product.costPerItem,
+      stockQuantity: product.stockQuantity,
+      lowStockAlert: product.lowStockAlert,
+      status: product.status,
+      followUpDays: product.followUpDays,
+      followUpRule: product.followUpRule
+    }).forEach(([key, value]) => {
+      if (els.productForm.elements[key]) els.productForm.elements[key].value = value ?? "";
+    });
+    els.productForm.elements.followUpEnabled.checked = Boolean(product.followUpEnabled);
+  } else {
+    els.productForm.elements.followUpEnabled.checked = true;
+    els.productForm.elements.followUpDays.value = 15;
+    els.productForm.elements.followUpRule.value = "1 item = 15 days";
+    els.productForm.elements.status.value = "พร้อมขาย";
+  }
+  els.productDialog.showModal();
+}
+
+function renderProductDetail(product) {
+  els.productDetailTitle.textContent = product.name;
+  els.productDetail.innerHTML = `
+    <div class="customer-detail-hero">
+      <div class="product-thumb large">${product.image ? `<img src="${escapeHtml(product.image)}" alt="${escapeHtml(product.name)}">` : escapeHtml(initials(product.name))}</div>
+      <div>
+        <h2>${escapeHtml(product.name)}</h2>
+        <div class="inline">${product.sku ? `<span class="tag">${escapeHtml(product.sku)}</span>` : ""}<span class="badge ${product.computedStatus === "พร้อมขาย" ? "vip" : product.computedStatus === "ใกล้หมด" ? "risk" : product.computedStatus === "เหลือน้อย" ? "lost" : "normal"}">${escapeHtml(product.computedStatus)}</span></div>
+        <p>${escapeHtml(product.description || "ไม่มีคำอธิบายสินค้า")}</p>
+      </div>
+    </div>
+    <div class="detail-grid">
+      <div class="panel stack detail-card">
+        <div class="mini-stats">
+          <div class="mini-stat"><span>Sale Price</span><strong>${money(product.salePrice)} บาท</strong></div>
+          <div class="mini-stat"><span>Cost per Item</span><strong>${money(product.costPerItem)} บาท</strong></div>
+          <div class="mini-stat"><span>Stock</span><strong>${money(product.stockQuantity)} ชิ้น</strong></div>
+          <div class="mini-stat"><span>Low Stock Alert</span><strong>${money(product.lowStockAlert)} ชิ้น</strong></div>
+          <div class="mini-stat"><span>Follow-up</span><strong>${product.followUpEnabled ? `${money(product.followUpDays)} วัน` : "ปิด"}</strong></div>
+          <div class="mini-stat"><span>Rule</span><strong>${escapeHtml(product.followUpRule)}</strong></div>
+        </div>
+      </div>
+      <div class="panel stack detail-card">
+        <div class="mini-stats">
+          <div class="mini-stat"><span>Sales</span><strong>${money(product.revenue)} บาท</strong></div>
+          <div class="mini-stat"><span>Sold</span><strong>${money(product.soldCount)} ชิ้น</strong></div>
+          <div class="mini-stat"><span>Orders</span><strong>${money(product.orderCount)}</strong></div>
+          <div class="mini-stat"><span>Customer Follow-up</span><strong>${money(product.followUpCustomers)} ราย</strong></div>
+        </div>
+      </div>
+    </div>
+  `;
+  els.productDetailDialog.showModal();
+}
+
 function render() {
   if (!app.data && app.view !== "login") return;
   renderNav();
@@ -3305,6 +3540,47 @@ document.addEventListener("click", async event => {
     return;
   }
 
+  if (event.target.closest("[data-add-product]")) {
+    openProductDialog();
+  }
+
+  const editProductButton = event.target.closest("[data-edit-product]");
+  if (editProductButton) {
+    const product = productRowsData().find(item => item.id === editProductButton.dataset.editProduct);
+    if (product) openProductDialog(product);
+  }
+
+  const detailProductButton = event.target.closest("[data-product-details]");
+  if (detailProductButton) {
+    const product = productRowsData().find(item => item.id === detailProductButton.dataset.productDetails);
+    if (product) renderProductDetail(product);
+  }
+
+  const archiveProductButton = event.target.closest("[data-archive-product]");
+  if (archiveProductButton) {
+    const productId = archiveProductButton.dataset.archiveProduct;
+    const product = productRowsData().find(item => item.id === productId);
+    if (product?.derived) {
+      const payload = await api("/api/products", {
+        method: "POST",
+        body: JSON.stringify({ ...product, archived: true, status: "เก็บถาวร" })
+      });
+      if (payload.product?.id) {
+        await api(`/api/products/${encodeURIComponent(payload.product.id)}/archive`, {
+          method: "POST",
+          body: "{}"
+        });
+      }
+    } else {
+      await api(`/api/products/${encodeURIComponent(productId)}/archive`, {
+        method: "POST",
+        body: "{}"
+      });
+    }
+    showToast("เก็บถาวรสินค้าแล้ว");
+    await loadState();
+  }
+
   const navButton = event.target.closest("[data-view]");
   if (navButton) {
     setView(navButton.dataset.view);
@@ -3491,6 +3767,11 @@ document.addEventListener("click", async event => {
   }
 
   if (event.target.closest("[data-close-customer]")) els.customerDialog.close();
+  if (event.target.closest("[data-close-product]")) {
+    app.editingProductId = "";
+    els.productDialog.close();
+  }
+  if (event.target.closest("[data-close-product-detail]")) els.productDetailDialog.close();
 
 });
 
@@ -3525,6 +3806,13 @@ document.addEventListener("input", event => {
 
   if (event.target?.matches?.("[name='additionalCostAmount'], [name='additionalCostEnabled']")) {
     refreshAdditionalCostsSummary();
+  }
+
+  const productFilter = event.target.closest("[data-products-filter]");
+  if (productFilter) {
+    if (productFilter.dataset.productsFilter === "q") app.productsFilterQ = productFilter.value;
+    if (productFilter.dataset.productsFilter === "status") app.productsFilterStatus = productFilter.value;
+    renderProducts();
   }
 });
 
@@ -3611,6 +3899,23 @@ document.addEventListener("submit", async event => {
 
     if (form.id === "orderForm") {
       await submitOrder(form);
+    }
+
+    if (form.id === "productForm") {
+      const data = Object.fromEntries(new FormData(form).entries());
+      data.followUpEnabled = form.elements.followUpEnabled.checked;
+      const editingProduct = productRowsData().find(item => item.id === app.editingProductId);
+      const useCreate = !app.editingProductId || editingProduct?.derived;
+      const url = useCreate ? "/api/products" : `/api/products/${encodeURIComponent(app.editingProductId)}`;
+      const method = useCreate ? "POST" : "PUT";
+      await api(url, {
+        method,
+        body: JSON.stringify(data)
+      });
+      app.editingProductId = "";
+      els.productDialog.close();
+      showToast("บันทึกสินค้าแล้ว");
+      await loadState();
     }
 
     if (form.id === "deleteOrderForm" && app.deletingOrderId) {

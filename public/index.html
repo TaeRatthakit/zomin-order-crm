@@ -185,6 +185,59 @@
       </form>
     </dialog>
 
+    <dialog id="productDialog" class="dialog">
+      <form id="productForm" method="dialog">
+        <div class="dialog-header">
+          <div>
+            <p class="eyebrow">Product</p>
+            <h2 id="productDialogTitle">เพิ่มสินค้า</h2>
+          </div>
+          <button class="icon-button" type="button" data-close-product aria-label="ปิด">×</button>
+        </div>
+        <div class="form-grid">
+          <label>รูปภาพ URL<input name="image" placeholder="https://..."></label>
+          <label>ชื่อสินค้า<input name="name" required></label>
+          <label>SKU<input name="sku" required></label>
+          <label>Sale Price<input name="salePrice" type="number" min="0" step="0.01" required></label>
+          <label>Cost per Item<input name="costPerItem" type="number" min="0" step="0.01" required></label>
+          <label>Stock Quantity<input name="stockQuantity" type="number" min="0" step="1" required></label>
+          <label>Low Stock Alert<input name="lowStockAlert" type="number" min="0" step="1" required></label>
+          <label>สถานะ
+            <select name="status">
+              <option>พร้อมขาย</option>
+              <option>ใกล้หมด</option>
+              <option>เหลือน้อย</option>
+              <option>ปิดการขาย</option>
+            </select>
+          </label>
+          <label class="span-2">Description<textarea name="description" placeholder="รายละเอียดสินค้า"></textarea></label>
+          <label class="inline">
+            <input name="followUpEnabled" type="checkbox" checked style="width:auto">
+            Customer Follow-up Enabled
+          </label>
+          <label>Follow-up after X days<input name="followUpDays" type="number" min="1" step="1" value="15"></label>
+          <label class="span-2">Follow-up rule<input name="followUpRule" value="1 item = 15 days"></label>
+        </div>
+        <div class="dialog-actions">
+          <button class="button ghost" type="button" data-close-product>ยกเลิก</button>
+          <button class="button primary" type="submit">บันทึกสินค้า</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="productDetailDialog" class="dialog customer-drawer">
+      <form method="dialog">
+        <div class="dialog-header">
+          <div>
+            <p class="eyebrow">Product Details</p>
+            <h2 id="productDetailTitle">สินค้า</h2>
+          </div>
+          <button class="icon-button" type="button" data-close-product-detail aria-label="ปิด">×</button>
+        </div>
+        <div id="productDetail"></div>
+      </form>
+    </dialog>
+
     <script src="/app.js?v=20260701-growup-logo-transparent"></script>
     <script>
       const swUrl = "/service-worker.js?v=20260701-growup-logo-transparent";

@@ -212,11 +212,33 @@ function normalizeSettingsCostRows(rows = [], fieldName) {
     .filter(row => row.name);
 }
 
+function normalizeProductRecords(products = []) {
+  return (Array.isArray(products) ? products : [])
+    .map((product, index) => ({
+      id: String(product?.id || `product_${index + 1}`),
+      image: String(product?.image || "").trim(),
+      name: String(product?.name || "").trim(),
+      sku: String(product?.sku || "").trim(),
+      description: String(product?.description || "").trim(),
+      salePrice: Math.max(0, Number(product?.salePrice || 0)),
+      costPerItem: Math.max(0, Number(product?.costPerItem || 0)),
+      stockQuantity: Math.max(0, Number(product?.stockQuantity || 0)),
+      lowStockAlert: Math.max(0, Number(product?.lowStockAlert || 0)),
+      status: String(product?.status || "พร้อมขาย").trim() || "พร้อมขาย",
+      followUpEnabled: product?.followUpEnabled !== false,
+      followUpDays: Math.max(1, Number(product?.followUpDays || 15)),
+      followUpRule: String(product?.followUpRule || "1 item = 15 days").trim() || "1 item = 15 days",
+      archived: Boolean(product?.archived)
+    }))
+    .filter(product => product.name);
+}
+
 function publicSettings(settings = {}) {
   const effective = effectiveSettings(settings);
   return {
     ...effective,
     followUpDaysPerUnit: Number(effective.followUpDaysPerUnit || 15),
+    products: normalizeProductRecords(effective.products),
     productCosts: normalizeSettingsCostRows(effective.productCosts, "costPerJar"),
     additionalCosts: normalizeSettingsCostRows(effective.additionalCosts, "amount"),
     lineChannelSecret: "",
@@ -2067,6 +2089,9 @@ async function handleApi(req, res) {
         vip: String(body.vipTemplate ?? db.settings.messageTemplates?.vip ?? "")
       },
       followUpDaysPerUnit: Math.max(1, Number(body.followUpDaysPerUnit || db.settings.followUpDaysPerUnit || 15)),
+      products: body.products === undefined
+        ? normalizeProductRecords(db.settings.products)
+        : normalizeProductRecords(body.products),
       productCosts: body.productCosts === undefined
         ? normalizeSettingsCostRows(db.settings.productCosts, "costPerJar")
         : normalizeSettingsCostRows(body.productCosts, "costPerJar"),
@@ -2097,6 +2122,71 @@ async function handleApi(req, res) {
     };
     await writeDb(db);
     return json(res, 200, { ok: true, settings: publicSettings(db.settings) });
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/products") {
+    if (!requireAdmin(req, res)) return;
+    const body = await readBody(req);
+    const incoming = normalizeProductRecords([body])[0];
+    if (!incoming?.name) return json(res, 400, { ok: false, error: "กรุณาระบุชื่อสินค้า" });
+    const product = { ...incoming, id: incoming.id || uid("product") };
+    const products = normalizeProductRecords(db.settings.products);
+    products.push(product);
+    const productCosts = normalizeSettingsCostRows(db.settings.productCosts, "costPerJar");
+    const existingCostIndex = productCosts.findIndex(item => item.name === product.name);
+    const costRow = {
+      id: product.id,
+      name: product.name,
+      costPerJar: product.costPerItem,
+      enabled: true
+    };
+    if (existingCostIndex === -1) productCosts.push(costRow);
+    else productCosts[existingCostIndex] = costRow;
+    db.settings = { ...db.settings, products, productCosts };
+    await writeDb(db);
+    return json(res, 200, { ok: true, product, settings: publicSettings(db.settings) });
+  }
+
+  if (req.method === "PUT" && /^\/api\/products\/[^/]+$/.test(url.pathname)) {
+    if (!requireAdmin(req, res)) return;
+    const productId = decodeURIComponent(url.pathname.split("/").pop() || "");
+    const body = await readBody(req);
+    const products = normalizeProductRecords(db.settings.products);
+    const index = products.findIndex(item => item.id === productId);
+    if (index === -1) return json(res, 404, { ok: false, error: "ไม่พบสินค้า" });
+    const next = normalizeProductRecords([{ ...products[index], ...body, id: productId, archived: products[index].archived }])[0];
+    products[index] = next;
+    const productCosts = normalizeSettingsCostRows(db.settings.productCosts, "costPerJar");
+    const costIndex = productCosts.findIndex(item => item.id === productId || item.name === products[index].name);
+    const costRow = {
+      id: productId,
+      name: next.name,
+      costPerJar: next.costPerItem,
+      enabled: !next.archived
+    };
+    if (costIndex === -1) productCosts.push(costRow);
+    else productCosts[costIndex] = costRow;
+    db.settings = { ...db.settings, products, productCosts };
+    await writeDb(db);
+    return json(res, 200, { ok: true, product: next, settings: publicSettings(db.settings) });
+  }
+
+  if (req.method === "POST" && /^\/api\/products\/[^/]+\/archive$/.test(url.pathname)) {
+    if (!requireAdmin(req, res)) return;
+    const parts = url.pathname.split("/");
+    const productId = decodeURIComponent(parts[parts.length - 2] || "");
+    const products = normalizeProductRecords(db.settings.products);
+    const index = products.findIndex(item => item.id === productId);
+    if (index === -1) return json(res, 404, { ok: false, error: "ไม่พบสินค้า" });
+    products[index] = { ...products[index], archived: true, status: "เก็บถาวร" };
+    const productCosts = normalizeSettingsCostRows(db.settings.productCosts, "costPerJar").map(item => (
+      item.id === productId || item.name === products[index].name
+        ? { ...item, enabled: false }
+        : item
+    ));
+    db.settings = { ...db.settings, products, productCosts };
+    await writeDb(db);
+    return json(res, 200, { ok: true, product: products[index], settings: publicSettings(db.settings) });
   }
 
   if (req.method === "PUT" && url.pathname === "/api/followup-rules") {
