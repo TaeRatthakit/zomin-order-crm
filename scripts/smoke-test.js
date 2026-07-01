@@ -1,4 +1,5 @@
 const { Readable } = require("stream");
+const crypto = require("crypto");
 const appHandler = require("../server");
 
 function makeRequest(path, options = {}) {
@@ -127,11 +128,12 @@ async function main() {
   if (webhookHealth.status !== 200) fail(`LINE webhook health returned ${webhookHealth.status}`);
 
   const nowInBangkok = bangkokNow();
+  const uniqueSuffix = crypto.randomBytes(3).toString("hex");
   const duplicateBase = {
-    orderNumber: "DUP-BASE-001",
+    orderNumber: `DUP-BASE-${uniqueSuffix}-001`,
     name: "  Somchai   Dee  ",
-    phone: "089-111 2222",
-    address: " 123/4   Bangkok ",
+    phone: `089-111-${uniqueSuffix}`,
+    address: ` 123/4   Bangkok ${uniqueSuffix} `,
     date: nowInBangkok.date,
     time: nowInBangkok.time,
     jars: 2,
@@ -150,7 +152,7 @@ async function main() {
     headers: { cookie, "content-type": "application/json" },
     body: JSON.stringify({
       ...duplicateBase,
-      orderNumber: "DUP-BASE-002",
+      orderNumber: `DUP-BASE-${uniqueSuffix}-002`,
       amount: 1600,
       lineMessageId: "line-msg-b"
     })
@@ -164,10 +166,10 @@ async function main() {
     headers: { cookie, "content-type": "application/json" },
     body: JSON.stringify({
       ...duplicateBase,
-      orderNumber: "DUP-BASE-003",
+      orderNumber: `DUP-BASE-${uniqueSuffix}-003`,
       name: "somchai dee",
-      phone: "0891112222",
-      address: "123/4 bangkok",
+      phone: `089111${uniqueSuffix}`,
+      address: `123/4 bangkok ${uniqueSuffix}`,
       lineMessageId: "line-msg-c"
     })
   });

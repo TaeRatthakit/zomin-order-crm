@@ -536,6 +536,7 @@ function dashboardDelta(todayValue, yesterdayValue, unit = "") {
 
 function dashboardTrendSeries(metric, length = 10) {
   const selectedDate = app.data.summary?.selectedDate || todayISO();
+  const additionalCosts = additionalCostTotal();
   return Array.from({ length }, (_, index) => {
     const date = addDaysISO(selectedDate, index - (length - 1));
     const dayOrders = app.data.orders.filter(order => order.date === date);
@@ -548,7 +549,7 @@ function dashboardTrendSeries(metric, length = 10) {
     if (metric === "salesThisMonth") return monthOrders.reduce((sum, order) => sum + Number(order.amount || 0), 0);
     if (metric === "ordersToday") return dayOrders.length;
     if (metric === "ordersThisMonth") return monthOrders.length;
-    if (metric === "profitToday") return Math.round(daySales * 0.32);
+    if (metric === "profitToday") return Math.max(0, daySales - dayOrders.reduce((sum, order) => sum + productCostForOrder(order), 0) - additionalCosts);
     if (metric === "opportunityToday") return estimatedOpportunityRevenue(dueCustomers, 0.36) + estimatedOpportunityRevenue(silentCustomers, 0.18);
     return 0;
   });
@@ -682,14 +683,21 @@ function estimatedOpportunityRevenue(customers, ratio = 0.35, fallback = 750) {
 
 function groupedProducts() {
   const map = new Map();
+  const configuredCosts = new Map(
+    normalizeProductCostEntries(app.data?.settings || {})
+      .map(entry => [entry.name, entry])
+  );
   for (const order of app.data.orders) {
     const name = String(order.items || "Growup Formula").trim() || "Growup Formula";
     if (!map.has(name)) {
+      const costConfig = configuredCosts.get(name);
       map.set(name, {
         name,
         soldCount: 0,
         orderCount: 0,
-        revenue: 0
+        revenue: 0,
+        costPerJar: Number(costConfig?.costPerJar || 0),
+        costEnabled: Boolean(costConfig?.enabled)
       });
     }
     const item = map.get(name);
@@ -698,6 +706,62 @@ function groupedProducts() {
     item.revenue += Number(order.amount || 0);
   }
   return [...map.values()].sort((a, b) => b.revenue - a.revenue);
+}
+
+function normalizeProductName(value) {
+  return String(value || "").trim();
+}
+
+function normalizeProductCostEntries(settings = {}) {
+  const configured = Array.isArray(settings.productCosts) ? settings.productCosts : [];
+  const fromOrders = Array.from(new Set((app.data?.orders || []).map(order => normalizeProductName(order.items || "Growup Formula")).filter(Boolean)));
+  const map = new Map();
+  for (const item of configured) {
+    const name = normalizeProductName(item?.name);
+    if (!name) continue;
+    map.set(name, {
+      id: String(item.id || `pc_${name.toLowerCase().replace(/[^a-z0-9]+/gi, "_")}`),
+      name,
+      costPerJar: Number(item.costPerJar || 0),
+      enabled: item.enabled !== false
+    });
+  }
+  for (const name of fromOrders) {
+    if (!map.has(name)) {
+      map.set(name, {
+        id: `pc_${name.toLowerCase().replace(/[^a-z0-9]+/gi, "_")}`,
+        name,
+        costPerJar: 0,
+        enabled: true
+      });
+    }
+  }
+  return [...map.values()].sort((a, b) => a.name.localeCompare(b.name, "th"));
+}
+
+function normalizeAdditionalCostEntries(settings = {}) {
+  const configured = Array.isArray(settings.additionalCosts) ? settings.additionalCosts : [];
+  return configured
+    .map((item, index) => ({
+      id: String(item?.id || `ac_${index + 1}`),
+      name: String(item?.name || "").trim(),
+      amount: Number(item?.amount || 0),
+      enabled: item?.enabled !== false
+    }))
+    .filter(item => item.name);
+}
+
+function productCostForOrder(order, settings = app.data?.settings || {}) {
+  const productName = normalizeProductName(order?.items || "Growup Formula");
+  const productConfig = normalizeProductCostEntries(settings).find(item => item.name === productName);
+  if (!productConfig?.enabled) return 0;
+  return Number(order?.jars || 0) * Number(productConfig.costPerJar || 0);
+}
+
+function additionalCostTotal(settings = app.data?.settings || {}) {
+  return normalizeAdditionalCostEntries(settings)
+    .filter(item => item.enabled)
+    .reduce((sum, item) => sum + Number(item.amount || 0), 0);
 }
 
 function channelPerformance() {
@@ -954,7 +1018,10 @@ function renderDashboard() {
   const previousMonthOrders = app.data.orders.filter(order => monthKey(order.date) === previousMonthKey);
   const previousMonthSales = previousMonthOrders.reduce((sum, order) => sum + Number(order.amount || 0), 0);
   const revenueOpportunity = opportunities.reduce((sum, item) => sum + item.revenue, 0);
-  const estimatedProfitToday = Math.round((s.salesToday || 0) * 0.32);
+  const todaysOrders = app.data.orders.filter(order => order.date === s.selectedDate);
+  const productCostsToday = todaysOrders.reduce((sum, order) => sum + productCostForOrder(order), 0);
+  const additionalCostsToday = additionalCostTotal();
+  const estimatedProfitToday = Math.max(0, (s.salesToday || 0) - productCostsToday - additionalCostsToday);
   const previousOpportunityRevenue = estimatedOpportunityRevenue(
     app.data.customers.filter(customer => customer.followUpDate && customer.followUpDate <= yesterday),
     0.36
@@ -966,7 +1033,8 @@ function renderDashboard() {
   const salesMonthDelta = dashboardDelta(s.salesThisMonth || 0, previousMonthSales, "currency");
   const ordersDelta = dashboardDelta(s.ordersToday || 0, yesterdayOrderCount);
   const ordersMonthDelta = dashboardDelta(s.ordersThisMonth || 0, previousMonthOrders.length);
-  const profitDelta = dashboardDelta(estimatedProfitToday, Math.round(yesterdaySales * 0.32), "currency");
+  const yesterdayProfit = Math.max(0, yesterdaySales - yesterdayOrders.reduce((sum, order) => sum + productCostForOrder(order), 0) - additionalCostsToday);
+  const profitDelta = dashboardDelta(estimatedProfitToday, yesterdayProfit, "currency");
   const opportunityDelta = dashboardDelta(revenueOpportunity, previousOpportunityRevenue, "currency");
   const compactDate = new Intl.DateTimeFormat("th-TH-u-ca-buddhist", {
     timeZone: "Asia/Bangkok",
@@ -994,7 +1062,7 @@ function renderDashboard() {
           ${dashboardKpiCard({ label: "ยอดขายเดือนนี้", value: `${money(s.salesThisMonth)} บาท`, tone: "violet", delta: salesMonthDelta, hint: "ยอดสะสมตั้งแต่ต้นเดือนถึงวันทำงานนี้", icon: dashboardCardIcon("calendar"), series: dashboardTrendSeries("salesThisMonth"), area: "sales-month" })}
           ${dashboardKpiCard({ label: "ออเดอร์วันนี้", value: money(s.ordersToday || 0), tone: "blue", delta: ordersDelta, hint: "จำนวนออเดอร์ที่เข้ามาในวันทำงานนี้", icon: dashboardCardIcon("orders"), series: dashboardTrendSeries("ordersToday"), area: "orders-today" })}
           ${dashboardKpiCard({ label: "ออเดอร์เดือนนี้", value: money(s.ordersThisMonth || 0), tone: "blue", delta: ordersMonthDelta, hint: "ออเดอร์สะสมของเดือนปัจจุบัน", icon: dashboardCardIcon("calendar"), series: dashboardTrendSeries("ordersThisMonth"), area: "orders-month" })}
-          ${dashboardKpiCard({ label: "กำไรวันนี้", value: `${money(estimatedProfitToday)} บาท`, tone: "gold", delta: profitDelta, hint: "ประมาณการ 32% ของยอดขายวันนี้จากข้อมูลปัจจุบัน", icon: dashboardCardIcon("profit"), series: dashboardTrendSeries("profitToday"), area: "profit-today" })}
+          ${dashboardKpiCard({ label: "กำไรวันนี้", value: `${money(estimatedProfitToday)} บาท`, tone: "gold", delta: profitDelta, hint: `ยอดขายวันนี้ - ต้นทุนสินค้า ${money(productCostsToday)} - ต้นทุนเพิ่มเติม ${money(additionalCostsToday)}`, icon: dashboardCardIcon("profit"), series: dashboardTrendSeries("profitToday"), area: "profit-today" })}
           ${dashboardKpiCard({ label: "โอกาสสร้างยอดขายวันนี้", value: `${money(revenueOpportunity)} บาท`, tone: "pink", delta: opportunityDelta, hint: `${money(opportunities.reduce((sum, item) => sum + item.count, 0))} โอกาสจากลูกค้าและสินค้าที่ควรเร่งต่อ`, icon: dashboardCardIcon("target"), series: dashboardTrendSeries("opportunityToday"), area: "opportunity-today" })}
         </div>
       </div>
@@ -1460,6 +1528,56 @@ function refreshVisibleCustomerPanels(mutation) {
 function makeMessage(customer) {
   const name = customer.name.replace(/^คุณ/, "คุณ");
   return `สวัสดีค่ะ ${name} จาก Growup นะคะ รอบก่อนสั่ง ${customer.lastJars || 1} กระปุก ตอนนี้ใกล้ถึงรอบดูแลต่อเนื่องแล้วค่ะ ต้องการให้จัดส่งเพิ่มไหมคะ`;
+}
+
+function createAdditionalCostRow(item = {}) {
+  const id = String(item.id || `ac_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`);
+  return `
+    <div class="settings-cost-row is-editing" data-additional-cost-row data-id="${escapeHtml(id)}">
+      <div class="settings-cost-grip" aria-hidden="true">⋮⋮</div>
+      <label class="settings-cost-field">
+        <span>ชื่อรายการ</span>
+        <input name="additionalCostName" value="${escapeHtml(item.name || "")}" placeholder="เช่น ค่าโฆษณา">
+      </label>
+      <label class="settings-cost-field">
+        <span>จำนวนเงิน (บาท)</span>
+        <input name="additionalCostAmount" type="number" min="0" step="0.01" value="${Number(item.amount || 0)}">
+      </label>
+      <label class="settings-switch compact">
+        <span>เปิดใช้งาน</span>
+        <input name="additionalCostEnabled" type="checkbox" ${item.enabled === false ? "" : "checked"}>
+        <span class="settings-switch-ui"></span>
+      </label>
+      <div class="settings-cost-actions">
+        <button class="button ghost compact-action" type="button" data-edit-additional-cost>บันทึก</button>
+        <button class="button danger compact-action" type="button" data-delete-additional-cost>ลบ</button>
+      </div>
+    </div>
+  `;
+}
+
+function toggleCostRowEditing(row, editable) {
+  if (!row) return;
+  row.classList.toggle("is-editing", editable);
+  row.querySelectorAll("input[name$='Name'], input[name$='Amount']").forEach(input => {
+    input.readOnly = !editable;
+  });
+  row.querySelectorAll("input[type='checkbox']").forEach(input => {
+    input.disabled = !editable;
+  });
+  const editButton = row.querySelector("[data-edit-additional-cost], [data-edit-product-cost]");
+  if (editButton) editButton.textContent = editable ? "บันทึก" : "แก้ไข";
+}
+
+function refreshAdditionalCostsSummary() {
+  const rows = Array.from(document.querySelectorAll("[data-additional-cost-row]"));
+  const total = rows.reduce((sum, row) => {
+    const enabled = row.querySelector("[name='additionalCostEnabled']")?.checked;
+    const amount = Number(row.querySelector("[name='additionalCostAmount']")?.value || 0);
+    return enabled ? sum + amount : sum;
+  }, 0);
+  const target = document.querySelector("#additionalCostsTotal");
+  if (target) target.textContent = `${money(total)} บาท`;
 }
 
 function followupCards(customers, compact = false) {
@@ -2340,87 +2458,248 @@ function renderTeam() {
   `;
 }
 
+function settingsSectionTitle(index, title, subtitle, icon = "◈") {
+  return `
+    <div class="settings-card-head">
+      <div class="settings-card-title">
+        <div class="settings-card-icon" aria-hidden="true">${icon}</div>
+        <div>
+          <h3>${index}. ${escapeHtml(title)}</h3>
+          <p>${escapeHtml(subtitle)}</p>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function settingsProductCostRows(settings) {
+  return normalizeProductCostEntries(settings).map(item => `
+    <div class="settings-cost-row" data-product-cost-row data-id="${escapeHtml(item.id)}">
+      <div class="settings-cost-grip" aria-hidden="true">⋮⋮</div>
+      <label class="settings-cost-field">
+        <span>สินค้า</span>
+        <input name="productCostName" value="${escapeHtml(item.name)}" readonly>
+      </label>
+      <label class="settings-cost-field">
+        <span>Cost / กระปุก</span>
+        <input name="productCostAmount" type="number" min="0" step="0.01" value="${Number(item.costPerJar || 0)}" readonly>
+      </label>
+      <label class="settings-switch compact">
+        <span>เปิดใช้งาน</span>
+        <input name="productCostEnabled" type="checkbox" ${item.enabled ? "checked" : ""} disabled>
+        <span class="settings-switch-ui"></span>
+      </label>
+      <div class="settings-cost-actions">
+        <button class="button ghost compact-action" type="button" data-edit-product-cost>${"แก้ไข"}</button>
+      </div>
+    </div>
+  `).join("") || `<div class="empty-state">ยังไม่มีสินค้าให้ตั้งต้นทุน</div>`;
+}
+
+function settingsAdditionalCostRows(settings) {
+  return normalizeAdditionalCostEntries(settings).map(item => `
+    <div class="settings-cost-row" data-additional-cost-row data-id="${escapeHtml(item.id)}">
+      <div class="settings-cost-grip" aria-hidden="true">⋮⋮</div>
+      <label class="settings-cost-field">
+        <span>ชื่อรายการ</span>
+        <input name="additionalCostName" value="${escapeHtml(item.name)}" readonly>
+      </label>
+      <label class="settings-cost-field">
+        <span>จำนวนเงิน (บาท)</span>
+        <input name="additionalCostAmount" type="number" min="0" step="0.01" value="${Number(item.amount || 0)}" readonly>
+      </label>
+      <label class="settings-switch compact">
+        <span>เปิดใช้งาน</span>
+        <input name="additionalCostEnabled" type="checkbox" ${item.enabled ? "checked" : ""} disabled>
+        <span class="settings-switch-ui"></span>
+      </label>
+      <div class="settings-cost-actions">
+        <button class="button ghost compact-action" type="button" data-edit-additional-cost>แก้ไข</button>
+        <button class="button danger compact-action" type="button" data-delete-additional-cost>ลบ</button>
+      </div>
+    </div>
+  `).join("") || `<div class="empty-state">ยังไม่มีต้นทุนเพิ่มเติม</div>`;
+}
+
 function renderSettings() {
   const settings = app.data.settings;
   const thresholds = settings.vipThresholds || {};
   const templates = settings.messageTemplates || {};
   const lineSecretHelp = settings.lineChannelSecretConfigured
-    ? settings.lineChannelSecretFromEnv
-      ? "ตั้งค่าไว้ใน Vercel Environment แล้ว"
-      : "มีค่าเดิมอยู่แล้ว เว้นว่างไว้เพื่อคงค่าเดิม"
+    ? settings.lineChannelSecretFromEnv ? "ตั้งค่าไว้ใน Vercel Environment แล้ว" : "มีค่าเดิมอยู่แล้ว เว้นว่างไว้เพื่อคงค่าเดิม"
     : "ยังไม่ได้ตั้งค่า";
   const lineTokenHelp = settings.lineChannelAccessTokenConfigured
-    ? settings.lineChannelAccessTokenFromEnv
-      ? "ตั้งค่าไว้ใน Vercel Environment แล้ว"
-      : "มีค่าเดิมอยู่แล้ว เว้นว่างไว้เพื่อคงค่าเดิม"
+    ? settings.lineChannelAccessTokenFromEnv ? "ตั้งค่าไว้ใน Vercel Environment แล้ว" : "มีค่าเดิมอยู่แล้ว เว้นว่างไว้เพื่อคงค่าเดิม"
     : "ยังไม่ได้ตั้งค่า";
+  const todayOrders = app.data.orders.filter(order => order.date === (app.data.summary?.selectedDate || todayISO()));
+  const todaySales = todayOrders.reduce((sum, order) => sum + Number(order.amount || 0), 0);
+  const todayProductCosts = todayOrders.reduce((sum, order) => sum + productCostForOrder(order), 0);
+  const totalAdditionalCosts = additionalCostTotal(settings);
+  const todayProfit = Math.max(0, todaySales - todayProductCosts - totalAdditionalCosts);
+
   els.content.innerHTML = `
-    <section class="section saas-page settings-page">
-      <div class="page-identity workspace-hero settings-hero">
-        <div class="page-identity-copy">
-          <span class="page-kicker">Professional SaaS Settings</span>
-          <h2>ตั้งค่าระบบและการเติบโตของร้าน</h2>
-          <p>จัดการ store profile, LINE, team, backup และพื้นที่สำหรับ subscription ในอนาคต</p>
+    <section class="section saas-page settings-page settings-premium-page">
+      <form class="stack settings-workspace" id="settingsForm">
+        <div class="settings-page-hero">
+          <div class="page-identity-copy">
+            <span class="page-kicker">Growup Pilot Control Room</span>
+            <h2>ตั้งค่า</h2>
+            <p>จัดการการตั้งค่าทั้งหมดของร้านค้า ระบบกำไร ลูกค้า LINE OA ทีมงาน และการส่งออกข้อมูลในหน้าเดียว</p>
+          </div>
         </div>
-        <button class="button secondary" type="button" data-view-shortcut="pricing">ดูแพ็กเกจ</button>
-      </div>
-      <div class="settings-sections">
-        ${[
-          ["Store profile", "ชื่อร้าน โลโก้ และข้อมูลพื้นฐาน"],
-          ["LINE settings", "เชื่อม LINE OA และ webhook"],
-          ["Subscription plan", "เตรียมโครง monthly / yearly plan"],
-          ["Billing", "พื้นที่สำหรับใบแจ้งหนี้และการชำระเงินในอนาคต"],
-          ["User/account", "สิทธิ์ผู้ใช้และทีมงาน"],
-          ["Import/Export", "จัดการย้ายข้อมูลเข้าออกระบบ"],
-          ["Backup", "สำรองข้อมูลและกู้คืน"]
-        ].map(([title, desc]) => `
-          <article class="more-card">
-            <span>${escapeHtml(title)}</span>
-            <strong>${escapeHtml(desc)}</strong>
-            <small>พร้อมขยายต่อในอนาคต โดยยังไม่กระทบระบบเดิม</small>
-          </article>
-        `).join("")}
-      </div>
-      <div class="two-col">
-        <form class="panel stack" id="settingsForm">
-          <div class="section-title">
-            <h2>ตั้งค่าระบบ</h2>
-            <p>Store profile, VIP, Template ข้อความ, LINE OA และสิทธิ์ Staff</p>
-          </div>
-          <label>ชื่อธุรกิจ<input name="businessName" value="${escapeHtml(settings.businessName || "Growup")}"></label>
-          <label>ราคาต่อกระปุกเริ่มต้น<input name="defaultJarPrice" type="number" min="0" value="${Number(settings.defaultJarPrice || 750)}"></label>
-          <div class="form-grid">
-            <label>VIP Threshold<input name="vipThreshold" type="number" min="0" value="${Number(thresholds.vip || 5000)}"></label>
-            <label>VVIP Threshold<input name="vvipThreshold" type="number" min="0" value="${Number(thresholds.vvip || 10000)}"></label>
-            <label>SUPER VIP Threshold<input name="superVipThreshold" type="number" min="0" value="${Number(thresholds.superVip || 20000)}"></label>
-          </div>
-          <label>Template ข้อความลูกค้าปกติ<textarea name="normalTemplate">${escapeHtml(templates.normal || "")}</textarea></label>
-          <label>Template ข้อความ VIP<textarea name="vipTemplate">${escapeHtml(templates.vip || "")}</textarea></label>
-          <label>LINE Channel ID<input name="lineChannelId" value="${escapeHtml(settings.lineChannelId || "")}" ${settings.lineChannelIdFromEnv ? "readonly" : ""}></label>
-          <label>LINE Channel Secret<input name="lineChannelSecret" type="password" autocomplete="new-password" placeholder="${escapeHtml(lineSecretHelp)}"></label>
-          <label>LINE Channel Access Token<textarea name="lineChannelAccessToken" autocomplete="off" placeholder="${escapeHtml(lineTokenHelp)}"></textarea></label>
-          <label class="inline">
-            <input name="lineWebhookEnabled" type="checkbox" ${settings.lineWebhookEnabled ? "checked" : ""} style="width:auto">
-            เปิดรับ LINE Webhook
-          </label>
-          <div class="panel tight">
-            <strong>Webhook Endpoint</strong>
-            <p class="muted">${location.origin}/api/line/webhook</p>
-            <div class="inline">
-              <button class="button ghost" type="button" data-copy-webhook>คัดลอก URL</button>
-              <button class="button secondary" type="button" data-test-webhook>ทดสอบ Mock Webhook</button>
+
+        <div class="settings-layout-grid">
+          <section class="panel settings-card settings-store-card">
+            ${settingsSectionTitle(1, "ข้อมูลร้านค้า (Store)", "ตั้งค่าพื้นฐานของร้านและข้อความดูแลลูกค้า", "⌂")}
+            <div class="stack">
+              <label>ชื่อธุรกิจ<input name="businessName" value="${escapeHtml(settings.businessName || "Growup Pilot")}"></label>
+              <label>ราคาต่อกระปุกเริ่มต้น (บาท)<input name="defaultJarPrice" type="number" min="0" value="${Number(settings.defaultJarPrice || 750)}"></label>
+              <div class="form-grid">
+                <label>VIP Threshold<input name="vipThreshold" type="number" min="0" value="${Number(thresholds.vip || 5000)}"></label>
+                <label>VVIP Threshold<input name="vvipThreshold" type="number" min="0" value="${Number(thresholds.vvip || 10000)}"></label>
+                <label class="span-2">SUPER VIP Threshold<input name="superVipThreshold" type="number" min="0" value="${Number(thresholds.superVip || 20000)}"></label>
+              </div>
+              <label>Template ข้อความลูกค้าปกติ<textarea name="normalTemplate">${escapeHtml(templates.normal || "")}</textarea></label>
+              <label>Template ข้อความ VIP<textarea name="vipTemplate">${escapeHtml(templates.vip || "")}</textarea></label>
             </div>
-          </div>
-          <label class="inline">
-            <input name="staffCanExport" type="checkbox" ${settings.staffCanExport ? "checked" : ""} style="width:auto">
-            Staff สามารถ Export ข้อมูลได้
-          </label>
-          <button class="button primary" type="submit">บันทึก Settings</button>
-        </form>
-        <form class="panel stack" id="rulesForm">
-          ${followUpSettingsPanel(Number(settings.followUpDaysPerUnit || 15))}
-        </form>
-      </div>
+          </section>
+
+          <section class="panel settings-card settings-finance-card">
+            ${settingsSectionTitle(2, "การเงิน (Finance)", "ตั้งค่าต้นทุนสินค้าและต้นทุนเพิ่มเติมสำหรับคำนวณกำไร", "◫")}
+            <div class="settings-finance-summary">
+              <p class="settings-finance-label">สูตรการคำนวณกำไรวันนี้</p>
+              <div class="settings-finance-equation">
+                <div class="settings-finance-pill sales">
+                  <span>ยอดขายวันนี้</span>
+                  <strong>${money(todaySales)} บาท</strong>
+                </div>
+                <span class="settings-finance-operator">-</span>
+                <div class="settings-finance-pill product">
+                  <span>ต้นทุนสินค้าวันนี้</span>
+                  <strong>${money(todayProductCosts)} บาท</strong>
+                </div>
+                <span class="settings-finance-operator">-</span>
+                <div class="settings-finance-pill extra">
+                  <span>ต้นทุนเพิ่มเติม</span>
+                  <strong>${money(totalAdditionalCosts)} บาท</strong>
+                </div>
+                <span class="settings-finance-operator">=</span>
+                <div class="settings-finance-pill profit">
+                  <span>กำไรวันนี้</span>
+                  <strong>${money(todayProfit)} บาท</strong>
+                </div>
+              </div>
+            </div>
+            <div class="settings-finance-block">
+              <div class="section-title section-title-actions">
+                <div>
+                  <h3>ต้นทุนสินค้า (Product Costs)</h3>
+                  <p>แต่ละสินค้าใช้ Cost / กระปุก ของตัวเอง</p>
+                </div>
+              </div>
+              <div class="settings-cost-list">${settingsProductCostRows(settings)}</div>
+            </div>
+            <div class="settings-finance-block">
+              <div class="section-title section-title-actions">
+                <div>
+                  <h3>ต้นทุนเพิ่มเติม (Additional Costs)</h3>
+                  <p>เพิ่มรายการค่าใช้จ่ายได้ไม่จำกัด และระบบจะรวมเฉพาะรายการที่เปิดใช้งาน</p>
+                </div>
+                <button class="button primary compact-action" type="button" data-add-additional-cost>+ เพิ่มต้นทุน</button>
+              </div>
+              <div class="settings-cost-list" id="additionalCostList">${settingsAdditionalCostRows(settings)}</div>
+              <div class="settings-total-row">
+                <span>รวมต้นทุนเพิ่มเติมทั้งหมด</span>
+                <strong id="additionalCostsTotal">${money(totalAdditionalCosts)} บาท</strong>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel settings-card settings-customer-card">
+            ${settingsSectionTitle(3, "ลูกค้า (Customer)", "ตั้งค่าการติดตามและการดูแลลูกค้า", "◎")}
+            <div class="stack">
+              <label class="followup-setting-row" for="followupDaysPerUnit">
+                <span>จำนวนวันต่อ 1 กระปุก</span>
+                <div class="followup-setting-input">
+                  <input id="followupDaysPerUnit" name="daysPerUnit" type="number" min="1" required value="${Math.max(1, Number(settings.followUpDaysPerUnit || 15))}">
+                  <span>วัน / กระปุก</span>
+                </div>
+                <div class="followup-setting-note">ระบบจะคำนวณวันติดตามจากจำนวนกระปุกทั้งหมดที่ลูกค้าได้รับ รวมของแถม</div>
+              </label>
+              <div class="panel tight followup-preview-panel">
+                <strong>ตัวอย่างการคำนวณ Follow-up</strong>
+                <div class="table-wrap mobile-stack-wrap">
+                  <table class="rules-table mobile-stack-table">
+                    <thead><tr><th>ลูกค้าได้รับทั้งหมด</th><th>ระบบติดตามอีก</th></tr></thead>
+                    <tbody id="followupPreviewBody">
+                      ${followUpPreviewRows(Number(settings.followUpDaysPerUnit || 15)).map(row => `
+                        <tr>
+                          <td data-label="ลูกค้าได้รับทั้งหมด">${row.units} กระปุก</td>
+                          <td data-label="ระบบติดตามอีก">${row.days} วัน</td>
+                        </tr>
+                      `).join("")}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel settings-card settings-line-card">
+            ${settingsSectionTitle(4, "LINE OA", "เชื่อม LINE OA และควบคุม Webhook", "◉")}
+            <div class="stack">
+              <label>LINE Group ID<input name="lineGroupId" value="${escapeHtml(settings.lineGroupId || "")}" ${settings.lineGroupIdFromEnv ? "readonly" : ""}></label>
+              <label>LINE Channel ID<input name="lineChannelId" value="${escapeHtml(settings.lineChannelId || "")}" ${settings.lineChannelIdFromEnv ? "readonly" : ""}></label>
+              <label>LINE Channel Secret<input name="lineChannelSecret" type="password" autocomplete="new-password" placeholder="${escapeHtml(lineSecretHelp)}"></label>
+              <label>LINE Channel Access Token<textarea name="lineChannelAccessToken" autocomplete="off" placeholder="${escapeHtml(lineTokenHelp)}"></textarea></label>
+              <label class="settings-switch">
+                <span>เปิดใช้งาน LINE Webhook</span>
+                <input name="lineWebhookEnabled" type="checkbox" ${settings.lineWebhookEnabled ? "checked" : ""}>
+                <span class="settings-switch-ui"></span>
+              </label>
+              <label>Webhook URL<input value="${escapeHtml(`${location.origin}/api/line/webhook`)}" readonly></label>
+              <div class="inline">
+                <button class="button primary" type="button" data-test-webhook>ทดสอบ Webhook</button>
+                <button class="button ghost" type="button" data-copy-webhook>คัดลอก URL</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel settings-card settings-staff-card">
+            ${settingsSectionTitle(5, "ผู้ใช้งานและสิทธิ์ (Staff)", "จัดการผู้ใช้งานและการเข้าถึงระบบ", "◌")}
+            <div class="stack">
+              <label class="settings-switch">
+                <span>Staff สามารถ Export ข้อมูลได้</span>
+                <input name="staffCanExport" type="checkbox" ${settings.staffCanExport ? "checked" : ""}>
+                <span class="settings-switch-ui"></span>
+              </label>
+              <button class="button ghost" type="button" data-view-shortcut="team">จัดการผู้ใช้งาน</button>
+            </div>
+          </section>
+
+          <section class="panel settings-card settings-io-card">
+            ${settingsSectionTitle(6, "นำเข้า / ส่งออก (Import / Export)", "จัดการข้อมูลนำเข้า นำออก และสำรองข้อมูล", "⇅")}
+            <div class="settings-action-grid">
+              <button class="button ghost" type="button" data-view-shortcut="import">นำเข้าข้อมูล</button>
+              <button class="button ghost" type="button" data-view-shortcut="reports">ส่งออกข้อมูล</button>
+              <a class="button ghost" href="/api/backup" target="_blank" rel="noreferrer">สำรองข้อมูล</a>
+            </div>
+          </section>
+
+          <section class="panel settings-card settings-subscription-card">
+            ${settingsSectionTitle(7, "การสมัครใช้งาน (Subscription)", "ดูแพ็กเกจและการใช้งานในอนาคต", "♛")}
+            <div class="stack">
+              <p class="muted">โครงสำหรับแพ็กเกจรายเดือน / รายปี โดยยังไม่แตะ business logic การชำระเงินจริง</p>
+              <button class="button ghost" type="button" data-view-shortcut="pricing">ดูข้อมูลแพ็กเกจ</button>
+            </div>
+          </section>
+        </div>
+
+        <div class="settings-submit-bar">
+          <button class="button ghost" type="button" data-reset-settings>ยกเลิก</button>
+          <button class="button primary" type="submit">บันทึกการตั้งค่า</button>
+        </div>
+      </form>
     </section>
   `;
 }
@@ -3057,6 +3336,42 @@ document.addEventListener("click", async event => {
     copyText(`${location.origin}/api/line/webhook`);
   }
 
+  if (event.target.closest("[data-reset-settings]")) {
+    renderSettings();
+  }
+
+  if (event.target.closest("[data-add-additional-cost]")) {
+    const list = document.querySelector("#additionalCostList");
+    if (list) {
+      list.insertAdjacentHTML("beforeend", createAdditionalCostRow({ enabled: true }));
+      refreshAdditionalCostsSummary();
+    }
+  }
+
+  const editAdditionalCost = event.target.closest("[data-edit-additional-cost]");
+  if (editAdditionalCost) {
+    const row = editAdditionalCost.closest("[data-additional-cost-row]");
+    const isEditing = row?.classList.contains("is-editing");
+    if (row && isEditing && !row.querySelector("[name='additionalCostName']")?.value.trim()) {
+      showToast("กรอกชื่อรายการต้นทุนเพิ่มเติมก่อน");
+      return;
+    }
+    toggleCostRowEditing(row, !isEditing);
+    refreshAdditionalCostsSummary();
+  }
+
+  const editProductCost = event.target.closest("[data-edit-product-cost]");
+  if (editProductCost) {
+    const row = editProductCost.closest("[data-product-cost-row]");
+    toggleCostRowEditing(row, !row?.classList.contains("is-editing"));
+  }
+
+  const deleteAdditionalCost = event.target.closest("[data-delete-additional-cost]");
+  if (deleteAdditionalCost) {
+    deleteAdditionalCost.closest("[data-additional-cost-row]")?.remove();
+    refreshAdditionalCostsSummary();
+  }
+
   if (event.target.closest("[data-test-webhook]")) {
     const payload = await api("/api/line/mock", {
       method: "POST",
@@ -3160,6 +3475,10 @@ document.addEventListener("input", event => {
         <td>${row.days} วัน</td>
       </tr>
     `).join("");
+  }
+
+  if (event.target?.matches?.("[name='additionalCostAmount'], [name='additionalCostEnabled']")) {
+    refreshAdditionalCostsSummary();
   }
 });
 
@@ -3322,11 +3641,24 @@ document.addEventListener("submit", async event => {
       const data = Object.fromEntries(new FormData(form).entries());
       data.lineWebhookEnabled = form.elements.lineWebhookEnabled.checked;
       data.staffCanExport = form.elements.staffCanExport.checked;
+      data.followUpDaysPerUnit = Math.max(1, Number(form.elements.daysPerUnit?.value || app.data?.settings?.followUpDaysPerUnit || 15));
+      data.productCosts = Array.from(form.querySelectorAll("[data-product-cost-row]")).map(row => ({
+        id: row.dataset.id,
+        name: row.querySelector("[name='productCostName']")?.value.trim(),
+        costPerJar: Number(row.querySelector("[name='productCostAmount']")?.value || 0),
+        enabled: row.querySelector("[name='productCostEnabled']")?.checked
+      })).filter(item => item.name);
+      data.additionalCosts = Array.from(form.querySelectorAll("[data-additional-cost-row]")).map(row => ({
+        id: row.dataset.id,
+        name: row.querySelector("[name='additionalCostName']")?.value.trim(),
+        amount: Number(row.querySelector("[name='additionalCostAmount']")?.value || 0),
+        enabled: row.querySelector("[name='additionalCostEnabled']")?.checked
+      })).filter(item => item.name);
       await api("/api/settings", {
         method: "PUT",
         body: JSON.stringify(data)
       });
-      showToast("บันทึก Settings แล้ว");
+      showToast("บันทึกการตั้งค่าแล้ว");
       await loadState();
     }
 

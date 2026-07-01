@@ -201,11 +201,24 @@ function effectiveSettings(settings = {}) {
   };
 }
 
+function normalizeSettingsCostRows(rows = [], fieldName) {
+  return (Array.isArray(rows) ? rows : [])
+    .map((row, index) => ({
+      id: String(row?.id || `${fieldName}_${index + 1}`),
+      name: String(row?.name || "").trim(),
+      [fieldName]: Math.max(0, Number(row?.[fieldName] || 0)),
+      enabled: row?.enabled !== false
+    }))
+    .filter(row => row.name);
+}
+
 function publicSettings(settings = {}) {
   const effective = effectiveSettings(settings);
   return {
     ...effective,
     followUpDaysPerUnit: Number(effective.followUpDaysPerUnit || 15),
+    productCosts: normalizeSettingsCostRows(effective.productCosts, "costPerJar"),
+    additionalCosts: normalizeSettingsCostRows(effective.additionalCosts, "amount"),
     lineChannelSecret: "",
     lineChannelAccessToken: "",
     lineGroupId: "",
@@ -2053,6 +2066,13 @@ async function handleApi(req, res) {
         normal: String(body.normalTemplate ?? db.settings.messageTemplates?.normal ?? ""),
         vip: String(body.vipTemplate ?? db.settings.messageTemplates?.vip ?? "")
       },
+      followUpDaysPerUnit: Math.max(1, Number(body.followUpDaysPerUnit || db.settings.followUpDaysPerUnit || 15)),
+      productCosts: body.productCosts === undefined
+        ? normalizeSettingsCostRows(db.settings.productCosts, "costPerJar")
+        : normalizeSettingsCostRows(body.productCosts, "costPerJar"),
+      additionalCosts: body.additionalCosts === undefined
+        ? normalizeSettingsCostRows(db.settings.additionalCosts, "amount")
+        : normalizeSettingsCostRows(body.additionalCosts, "amount"),
       lineChannelId: process.env.LINE_CHANNEL_ID
         ? db.settings.lineChannelId || ""
         : String(body.lineChannelId ?? db.settings.lineChannelId ?? ""),

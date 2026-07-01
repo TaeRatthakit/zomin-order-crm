@@ -2375,3 +2375,329 @@ small,
     height: 56px;
   }
 }
+
+.settings-premium-page {
+  gap: 18px;
+}
+
+.settings-workspace {
+  gap: 18px;
+}
+
+.settings-page-hero {
+  padding: 8px 6px 0;
+}
+
+.settings-layout-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(320px, 0.95fr);
+  grid-template-areas:
+    "store finance customer"
+    "store finance line"
+    "staff io subscription";
+  gap: 18px;
+}
+
+.settings-card {
+  display: grid;
+  gap: 18px;
+  padding: 22px;
+}
+
+.settings-store-card { grid-area: store; }
+.settings-finance-card { grid-area: finance; }
+.settings-customer-card { grid-area: customer; }
+.settings-line-card { grid-area: line; }
+.settings-staff-card { grid-area: staff; }
+.settings-io-card { grid-area: io; }
+.settings-subscription-card { grid-area: subscription; }
+
+.settings-card-head,
+.settings-card-title,
+.settings-finance-equation,
+.settings-cost-row,
+.settings-cost-actions,
+.settings-total-row,
+.settings-submit-bar,
+.settings-action-grid {
+  display: flex;
+}
+
+.settings-card-head,
+.settings-total-row,
+.settings-submit-bar {
+  align-items: center;
+  justify-content: space-between;
+}
+
+.settings-card-title {
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.settings-card-title h3 {
+  margin-bottom: 4px;
+  font-size: 1.4rem;
+}
+
+.settings-card-title p {
+  color: var(--muted);
+}
+
+.settings-card-icon {
+  width: 42px;
+  height: 42px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  border: 1px solid rgba(181, 132, 255, 0.18);
+  background: rgba(153, 83, 255, 0.12);
+  color: #cf9aff;
+  font-size: 20px;
+  box-shadow: 0 0 22px rgba(177, 95, 255, 0.12);
+}
+
+.settings-finance-summary,
+.settings-finance-block {
+  padding: 18px;
+  border-radius: 22px;
+  border: 1px solid rgba(173, 125, 255, 0.14);
+  background: rgba(255, 255, 255, 0.03);
+  display: grid;
+  gap: 16px;
+}
+
+.settings-finance-label {
+  color: #cb98ff;
+  font-weight: 800;
+}
+
+.settings-finance-equation {
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.settings-finance-pill {
+  min-width: 150px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  display: grid;
+  gap: 6px;
+}
+
+.settings-finance-pill span {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.settings-finance-pill strong {
+  font-size: 1.05rem;
+}
+
+.settings-finance-pill.sales strong { color: #49e58f; }
+.settings-finance-pill.product strong { color: #ffae4a; }
+.settings-finance-pill.extra strong { color: #bf5cff; }
+.settings-finance-pill.profit strong { color: #b8ff4d; }
+
+.settings-finance-operator {
+  font-size: 28px;
+  font-weight: 800;
+  color: #eef1ff;
+}
+
+.settings-cost-list {
+  display: grid;
+  gap: 10px;
+}
+
+.settings-cost-row {
+  align-items: end;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 18px;
+  border: 1px solid rgba(166, 121, 255, 0.12);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.settings-cost-row.is-editing {
+  border-color: rgba(198, 155, 255, 0.34);
+  box-shadow: 0 0 0 1px rgba(198, 155, 255, 0.16), 0 0 28px rgba(141, 64, 255, 0.08);
+}
+
+.settings-cost-grip {
+  align-self: center;
+  color: #7f86b5;
+  font-size: 18px;
+  letter-spacing: -0.15em;
+}
+
+.settings-cost-field {
+  min-width: 0;
+  flex: 1 1 0;
+}
+
+.settings-cost-field span {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.settings-cost-actions {
+  gap: 8px;
+  align-items: center;
+}
+
+.settings-switch {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+}
+
+.settings-switch.compact {
+  min-width: 118px;
+}
+
+.settings-switch input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.settings-switch-ui {
+  position: relative;
+  width: 48px;
+  height: 28px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.2);
+}
+
+.settings-switch-ui::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: #fff;
+  transition: transform 0.16s ease;
+}
+
+.settings-switch input:checked + .settings-switch-ui {
+  background: linear-gradient(135deg, #7b2cff 0%, #b15cff 100%);
+}
+
+.settings-switch input:checked + .settings-switch-ui::after {
+  transform: translateX(20px);
+}
+
+.settings-switch input:disabled + .settings-switch-ui {
+  opacity: 0.72;
+}
+
+.settings-total-row {
+  padding-top: 14px;
+  border-top: 1px solid rgba(173, 125, 255, 0.14);
+  color: #cb98ff;
+  font-weight: 800;
+}
+
+.settings-total-row strong {
+  color: #c783ff;
+  font-size: 1.2rem;
+}
+
+.settings-action-grid {
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.settings-submit-bar {
+  position: sticky;
+  bottom: 16px;
+  z-index: 2;
+  padding: 14px 18px;
+  border-radius: 24px;
+  border: 1px solid rgba(173, 125, 255, 0.14);
+  background: rgba(10, 12, 24, 0.92);
+  backdrop-filter: blur(18px);
+  box-shadow: var(--shadow);
+}
+
+@media (max-width: 1280px) {
+  .settings-layout-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-areas:
+      "store customer"
+      "finance finance"
+      "line staff"
+      "io subscription";
+  }
+}
+
+@media (max-width: 920px) {
+  .settings-layout-grid {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "store"
+      "finance"
+      "customer"
+      "line"
+      "staff"
+      "io"
+      "subscription";
+  }
+}
+
+@media (max-width: 780px) {
+  .settings-card {
+    padding: 18px;
+    gap: 14px;
+  }
+
+  .settings-finance-equation,
+  .settings-cost-row,
+  .settings-submit-bar {
+    display: grid;
+  }
+
+  .settings-finance-equation {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-finance-operator {
+    font-size: 20px;
+    justify-self: center;
+  }
+
+  .settings-cost-row {
+    align-items: stretch;
+  }
+
+  .settings-cost-actions {
+    justify-content: stretch;
+  }
+
+  .settings-cost-actions .button {
+    flex: 1 1 0;
+  }
+
+  .settings-submit-bar {
+    gap: 10px;
+    bottom: 10px;
+  }
+
+  .settings-submit-bar .button {
+    width: 100%;
+  }
+}
