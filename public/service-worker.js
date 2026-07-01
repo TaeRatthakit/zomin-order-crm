@@ -1,23 +1,23 @@
-const CACHE_NAME = "growup-pilot-pwa-v30";
+const CACHE_NAME = "growup-pilot-pwa-v31";
 const CORE_ASSETS = [
   "/",
   "/index.html",
-  "/favicon.ico?v=20260701-growup-logo-refresh",
-  "/favicon.png?v=20260701-growup-logo-refresh",
-  "/favicon-16x16.png?v=20260701-growup-logo-refresh",
-  "/favicon-32x32.png?v=20260701-growup-logo-refresh",
-  "/apple-touch-icon.png?v=20260701-growup-logo-refresh",
-  "/styles.css?v=20260701-growup-logo-refresh",
-  "/app.js?v=20260701-growup-logo-refresh",
+  "/favicon.ico?v=20260701-growup-logo-transparent",
+  "/favicon.png?v=20260701-growup-logo-transparent",
+  "/favicon-16x16.png?v=20260701-growup-logo-transparent",
+  "/favicon-32x32.png?v=20260701-growup-logo-transparent",
+  "/apple-touch-icon.png?v=20260701-growup-logo-transparent",
+  "/styles.css?v=20260701-growup-logo-transparent",
+  "/app.js?v=20260701-growup-logo-transparent",
   "/import-worker.js",
   "/xlsx.full.min.js",
-  "/manifest.webmanifest?v=20260701-growup-logo-refresh",
-  "/icons/logo.png?v=20260701-growup-logo-refresh",
-  "/icons/apple-touch-icon.png?v=20260701-growup-logo-refresh",
-  "/icons/icon-192.png?v=20260701-growup-logo-refresh",
-  "/icons/icon-512.png?v=20260701-growup-logo-refresh",
-  "/icons/maskable-icon-192.png?v=20260701-growup-logo-refresh",
-  "/icons/maskable-icon-512.png?v=20260701-growup-logo-refresh"
+  "/manifest.webmanifest?v=20260701-growup-logo-transparent",
+  "/icons/logo.png?v=20260701-growup-logo-transparent",
+  "/icons/apple-touch-icon.png?v=20260701-growup-logo-transparent",
+  "/icons/icon-192.png?v=20260701-growup-logo-transparent",
+  "/icons/icon-512.png?v=20260701-growup-logo-transparent",
+  "/icons/maskable-icon-192.png?v=20260701-growup-logo-transparent",
+  "/icons/maskable-icon-512.png?v=20260701-growup-logo-transparent"
 ];
 
 self.addEventListener("install", event => {
