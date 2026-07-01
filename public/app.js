@@ -733,7 +733,7 @@ function renderLogin() {
     <section class="login-layout">
       <div class="login-desktop-card">
         <aside class="login-brand-panel">
-          <img class="login-brand-mark" src="/icons/logo.png?v=20260701-growup-logo" alt="" aria-hidden="true">
+          <img class="login-brand-mark" src="/icons/logo.png?v=20260701-growup-logo-refresh" alt="" aria-hidden="true">
           <div>
             <p class="eyebrow">Growup Pilot</p>
             <h2>ผู้ช่วยเจ้าของธุรกิจที่ทำให้ธุรกิจเติบโต</h2>
@@ -741,7 +741,7 @@ function renderLogin() {
           </div>
         </aside>
         <form class="login-card" id="loginForm">
-          <img class="login-logo" src="/icons/logo.png?v=20260701-growup-logo" alt="" aria-hidden="true">
+          <img class="login-logo" src="/icons/logo.png?v=20260701-growup-logo-refresh" alt="" aria-hidden="true">
           <div class="section-title">
             <h2>Growup Pilot</h2>
           </div>
