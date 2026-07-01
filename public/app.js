@@ -546,6 +546,7 @@ function updateShell() {
   document.body.classList.toggle("login-view", app.view === "login");
   document.body.classList.toggle("mobile-app-shell", isMobileViewport());
   document.body.classList.toggle("desktop-app-shell", !isMobileViewport());
+  document.body.classList.toggle("mobile-home-view", isMobileViewport() && app.view === "dashboard");
   if (!els.headerProfile) return;
   if (els.workDateDisplay) {
     els.workDateDisplay.textContent = formatDatePill(els.workDate?.value || app.data?.summary?.selectedDate || todayISO());
@@ -713,6 +714,9 @@ function dashboardSparkline(series = [], tone = "violet") {
 function dashboardCardIcon(kind) {
   const icons = {
     sales: '<path d="M12 3v18"/><path d="M16.5 7.5c0-1.9-2-3.5-4.5-3.5S7.5 5.6 7.5 7.5 9.5 11 12 11s4.5 1.6 4.5 3.5-2 3.5-4.5 3.5-4.5-1.6-4.5-3.5"/>',
+    wallet: '<path d="M4 7.5h13.5A2.5 2.5 0 0 1 20 10v8a2 2 0 0 1-2 2H5a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3h11v3.5"/><path d="M16 12h5v4h-5a2 2 0 0 1 0-4Z"/>',
+    bag: '<path d="M5 8h14l1 13H4L5 8Z"/><path d="M9 10V6a3 3 0 0 1 6 0v4"/>',
+    database: '<ellipse cx="12" cy="5" rx="7" ry="3"/><path d="M5 5v6c0 1.7 3.1 3 7 3s7-1.3 7-3V5"/><path d="M5 11v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6"/>',
     calendar: '<rect x="3.5" y="5.5" width="17" height="15" rx="3"/><path d="M7 3.5v4"/><path d="M17 3.5v4"/><path d="M3.5 10.5h17"/>',
     orders: '<rect x="3" y="3" width="18" height="18" rx="4"/><path d="M8 7.5h8"/><path d="M8 12h8"/><path d="M8 16.5h5"/>',
     profit: '<path d="M4 16 9 11l3 3 8-8"/><path d="M16 6h4v4"/><path d="M4 20h16"/>',
@@ -1271,11 +1275,16 @@ function mobileDashboardAlertItems() {
   const colors = ["purple", "amber", "cyan"];
   const icons = ["bell", "profit", "clipboard"];
   const times = ["10 นาทีที่แล้ว", "1 ชั่วโมงที่แล้ว", "2 ชั่วโมงที่แล้ว"];
+  const thaiOnly = value => String(value || "")
+    .replace(/Broadcast/gi, "ส่งข้อความ")
+    .replace(/VIP/gi, "ลูกค้าคนสำคัญ");
   return notificationItems()
     .filter(item => Number(item.count || 0) > 0)
     .slice(0, 3)
     .map((item, index) => ({
       ...item,
+      title: thaiOnly(item.title),
+      detail: thaiOnly(item.detail),
       tone: colors[index % colors.length],
       icon: icons[index % icons.length],
       time: times[index] || "เมื่อสักครู่"
@@ -1294,9 +1303,19 @@ function mobileDashboardMetricCard({ label, value, deltaText, tone, icon }) {
 }
 
 function mobileDashboardSummaryCard(rows, totalSales) {
-  const gradient = rows.length
-    ? rows.map((row, index) => {
-      const start = rows.slice(0, index).reduce((sum, item) => sum + item.percent, 0);
+  const fallbackRows = [
+    { name: "หน้าร้าน", revenue: 0, percent: 0, color: "#6f2cff" },
+    { name: "ออนไลน์", revenue: 0, percent: 0, color: "#ff9f0a" },
+    { name: "อื่นๆ", revenue: 0, percent: 0, color: "#159bd3" }
+  ];
+  const displayRows = rows.slice(0, 3);
+  for (const fallback of fallbackRows) {
+    if (displayRows.length >= 3) break;
+    if (!displayRows.some(row => row.name === fallback.name)) displayRows.push(fallback);
+  }
+  const gradient = displayRows.length
+    ? displayRows.map((row, index) => {
+      const start = displayRows.slice(0, index).reduce((sum, item) => sum + item.percent, 0);
       return `${row.color} ${start}% ${start + row.percent}%`;
     }).join(", ")
     : "#8b3dff 0% 100%";
@@ -1315,7 +1334,7 @@ function mobileDashboardSummaryCard(rows, totalSales) {
           </div>
         </div>
         <div class="mobile-summary-legend">
-          ${rows.map(row => `
+          ${displayRows.map(row => `
             <div class="mobile-summary-row">
               <span class="mobile-summary-name"><i style="background:${row.color}"></i>${escapeHtml(row.name)}</span>
               <strong>${money(row.revenue)} บาท</strong>
@@ -1333,7 +1352,7 @@ function mobileDashboardAlertsCard(items) {
     <article class="mobile-alerts-card">
       <div class="mobile-summary-head">
         <h3>แจ้งเตือนสำคัญ</h3>
-        <button class="mobile-link-button" type="button" data-view-shortcut="notifications">ดูทั้งหมด</button>
+        <button class="mobile-link-button" type="button" data-view-shortcut="notifications">ดูทั้งหมด <span aria-hidden="true">›</span></button>
       </div>
       <div class="mobile-alerts-list">
         ${items.map(item => `
@@ -1360,37 +1379,13 @@ function renderMobileDashboard(viewModel) {
     <section class="section saas-page mobile-dashboard-page">
       <div class="mobile-dashboard-shell">
         <section class="mobile-hero-card">
-          <div class="mobile-hero-copy">
-            <h2>
-              <span>จัดการธุรกิจ</span>
-              <em>ให้เติบโต</em>
-              <small>ไปกับ Growup</small>
-            </h2>
-          </div>
-          <div class="mobile-hero-stage" aria-hidden="true">
-            <div class="mobile-stage-orbit orbit-top">${dashboardCardIcon("sales")}</div>
-            <div class="mobile-stage-orbit orbit-left">${dashboardCardIcon("users")}</div>
-            <div class="mobile-stage-orbit orbit-right">${dashboardCardIcon("chart")}</div>
-            <div class="mobile-stage-platform"></div>
-            <div class="mobile-stage-bars">
-              <span></span>
-              <span></span>
-              <span></span>
-              <span></span>
-            </div>
-            <div class="mobile-stage-arrow"></div>
-          </div>
-          <div class="mobile-hero-dots" aria-hidden="true">
-            <span class="is-active"></span>
-            <span></span>
-            <span></span>
-          </div>
+          <img src="/mobile-home-hero.png" alt="จัดการธุรกิจให้เติบโตไปกับโกรว์อัพ">
         </section>
 
         <section class="mobile-kpi-grid">
-          ${mobileDashboardMetricCard({ label: "ยอดขายวันนี้", value: money(s.salesToday), deltaText: dashboardChangeText(s.salesToday, s.salesToday - salesDelta.diff), tone: "green", icon: "sales" })}
-          ${mobileDashboardMetricCard({ label: "ออเดอร์วันนี้", value: money(s.ordersToday || 0), deltaText: dashboardChangeText(s.ordersToday || 0, (s.ordersToday || 0) - ordersDelta.diff), tone: "amber", icon: "orders" })}
-          ${mobileDashboardMetricCard({ label: "กำไรวันนี้", value: money(estimatedProfitToday), deltaText: dashboardChangeText(estimatedProfitToday, estimatedProfitToday - profitDelta.diff), tone: "violet", icon: "profit" })}
+          ${mobileDashboardMetricCard({ label: "ยอดขายวันนี้", value: money(s.salesToday), deltaText: dashboardChangeText(s.salesToday, s.salesToday - salesDelta.diff), tone: "green", icon: "wallet" })}
+          ${mobileDashboardMetricCard({ label: "ออเดอร์วันนี้", value: money(s.ordersToday || 0), deltaText: dashboardChangeText(s.ordersToday || 0, (s.ordersToday || 0) - ordersDelta.diff), tone: "amber", icon: "bag" })}
+          ${mobileDashboardMetricCard({ label: "กำไรวันนี้", value: money(estimatedProfitToday), deltaText: dashboardChangeText(estimatedProfitToday, estimatedProfitToday - profitDelta.diff), tone: "violet", icon: "database" })}
           ${mobileDashboardMetricCard({ label: "โอกาสทำเงิน", value: money(opportunityCount), deltaText: dashboardChangeText(opportunityCount, Math.max(0, opportunityCount - 1)), tone: "cyan", icon: "target" })}
         </section>
 
