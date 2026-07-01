@@ -29,6 +29,13 @@ const routeToView = {
   "/import": "import",
   "/reports": "reports",
   "/settings": "settings",
+  "/settings/store": "settingsStore",
+  "/settings/finance": "settingsFinance",
+  "/settings/customers": "settingsCustomers",
+  "/settings/line": "settingsLineHub",
+  "/settings/users": "settingsUsers",
+  "/settings/import-export": "settingsImportExport",
+  "/settings/subscription": "settingsSubscription",
   "/settings/follow-up": "settingsFollowup",
   "/settings/vip": "settingsVip",
   "/settings/line-oa": "settingsLine",
@@ -79,7 +86,11 @@ const app = {
   deletingCustomerId: ""
 };
 
-const adminViews = new Set(["settingsFollowup", "settingsVip", "settingsLine", "lineDebug", "team"]);
+const adminViews = new Set([
+  "settingsStore", "settingsFinance", "settingsCustomers", "settingsLineHub",
+  "settingsUsers", "settingsImportExport", "settingsSubscription",
+  "settingsFollowup", "settingsVip", "settingsLine", "lineDebug", "team"
+]);
 
 function isAdmin() {
   return app.currentUser?.role === "Admin";
@@ -353,6 +364,13 @@ function titleFor(view) {
     import: "เพิ่มข้อมูลเก่า",
     team: "จัดการทีมงาน",
     settings: "ตั้งค่า",
+    settingsStore: "ข้อมูลร้านค้า",
+    settingsFinance: "การเงิน",
+    settingsCustomers: "ลูกค้า",
+    settingsLineHub: "LINE OA",
+    settingsUsers: "ผู้ใช้งานและสิทธิ์",
+    settingsImportExport: "นำเข้า / ส่งออก",
+    settingsSubscription: "แพ็กเกจ",
     settingsFollowup: "ตั้งค่า Follow-up",
     settingsVip: "ตั้งค่า VIP",
     settingsLine: "ตั้งค่า LINE OA",
@@ -363,6 +381,7 @@ function titleFor(view) {
 
 const moreSubpages = new Set([
   "vip", "risk", "tags", "import", "reports", "team", "settings",
+  "settingsStore", "settingsFinance", "settingsCustomers", "settingsLineHub", "settingsUsers", "settingsImportExport", "settingsSubscription",
   "settingsFollowup", "settingsVip", "settingsLine", "lineDebug", "pricing"
 ]);
 
@@ -468,6 +487,13 @@ function renderNav() {
     import: "orders",
     team: "settings",
     pricing: "pricing",
+    settingsStore: "settings",
+    settingsFinance: "settings",
+    settingsCustomers: "settings",
+    settingsLineHub: "settings",
+    settingsUsers: "settings",
+    settingsImportExport: "settings",
+    settingsSubscription: "settings",
     settingsFollowup: "settings",
     settingsVip: "settings",
     settingsLine: "settings",
@@ -2695,6 +2721,77 @@ function settingsSectionTitle(index, title, subtitle, icon = "◈") {
   `;
 }
 
+const settingsMenuItems = [
+  { view: "settingsStore", index: 1, title: "Store Information", titleTh: "ข้อมูลร้านค้า", description: "ข้อมูลพื้นฐานของร้าน ราคาเริ่มต้น และข้อความดูแลลูกค้า", icon: "⌂" },
+  { view: "settingsFinance", index: 2, title: "Finance", titleTh: "การเงิน", description: "ต้นทุนสินค้า ต้นทุนเพิ่มเติม และสรุปกำไรของวันนี้", icon: "◫" },
+  { view: "settingsCustomers", index: 3, title: "Customers", titleTh: "ลูกค้า", description: "Follow-up อัตโนมัติและเกณฑ์ VIP ของลูกค้า", icon: "◎" },
+  { view: "settingsLineHub", index: 4, title: "LINE OA", titleTh: "LINE OA", description: "เชื่อมต่อ LINE OA, Webhook และข้อมูลการเข้าถึง", icon: "◉" },
+  { view: "settingsUsers", index: 5, title: "Users & Permissions", titleTh: "ผู้ใช้งานและสิทธิ์", description: "สิทธิ์การเข้าถึงระบบและการจัดการทีมงาน", icon: "◌" },
+  { view: "settingsImportExport", index: 6, title: "Import / Export", titleTh: "นำเข้า / ส่งออก", description: "นำเข้าข้อมูล ส่งออกข้อมูล และสำรองข้อมูล", icon: "⇅" },
+  { view: "settingsSubscription", index: 7, title: "Subscription", titleTh: "แพ็กเกจ", description: "แพ็กเกจปัจจุบันและการใช้งานในอนาคต", icon: "♛" }
+];
+
+function settingsSubpageShell(kicker, title, description, inner) {
+  return `
+    <section class="section saas-page settings-page settings-premium-page settings-subpage">
+      <div class="settings-subpage-header">
+        <button class="subpage-back settings-inline-back" type="button" data-view-shortcut="settings" aria-label="กลับไปหน้าตั้งค่า">←</button>
+        <div class="page-identity-copy">
+          <span class="page-kicker">${escapeHtml(kicker)}</span>
+          <h2>${escapeHtml(title)}</h2>
+          <p>${escapeHtml(description)}</p>
+        </div>
+      </div>
+      ${inner}
+    </section>
+  `;
+}
+
+function renderTeamManagementPanels() {
+  return `
+    <div class="two-col settings-users-grid">
+      <div class="panel stack panel-premium">
+        <div class="section-title">
+          <h2>รายชื่อผู้ใช้งาน</h2>
+          <p>ดูสถานะและสิทธิ์ของผู้ใช้งานทั้งหมดในระบบ</p>
+        </div>
+        <div class="table-wrap mobile-stack-wrap">
+          <table class="mobile-stack-table">
+            <thead><tr><th>ชื่อ</th><th>สิทธิ์</th><th>เบอร์โทร</th><th>สถานะ</th></tr></thead>
+            <tbody>
+              ${app.data.users.map(user => `
+                <tr>
+                  <td data-label="ชื่อ"><strong>${escapeHtml(user.name)}</strong></td>
+                  <td data-label="สิทธิ์">${badge(user.role)}</td>
+                  <td data-label="เบอร์โทร">${escapeHtml(user.phone || "-")}</td>
+                  <td data-label="สถานะ">${user.active ? "เปิดใช้งาน" : "ปิดใช้งาน"}</td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <form class="panel stack panel-premium" id="teamForm">
+        <div class="section-title">
+          <h2>เพิ่มทีมงาน</h2>
+          <p>สร้างผู้ใช้งานพร้อม Username / Password สำหรับเข้าสู่ระบบ</p>
+        </div>
+        <label>ชื่อ<input name="name" required></label>
+        <label>Username<input name="username" required placeholder="เช่น sale01"></label>
+        <label>Password<input name="password" required placeholder="ตั้งรหัสผ่าน"></label>
+        <label>เบอร์โทร<input name="phone"></label>
+        <label>สิทธิ์
+          <select name="role">
+            <option>Staff</option>
+            <option>Admin</option>
+          </select>
+        </label>
+        <button class="button primary" type="submit">บันทึกผู้ใช้งาน</button>
+      </form>
+    </div>
+  `;
+}
+
 function settingsProductCostRows(settings) {
   return normalizeProductCostEntries(settings).map(item => `
     <div class="settings-cost-row" data-product-cost-row data-id="${escapeHtml(item.id)}">
@@ -2745,186 +2842,274 @@ function settingsAdditionalCostRows(settings) {
 }
 
 function renderSettings() {
+  els.content.innerHTML = `
+    <section class="section saas-page settings-page settings-premium-page">
+      <div class="stack settings-workspace settings-menu-workspace">
+        <div class="settings-page-hero">
+          <div class="page-identity-copy">
+            <span class="page-kicker">Growup Pilot Settings</span>
+            <h2>ตั้งค่า</h2>
+            <p>จัดการข้อมูลและการตั้งค่าระบบทั้งหมดผ่านเมนูแบบแยกหมวด ใช้งานง่ายทั้งเดสก์ท็อปและมือถือ</p>
+          </div>
+        </div>
+        <div class="settings-menu-list">
+          ${settingsMenuItems.map(item => `
+            <button class="panel settings-menu-item" type="button" data-view-shortcut="${escapeHtml(item.view)}" aria-label="${escapeHtml(item.titleTh)}">
+              <span class="settings-menu-icon" aria-hidden="true">${item.icon}</span>
+              <span class="settings-menu-copy">
+                <strong>${item.index}. ${escapeHtml(item.titleTh)}</strong>
+                <small>${escapeHtml(item.description)}</small>
+              </span>
+              <span class="settings-menu-chevron" aria-hidden="true">›</span>
+            </button>
+          `).join("")}
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function renderSettingsStore() {
+  const settings = app.data.settings;
+  const templates = settings.messageTemplates || {};
+  els.content.innerHTML = settingsSubpageShell(
+    "Store Information",
+    "ข้อมูลร้านค้า",
+    "ข้อมูลพื้นฐานของร้าน ราคาเริ่มต้น และข้อความดูแลลูกค้า",
+    `
+      <form class="panel stack panel-premium settings-subpage-form" id="settingsForm">
+        <label>ชื่อธุรกิจ<input name="businessName" value="${escapeHtml(settings.businessName || "Growup Pilot")}"></label>
+        <label>ราคาต่อกระปุกเริ่มต้น (บาท)<input name="defaultJarPrice" type="number" min="0" value="${Number(settings.defaultJarPrice || 750)}"></label>
+        <label>Template ข้อความลูกค้าปกติ<textarea name="normalTemplate">${escapeHtml(templates.normal || "")}</textarea></label>
+        <label>Template ข้อความ VIP<textarea name="vipTemplate">${escapeHtml(templates.vip || "")}</textarea></label>
+        <div class="settings-submit-bar">
+          <button class="button ghost" type="button" data-reset-settings>ยกเลิก</button>
+          <button class="button primary" type="submit">บันทึกการตั้งค่า</button>
+        </div>
+      </form>
+    `
+  );
+}
+
+function renderSettingsFinance() {
+  const settings = app.data.settings;
+  const todayOrders = app.data.orders.filter(order => order.date === (app.data.summary?.selectedDate || todayISO()));
+  const todaySales = todayOrders.reduce((sum, order) => sum + Number(order.amount || 0), 0);
+  const todayProductCosts = todayOrders.reduce((sum, order) => sum + productCostForOrder(order), 0);
+  const totalAdditionalCosts = additionalCostTotal(settings);
+  const todayProfit = Math.max(0, todaySales - todayProductCosts - totalAdditionalCosts);
+  els.content.innerHTML = settingsSubpageShell(
+    "Finance",
+    "การเงิน",
+    "ตั้งค่าต้นทุนสินค้าและต้นทุนเพิ่มเติมสำหรับคำนวณกำไร",
+    `
+      <form class="panel stack panel-premium settings-subpage-form" id="settingsForm">
+        <div class="settings-finance-summary">
+          <p class="settings-finance-label">สูตรการคำนวณกำไรวันนี้</p>
+          <div class="settings-finance-equation">
+            <div class="settings-finance-pill sales"><span>ยอดขายวันนี้</span><strong>${money(todaySales)} บาท</strong></div>
+            <span class="settings-finance-operator">-</span>
+            <div class="settings-finance-pill product"><span>ต้นทุนสินค้าวันนี้</span><strong>${money(todayProductCosts)} บาท</strong></div>
+            <span class="settings-finance-operator">-</span>
+            <div class="settings-finance-pill extra"><span>ต้นทุนเพิ่มเติม</span><strong>${money(totalAdditionalCosts)} บาท</strong></div>
+            <span class="settings-finance-operator">=</span>
+            <div class="settings-finance-pill profit"><span>กำไรวันนี้</span><strong>${money(todayProfit)} บาท</strong></div>
+          </div>
+        </div>
+        <div class="settings-finance-block">
+          <div class="section-title section-title-actions">
+            <div>
+              <h3>ต้นทุนสินค้า</h3>
+              <p>แต่ละสินค้าใช้ Cost / กระปุก ของตัวเอง</p>
+            </div>
+          </div>
+          <div class="settings-cost-list">${settingsProductCostRows(settings)}</div>
+        </div>
+        <div class="settings-finance-block">
+          <div class="section-title section-title-actions">
+            <div>
+              <h3>ต้นทุนเพิ่มเติม</h3>
+              <p>เพิ่มรายการค่าใช้จ่ายได้ไม่จำกัด และระบบจะรวมเฉพาะรายการที่เปิดใช้งาน</p>
+            </div>
+            <button class="button primary compact-action" type="button" data-add-additional-cost>+ เพิ่มต้นทุน</button>
+          </div>
+          <div class="settings-cost-list" id="additionalCostList">${settingsAdditionalCostRows(settings)}</div>
+          <div class="settings-total-row">
+            <span>รวมต้นทุนเพิ่มเติมทั้งหมด</span>
+            <strong id="additionalCostsTotal">${money(totalAdditionalCosts)} บาท</strong>
+          </div>
+        </div>
+        <div class="settings-submit-bar">
+          <button class="button ghost" type="button" data-reset-settings>ยกเลิก</button>
+          <button class="button primary" type="submit">บันทึกการตั้งค่า</button>
+        </div>
+      </form>
+    `
+  );
+}
+
+function renderSettingsCustomers() {
   const settings = app.data.settings;
   const thresholds = settings.vipThresholds || {};
-  const templates = settings.messageTemplates || {};
+  const daysPerUnit = Math.max(1, Number(settings.followUpDaysPerUnit || 15));
+  els.content.innerHTML = settingsSubpageShell(
+    "Customers",
+    "ลูกค้า",
+    "ตั้งค่าการติดตามลูกค้าและเกณฑ์ VIP",
+    `
+      <form class="panel stack panel-premium settings-subpage-form" id="settingsForm">
+        <div class="form-grid">
+          <label>VIP Threshold<input name="vipThreshold" type="number" min="0" value="${Number(thresholds.vip || 5000)}"></label>
+          <label>VVIP Threshold<input name="vvipThreshold" type="number" min="0" value="${Number(thresholds.vvip || 10000)}"></label>
+          <label class="span-2">SUPER VIP Threshold<input name="superVipThreshold" type="number" min="0" value="${Number(thresholds.superVip || 20000)}"></label>
+        </div>
+        <label class="followup-setting-row" for="followupDaysPerUnit">
+          <span>จำนวนวันต่อ 1 กระปุก</span>
+          <div class="followup-setting-input">
+            <input id="followupDaysPerUnit" name="daysPerUnit" type="number" min="1" required value="${daysPerUnit}">
+            <span>วัน / กระปุก</span>
+          </div>
+          <div class="followup-setting-note">ระบบจะคำนวณวันติดตามจากจำนวนกระปุกทั้งหมดที่ลูกค้าได้รับ รวมของแถม</div>
+        </label>
+        <div class="panel tight followup-preview-panel">
+          <strong>ตัวอย่างการคำนวณ Follow-up</strong>
+          <div class="table-wrap mobile-stack-wrap">
+            <table class="rules-table mobile-stack-table">
+              <thead><tr><th>ลูกค้าได้รับทั้งหมด</th><th>ระบบติดตามอีก</th></tr></thead>
+              <tbody id="followupPreviewBody">
+                ${followUpPreviewRows(daysPerUnit).map(row => `
+                  <tr>
+                    <td data-label="ลูกค้าได้รับทั้งหมด">${row.units} กระปุก</td>
+                    <td data-label="ระบบติดตามอีก">${row.days} วัน</td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="settings-submit-bar">
+          <button class="button ghost" type="button" data-reset-settings>ยกเลิก</button>
+          <button class="button primary" type="submit">บันทึกการตั้งค่า</button>
+        </div>
+      </form>
+    `
+  );
+}
+
+function renderSettingsLineHub() {
+  const settings = app.data.settings;
   const lineSecretHelp = settings.lineChannelSecretConfigured
     ? settings.lineChannelSecretFromEnv ? "ตั้งค่าไว้ใน Vercel Environment แล้ว" : "มีค่าเดิมอยู่แล้ว เว้นว่างไว้เพื่อคงค่าเดิม"
     : "ยังไม่ได้ตั้งค่า";
   const lineTokenHelp = settings.lineChannelAccessTokenConfigured
     ? settings.lineChannelAccessTokenFromEnv ? "ตั้งค่าไว้ใน Vercel Environment แล้ว" : "มีค่าเดิมอยู่แล้ว เว้นว่างไว้เพื่อคงค่าเดิม"
     : "ยังไม่ได้ตั้งค่า";
-  const todayOrders = app.data.orders.filter(order => order.date === (app.data.summary?.selectedDate || todayISO()));
-  const todaySales = todayOrders.reduce((sum, order) => sum + Number(order.amount || 0), 0);
-  const todayProductCosts = todayOrders.reduce((sum, order) => sum + productCostForOrder(order), 0);
-  const totalAdditionalCosts = additionalCostTotal(settings);
-  const todayProfit = Math.max(0, todaySales - todayProductCosts - totalAdditionalCosts);
-
-  els.content.innerHTML = `
-    <section class="section saas-page settings-page settings-premium-page">
-      <form class="stack settings-workspace" id="settingsForm">
-        <div class="settings-page-hero">
-          <div class="page-identity-copy">
-            <span class="page-kicker">Growup Pilot Control Room</span>
-            <h2>ตั้งค่า</h2>
-            <p>จัดการการตั้งค่าทั้งหมดของร้านค้า ระบบกำไร ลูกค้า LINE OA ทีมงาน และการส่งออกข้อมูลในหน้าเดียว</p>
-          </div>
+  els.content.innerHTML = settingsSubpageShell(
+    "LINE OA",
+    "LINE OA",
+    "เชื่อม LINE OA, ควบคุม Webhook และข้อมูลการเข้าถึง",
+    `
+      <form class="panel stack panel-premium settings-subpage-form" id="settingsForm">
+        <label>LINE Group ID<input name="lineGroupId" value="${escapeHtml(settings.lineGroupId || "")}" ${settings.lineGroupIdFromEnv ? "readonly" : ""}></label>
+        <label>LINE Channel ID<input name="lineChannelId" value="${escapeHtml(settings.lineChannelId || "")}" ${settings.lineChannelIdFromEnv ? "readonly" : ""}></label>
+        <label>LINE Channel Secret<input name="lineChannelSecret" type="password" autocomplete="new-password" placeholder="${escapeHtml(lineSecretHelp)}"></label>
+        <label>LINE Channel Access Token<textarea name="lineChannelAccessToken" autocomplete="off" placeholder="${escapeHtml(lineTokenHelp)}"></textarea></label>
+        <label class="settings-switch">
+          <span>เปิดใช้งาน LINE Webhook</span>
+          <input name="lineWebhookEnabled" type="checkbox" ${settings.lineWebhookEnabled ? "checked" : ""}>
+          <span class="settings-switch-ui"></span>
+        </label>
+        <label>Webhook URL<input value="${escapeHtml(`${location.origin}/api/line/webhook`)}" readonly></label>
+        <div class="inline">
+          <button class="button primary" type="button" data-test-webhook>ทดสอบ Webhook</button>
+          <button class="button ghost" type="button" data-copy-webhook>คัดลอก URL</button>
         </div>
-
-        <div class="settings-layout-grid">
-          <section class="panel settings-card settings-store-card">
-            ${settingsSectionTitle(1, "ข้อมูลร้านค้า (Store)", "ตั้งค่าพื้นฐานของร้านและข้อความดูแลลูกค้า", "⌂")}
-            <div class="stack">
-              <label>ชื่อธุรกิจ<input name="businessName" value="${escapeHtml(settings.businessName || "Growup Pilot")}"></label>
-              <label>ราคาต่อกระปุกเริ่มต้น (บาท)<input name="defaultJarPrice" type="number" min="0" value="${Number(settings.defaultJarPrice || 750)}"></label>
-              <div class="form-grid">
-                <label>VIP Threshold<input name="vipThreshold" type="number" min="0" value="${Number(thresholds.vip || 5000)}"></label>
-                <label>VVIP Threshold<input name="vvipThreshold" type="number" min="0" value="${Number(thresholds.vvip || 10000)}"></label>
-                <label class="span-2">SUPER VIP Threshold<input name="superVipThreshold" type="number" min="0" value="${Number(thresholds.superVip || 20000)}"></label>
-              </div>
-              <label>Template ข้อความลูกค้าปกติ<textarea name="normalTemplate">${escapeHtml(templates.normal || "")}</textarea></label>
-              <label>Template ข้อความ VIP<textarea name="vipTemplate">${escapeHtml(templates.vip || "")}</textarea></label>
-            </div>
-          </section>
-
-          <section class="panel settings-card settings-finance-card">
-            ${settingsSectionTitle(2, "การเงิน (Finance)", "ตั้งค่าต้นทุนสินค้าและต้นทุนเพิ่มเติมสำหรับคำนวณกำไร", "◫")}
-            <div class="settings-finance-summary">
-              <p class="settings-finance-label">สูตรการคำนวณกำไรวันนี้</p>
-              <div class="settings-finance-equation">
-                <div class="settings-finance-pill sales">
-                  <span>ยอดขายวันนี้</span>
-                  <strong>${money(todaySales)} บาท</strong>
-                </div>
-                <span class="settings-finance-operator">-</span>
-                <div class="settings-finance-pill product">
-                  <span>ต้นทุนสินค้าวันนี้</span>
-                  <strong>${money(todayProductCosts)} บาท</strong>
-                </div>
-                <span class="settings-finance-operator">-</span>
-                <div class="settings-finance-pill extra">
-                  <span>ต้นทุนเพิ่มเติม</span>
-                  <strong>${money(totalAdditionalCosts)} บาท</strong>
-                </div>
-                <span class="settings-finance-operator">=</span>
-                <div class="settings-finance-pill profit">
-                  <span>กำไรวันนี้</span>
-                  <strong>${money(todayProfit)} บาท</strong>
-                </div>
-              </div>
-            </div>
-            <div class="settings-finance-block">
-              <div class="section-title section-title-actions">
-                <div>
-                  <h3>ต้นทุนสินค้า (Product Costs)</h3>
-                  <p>แต่ละสินค้าใช้ Cost / กระปุก ของตัวเอง</p>
-                </div>
-              </div>
-              <div class="settings-cost-list">${settingsProductCostRows(settings)}</div>
-            </div>
-            <div class="settings-finance-block">
-              <div class="section-title section-title-actions">
-                <div>
-                  <h3>ต้นทุนเพิ่มเติม (Additional Costs)</h3>
-                  <p>เพิ่มรายการค่าใช้จ่ายได้ไม่จำกัด และระบบจะรวมเฉพาะรายการที่เปิดใช้งาน</p>
-                </div>
-                <button class="button primary compact-action" type="button" data-add-additional-cost>+ เพิ่มต้นทุน</button>
-              </div>
-              <div class="settings-cost-list" id="additionalCostList">${settingsAdditionalCostRows(settings)}</div>
-              <div class="settings-total-row">
-                <span>รวมต้นทุนเพิ่มเติมทั้งหมด</span>
-                <strong id="additionalCostsTotal">${money(totalAdditionalCosts)} บาท</strong>
-              </div>
-            </div>
-          </section>
-
-          <section class="panel settings-card settings-customer-card">
-            ${settingsSectionTitle(3, "ลูกค้า (Customer)", "ตั้งค่าการติดตามและการดูแลลูกค้า", "◎")}
-            <div class="stack">
-              <label class="followup-setting-row" for="followupDaysPerUnit">
-                <span>จำนวนวันต่อ 1 กระปุก</span>
-                <div class="followup-setting-input">
-                  <input id="followupDaysPerUnit" name="daysPerUnit" type="number" min="1" required value="${Math.max(1, Number(settings.followUpDaysPerUnit || 15))}">
-                  <span>วัน / กระปุก</span>
-                </div>
-                <div class="followup-setting-note">ระบบจะคำนวณวันติดตามจากจำนวนกระปุกทั้งหมดที่ลูกค้าได้รับ รวมของแถม</div>
-              </label>
-              <div class="panel tight followup-preview-panel">
-                <strong>ตัวอย่างการคำนวณ Follow-up</strong>
-                <div class="table-wrap mobile-stack-wrap">
-                  <table class="rules-table mobile-stack-table">
-                    <thead><tr><th>ลูกค้าได้รับทั้งหมด</th><th>ระบบติดตามอีก</th></tr></thead>
-                    <tbody id="followupPreviewBody">
-                      ${followUpPreviewRows(Number(settings.followUpDaysPerUnit || 15)).map(row => `
-                        <tr>
-                          <td data-label="ลูกค้าได้รับทั้งหมด">${row.units} กระปุก</td>
-                          <td data-label="ระบบติดตามอีก">${row.days} วัน</td>
-                        </tr>
-                      `).join("")}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <section class="panel settings-card settings-line-card">
-            ${settingsSectionTitle(4, "LINE OA", "เชื่อม LINE OA และควบคุม Webhook", "◉")}
-            <div class="stack">
-              <label>LINE Group ID<input name="lineGroupId" value="${escapeHtml(settings.lineGroupId || "")}" ${settings.lineGroupIdFromEnv ? "readonly" : ""}></label>
-              <label>LINE Channel ID<input name="lineChannelId" value="${escapeHtml(settings.lineChannelId || "")}" ${settings.lineChannelIdFromEnv ? "readonly" : ""}></label>
-              <label>LINE Channel Secret<input name="lineChannelSecret" type="password" autocomplete="new-password" placeholder="${escapeHtml(lineSecretHelp)}"></label>
-              <label>LINE Channel Access Token<textarea name="lineChannelAccessToken" autocomplete="off" placeholder="${escapeHtml(lineTokenHelp)}"></textarea></label>
-              <label class="settings-switch">
-                <span>เปิดใช้งาน LINE Webhook</span>
-                <input name="lineWebhookEnabled" type="checkbox" ${settings.lineWebhookEnabled ? "checked" : ""}>
-                <span class="settings-switch-ui"></span>
-              </label>
-              <label>Webhook URL<input value="${escapeHtml(`${location.origin}/api/line/webhook`)}" readonly></label>
-              <div class="inline">
-                <button class="button primary" type="button" data-test-webhook>ทดสอบ Webhook</button>
-                <button class="button ghost" type="button" data-copy-webhook>คัดลอก URL</button>
-              </div>
-            </div>
-          </section>
-
-          <section class="panel settings-card settings-staff-card">
-            ${settingsSectionTitle(5, "ผู้ใช้งานและสิทธิ์ (Staff)", "จัดการผู้ใช้งานและการเข้าถึงระบบ", "◌")}
-            <div class="stack">
-              <label class="settings-switch">
-                <span>Staff สามารถ Export ข้อมูลได้</span>
-                <input name="staffCanExport" type="checkbox" ${settings.staffCanExport ? "checked" : ""}>
-                <span class="settings-switch-ui"></span>
-              </label>
-              <button class="button ghost" type="button" data-view-shortcut="team">จัดการผู้ใช้งาน</button>
-            </div>
-          </section>
-
-          <section class="panel settings-card settings-io-card">
-            ${settingsSectionTitle(6, "นำเข้า / ส่งออก (Import / Export)", "จัดการข้อมูลนำเข้า นำออก และสำรองข้อมูล", "⇅")}
-            <div class="settings-action-grid">
-              <button class="button ghost" type="button" data-view-shortcut="import">นำเข้าข้อมูล</button>
-              <button class="button ghost" type="button" data-view-shortcut="reports">ส่งออกข้อมูล</button>
-              <a class="button ghost" href="/api/backup" target="_blank" rel="noreferrer">สำรองข้อมูล</a>
-            </div>
-          </section>
-
-          <section class="panel settings-card settings-subscription-card">
-            ${settingsSectionTitle(7, "การสมัครใช้งาน (Subscription)", "ดูแพ็กเกจและการใช้งานในอนาคต", "♛")}
-            <div class="stack">
-              <p class="muted">โครงสำหรับแพ็กเกจรายเดือน / รายปี โดยยังไม่แตะ business logic การชำระเงินจริง</p>
-              <button class="button ghost" type="button" data-view-shortcut="pricing">ดูข้อมูลแพ็กเกจ</button>
-            </div>
-          </section>
-        </div>
-
         <div class="settings-submit-bar">
           <button class="button ghost" type="button" data-reset-settings>ยกเลิก</button>
           <button class="button primary" type="submit">บันทึกการตั้งค่า</button>
         </div>
       </form>
-    </section>
-  `;
+    `
+  );
+}
+
+function renderSettingsUsers() {
+  const settings = app.data.settings;
+  els.content.innerHTML = settingsSubpageShell(
+    "Users & Permissions",
+    "ผู้ใช้งานและสิทธิ์",
+    "กำหนดสิทธิ์การส่งออกข้อมูลและจัดการทีมงาน",
+    `
+      <form class="panel stack panel-premium settings-subpage-form" id="settingsForm">
+        <label class="settings-switch">
+          <span>Staff สามารถ Export ข้อมูลได้</span>
+          <input name="staffCanExport" type="checkbox" ${settings.staffCanExport ? "checked" : ""}>
+          <span class="settings-switch-ui"></span>
+        </label>
+        <div class="settings-submit-bar">
+          <button class="button ghost" type="button" data-reset-settings>ยกเลิก</button>
+          <button class="button primary" type="submit">บันทึกการตั้งค่า</button>
+        </div>
+      </form>
+      ${renderTeamManagementPanels()}
+    `
+  );
+}
+
+function renderSettingsImportExport() {
+  const daysPerUnit = Math.max(1, Number(app.data.settings.followUpDaysPerUnit || 15));
+  els.content.innerHTML = settingsSubpageShell(
+    "Import / Export",
+    "นำเข้า / ส่งออก",
+    "รวมปุ่มใช้งานเกี่ยวกับการนำเข้า ส่งออก และสำรองข้อมูล",
+    `
+      <form class="panel stack panel-premium settings-subpage-form" id="settingsForm">
+        <input name="daysPerUnit" type="hidden" value="${daysPerUnit}">
+        <div class="settings-action-grid settings-action-grid-column">
+          <button class="button ghost" type="button" data-view-shortcut="import">นำเข้าข้อมูล</button>
+          <button class="button ghost" type="button" data-view-shortcut="reports">ส่งออกข้อมูล</button>
+          <a class="button ghost" href="/api/backup" target="_blank" rel="noreferrer">สำรองข้อมูล</a>
+        </div>
+        <div class="settings-submit-bar">
+          <button class="button ghost" type="button" data-reset-settings>ยกเลิก</button>
+          <button class="button primary" type="submit">บันทึกการตั้งค่า</button>
+        </div>
+      </form>
+    `
+  );
+}
+
+function renderSettingsSubscription() {
+  const daysPerUnit = Math.max(1, Number(app.data.settings.followUpDaysPerUnit || 15));
+  els.content.innerHTML = settingsSubpageShell(
+    "Subscription",
+    "แพ็กเกจ",
+    "ดูแพ็กเกจปัจจุบันและทางเลือกสำหรับการใช้งานในอนาคต",
+    `
+      <form class="panel stack panel-premium settings-subpage-form" id="settingsForm">
+        <input name="daysPerUnit" type="hidden" value="${daysPerUnit}">
+        <p class="muted">หน้านี้ยังคงใช้ข้อมูลแพ็กเกจเดิมของ Growup Pilot และไม่ได้เปลี่ยน business logic การชำระเงินจริง</p>
+        <div class="pricing-grid settings-subscription-grid">
+          <article class="pricing-card">
+            <span class="tag">Starter</span>
+            <h3>เริ่มต้นดูแลร้าน</h3>
+            <div class="pricing-price">฿0<span>/ทดลอง</span></div>
+            <p class="muted">เหมาะสำหรับทดลอง dashboard, orders, customers และ workflow พื้นฐาน</p>
+          </article>
+          <article class="pricing-card featured">
+            <span class="tag">Growth</span>
+            <h3>Growup Pilot Pro</h3>
+            <div class="pricing-price">฿1,990<span>/เดือน</span></div>
+            <p class="muted">สำหรับธุรกิจที่ต้องการ AI insight, broadcast workflow และ command center เต็มรูปแบบ</p>
+          </article>
+        </div>
+        <div class="settings-submit-bar">
+          <button class="button ghost" type="button" data-view-shortcut="pricing">ดูรายละเอียดแพ็กเกจ</button>
+          <button class="button primary" type="submit">บันทึกการตั้งค่า</button>
+        </div>
+      </form>
+    `
+  );
 }
 
 function renderPricing() {
@@ -3392,6 +3577,13 @@ function render() {
     notifications: renderNotifications,
     team: renderTeam,
     settings: renderSettings,
+    settingsStore: renderSettingsStore,
+    settingsFinance: renderSettingsFinance,
+    settingsCustomers: renderSettingsCustomers,
+    settingsLineHub: renderSettingsLineHub,
+    settingsUsers: renderSettingsUsers,
+    settingsImportExport: renderSettingsImportExport,
+    settingsSubscription: renderSettingsSubscription,
     settingsFollowup: renderSettingsFollowup,
     settingsVip: renderSettingsVip,
     settingsLine: renderSettingsLine,
@@ -4077,21 +4269,25 @@ document.addEventListener("submit", async event => {
 
     if (form.id === "settingsForm") {
       const data = Object.fromEntries(new FormData(form).entries());
-      data.lineWebhookEnabled = form.elements.lineWebhookEnabled.checked;
-      data.staffCanExport = form.elements.staffCanExport.checked;
+      if (form.elements.lineWebhookEnabled) data.lineWebhookEnabled = form.elements.lineWebhookEnabled.checked;
+      if (form.elements.staffCanExport) data.staffCanExport = form.elements.staffCanExport.checked;
       data.followUpDaysPerUnit = Math.max(1, Number(form.elements.daysPerUnit?.value || app.data?.settings?.followUpDaysPerUnit || 15));
-      data.productCosts = Array.from(form.querySelectorAll("[data-product-cost-row]")).map(row => ({
-        id: row.dataset.id,
-        name: row.querySelector("[name='productCostName']")?.value.trim(),
-        costPerJar: Number(row.querySelector("[name='productCostAmount']")?.value || 0),
-        enabled: row.querySelector("[name='productCostEnabled']")?.checked
-      })).filter(item => item.name);
-      data.additionalCosts = Array.from(form.querySelectorAll("[data-additional-cost-row]")).map(row => ({
-        id: row.dataset.id,
-        name: row.querySelector("[name='additionalCostName']")?.value.trim(),
-        amount: Number(row.querySelector("[name='additionalCostAmount']")?.value || 0),
-        enabled: row.querySelector("[name='additionalCostEnabled']")?.checked
-      })).filter(item => item.name);
+      if (form.querySelector("[data-product-cost-row]")) {
+        data.productCosts = Array.from(form.querySelectorAll("[data-product-cost-row]")).map(row => ({
+          id: row.dataset.id,
+          name: row.querySelector("[name='productCostName']")?.value.trim(),
+          costPerJar: Number(row.querySelector("[name='productCostAmount']")?.value || 0),
+          enabled: row.querySelector("[name='productCostEnabled']")?.checked
+        })).filter(item => item.name);
+      }
+      if (form.querySelector("[data-additional-cost-row]")) {
+        data.additionalCosts = Array.from(form.querySelectorAll("[data-additional-cost-row]")).map(row => ({
+          id: row.dataset.id,
+          name: row.querySelector("[name='additionalCostName']")?.value.trim(),
+          amount: Number(row.querySelector("[name='additionalCostAmount']")?.value || 0),
+          enabled: row.querySelector("[name='additionalCostEnabled']")?.checked
+        })).filter(item => item.name);
+      }
       await api("/api/settings", {
         method: "PUT",
         body: JSON.stringify(data)

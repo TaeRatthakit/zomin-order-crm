@@ -2508,8 +2508,98 @@ small,
   gap: 18px;
 }
 
+.settings-menu-workspace,
+.settings-menu-list,
+.settings-subpage {
+  display: grid;
+  gap: 18px;
+}
+
 .settings-page-hero {
   padding: 8px 6px 0;
+}
+
+.settings-menu-list {
+  grid-template-columns: 1fr;
+}
+
+.settings-menu-item {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 68px minmax(0, 1fr) 28px;
+  align-items: center;
+  gap: 18px;
+  padding: 24px;
+  text-align: left;
+  border-color: var(--line);
+  background:
+    linear-gradient(180deg, rgba(18, 19, 34, 0.86), rgba(9, 10, 20, 0.92)),
+    linear-gradient(135deg, rgba(149, 72, 255, 0.08), rgba(255, 206, 84, 0.03));
+  backdrop-filter: blur(18px);
+  box-shadow: var(--shadow);
+  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.settings-menu-item:hover {
+  transform: translateY(-1px);
+  border-color: rgba(196, 151, 255, 0.3);
+  box-shadow: 0 20px 44px rgba(12, 9, 35, 0.48), 0 0 26px rgba(153, 83, 255, 0.12);
+}
+
+.settings-menu-icon {
+  width: 68px;
+  height: 68px;
+  display: grid;
+  place-items: center;
+  border-radius: 22px;
+  border: 1px solid rgba(181, 132, 255, 0.18);
+  background: rgba(153, 83, 255, 0.12);
+  color: #cf9aff;
+  font-size: 28px;
+  box-shadow: 0 0 22px rgba(177, 95, 255, 0.12);
+}
+
+.settings-menu-copy {
+  display: grid;
+  gap: 8px;
+}
+
+.settings-menu-copy strong {
+  font-size: 1.45rem;
+}
+
+.settings-menu-copy small {
+  color: var(--muted);
+  font-size: 1rem;
+}
+
+.settings-menu-chevron {
+  color: rgba(232, 226, 255, 0.72);
+  font-size: 36px;
+  justify-self: end;
+}
+
+.settings-subpage-header,
+.settings-action-grid-column {
+  display: grid;
+  gap: 16px;
+}
+
+.settings-inline-back {
+  width: 48px;
+}
+
+.settings-subpage-form {
+  padding: 24px;
+}
+
+.settings-users-grid,
+.settings-subscription-grid {
+  gap: 18px;
+}
+
+.settings-action-grid-column .button {
+  width: 100%;
 }
 
 .settings-premium-page .panel,
@@ -2857,6 +2947,23 @@ small,
 }
 
 @media (max-width: 920px) {
+  .settings-menu-item {
+    grid-template-columns: 60px minmax(0, 1fr) 24px;
+    padding: 20px;
+    gap: 14px;
+  }
+
+  .settings-menu-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 18px;
+    font-size: 24px;
+  }
+
+  .settings-menu-copy strong {
+    font-size: 1.22rem;
+  }
+
   .settings-layout-grid {
     grid-template-columns: 1fr;
     grid-template-areas:
@@ -2871,6 +2978,11 @@ small,
 }
 
 @media (max-width: 780px) {
+  .settings-subpage-form,
+  .settings-menu-item {
+    padding: 18px;
+  }
+
   .settings-card {
     padding: 18px;
     gap: 14px;
@@ -2908,7 +3020,7 @@ small,
     bottom: 10px;
   }
 
-.settings-submit-bar .button {
+  .settings-submit-bar .button {
     width: 100%;
   }
 }
