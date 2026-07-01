@@ -1,4 +1,4 @@
-const navItems = [
+const desktopNavItems = [
   ["dashboard", "/dashboard", "หน้าหลัก", "home"],
   ["opportunities", "/opportunities", "โอกาสทำเงิน", "spark"],
   ["orders", "/orders", "ออเดอร์", "clipboard"],
@@ -7,6 +7,14 @@ const navItems = [
   ["reports", "/reports", "รายงาน", "chart"],
   ["aiInsights", "/ai-insight", "AI Insight", "stars"],
   ["settings", "/settings", "ตั้งค่า", "settings"]
+];
+
+const mobileNavItems = [
+  ["dashboard", "/dashboard", "Home", "home"],
+  ["reports", "/reports", "Reports", "chart"],
+  ["orders", "/orders", "Orders", "clipboard"],
+  ["opportunities", "/opportunities", "Money Opportunities", "spark"],
+  ["settings", "/settings", "Business Management", "briefcase"]
 ];
 
 const routeToView = {
@@ -167,6 +175,7 @@ function iconSvg(name) {
     megaphone: '<path d="M3 11v2"/><path d="M6 10v4"/><path d="M19 7v10"/><path d="M6 10l13-3v10L6 14z"/><path d="M6 14l2 6h3"/>',
     chart: '<path d="M4 19h16"/><path d="M7 15V9"/><path d="M12 15V5"/><path d="M17 15v-3"/>',
     stars: '<path d="m12 3 1.8 4.2L18 9l-4.2 1.8L12 15l-1.8-4.2L6 9l4.2-1.8z"/><path d="m19 16 .9 2.1L22 19l-2.1.9L19 22l-.9-2.1L16 19l2.1-.9z"/><path d="M5 16.5 6 19l2.5 1-2.5 1L5 23l-1-2.5L1.5 19 4 18z"/>',
+    briefcase: '<path d="M8 7V5.5A2.5 2.5 0 0 1 10.5 3h3A2.5 2.5 0 0 1 16 5.5V7"/><rect x="3" y="7" width="18" height="13" rx="3"/><path d="M3 12h18"/><path d="M10 12v2"/><path d="M14 12v2"/>',
     send: '<path d="M22 2 11 13"/><path d="m22 2-7 20-4-9-9-4z"/>',
     flag: '<path d="M4 21V5"/><path d="M4 5h11l-1.5 4L15 13H4"/>',
     settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 8 19.4a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 8a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V3a2 2 0 1 1 4 0v.09A1.7 1.7 0 0 0 16 4.6a1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9c0 .38.14.74.4 1a1.7 1.7 0 0 0 1.1.4H21a2 2 0 1 1 0 4h-.09c-.41 0-.81.15-1.1.4a1.7 1.7 0 0 0-.41 1.1Z"/>',
@@ -183,8 +192,9 @@ const els = {
   subpageNav: document.querySelector("#subpageNav"),
   content: document.querySelector("#content"),
   workDate: document.querySelector("#workDate"),
+  workDateDisplay: document.querySelector("#workDateDisplay"),
   toast: document.querySelector("#toast"),
-  userPill: document.querySelector("#userPill"),
+  headerProfile: document.querySelector("#headerProfile"),
   headerNotificationButton: document.querySelector("#headerNotificationButton"),
   headerNotificationBadge: document.querySelector("#headerNotificationBadge"),
   orderDialog: document.querySelector("#orderDialog"),
@@ -279,6 +289,12 @@ function formatShortDate(dateValue) {
   const [y, m, d] = String(dateValue).split("-").map(Number);
   const shortYear = String((y + 543) % 100).padStart(2, "0");
   return `${String(d).padStart(2, "0")}/${String(m).padStart(2, "0")}/${shortYear}`;
+}
+
+function formatDatePill(dateValue) {
+  if (!dateValue) return "-";
+  const [y, m, d] = String(dateValue).split("-").map(Number);
+  return `${String(d).padStart(2, "0")}/${String(m).padStart(2, "0")}/${String(y).padStart(4, "0")}`;
 }
 
 function formatDateTime(dateValue) {
@@ -497,9 +513,13 @@ function renderNav() {
     settingsFollowup: "settings",
     settingsVip: "settings",
     settingsLine: "settings",
-    lineDebug: "settings"
+    lineDebug: "settings",
+    customers: "settings",
+    products: "settings",
+    aiInsights: "settings"
   };
   const activeGroup = activeGroupMap[app.view] || app.view;
+  const navItems = window.matchMedia("(max-width: 780px)").matches ? mobileNavItems : desktopNavItems;
   els.nav.innerHTML = navItems
     .map(([id, path, label, icon]) => `
       <button class="nav-button ${activeGroup === id ? "active" : ""}" data-view="${id}" data-path="${path}" aria-label="${escapeHtml(label)}">
@@ -517,10 +537,13 @@ function sidebarNotificationCount() {
 
 function updateShell() {
   document.body.classList.toggle("login-view", app.view === "login");
-  if (!els.userPill) return;
+  if (!els.headerProfile) return;
+  if (els.workDateDisplay) {
+    els.workDateDisplay.textContent = formatDatePill(els.workDate?.value || app.data?.summary?.selectedDate || todayISO());
+  }
   if (!app.currentUser || app.view === "login") {
-    els.userPill.hidden = true;
-    els.userPill.innerHTML = "";
+    els.headerProfile.hidden = true;
+    els.headerProfile.innerHTML = "";
     if (els.sidebarFooter) {
       els.sidebarFooter.hidden = true;
       els.sidebarFooter.innerHTML = "";
@@ -536,11 +559,13 @@ function updateShell() {
     els.headerNotificationBadge.hidden = notificationCount <= 0;
     els.headerNotificationBadge.textContent = String(notificationCount);
   }
-  els.userPill.hidden = false;
-  els.userPill.innerHTML = `
-    <span>${escapeHtml(app.currentUser.name)}</span>
-    <strong>${escapeHtml(app.currentUser.role)}</strong>
-    <button type="button" data-logout>ออก</button>
+  els.headerProfile.hidden = false;
+  els.headerProfile.innerHTML = `
+    <div class="header-profile-avatar" aria-hidden="true">${escapeHtml(initials(app.currentUser.name || "GP"))}</div>
+    <div class="header-profile-copy">
+      <strong>${escapeHtml(app.currentUser.name)}</strong>
+      <span>${escapeHtml(app.currentUser.role === "Admin" ? "เจ้าของร้าน" : "ทีมงาน")}</span>
+    </div>
   `;
   if (els.sidebarFooter) {
     els.sidebarFooter.hidden = false;
@@ -1242,24 +1267,69 @@ function renderDashboard() {
   els.content.innerHTML = `
     <section class="section saas-page dashboard-page dashboard-premium-home">
       <div class="dashboard-home-shell">
-        <div class="dashboard-home-header">
-          <div class="dashboard-home-copy">
+        <div class="dashboard-home-header hero-banner">
+          <div class="dashboard-home-copy hero-copy">
             <span class="page-kicker">Growup Pilot Dashboard</span>
-            <h2>ภาพรวมธุรกิจของวันนี้</h2>
-            <p>สรุป KPI หลักในสไตล์พรีเมียมแบบกระชับ อ่านง่าย และพร้อมใช้งานทั้งเดสก์ท็อป แท็บเล็ต และมือถือ</p>
+            <h2>จัดการธุรกิจให้เติบโต</h2>
+            <p>สรุป KPI สำคัญในหน้ามือถือที่อ่านง่าย ใช้งานเร็ว และยังคงธีม Dark Premium ของ Growup Pilot ไว้ครบถ้วน</p>
           </div>
-          <div class="dashboard-home-meta">
-            <span class="dashboard-meta-chip">อัปเดตจากข้อมูลวันที่ ${escapeHtml(compactDate)}</span>
-            <span class="dashboard-meta-chip">เดือนนี้ ${money(monthToDateOrders.length)} ออเดอร์</span>
+          <div class="dashboard-hero-art" aria-hidden="true">
+            <div class="hero-orbit hero-orbit-a">${dashboardCardIcon("sales")}</div>
+            <div class="hero-orbit hero-orbit-b">${dashboardCardIcon("orders")}</div>
+            <div class="hero-orbit hero-orbit-c">${dashboardCardIcon("target")}</div>
+            <div class="hero-growth-bars">
+              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+            <div class="hero-growth-arrow"></div>
           </div>
         </div>
-        <div class="dashboard-kpi-grid premium-metric-grid">
-          ${dashboardKpiCard({ label: "ยอดขายวันนี้", value: `${money(s.salesToday)} บาท`, tone: "violet", delta: salesDelta, hint: "ยอดรวมจากออเดอร์ที่ปิดแล้ววันนี้", icon: dashboardCardIcon("sales"), series: dashboardTrendSeries("salesToday"), area: "sales-today" })}
-          ${dashboardKpiCard({ label: "ยอดขายเดือนนี้", value: `${money(s.salesThisMonth)} บาท`, tone: "violet", delta: salesMonthDelta, hint: "ยอดสะสมตั้งแต่ต้นเดือนถึงวันทำงานนี้", icon: dashboardCardIcon("calendar"), series: dashboardTrendSeries("salesThisMonth"), area: "sales-month" })}
-          ${dashboardKpiCard({ label: "ออเดอร์วันนี้", value: money(s.ordersToday || 0), tone: "blue", delta: ordersDelta, hint: "จำนวนออเดอร์ที่เข้ามาในวันทำงานนี้", icon: dashboardCardIcon("orders"), series: dashboardTrendSeries("ordersToday"), area: "orders-today" })}
-          ${dashboardKpiCard({ label: "ออเดอร์เดือนนี้", value: money(s.ordersThisMonth || 0), tone: "blue", delta: ordersMonthDelta, hint: "ออเดอร์สะสมของเดือนปัจจุบัน", icon: dashboardCardIcon("calendar"), series: dashboardTrendSeries("ordersThisMonth"), area: "orders-month" })}
-          ${dashboardKpiCard({ label: "กำไรวันนี้", value: `${money(estimatedProfitToday)} บาท`, tone: "gold", delta: profitDelta, hint: `ยอดขายวันนี้ - ต้นทุนสินค้า ${money(productCostsToday)} - ต้นทุนเพิ่มเติม ${money(additionalCostsToday)}`, icon: dashboardCardIcon("profit"), series: dashboardTrendSeries("profitToday"), area: "profit-today" })}
-          ${dashboardKpiCard({ label: "โอกาสสร้างยอดขายวันนี้", value: `${money(revenueOpportunity)} บาท`, tone: "pink", delta: opportunityDelta, hint: `${money(opportunities.reduce((sum, item) => sum + item.count, 0))} โอกาสจากลูกค้าและสินค้าที่ควรเร่งต่อ`, icon: dashboardCardIcon("target"), series: dashboardTrendSeries("opportunityToday"), area: "opportunity-today" })}
+        <div class="dashboard-home-meta">
+          <span class="dashboard-meta-chip">อัปเดตจากข้อมูลวันที่ ${escapeHtml(compactDate)}</span>
+          <span class="dashboard-meta-chip">เดือนนี้ ${money(monthToDateOrders.length)} ออเดอร์</span>
+        </div>
+        <div class="dashboard-kpi-grid premium-metric-grid dashboard-kpi-grid-mobile">
+          ${dashboardKpiCard({ label: "Sales Today", value: `${money(s.salesToday)} บาท`, tone: "violet", delta: salesDelta, hint: "ยอดรวมจากออเดอร์ที่ปิดแล้ววันนี้", icon: dashboardCardIcon("sales"), series: dashboardTrendSeries("salesToday"), area: "sales-today" })}
+          ${dashboardKpiCard({ label: "Orders Today", value: money(s.ordersToday || 0), tone: "blue", delta: ordersDelta, hint: "จำนวนออเดอร์ที่เข้ามาในวันทำงานนี้", icon: dashboardCardIcon("orders"), series: dashboardTrendSeries("ordersToday"), area: "orders-today" })}
+          ${dashboardKpiCard({ label: "Profit Today", value: `${money(estimatedProfitToday)} บาท`, tone: "gold", delta: profitDelta, hint: `ยอดขายวันนี้ - ต้นทุนสินค้า ${money(productCostsToday)} - ต้นทุนเพิ่มเติม ${money(additionalCostsToday)}`, icon: dashboardCardIcon("profit"), series: dashboardTrendSeries("profitToday"), area: "profit-today" })}
+          ${dashboardKpiCard({ label: "Money Opportunities", value: `${money(opportunities.reduce((sum, item) => sum + item.count, 0))}`, tone: "pink", delta: opportunityDelta, hint: `${money(revenueOpportunity)} บาท ที่ควรเร่งปิดการขาย`, icon: dashboardCardIcon("target"), series: dashboardTrendSeries("opportunityToday"), area: "opportunity-today" })}
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+const businessManagementItems = [
+  { view: "settingsStore", title: "Settings", description: "ข้อมูลร้านค้า การเงิน สิทธิ์ และการตั้งค่าระบบ", icon: iconSvg("settings") },
+  { view: "products", title: "Products", description: "คลังสินค้า สต๊อก และข้อมูลสินค้าทั้งหมด", icon: iconSvg("box") },
+  { view: "customers", title: "Customers", description: "ดูโปรไฟล์ลูกค้า การติดตาม และสถานะ VIP", icon: iconSvg("users") },
+  { view: "aiInsights", title: "AI Insight", description: "คำแนะนำเชิงธุรกิจจากข้อมูลล่าสุดของร้าน", icon: iconSvg("stars") }
+];
+
+function renderSettings() {
+  els.content.innerHTML = `
+    <section class="section saas-page settings-page settings-premium-page business-management-page">
+      <div class="stack settings-workspace settings-menu-workspace">
+        <div class="settings-page-hero">
+          <div class="page-identity-copy">
+            <span class="page-kicker">Growup Pilot</span>
+            <h2>Business Management</h2>
+            <p>รวมเมนูบริหารธุรกิจที่ใช้งานบ่อยไว้ในหน้าเดียวสำหรับมือถือ โดยยังคงเชื่อมกับหน้าจริงและ logic เดิมทั้งหมด</p>
+          </div>
+        </div>
+        <div class="settings-menu-list business-management-list">
+          ${businessManagementItems.map((item, index) => `
+            <button class="panel settings-menu-item business-management-item" type="button" data-view-shortcut="${escapeHtml(item.view)}" aria-label="${escapeHtml(item.title)}">
+              <span class="settings-menu-icon" aria-hidden="true">${item.icon}</span>
+              <span class="settings-menu-copy">
+                <strong>${index + 1}. ${escapeHtml(item.title)}</strong>
+                <small>${escapeHtml(item.description)}</small>
+              </span>
+              <span class="settings-menu-chevron" aria-hidden="true">›</span>
+            </button>
+          `).join("")}
         </div>
       </div>
     </section>
@@ -2841,34 +2911,6 @@ function settingsAdditionalCostRows(settings) {
   `).join("") || `<div class="empty-state">ยังไม่มีต้นทุนเพิ่มเติม</div>`;
 }
 
-function renderSettings() {
-  els.content.innerHTML = `
-    <section class="section saas-page settings-page settings-premium-page">
-      <div class="stack settings-workspace settings-menu-workspace">
-        <div class="settings-page-hero">
-          <div class="page-identity-copy">
-            <span class="page-kicker">Growup Pilot Settings</span>
-            <h2>ตั้งค่า</h2>
-            <p>จัดการข้อมูลและการตั้งค่าระบบทั้งหมดผ่านเมนูแบบแยกหมวด ใช้งานง่ายทั้งเดสก์ท็อปและมือถือ</p>
-          </div>
-        </div>
-        <div class="settings-menu-list">
-          ${settingsMenuItems.map(item => `
-            <button class="panel settings-menu-item" type="button" data-view-shortcut="${escapeHtml(item.view)}" aria-label="${escapeHtml(item.titleTh)}">
-              <span class="settings-menu-icon" aria-hidden="true">${item.icon}</span>
-              <span class="settings-menu-copy">
-                <strong>${item.index}. ${escapeHtml(item.titleTh)}</strong>
-                <small>${escapeHtml(item.description)}</small>
-              </span>
-              <span class="settings-menu-chevron" aria-hidden="true">›</span>
-            </button>
-          `).join("")}
-        </div>
-      </div>
-    </section>
-  `;
-}
-
 function renderSettingsStore() {
   const settings = app.data.settings;
   const templates = settings.messageTemplates || {};
@@ -4365,6 +4407,7 @@ document.addEventListener("submit", async event => {
 
 window.addEventListener("hashchange", syncViewFromLocation);
 window.addEventListener("popstate", syncViewFromLocation);
+window.addEventListener("resize", renderNav);
 
 // Add-order entry point is now rendered only inside the Orders page.
 els.workDate.value = todayISO();
