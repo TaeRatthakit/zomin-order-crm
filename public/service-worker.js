@@ -1,23 +1,23 @@
-const CACHE_NAME = "growup-pilot-pwa-v28";
+const CACHE_NAME = "growup-pilot-pwa-v29";
 const CORE_ASSETS = [
   "/",
   "/index.html",
-  "/favicon.ico?v=20260630-redesign-merge",
-  "/favicon.svg?v=20260630-redesign-merge",
-  "/favicon.png?v=20260630-redesign-merge",
-  "/favicon-16x16.png?v=20260630-redesign-merge",
-  "/favicon-32x32.png?v=20260630-redesign-merge",
-  "/apple-touch-icon.png?v=20260630-redesign-merge",
-  "/styles.css?v=20260630-redesign-merge",
-  "/app.js?v=20260630-redesign-merge",
+  "/favicon.ico?v=20260701-growup-logo",
+  "/favicon.png?v=20260701-growup-logo",
+  "/favicon-16x16.png?v=20260701-growup-logo",
+  "/favicon-32x32.png?v=20260701-growup-logo",
+  "/apple-touch-icon.png?v=20260701-growup-logo",
+  "/styles.css?v=20260701-growup-logo",
+  "/app.js?v=20260701-growup-logo",
   "/import-worker.js",
   "/xlsx.full.min.js",
-  "/manifest.webmanifest?v=20260630-redesign-merge",
-  "/icons/apple-touch-icon.png?v=20260630-redesign-merge",
-  "/icons/icon-192.png?v=20260630-redesign-merge",
-  "/icons/icon-512.png?v=20260630-redesign-merge",
-  "/icons/maskable-icon-192.png?v=20260630-redesign-merge",
-  "/icons/maskable-icon-512.png?v=20260630-redesign-merge"
+  "/manifest.webmanifest?v=20260701-growup-logo",
+  "/icons/logo.png?v=20260701-growup-logo",
+  "/icons/apple-touch-icon.png?v=20260701-growup-logo",
+  "/icons/icon-192.png?v=20260701-growup-logo",
+  "/icons/icon-512.png?v=20260701-growup-logo",
+  "/icons/maskable-icon-192.png?v=20260701-growup-logo",
+  "/icons/maskable-icon-512.png?v=20260701-growup-logo"
 ];
 
 self.addEventListener("install", event => {
