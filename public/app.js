@@ -75,6 +75,7 @@ const app = {
   lineDebugSummary: {},
   reportMonth: "",
   reportDate: "",
+  layoutMode: "",
   ordersShowAll: false,
   customersShowAll: false,
   ordersFilterQ: "",
@@ -3863,6 +3864,7 @@ function renderProductDetail(product) {
 
 function render() {
   if (!app.data && app.view !== "login") return;
+  app.layoutMode = isMobileViewport() ? "mobile" : "desktop";
   renderNav();
   updateShell();
   els.pageTitle.textContent = titleFor(app.view);
@@ -3901,6 +3903,17 @@ function render() {
     lineDebug: renderLineDebug
   }[app.view] || renderDashboard;
   renderer();
+}
+
+function handleViewportResize() {
+  const nextMode = isMobileViewport() ? "mobile" : "desktop";
+  if (app.layoutMode !== nextMode) {
+    render();
+    return;
+  }
+  renderNav();
+  updateShell();
+  renderSubpageNav();
 }
 
 function setView(view) {
@@ -4676,7 +4689,7 @@ document.addEventListener("submit", async event => {
 
 window.addEventListener("hashchange", syncViewFromLocation);
 window.addEventListener("popstate", syncViewFromLocation);
-window.addEventListener("resize", renderNav);
+window.addEventListener("resize", handleViewportResize);
 
 // Add-order entry point is now rendered only inside the Orders page.
 els.workDate.value = todayISO();
