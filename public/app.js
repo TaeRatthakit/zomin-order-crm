@@ -1277,8 +1277,9 @@ function mobileDashboardAlertItems() {
   const times = ["10 นาทีที่แล้ว", "1 ชั่วโมงที่แล้ว", "2 ชั่วโมงที่แล้ว"];
   const thaiOnly = value => String(value || "")
     .replace(/Broadcast/gi, "ส่งข้อความ")
+    .replace(/stock/gi, "สต๊อก")
     .replace(/VIP/gi, "ลูกค้าคนสำคัญ");
-  return notificationItems()
+  const items = notificationItems()
     .filter(item => Number(item.count || 0) > 0)
     .slice(0, 3)
     .map((item, index) => ({
@@ -1289,6 +1290,22 @@ function mobileDashboardAlertItems() {
       icon: icons[index % icons.length],
       time: times[index] || "เมื่อสักครู่"
     }));
+  const fallbacks = [
+    { title: "สต๊อกสินค้าใกล้หมด", detail: "ตรวจสอบและเติมสต๊อกได้เลย" },
+    { title: "ยอดขายใกล้ถึงเป้าหมาย", detail: "ใกล้ถึงเป้าหมายแล้ว สู้ต่อไปนะครับ" },
+    { title: "มีการชำระเงินรอการตรวจสอบ", detail: "กรุณาตรวจสอบรายการชำระเงิน" }
+  ];
+  while (items.length < 3) {
+    const index = items.length;
+    items.push({
+      ...fallbacks[index],
+      count: 0,
+      tone: colors[index],
+      icon: icons[index],
+      time: times[index]
+    });
+  }
+  return items;
 }
 
 function mobileDashboardMetricCard({ label, value, deltaText, tone, icon }) {
