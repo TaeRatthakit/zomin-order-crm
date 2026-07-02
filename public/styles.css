@@ -4914,3 +4914,703 @@ small,
     border-radius: 18px;
   }
 }
+
+/* Desktop dashboard — Growup Pilot reference */
+@media (min-width: 1024px) {
+  body.desktop-app-shell:not(.login-view) {
+    background:
+      radial-gradient(circle at 67% 8%, rgba(55, 31, 121, 0.12), transparent 22%),
+      radial-gradient(circle at 48% 96%, rgba(29, 50, 107, 0.11), transparent 30%),
+      #03040c;
+  }
+
+  body.desktop-app-shell:not(.login-view)::before {
+    opacity: 0.12;
+    background-size: 84px 84px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .app-shell {
+    grid-template-columns: 252px minmax(0, 1fr);
+  }
+
+  body.desktop-app-shell:not(.login-view) .sidebar {
+    position: sticky;
+    top: 12px;
+    height: calc(100vh - 24px);
+    margin: 12px 0 12px 11px;
+    padding: 15px 11px 18px 0;
+    gap: 0;
+    border: 1px solid rgba(120, 91, 190, 0.27);
+    border-radius: 23px;
+    background:
+      radial-gradient(circle at 34% 10%, rgba(76, 32, 142, 0.12), transparent 24%),
+      linear-gradient(180deg, rgba(4, 5, 14, 0.98), rgba(5, 7, 19, 0.99));
+    box-shadow: inset -1px 0 rgba(255,255,255,.018), 0 24px 70px rgba(0,0,0,.28);
+    overflow: hidden;
+  }
+
+  body.desktop-app-shell:not(.login-view) .sidebar::after {
+    background: radial-gradient(circle at 82% 92%, rgba(41, 51, 128, 0.12), transparent 24%);
+  }
+
+  body.desktop-app-shell:not(.login-view) .brand {
+    min-height: 102px;
+    margin: 0 14px 4px 14px;
+    padding: 11px 7px 16px;
+    gap: 10px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  body.desktop-app-shell:not(.login-view) .brand-mark {
+    width: 60px;
+    height: 60px;
+    flex: 0 0 60px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .brand-text strong {
+    color: #f7f5ff;
+    background: none;
+    -webkit-text-fill-color: currentColor;
+    font-size: 23px;
+    line-height: 1.1;
+    letter-spacing: -0.035em;
+    white-space: nowrap;
+  }
+
+  body.desktop-app-shell:not(.login-view) .brand-text span {
+    margin-top: 5px;
+    color: rgba(230, 228, 242, 0.68);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
+    white-space: nowrap;
+  }
+
+  body.desktop-app-shell:not(.login-view) .nav-list {
+    gap: 3px;
+    margin: 0;
+  }
+
+  body.desktop-app-shell:not(.login-view) .nav-button {
+    min-height: 53px;
+    padding: 7px 19px 7px 25px;
+    gap: 13px;
+    border-radius: 0 11px 11px 0;
+    border: 0;
+    color: rgba(244, 243, 250, 0.88);
+    box-shadow: none;
+  }
+
+  body.desktop-app-shell:not(.login-view) .nav-button::before {
+    border-radius: inherit;
+  }
+
+  body.desktop-app-shell:not(.login-view) .nav-button .nav-index {
+    width: 26px;
+    height: 28px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  body.desktop-app-shell:not(.login-view) .nav-button .nav-icon {
+    width: 21px;
+    height: 21px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .nav-button > span:last-child {
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  body.desktop-app-shell:not(.login-view) .nav-button:hover {
+    transform: none;
+    background: rgba(123, 45, 228, 0.18);
+  }
+
+  body.desktop-app-shell:not(.login-view) .nav-button.active {
+    color: #fff;
+    background: linear-gradient(90deg, rgba(56, 18, 115, 0.98), rgba(117, 30, 205, 0.98));
+    border: 0;
+    box-shadow: inset 0 0 30px rgba(184, 71, 255, 0.12), 0 5px 18px rgba(74, 18, 142, 0.22);
+  }
+
+  body.desktop-app-shell:not(.login-view) .nav-button.active::after {
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 5px;
+    border-radius: 0;
+    background: #ffbd00;
+    box-shadow: 0 0 15px rgba(255, 190, 0, .45);
+  }
+
+  body.desktop-app-shell:not(.login-view) .nav-button.active .nav-index {
+    background: transparent;
+    border: 0;
+  }
+
+  body.desktop-app-shell:not(.login-view) .sidebar-footer {
+    gap: 12px;
+    margin-top: auto;
+    padding: 11px 12px 0 23px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .sidebar-upgrade-card {
+    padding: 15px 14px 13px;
+    gap: 11px;
+    border-radius: 17px;
+    border-color: rgba(111, 82, 181, .24);
+    background: linear-gradient(145deg, rgba(15,16,34,.95), rgba(10,10,25,.96));
+    box-shadow: none;
+  }
+
+  body.desktop-app-shell:not(.login-view) .sidebar-upgrade-head {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .sidebar-upgrade-icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    color: #ffd21f;
+    background: linear-gradient(135deg, rgba(76, 24, 152, .55), rgba(34, 18, 71, .72));
+    font-size: 22px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .sidebar-upgrade-copy strong {
+    font-size: 14px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .sidebar-upgrade-copy span {
+    font-size: 11px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .sidebar-upgrade-card .button {
+    min-height: 40px;
+    border-radius: 10px;
+    color: #ffca23;
+    border: 1px solid rgba(255, 186, 22, .34);
+    background: linear-gradient(90deg, rgba(73, 45, 16, .55), rgba(48, 26, 29, .66));
+    box-shadow: none;
+    font-size: 13px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .sidebar-profile-card {
+    padding: 12px 1px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    gap: 10px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .sidebar-profile-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: linear-gradient(145deg, #d9aa7d, #5e78a2);
+    border: 2px solid rgba(255,255,255,.65);
+    font-size: 13px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .sidebar-profile-copy strong {
+    font-size: 14px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .sidebar-profile-copy span {
+    font-size: 11px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .sidebar-profile-action {
+    width: 31px;
+    height: 31px;
+    border: 0;
+    background: rgba(255,255,255,.018);
+    font-size: 22px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .sidebar-theme-switch {
+    width: 112px;
+    height: 43px;
+    margin: 0 auto;
+    padding: 5px 6px 5px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-radius: 24px;
+    color: #8e91a3;
+    background: rgba(17, 18, 36, .9);
+    font-size: 18px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .theme-switch-track {
+    width: 51px;
+    height: 33px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding: 3px;
+    border-radius: 20px;
+    background: rgba(40, 14, 79, .9);
+    border: 1px solid rgba(112, 40, 197, .35);
+  }
+
+  body.desktop-app-shell:not(.login-view) .theme-switch-track i {
+    width: 27px;
+    height: 27px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    color: #b85cff;
+    background: #251044;
+    font-style: normal;
+  }
+
+  body.desktop-app-shell:not(.login-view) .main-panel {
+    padding: 46px 27px 28px 29px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .topbar {
+    min-height: 82px;
+    margin: 0 0 23px;
+    align-items: flex-start;
+  }
+
+  body.desktop-app-shell:not(.login-view) .page-heading {
+    gap: 3px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .page-heading .eyebrow {
+    display: none;
+  }
+
+  body.desktop-app-shell:not(.login-view) .page-heading h1 {
+    color: #f8f7fb;
+    font-size: 30px;
+    font-weight: 800;
+    line-height: 1.2;
+    letter-spacing: -0.045em;
+  }
+
+  body.desktop-app-shell:not(.login-view) .page-subtitle {
+    color: rgba(224, 223, 235, .72);
+    font-size: 15px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .topbar-main {
+    display: block;
+  }
+
+  body.desktop-app-shell:not(.login-view) .topbar-brand,
+  body.desktop-app-shell:not(.login-view) .power-button {
+    display: none;
+  }
+
+  body.desktop-app-shell:not(.login-view) .topbar-side-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .topbar-icon-row {
+    margin: 0;
+  }
+
+  body.desktop-app-shell:not(.login-view) .notification-button {
+    width: 48px;
+    height: 48px;
+    border: 0;
+    border-radius: 50%;
+    background: rgba(13, 15, 27, .82);
+  }
+
+  body.desktop-app-shell:not(.login-view) .notification-badge {
+    top: 1px;
+    right: 0;
+    min-width: 17px;
+    width: 17px;
+    height: 17px;
+    padding: 0;
+    font-size: 10px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .date-pill {
+    min-width: 228px;
+    min-height: 49px;
+    padding: 0 17px;
+    gap: 12px;
+    border-radius: 11px;
+    border-color: rgba(115, 86, 177, .23);
+    background: rgba(6, 7, 17, .82);
+  }
+
+  body.desktop-app-shell:not(.login-view) .date-pill-display {
+    flex: 1;
+    color: rgba(233, 232, 240, .77);
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0;
+  }
+
+  body.desktop-app-shell:not(.login-view) .date-pill-icon {
+    width: 19px;
+    height: 19px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .date-pill-chevron {
+    width: 17px;
+    height: 17px;
+    color: #a9a6b6;
+  }
+
+  body.desktop-app-shell:not(.login-view) .content-area {
+    gap: 0;
+  }
+
+  body.desktop-app-shell:not(.login-view) .desktop-dashboard-page,
+  body.desktop-app-shell:not(.login-view) .desktop-dashboard-shell {
+    gap: 24px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .desktop-kpi-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 11px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .dashboard-kpi-card {
+    grid-area: auto !important;
+    min-height: 270px;
+    padding: 22px 18px 13px;
+    gap: 8px;
+    border-radius: 17px;
+    border: 1px solid rgba(122, 61, 213, .34);
+    background:
+      radial-gradient(circle at 18% 7%, rgba(96, 26, 174, .25), transparent 32%),
+      linear-gradient(145deg, rgba(18, 8, 40, .9), rgba(5, 6, 18, .96));
+    box-shadow: inset 0 1px rgba(255,255,255,.025);
+  }
+
+  body.desktop-app-shell:not(.login-view) .dashboard-kpi-card.blue {
+    border-color: rgba(52, 82, 195, .43);
+    background: radial-gradient(circle at 20% 7%, rgba(31, 43, 150, .26), transparent 34%), linear-gradient(145deg, rgba(8, 13, 42, .9), rgba(5, 7, 19, .96));
+  }
+
+  body.desktop-app-shell:not(.login-view) .dashboard-kpi-card.gold {
+    border-color: rgba(126, 89, 19, .43);
+    background: radial-gradient(circle at 20% 7%, rgba(126, 82, 11, .24), transparent 34%), linear-gradient(145deg, rgba(30, 21, 5, .85), rgba(6, 7, 16, .96));
+  }
+
+  body.desktop-app-shell:not(.login-view) .dashboard-kpi-card.pink {
+    border-color: rgba(145, 36, 86, .45);
+    background: radial-gradient(circle at 20% 7%, rgba(124, 17, 64, .25), transparent 34%), linear-gradient(145deg, rgba(37, 7, 23, .86), rgba(6, 7, 17, .96));
+  }
+
+  body.desktop-app-shell:not(.login-view) .dashboard-kpi-card::before {
+    background: linear-gradient(135deg, rgba(255,255,255,.022), transparent 35%);
+  }
+
+  body.desktop-app-shell:not(.login-view) .dashboard-kpi-head {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 15px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .dashboard-kpi-head > div:first-child {
+    display: contents;
+  }
+
+  body.desktop-app-shell:not(.login-view) .dashboard-icon-shell {
+    grid-row: 1;
+    width: 50px;
+    height: 50px;
+    border-radius: 11px;
+    background: rgba(92, 28, 168, .22);
+  }
+
+  body.desktop-app-shell:not(.login-view) .dashboard-kpi-label {
+    grid-row: 1;
+    margin: 0 0 0 59px;
+    align-self: center;
+    min-height: 50px;
+    display: flex;
+    align-items: center;
+    color: #efedf6;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.25;
+  }
+
+  body.desktop-app-shell:not(.login-view) .dashboard-kpi-head strong {
+    grid-row: 2;
+    color: #f3f3f8;
+    font-size: clamp(25px, 2.05vw, 35px);
+    line-height: 1.05;
+    letter-spacing: -0.045em;
+    white-space: nowrap;
+  }
+
+  body.desktop-app-shell:not(.login-view) .dashboard-kpi-foot {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
+  }
+
+  body.desktop-app-shell:not(.login-view) .dashboard-kpi-foot .trend {
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  body.desktop-app-shell:not(.login-view) .dashboard-kpi-foot small {
+    color: rgba(215, 214, 226, .68);
+    font-size: 11px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .dashboard-sparkline {
+    height: 78px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .grow-opportunity-panel {
+    overflow: hidden;
+    padding: 21px;
+    border: 1px solid rgba(106, 87, 166, .34);
+    border-radius: 17px;
+    background:
+      radial-gradient(circle at 45% 8%, rgba(47, 44, 100, .12), transparent 34%),
+      linear-gradient(145deg, rgba(8, 10, 23, .96), rgba(5, 7, 17, .98));
+  }
+
+  body.desktop-app-shell:not(.login-view) .grow-opportunity-title {
+    min-height: 62px;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 14px;
+    align-items: center;
+    margin-bottom: 13px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .grow-target-icon {
+    width: 43px;
+    height: 43px;
+    display: grid;
+    place-items: center;
+    color: #9d31ff;
+  }
+
+  body.desktop-app-shell:not(.login-view) .grow-target-icon .metric-icon-svg {
+    width: 35px;
+    height: 35px;
+    stroke-width: 2.2;
+  }
+
+  body.desktop-app-shell:not(.login-view) .grow-opportunity-title h2 {
+    color: #f5f3fa;
+    font-size: 22px;
+    font-weight: 800;
+  }
+
+  body.desktop-app-shell:not(.login-view) .grow-opportunity-title p {
+    margin-top: 2px;
+    color: rgba(216, 214, 228, .67);
+    font-size: 13px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .grow-view-all {
+    min-width: 112px;
+    min-height: 48px;
+    padding: 0 15px;
+    border-radius: 10px;
+    border: 1px solid rgba(124, 53, 214, .5);
+    color: #b455ff;
+    background: rgba(20, 9, 39, .65);
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  body.desktop-app-shell:not(.login-view) .grow-view-all span {
+    padding-left: 12px;
+    font-size: 20px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .grow-opportunity-table {
+    display: grid;
+  }
+
+  body.desktop-app-shell:not(.login-view) .grow-opportunity-head,
+  body.desktop-app-shell:not(.login-view) .grow-opportunity-row {
+    display: grid;
+    grid-template-columns: 1.35fr 1.45fr .7fr .7fr .72fr;
+    gap: 18px;
+    align-items: center;
+  }
+
+  body.desktop-app-shell:not(.login-view) .grow-opportunity-head {
+    min-height: 50px;
+    padding: 0 15px;
+    border: 1px solid rgba(67, 71, 112, .16);
+    border-radius: 11px;
+    color: rgba(211, 209, 221, .65);
+    background: rgba(6, 8, 18, .52);
+    font-size: 12px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .grow-opportunity-row {
+    min-height: 76px;
+    padding: 8px 15px;
+    border-bottom: 1px solid rgba(63, 68, 105, .16);
+  }
+
+  body.desktop-app-shell:not(.login-view) .grow-opportunity-row:last-child {
+    border-bottom: 0;
+  }
+
+  body.desktop-app-shell:not(.login-view) .grow-customer,
+  body.desktop-app-shell:not(.login-view) .grow-reason {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 11px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .grow-customer > span:last-child,
+  body.desktop-app-shell:not(.login-view) .grow-reason {
+    display: grid;
+    gap: 2px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .grow-customer strong,
+  body.desktop-app-shell:not(.login-view) .grow-reason strong {
+    overflow: hidden;
+    color: #f2f0f6;
+    font-size: 13px;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  body.desktop-app-shell:not(.login-view) .grow-customer small,
+  body.desktop-app-shell:not(.login-view) .grow-reason small {
+    overflow: hidden;
+    color: rgba(204, 202, 216, .62);
+    font-size: 11px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  body.desktop-app-shell:not(.login-view) .grow-avatar {
+    width: 44px;
+    height: 44px;
+    flex: 0 0 44px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    color: #fff;
+    border: 2px solid rgba(255,255,255,.55);
+    background: linear-gradient(145deg, #d4a177, #566f9a);
+    box-shadow: 0 5px 14px rgba(0,0,0,.25);
+    font-size: 12px;
+    font-weight: 800;
+  }
+
+  body.desktop-app-shell:not(.login-view) .grow-avatar.avatar-2 { background: linear-gradient(145deg, #ae7956, #313b54); }
+  body.desktop-app-shell:not(.login-view) .grow-avatar.avatar-3 { background: linear-gradient(145deg, #e4b98e, #876477); }
+  body.desktop-app-shell:not(.login-view) .grow-avatar.avatar-4 { background: linear-gradient(145deg, #b67b5e, #262a38); }
+  body.desktop-app-shell:not(.login-view) .grow-avatar.avatar-5 { background: linear-gradient(145deg, #b6a073, #38635a); }
+
+  body.desktop-app-shell:not(.login-view) .grow-score {
+    width: 48px;
+    height: 48px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: conic-gradient(#24e85c var(--score), #1b2230 0);
+  }
+
+  body.desktop-app-shell:not(.login-view) .grow-score::before {
+    content: "";
+    grid-area: 1/1;
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background: #080b16;
+  }
+
+  body.desktop-app-shell:not(.login-view) .grow-score i {
+    grid-area: 1/1;
+    z-index: 1;
+    color: #35ed66;
+    font-size: 11px;
+    font-style: normal;
+  }
+
+  body.desktop-app-shell:not(.login-view) .grow-score.score-2,
+  body.desktop-app-shell:not(.login-view) .grow-score.score-3 {
+    background: conic-gradient(#ffd226 var(--score), #1b2230 0);
+  }
+
+  body.desktop-app-shell:not(.login-view) .grow-score.score-2 i,
+  body.desktop-app-shell:not(.login-view) .grow-score.score-3 i { color: #ffd226; }
+  body.desktop-app-shell:not(.login-view) .grow-score.score-4,
+  body.desktop-app-shell:not(.login-view) .grow-score.score-5 { background: conic-gradient(#ff941d var(--score), #1b2230 0); }
+  body.desktop-app-shell:not(.login-view) .grow-score.score-4 i,
+  body.desktop-app-shell:not(.login-view) .grow-score.score-5 i { color: #ff941d; }
+
+  body.desktop-app-shell:not(.login-view) .grow-value {
+    color: #f5f3f8;
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  body.desktop-app-shell:not(.login-view) .grow-actions {
+    display: flex;
+    gap: 10px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .grow-follow-button {
+    min-width: 101px;
+    min-height: 47px;
+    border: 1px solid rgba(103, 32, 190, .45);
+    border-radius: 9px;
+    color: #f2ebff;
+    background: linear-gradient(120deg, rgba(64, 17, 127, .92), rgba(39, 10, 85, .94));
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  body.desktop-app-shell:not(.login-view) .grow-chat-button {
+    width: 47px;
+    height: 47px;
+    display: grid;
+    place-items: center;
+    border: 1px solid rgba(98, 61, 162, .35);
+    border-radius: 9px;
+    color: #e9e4f2;
+    background: rgba(7, 8, 19, .78);
+  }
+
+  body.desktop-app-shell:not(.login-view) .grow-chat-button .nav-icon {
+    width: 18px;
+    height: 18px;
+  }
+}
+
+@media (min-width: 1024px) and (max-height: 900px) {
+  body.desktop-app-shell:not(.login-view) .nav-button { min-height: 45px; }
+  body.desktop-app-shell:not(.login-view) .brand { min-height: 86px; }
+  body.desktop-app-shell:not(.login-view) .sidebar-upgrade-card { padding-block: 10px; }
+  body.desktop-app-shell:not(.login-view) .sidebar-footer { gap: 7px; padding-top: 7px; }
+  body.desktop-app-shell:not(.login-view) .sidebar-theme-switch { height: 38px; }
+}
+
+@media (max-width: 820px) {
+  .date-pill-display { order: 0; }
+  .date-pill-icon { order: 1; }
+  .date-pill-chevron { display: none; }
+}
