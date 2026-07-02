@@ -80,6 +80,10 @@ const app = {
   customersShowAll: false,
   ordersFilterQ: "",
   ordersFilterDraft: "",
+  mobileOrdersDateOnly: false,
+  mobileOrdersDescending: true,
+  mobileOrderMenuId: "",
+  orderSavePending: false,
   filters: {
     q: "",
     tag: "",
@@ -170,6 +174,7 @@ function iconSvg(name) {
     home: '<path d="m3 10 9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M9 20v-6h6v6"/>',
     users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
     clipboard: '<rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M8 11h8"/><path d="M8 16h6"/>',
+    orderbag: '<path d="M5 8h14l1 13H4L5 8Z"/><path d="M9 10V6a3 3 0 0 1 6 0v4"/>',
     bell: '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>',
     spark: '<path d="M12 3 9.5 9.5 3 12l6.5 2.5L12 21l2.5-6.5L21 12l-6.5-2.5z"/>',
     box: '<path d="M21 8.5 12 13 3 8.5"/><path d="M3 8.5 12 3l9 5.5v7L12 21l-9-5.5z"/><path d="M12 13v8"/>',
@@ -206,6 +211,7 @@ const els = {
   orderSubmitButton: document.querySelector("#orderSubmitButton"),
   deleteOrderDialog: document.querySelector("#deleteOrderDialog"),
   deleteOrderForm: document.querySelector("#deleteOrderForm"),
+  mobileDeleteOrderNumber: document.querySelector("#mobileDeleteOrderNumber"),
   deleteCustomerDialog: document.querySelector("#deleteCustomerDialog"),
   deleteCustomerForm: document.querySelector("#deleteCustomerForm"),
   logoutDialog: document.querySelector("#logoutDialog"),
@@ -569,7 +575,7 @@ function renderNav() {
   els.nav.innerHTML = navItems
     .map(([id, path, label, icon]) => `
       <button class="nav-button ${activeGroup === id ? "active" : ""}" data-view="${id}" data-path="${path}" aria-label="${escapeHtml(label)}">
-        <span class="nav-index">${iconSvg(icon)}</span>
+        <span class="nav-index">${iconSvg(isMobileViewport() && app.view === "orders" && id === "orders" ? "orderbag" : icon)}</span>
         <span>${escapeHtml(label)}</span>
       </button>
     `)
@@ -586,6 +592,7 @@ function updateShell() {
   document.body.classList.toggle("mobile-app-shell", isMobileViewport());
   document.body.classList.toggle("desktop-app-shell", !isMobileViewport());
   document.body.classList.toggle("mobile-home-view", isMobileViewport() && app.view === "dashboard");
+  document.body.classList.toggle("mobile-orders-view", isMobileViewport() && app.view === "orders");
   if (!els.headerProfile) return;
   if (els.workDateDisplay) {
     els.workDateDisplay.textContent = formatDatePill(els.workDate?.value || app.data?.summary?.selectedDate || todayISO());
@@ -1689,8 +1696,131 @@ function followupRange() {
   return { label: "วันนี้", start: base, end: base };
 }
 
+function mobileOrderNumber(order) {
+  const value = String(order?.orderNumber || order?.id || "-").replace(/^#/, "");
+  return `#${value}`;
+}
+
+function mobileOrderDate(dateValue) {
+  if (!dateValue) return "-";
+  const [year, month, day] = String(dateValue).split("-");
+  return `${String(day || "").padStart(2, "0")}/${String(month || "").padStart(2, "0")}/${String(year || "").slice(-2)}`;
+}
+
+function mobileOrderMoney(value) {
+  return Number(value || 0).toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+}
+
+function mobileOrderRows(selectedDate) {
+  const q = app.ordersFilterQ.trim().toLowerCase();
+  const rows = app.data.orders.filter(order => {
+    const dateMatch = !app.mobileOrdersDateOnly || order.date === selectedDate;
+    const textMatch = !q || [
+      order.orderNumber,
+      order.customerName,
+      order.phone,
+      order.alternatePhone,
+      order.socialName,
+      order.tags,
+      order.note
+    ].join(" ").toLowerCase().includes(q);
+    return dateMatch && textMatch;
+  });
+  rows.sort((a, b) => {
+    const dateCompare = String(a.date || "").localeCompare(String(b.date || ""));
+    if (dateCompare !== 0) return app.mobileOrdersDescending ? -dateCompare : dateCompare;
+    const numberCompare = compareOrderNumberAscending(a, b);
+    return app.mobileOrdersDescending ? -numberCompare : numberCompare;
+  });
+  return rows;
+}
+
+function mobileOrderActionMenu(order) {
+  if (app.mobileOrderMenuId !== order.id) return "";
+  return `
+    <div class="mobile-order-action-menu" data-mobile-order-menu>
+      <button type="button" data-edit-order="${escapeHtml(order.id)}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 16-.8 4 4-.8L19 7.4 16.6 5 4 16Z"/><path d="m14.8 6.8 2.4 2.4"/></svg>
+        <span>แก้ไข</span>
+      </button>
+      <span class="mobile-order-menu-divider"></span>
+      <button class="delete" type="button" data-delete-order="${escapeHtml(order.id)}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="m19 6-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+        <span>ลบ</span>
+      </button>
+    </div>
+  `;
+}
+
+function renderMobileOrders(selectedDate) {
+  const orders = mobileOrderRows(selectedDate);
+  els.content.innerHTML = `
+    <section class="mobile-orders-page">
+      <div class="mobile-orders-toolbar">
+        <label class="mobile-orders-search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+          <input data-order-filter="q" value="${escapeHtml(app.ordersFilterDraft)}" placeholder="ค้นหาออเดอร์, ลูกค้า, เบอร์โทร">
+        </label>
+        <button class="mobile-orders-filter ${app.mobileOrdersDateOnly ? "active" : ""}" type="button" data-mobile-orders-filter aria-pressed="${app.mobileOrdersDateOnly}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h18l-7 8v6l-4 2v-8L3 5Z"/></svg>
+          <span>ตัวกรอง</span>
+        </button>
+        <button class="mobile-orders-sort" type="button" data-mobile-orders-sort aria-label="${app.mobileOrdersDescending ? "เรียงจากเก่าไปใหม่" : "เรียงจากใหม่ไปเก่า"}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 4v16"/><path d="m4 8 4-4 4 4"/><path d="M16 20V4"/><path d="m12 16 4 4 4-4"/></svg>
+        </button>
+      </div>
+
+      <div class="mobile-orders-list-head" aria-hidden="true">
+        <span>ลำดับ</span>
+        <span>เลขออเดอร์</span>
+        <span>ลูกค้า</span>
+        <span>วันที่</span>
+        <span>ยอดรวม</span>
+        <span></span>
+      </div>
+
+      <div class="mobile-orders-list">
+        ${orders.map((order, index) => {
+          const customer = app.data.customers.find(item => item.id === order.customerId);
+          const customerName = order.customerName || customer?.name || "ไม่ระบุชื่อลูกค้า";
+          const phone = order.phone || customer?.phone || "-";
+          return `
+            <article class="mobile-order-row ${app.mobileOrderMenuId === order.id ? "menu-open" : ""}">
+              <span class="mobile-order-sequence">${index + 1}</span>
+              <strong class="mobile-order-number">${escapeHtml(mobileOrderNumber(order))}</strong>
+              <span class="mobile-order-customer">
+                <strong>${escapeHtml(customerName)}</strong>
+                <small>${escapeHtml(phone)}</small>
+              </span>
+              <span class="mobile-order-date">
+                <strong>${escapeHtml(mobileOrderDate(order.date))}</strong>
+                <small>${escapeHtml(order.time || "09:00")}</small>
+              </span>
+              <strong class="mobile-order-total">฿ ${escapeHtml(mobileOrderMoney(order.amount))}</strong>
+              <button class="mobile-order-chevron" type="button" data-mobile-order-actions="${escapeHtml(order.id)}" aria-label="จัดการ ${escapeHtml(mobileOrderNumber(order))}">›</button>
+              ${mobileOrderActionMenu(order)}
+            </article>
+          `;
+        }).join("") || `<div class="mobile-orders-empty">ไม่พบออเดอร์ที่ค้นหา</div>`}
+      </div>
+
+      <button class="mobile-add-order" type="button" data-open-order aria-label="เพิ่มออเดอร์">
+        <span>+</span>
+        <small>เพิ่มออเดอร์</small>
+      </button>
+    </section>
+  `;
+}
+
 function renderOrders() {
   const selectedDate = app.data.summary?.selectedDate || els.workDate.value || todayISO();
+  if (isMobileViewport()) {
+    renderMobileOrders(els.workDate.value || selectedDate);
+    return;
+  }
   const q = app.ordersFilterQ.trim().toLowerCase();
   if (app.ordersFilterDraft === "") app.ordersFilterDraft = app.ordersFilterQ;
   const orders = app.data.orders.filter(order => {
@@ -2146,7 +2276,7 @@ function optimisticOrderFromForm(data, orderId, clientMutationId) {
     alternatePhone: data.alternatePhone ?? existing?.alternatePhone ?? "",
     address: data.address ?? existing?.address ?? "",
     date: data.date || existing?.date || todayISO(),
-    time: existing?.time || "",
+    time: data.time || existing?.time || "",
     jars: Number(data.jars ?? existing?.jars ?? 1),
     amount: Number(data.amount ?? existing?.amount ?? 0),
     source: data.sourceChannel ?? existing?.source ?? "",
@@ -3984,6 +4114,7 @@ function setView(view) {
     showToast("เมนูนี้ต้องใช้สิทธิ์ Admin");
     return;
   }
+  app.mobileOrderMenuId = "";
   app.view = view;
   clearTimeout(app.importPollTimer);
   navigateToView(view);
@@ -4016,8 +4147,23 @@ function syncViewFromLocation() {
   render();
 }
 
+function setOrderSaveState(isSaving) {
+  app.orderSavePending = isSaving;
+  if (!els.orderSubmitButton) return;
+  els.orderSubmitButton.disabled = isSaving;
+  els.orderSubmitButton.dataset.loading = isSaving ? "true" : "false";
+  if (isSaving) els.orderSubmitButton.textContent = "กำลังบันทึก...";
+}
+
 async function submitOrder(form) {
+  if (app.orderSavePending) return;
+  setOrderSaveState(true);
   const data = Object.fromEntries(new FormData(form).entries());
+  if (String(data.date || "").includes("T")) {
+    const [datePart, timePart] = String(data.date).split("T");
+    data.date = datePart;
+    data.time = timePart || "";
+  }
   const preservedOriginSource = String(form.dataset.originSourceValue || "").trim();
   data.originSource = String(data.originSourceChoice || "").trim() || preservedOriginSource;
   delete data.originSourceChoice;
@@ -4050,11 +4196,18 @@ async function submitOrder(form) {
   } catch (error) {
     restoreUiState(snapshot);
     throw error;
+  } finally {
+    setOrderSaveState(false);
   }
 }
 
 function openDeleteOrderDialog(orderId) {
   app.deletingOrderId = orderId;
+  app.mobileOrderMenuId = "";
+  const order = app.data.orders.find(item => item.id === orderId);
+  if (els.mobileDeleteOrderNumber) {
+    els.mobileDeleteOrderNumber.textContent = order ? mobileOrderNumber(order) : "-";
+  }
   els.deleteOrderDialog.showModal();
 }
 
@@ -4065,6 +4218,10 @@ function openDeleteCustomerDialog(customerId) {
 
 function openOrderDialog(order = null) {
   app.editingOrderId = order?.id || "";
+  app.mobileOrderMenuId = "";
+  setOrderSaveState(false);
+  const dateField = els.orderForm.elements.date;
+  dateField.type = isMobileViewport() ? "datetime-local" : "date";
   els.orderForm.reset();
   delete els.orderForm.dataset.originSourceValue;
   els.orderDialogTitle.textContent = order ? "แก้ไขออเดอร์" : "เพิ่มออเดอร์";
@@ -4072,7 +4229,7 @@ function openOrderDialog(order = null) {
   if (order) {
     const fields = {
       orderNumber: order.orderNumber,
-      date: order.date,
+      date: isMobileViewport() ? `${order.date}T${order.time || "09:00"}` : order.date,
       sourceChannel: displayOrderChannel(order) === MISSING_CHANNEL_LABEL ? "" : displayOrderChannel(order),
       socialName: order.socialName,
       name: order.customerName,
@@ -4096,8 +4253,25 @@ function openOrderDialog(order = null) {
       els.orderForm.dataset.originSourceValue = originSource;
     }
   } else {
-    els.orderForm.elements.date.value = els.workDate.value || todayISO();
+    const dateValue = els.workDate.value || todayISO();
+    const now = new Date();
+    const timeValue = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+    els.orderForm.elements.date.value = isMobileViewport() ? `${dateValue}T${timeValue}` : dateValue;
     els.orderForm.elements.amount.value = app.data?.settings?.defaultJarPrice || 750;
+  }
+  const mobileRequiredFields = ["orderNumber", "date", "sourceChannel", "name", "phone", "address", "jars", "amount"];
+  for (const fieldName of mobileRequiredFields) {
+    const field = els.orderForm.elements[fieldName];
+    if (field) field.required = isMobileViewport() || ["date", "name", "phone", "jars", "amount"].includes(fieldName);
+  }
+  if (isMobileViewport()) {
+    els.orderForm.elements.orderNumber.placeholder = "เช่น 1/1";
+    els.orderForm.elements.sourceChannel.placeholder = "เช่น F: สมใจ / L: somjai";
+    els.orderForm.elements.freeGift.placeholder = "เช่น แถมกระบอกน้ำ";
+  } else {
+    els.orderForm.elements.orderNumber.placeholder = "เช่น 1/27";
+    els.orderForm.elements.sourceChannel.placeholder = "เลือกหรือพิมพ์ช่องทางการสั่งซื้อ";
+    els.orderForm.elements.freeGift.placeholder = "เช่น แถม 1 กระปุก, ค่าส่งฟรี";
   }
   els.orderDialog.showModal();
 }
@@ -4230,6 +4404,28 @@ document.addEventListener("click", async event => {
 
   if (event.target.closest("[data-open-order]") && app.view === "orders") openOrderDialog();
 
+  const mobileOrderActions = event.target.closest("[data-mobile-order-actions]");
+  if (mobileOrderActions && app.view === "orders" && isMobileViewport()) {
+    const orderId = mobileOrderActions.dataset.mobileOrderActions;
+    app.mobileOrderMenuId = app.mobileOrderMenuId === orderId ? "" : orderId;
+    renderOrders();
+    return;
+  }
+
+  if (event.target.closest("[data-mobile-orders-filter]") && app.view === "orders" && isMobileViewport()) {
+    app.mobileOrdersDateOnly = !app.mobileOrdersDateOnly;
+    app.mobileOrderMenuId = "";
+    renderOrders();
+    return;
+  }
+
+  if (event.target.closest("[data-mobile-orders-sort]") && app.view === "orders" && isMobileViewport()) {
+    app.mobileOrdersDescending = !app.mobileOrdersDescending;
+    app.mobileOrderMenuId = "";
+    renderOrders();
+    return;
+  }
+
   const editOrderButton = event.target.closest("[data-edit-order]");
   if (editOrderButton) {
     const order = app.data.orders.find(item => item.id === editOrderButton.dataset.editOrder);
@@ -4238,6 +4434,16 @@ document.addEventListener("click", async event => {
 
   const deleteOrderButton = event.target.closest("[data-delete-order]");
   if (deleteOrderButton) openDeleteOrderDialog(deleteOrderButton.dataset.deleteOrder);
+
+  if (
+    app.view === "orders"
+    && isMobileViewport()
+    && app.mobileOrderMenuId
+    && !event.target.closest("[data-mobile-order-menu]")
+  ) {
+    app.mobileOrderMenuId = "";
+    renderOrders();
+  }
 
   const deleteCustomerButton = event.target.closest("[data-delete-customer]");
   if (deleteCustomerButton) openDeleteCustomerDialog(deleteCustomerButton.dataset.deleteCustomer);
@@ -4389,11 +4595,13 @@ document.addEventListener("click", async event => {
   if (event.target.closest("[data-close-order]")) {
     app.editingOrderId = "";
     els.orderDialog.close();
+    if (app.view === "orders" && isMobileViewport()) renderOrders();
   }
 
   if (event.target.closest("[data-close-delete-order]")) {
     app.deletingOrderId = "";
     els.deleteOrderDialog.close();
+    if (app.view === "orders" && isMobileViewport()) renderOrders();
   }
 
   if (event.target.closest("[data-close-delete-customer]")) {

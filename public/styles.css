@@ -5722,3 +5722,748 @@ small,
   .date-pill-icon { order: 1; }
   .date-pill-chevron { display: none; }
 }
+
+.order-field-label i,
+.mobile-delete-order-copy {
+  display: none;
+}
+
+@media (max-width: 780px) {
+  body.mobile-orders-view {
+    overflow-x: hidden;
+    background:
+      radial-gradient(circle at 0 0, rgba(24, 75, 96, 0.18), transparent 28%),
+      radial-gradient(circle at 100% 65%, rgba(8, 65, 83, 0.12), transparent 28%),
+      #020c14;
+    color: #f2f3f7;
+  }
+
+  body.mobile-orders-view .app-shell {
+    display: block;
+    min-height: 100vh;
+  }
+
+  body.mobile-orders-view .main-panel {
+    width: 100%;
+    padding: 0 14px 86px;
+  }
+
+  body.mobile-orders-view .topbar {
+    display: block;
+    height: 122px;
+    margin: 0;
+    padding: 18px 0 8px;
+  }
+
+  body.mobile-orders-view .topbar-main {
+    grid-template-columns: 112px minmax(64px, 1fr) 120px;
+    gap: 0;
+    align-items: start;
+  }
+
+  body.mobile-orders-view .topbar-brand {
+    padding: 0;
+  }
+
+  body.mobile-orders-view .topbar-logo {
+    width: 72px;
+    height: 72px;
+    object-fit: contain;
+    filter: drop-shadow(0 0 15px rgba(143, 45, 255, 0.55));
+  }
+
+  body.mobile-orders-view .header-profile {
+    gap: 0;
+  }
+
+  body.mobile-orders-view .header-profile-avatar {
+    width: 55px;
+    height: 55px;
+    border: 0;
+    background: url("/mobile-home-avatar.png") center / cover no-repeat;
+    box-shadow: none;
+  }
+
+  body.mobile-orders-view .header-profile-avatar-core,
+  body.mobile-orders-view .header-profile-badge,
+  body.mobile-orders-view .header-profile-copy {
+    display: none;
+  }
+
+  body.mobile-orders-view .topbar-side-right {
+    display: block;
+  }
+
+  body.mobile-orders-view .topbar-icon-row {
+    height: 34px;
+    margin: 8px 5px 10px 0;
+    gap: 10px;
+  }
+
+  body.mobile-orders-view .icon-button {
+    width: 34px;
+    height: 34px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: #d7d9df;
+    box-shadow: none;
+  }
+
+  body.mobile-orders-view .topbar-action-icon {
+    width: 27px;
+    height: 27px;
+    stroke-width: 1.65;
+  }
+
+  body.mobile-orders-view .notification-badge {
+    top: -1px;
+    right: -2px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 4px;
+    border: 0;
+    font-size: 9px;
+    line-height: 18px;
+  }
+
+  body.mobile-orders-view .date-pill {
+    width: 118px;
+    min-width: 118px;
+    min-height: 38px;
+    padding: 0 11px;
+    border-radius: 13px;
+    border-color: rgba(95, 125, 151, 0.3);
+    background: rgba(4, 16, 27, 0.88);
+  }
+
+  body.mobile-orders-view .date-pill-display {
+    color: #f2f3f6;
+    font-size: 14px;
+    font-weight: 400;
+  }
+
+  body.mobile-orders-view .date-pill-icon {
+    width: 18px;
+    height: 18px;
+  }
+
+  body.mobile-orders-view .mobile-orders-page {
+    display: grid;
+    gap: 12px;
+    width: 100%;
+    min-width: 0;
+    padding-top: 17px;
+  }
+
+  body.mobile-orders-view .mobile-orders-toolbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 87px 41px;
+    gap: 8px;
+    height: 38px;
+  }
+
+  body.mobile-orders-view .mobile-orders-search,
+  body.mobile-orders-view .mobile-orders-filter,
+  body.mobile-orders-view .mobile-orders-sort {
+    min-width: 0;
+    height: 38px;
+    border: 1px solid rgba(63, 96, 121, 0.32);
+    border-radius: 11px;
+    background: rgba(4, 17, 28, 0.8);
+    color: #d6d8de;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.018);
+  }
+
+  body.mobile-orders-view .mobile-orders-search {
+    display: grid;
+    grid-template-columns: 26px minmax(0, 1fr);
+    align-items: center;
+    gap: 3px;
+    padding: 0 9px;
+  }
+
+  body.mobile-orders-view .mobile-orders-search svg {
+    width: 21px;
+    height: 21px;
+    color: #aeb3bd;
+  }
+
+  body.mobile-orders-view .mobile-orders-search input {
+    width: 100%;
+    height: 34px;
+    min-height: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    color: #edf0f4;
+    font-size: 13.5px;
+    font-weight: 400;
+  }
+
+  body.mobile-orders-view .mobile-orders-search input::placeholder {
+    color: #a7abb4;
+    opacity: 1;
+  }
+
+  body.mobile-orders-view .mobile-orders-filter {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    padding: 0 8px;
+    font-size: 13.5px;
+    font-weight: 400;
+    white-space: nowrap;
+  }
+
+  body.mobile-orders-view .mobile-orders-filter svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  body.mobile-orders-view .mobile-orders-filter.active {
+    border-color: rgba(147, 61, 255, 0.64);
+    color: #b56bff;
+    background: rgba(67, 21, 113, 0.28);
+  }
+
+  body.mobile-orders-view .mobile-orders-sort {
+    display: grid;
+    place-items: center;
+    padding: 0;
+  }
+
+  body.mobile-orders-view .mobile-orders-sort svg {
+    width: 24px;
+    height: 24px;
+  }
+
+  body.mobile-orders-view .mobile-orders-list-head,
+  body.mobile-orders-view .mobile-order-row {
+    display: grid;
+    grid-template-columns: 30px 84px minmax(0, 1fr) 65px 80px 16px;
+    align-items: center;
+    min-width: 0;
+  }
+
+  body.mobile-orders-view .mobile-orders-list-head {
+    height: 32px;
+    padding: 0 10px;
+    border: 1px solid rgba(63, 96, 121, 0.3);
+    border-radius: 10px;
+    background: rgba(3, 15, 25, 0.72);
+    color: #dedfe5;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  body.mobile-orders-view .mobile-orders-list-head span:first-child {
+    color: #b057ff;
+  }
+
+  body.mobile-orders-view .mobile-orders-list-head span:nth-child(2),
+  body.mobile-orders-view .mobile-orders-list-head span:nth-child(5) {
+    text-align: center;
+  }
+
+  body.mobile-orders-view .mobile-orders-list {
+    display: grid;
+    gap: 5px;
+    height: calc(100dvh - 354px);
+    margin-top: -7px;
+    overflow-x: visible;
+    overflow-y: auto;
+    scrollbar-width: none;
+  }
+
+  body.mobile-orders-view .mobile-orders-list::-webkit-scrollbar {
+    display: none;
+  }
+
+  body.mobile-orders-view .mobile-order-row {
+    position: relative;
+    height: 53px;
+    padding: 0 10px;
+    overflow: visible;
+    border: 1px solid rgba(55, 90, 116, 0.28);
+    border-radius: 10px;
+    background:
+      radial-gradient(circle at 50% 0, rgba(27, 70, 95, 0.09), transparent 45%),
+      rgba(3, 17, 28, 0.82);
+    box-shadow: 0 5px 14px rgba(0, 0, 0, 0.12);
+  }
+
+  body.mobile-orders-view .mobile-order-row.menu-open {
+    z-index: 20;
+  }
+
+  body.mobile-orders-view .mobile-order-sequence {
+    color: #f1f2f5;
+    font-size: 15px;
+  }
+
+  body.mobile-orders-view .mobile-order-number {
+    overflow: hidden;
+    color: #b650ff;
+    font-size: 14px;
+    font-weight: 500;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  body.mobile-orders-view .mobile-order-customer,
+  body.mobile-orders-view .mobile-order-date {
+    display: grid;
+    min-width: 0;
+    gap: 1px;
+  }
+
+  body.mobile-orders-view .mobile-order-customer strong,
+  body.mobile-orders-view .mobile-order-date strong,
+  body.mobile-orders-view .mobile-order-customer small,
+  body.mobile-orders-view .mobile-order-date small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  body.mobile-orders-view .mobile-order-customer strong {
+    color: #eceef2;
+    font-size: 12.5px;
+    font-weight: 400;
+  }
+
+  body.mobile-orders-view .mobile-order-customer small,
+  body.mobile-orders-view .mobile-order-date strong,
+  body.mobile-orders-view .mobile-order-date small {
+    color: #adb2bc;
+    font-size: 12px;
+    font-weight: 400;
+  }
+
+  body.mobile-orders-view .mobile-order-total {
+    color: #ffc400;
+    font-size: 13.5px;
+    font-weight: 600;
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  body.mobile-orders-view .mobile-order-chevron {
+    width: 18px;
+    height: 34px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: #a33bff;
+    font-size: 30px;
+    font-weight: 300;
+    line-height: 1;
+  }
+
+  body.mobile-orders-view .mobile-order-action-menu {
+    position: absolute;
+    top: 47px;
+    right: 0;
+    z-index: 50;
+    width: 125px;
+    padding: 0 14px;
+    border: 1px solid rgba(113, 127, 151, 0.34);
+    border-radius: 13px;
+    background: linear-gradient(145deg, rgba(22, 35, 52, 0.98), rgba(12, 23, 37, 0.98));
+    box-shadow: 0 18px 34px rgba(0, 0, 0, 0.48);
+  }
+
+  body.mobile-orders-view .mobile-order-action-menu button {
+    width: 100%;
+    height: 52px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: #b799ff;
+    font-size: 15px;
+    text-align: left;
+  }
+
+  body.mobile-orders-view .mobile-order-action-menu button.delete {
+    color: #ff4d58;
+  }
+
+  body.mobile-orders-view .mobile-order-action-menu svg {
+    width: 23px;
+    height: 23px;
+    flex: 0 0 auto;
+  }
+
+  body.mobile-orders-view .mobile-order-menu-divider {
+    display: block;
+    height: 1px;
+    background: rgba(139, 153, 176, 0.25);
+  }
+
+  body.mobile-orders-view .mobile-orders-empty {
+    display: grid;
+    place-items: center;
+    min-height: 160px;
+    color: #9fa5af;
+    font-size: 13px;
+  }
+
+  body.mobile-orders-view .mobile-add-order {
+    position: fixed;
+    right: 18px;
+    bottom: 81px;
+    z-index: 45;
+    width: 62px;
+    height: 67px;
+    display: grid;
+    justify-items: center;
+    align-content: start;
+    gap: 2px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: #eee8ff;
+  }
+
+  body.mobile-orders-view .mobile-add-order > span {
+    width: 42px;
+    height: 42px;
+    display: grid;
+    place-items: center;
+    border: 1px solid #9c39ff;
+    border-radius: 50%;
+    background: radial-gradient(circle at 38% 28%, #7b26df, #4b1594 72%);
+    box-shadow: 0 0 18px rgba(150, 45, 255, 0.62);
+    font-size: 34px;
+    font-weight: 200;
+    line-height: 1;
+  }
+
+  body.mobile-orders-view .mobile-add-order small {
+    color: #e3e1e8;
+    font-size: 10px;
+    font-weight: 400;
+    white-space: nowrap;
+  }
+
+  body.mobile-orders-view .sidebar {
+    height: 67px;
+    padding: 5px 14px 4px;
+    border: 1px solid rgba(65, 98, 121, 0.3);
+    border-radius: 16px 16px 0 0;
+    background: rgba(3, 16, 27, 0.97);
+    backdrop-filter: blur(18px);
+  }
+
+  body.mobile-orders-view .nav-list {
+    height: 57px;
+    gap: 0;
+  }
+
+  body.mobile-orders-view .nav-button {
+    min-height: 57px;
+    height: 57px;
+    padding: 3px 1px 1px;
+    gap: 1px;
+    border: 0;
+    border-radius: 24px;
+    background: transparent;
+    color: #8d939d;
+    font-weight: 400;
+  }
+
+  body.mobile-orders-view .nav-button.active {
+    background: radial-gradient(ellipse at center, rgba(91, 27, 164, 0.38), rgba(34, 21, 78, 0.28) 58%, transparent 72%);
+    color: #b451ff;
+  }
+
+  body.mobile-orders-view .nav-button .nav-index {
+    width: 31px;
+    height: 31px;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  body.mobile-orders-view .nav-button .nav-icon {
+    width: 25px;
+    height: 25px;
+    stroke-width: 1.8;
+  }
+
+  body.mobile-orders-view .nav-button > span:last-child {
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 1.15;
+    letter-spacing: 0;
+  }
+
+  body.mobile-orders-view #orderDialog {
+    width: min(430px, 100vw);
+    max-width: 100vw;
+    height: calc(100dvh - 7px);
+    max-height: calc(100dvh - 7px);
+    margin: auto auto 0;
+    overflow: visible;
+    border-radius: 26px 26px 0 0;
+    outline: none;
+  }
+
+  body.mobile-orders-view #orderDialog::backdrop,
+  body.mobile-orders-view #deleteOrderDialog::backdrop {
+    background: rgba(0, 0, 0, 0.62);
+    backdrop-filter: blur(5px);
+  }
+
+  body.mobile-orders-view #orderDialog form {
+    position: relative;
+    height: 100%;
+    max-height: 100%;
+    padding: 27px 20px 16px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    border: 1px solid rgba(87, 101, 131, 0.24);
+    border-radius: 26px 26px 0 0;
+    background:
+      radial-gradient(circle at 65% 8%, rgba(75, 53, 128, 0.1), transparent 30%),
+      linear-gradient(145deg, #071321, #07101d 72%);
+    box-shadow: 0 -18px 54px rgba(0, 0, 0, 0.54);
+  }
+
+  body.mobile-orders-view #orderDialog form::before {
+    content: "";
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    width: 39px;
+    height: 5px;
+    border-radius: 999px;
+    background: #8a8d98;
+    transform: translateX(-50%);
+  }
+
+  body.mobile-orders-view #orderDialog .dialog-header {
+    align-items: center;
+    min-height: 42px;
+    margin-bottom: 14px;
+  }
+
+  body.mobile-orders-view #orderDialog .dialog-header .eyebrow {
+    display: none;
+  }
+
+  body.mobile-orders-view #orderDialog .dialog-header h2 {
+    color: #f6f6fa;
+    font-size: 23px;
+    font-weight: 700;
+    letter-spacing: 0;
+  }
+
+  body.mobile-orders-view #orderDialog .dialog-header .icon-button {
+    width: 34px;
+    height: 34px;
+    border: 1px solid rgba(105, 119, 143, 0.32);
+    border-radius: 12px;
+    color: #f1f2f5;
+    font-size: 27px;
+    background: rgba(10, 21, 35, 0.8);
+  }
+
+  body.mobile-orders-view #orderDialog .form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 11px 16px;
+  }
+
+  body.mobile-orders-view #orderDialog .form-grid label {
+    min-width: 0;
+    gap: 5px;
+    color: #c184ff;
+    font-size: 13px;
+    font-weight: 500;
+  }
+
+  body.mobile-orders-view #orderDialog .order-field-label {
+    display: inline;
+  }
+
+  body.mobile-orders-view #orderDialog .order-field-label i {
+    display: inline;
+    color: #ff354c;
+    font-style: normal;
+  }
+
+  body.mobile-orders-view #orderDialog input,
+  body.mobile-orders-view #orderDialog select,
+  body.mobile-orders-view #orderDialog textarea {
+    width: 100%;
+    min-width: 0;
+    min-height: 36px;
+    padding: 0 12px;
+    border: 1px solid rgba(122, 90, 171, 0.42);
+    border-radius: 10px;
+    background: rgba(5, 14, 28, 0.58);
+    box-shadow: none;
+    color: #f0f1f5;
+    font-size: 13.5px;
+    font-weight: 400;
+  }
+
+  body.mobile-orders-view #orderDialog input::placeholder,
+  body.mobile-orders-view #orderDialog textarea::placeholder {
+    color: #818693;
+    opacity: 1;
+  }
+
+  body.mobile-orders-view #orderDialog label:has([name="orderNumber"]) { order: 1; }
+  body.mobile-orders-view #orderDialog label:has([name="date"]) { order: 2; }
+  body.mobile-orders-view #orderDialog label:has([name="sourceChannel"]) { order: 3; grid-column: 1 / -1; }
+  body.mobile-orders-view #orderDialog label:has([name="socialName"]) { order: 4; grid-column: 1 / -1; }
+  body.mobile-orders-view #orderDialog label:has([name="name"]) { order: 5; }
+  body.mobile-orders-view #orderDialog label:has([name="phone"]) { order: 6; }
+  body.mobile-orders-view #orderDialog label:has([name="alternatePhone"]) { order: 7; grid-column: 1 / -1; }
+  body.mobile-orders-view #orderDialog label:has([name="address"]) { order: 8; grid-column: 1 / -1; }
+  body.mobile-orders-view #orderDialog label:has([name="jars"]) { order: 9; }
+  body.mobile-orders-view #orderDialog label:has([name="amount"]) { order: 10; }
+  body.mobile-orders-view #orderDialog label:has([name="freeGift"]) { order: 11; grid-column: 1 / -1; }
+  body.mobile-orders-view #orderDialog label:has([name="vipCardStatus"]) { order: 12; }
+  body.mobile-orders-view #orderDialog label:has([name="originSourceChoice"]) { order: 13; }
+  body.mobile-orders-view #orderDialog label:has([name="tags"]) { order: 14; grid-column: 1 / -1; }
+  body.mobile-orders-view #orderDialog label:has([name="note"]) { order: 15; grid-column: 1 / -1; }
+
+  body.mobile-orders-view #orderDialog input[name="address"] {
+    min-height: 62px;
+    padding-bottom: 29px;
+  }
+
+  body.mobile-orders-view #orderDialog .dialog-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-top: 10px;
+  }
+
+  body.mobile-orders-view #orderDialog .dialog-actions .button {
+    min-height: 42px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  body.mobile-orders-view #orderDialog .dialog-actions .button.ghost {
+    border: 1px solid rgba(98, 113, 137, 0.34);
+    background: rgba(11, 22, 36, 0.76);
+    color: #f2f3f5;
+  }
+
+  body.mobile-orders-view #orderDialog .dialog-actions .button.primary {
+    border: 1px solid rgba(194, 78, 255, 0.5);
+    background: linear-gradient(105deg, #5514ff, #9f19ef 68%, #ce25cc);
+    box-shadow: 0 8px 24px rgba(118, 28, 242, 0.28);
+  }
+
+  body.mobile-orders-view #orderDialog .dialog-actions .button[data-loading="true"] {
+    opacity: 0.68;
+    cursor: wait;
+  }
+
+  body.mobile-orders-view #deleteOrderDialog {
+    width: min(430px, 100vw);
+    max-width: 100vw;
+    margin: auto auto 0;
+    border-radius: 28px 28px 0 0;
+    outline: none;
+  }
+
+  body.mobile-orders-view #deleteOrderDialog form {
+    position: relative;
+    min-height: 312px;
+    padding: 56px 28px 24px;
+    border: 1px solid rgba(82, 101, 125, 0.34);
+    border-radius: 28px 28px 0 0;
+    background: linear-gradient(145deg, #0c1929, #071321);
+    box-shadow: 0 -18px 54px rgba(0, 0, 0, 0.58);
+  }
+
+  body.mobile-orders-view #deleteOrderDialog form::before {
+    content: "";
+    position: absolute;
+    top: 18px;
+    left: 50%;
+    width: 40px;
+    height: 5px;
+    border-radius: 999px;
+    background: #747c89;
+    transform: translateX(-50%);
+  }
+
+  body.mobile-orders-view #deleteOrderDialog .desktop-delete-order-copy {
+    display: none;
+  }
+
+  body.mobile-orders-view #deleteOrderDialog .mobile-delete-order-copy {
+    display: grid;
+    justify-items: center;
+    gap: 16px;
+    text-align: center;
+  }
+
+  body.mobile-orders-view #deleteOrderDialog .mobile-sheet-handle {
+    display: none;
+  }
+
+  body.mobile-orders-view #deleteOrderDialog .mobile-delete-warning {
+    width: 51px;
+    height: 51px;
+    color: #ff5058;
+    filter: drop-shadow(0 0 8px rgba(255, 71, 83, 0.2));
+  }
+
+  body.mobile-orders-view #deleteOrderDialog h2 {
+    color: #f4f5f7;
+    font-size: 23px;
+    font-weight: 650;
+    letter-spacing: 0;
+  }
+
+  body.mobile-orders-view #deleteOrderDialog .mobile-delete-order-copy p {
+    color: #aeb3bd;
+    font-size: 14px;
+  }
+
+  body.mobile-orders-view #deleteOrderDialog .mobile-delete-order-copy strong {
+    font-weight: 400;
+  }
+
+  body.mobile-orders-view #deleteOrderDialog .dialog-actions {
+    display: grid;
+    grid-template-columns: 1fr 1.1fr;
+    gap: 12px;
+    margin-top: 34px;
+  }
+
+  body.mobile-orders-view #deleteOrderDialog .dialog-actions .button {
+    min-height: 58px;
+    border-radius: 12px;
+    font-size: 18px;
+    font-weight: 600;
+  }
+
+  body.mobile-orders-view #deleteOrderDialog .dialog-actions .button.ghost {
+    border: 1px solid rgba(112, 127, 149, 0.34);
+    background: rgba(19, 32, 49, 0.76);
+    color: #f4f5f7;
+  }
+
+  body.mobile-orders-view #deleteOrderDialog .dialog-actions .button.danger {
+    border: 1px solid #ff4b53;
+    background: linear-gradient(105deg, #c7192c, #ef3946);
+    color: #fff;
+    box-shadow: 0 9px 24px rgba(210, 28, 44, 0.24);
+  }
+}
