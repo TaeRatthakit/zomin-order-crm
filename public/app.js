@@ -402,6 +402,56 @@ function isMobileViewport() {
   return window.matchMedia("(max-width: 820px)").matches;
 }
 
+function isMobileStartupViewport() {
+  return window.matchMedia("(max-width: 780px)").matches;
+}
+
+function waitForImageElement(image) {
+  if (image.complete) {
+    return typeof image.decode === "function" ? image.decode().catch(() => {}) : Promise.resolve();
+  }
+  return new Promise(resolve => {
+    image.addEventListener("load", resolve, { once: true });
+    image.addEventListener("error", resolve, { once: true });
+  });
+}
+
+function waitForImageUrl(url) {
+  return new Promise(resolve => {
+    const image = new Image();
+    image.addEventListener("load", resolve, { once: true });
+    image.addEventListener("error", resolve, { once: true });
+    image.src = url;
+  });
+}
+
+function waitForTwoFrames() {
+  return new Promise(resolve => {
+    requestAnimationFrame(() => requestAnimationFrame(resolve));
+  });
+}
+
+async function finishMobileStartup() {
+  const root = document.documentElement;
+  const loader = document.querySelector("#mobileStartupLoader");
+  if (!isMobileStartupViewport() || !root.classList.contains("mobile-startup-pending") || !loader) return;
+
+  const imageTasks = [...document.images].map(waitForImageElement);
+  if (app.currentUser && app.view === "dashboard") {
+    imageTasks.push(waitForImageUrl("/mobile-home-avatar.png"));
+  }
+  await Promise.allSettled([
+    document.fonts?.ready || Promise.resolve(),
+    ...imageTasks
+  ]);
+  await waitForTwoFrames();
+
+  loader.classList.add("is-exiting");
+  await new Promise(resolve => window.setTimeout(resolve, 320));
+  root.classList.remove("mobile-startup-pending");
+  loader.remove();
+}
+
 const moreSubpages = new Set([
   "vip", "risk", "tags", "import", "reports", "team", "settings",
   "settingsStore", "settingsFinance", "settingsCustomers", "settingsLineHub", "settingsUsers", "settingsImportExport", "settingsSubscription",
@@ -4732,6 +4782,14 @@ async function init() {
   if (app.view === "import") await refreshImportJob();
 }
 
-init().catch(error => {
-  els.content.innerHTML = `<div class="empty-state">โหลดข้อมูลไม่สำเร็จ: ${escapeHtml(error.message)}</div>`;
-});
+async function startApp() {
+  try {
+    await init();
+  } catch (error) {
+    els.content.innerHTML = `<div class="empty-state">โหลดข้อมูลไม่สำเร็จ: ${escapeHtml(error.message)}</div>`;
+  } finally {
+    await finishMobileStartup();
+  }
+}
+
+startApp();

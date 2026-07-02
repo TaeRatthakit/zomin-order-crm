@@ -10,6 +10,11 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="Growup Pilot">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <script>
+      if (window.matchMedia("(max-width: 780px)").matches) {
+        document.documentElement.classList.add("mobile-startup-pending");
+      }
+    </script>
     <meta property="og:type" content="website">
     <meta property="og:title" content="Growup Pilot">
     <meta property="og:description" content="Growup Pilot ผู้ช่วยธุรกิจสำหรับจัดการลูกค้า ออเดอร์ โอกาสทำเงิน และการเติบโตของร้านในที่เดียว">
@@ -29,9 +34,15 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=20260701-favicon-restore">
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=20260701-favicon-restore">
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=20260702-ios-enhanced-fullbleed">
-    <link rel="stylesheet" href="/styles.css?v=20260702-desktop-growpilot">
+    <link rel="stylesheet" href="/styles.css?v=20260702-mobile-startup">
   </head>
   <body>
+    <div id="mobileStartupLoader" class="mobile-startup-loader" aria-hidden="true">
+      <div class="mobile-startup-mark">
+        <img src="/mobile-startup-logo.png?v=20260702-mobile-startup" alt="">
+      </div>
+    </div>
+
     <div class="app-shell">
       <aside class="sidebar" aria-label="เมนูหลัก">
         <div class="brand">
@@ -269,9 +280,9 @@
       </form>
     </dialog>
 
-    <script src="/app.js?v=20260702-desktop-growpilot"></script>
+    <script src="/app.js?v=20260702-mobile-startup"></script>
     <script>
-      const swUrl = "/service-worker.js?v=20260702-desktop-growpilot";
+      const swUrl = "/service-worker.js?v=20260702-mobile-startup";
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", () => {
           navigator.serviceWorker.register(swUrl).then(registration => registration.update()).catch(() => {});

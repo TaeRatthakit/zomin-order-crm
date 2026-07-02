@@ -40,6 +40,114 @@ body {
   font-family: "Sarabun", "Noto Sans Thai", "Segoe UI", sans-serif;
 }
 
+.mobile-startup-loader {
+  display: none;
+}
+
+@media (max-width: 780px) {
+  html.mobile-startup-pending,
+  html.mobile-startup-pending body {
+    overflow: hidden;
+  }
+
+  html.mobile-startup-pending .mobile-startup-loader {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: grid;
+    place-items: center;
+    min-height: 100svh;
+    background:
+      radial-gradient(circle at 18% 16%, rgba(167, 78, 255, 0.28), transparent 22%),
+      radial-gradient(circle at 82% 14%, rgba(255, 224, 79, 0.12), transparent 18%),
+      radial-gradient(circle at 50% 110%, rgba(80, 99, 255, 0.16), transparent 28%),
+      linear-gradient(180deg, #060711 0%, #080a16 48%, #05060f 100%);
+    opacity: 1;
+    transition: opacity 300ms ease;
+  }
+
+  html.mobile-startup-pending .mobile-startup-loader.is-exiting {
+    opacity: 0;
+  }
+
+  .mobile-startup-mark {
+    position: relative;
+    width: 176px;
+    height: 176px;
+    display: grid;
+    place-items: center;
+  }
+
+  .mobile-startup-mark::before,
+  .mobile-startup-mark::after {
+    content: "";
+    position: absolute;
+    border-radius: 50%;
+    pointer-events: none;
+  }
+
+  .mobile-startup-mark::before {
+    inset: 0;
+    border: 1px solid rgba(185, 133, 255, 0.24);
+    border-top-color: rgba(207, 163, 255, 0.92);
+    border-right-color: rgba(255, 206, 84, 0.5);
+    animation: mobileStartupRing 2.4s linear infinite;
+  }
+
+  .mobile-startup-mark::after {
+    inset: 9px;
+    border: 1px solid rgba(172, 112, 255, 0.18);
+    animation: mobileStartupPulse 1.8s ease-in-out infinite;
+  }
+
+  .mobile-startup-mark img {
+    display: block;
+    width: 132px;
+    height: 132px;
+    object-fit: cover;
+    border-radius: 30px;
+    clip-path: inset(3.2% round 24%);
+    filter: drop-shadow(0 10px 24px rgba(112, 35, 255, 0.26));
+    animation: mobileStartupLogoPulse 1.8s ease-in-out infinite;
+  }
+
+  @keyframes mobileStartupRing {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  @keyframes mobileStartupPulse {
+    0%,
+    100% {
+      opacity: 0.42;
+      transform: scale(0.98);
+    }
+    50% {
+      opacity: 0.82;
+      transform: scale(1.02);
+    }
+  }
+
+  @keyframes mobileStartupLogoPulse {
+    0%,
+    100% {
+      transform: scale(0.985);
+    }
+    50% {
+      transform: scale(1.015);
+    }
+  }
+}
+
+@media (max-width: 780px) and (prefers-reduced-motion: reduce) {
+  .mobile-startup-mark::before,
+  .mobile-startup-mark::after,
+  .mobile-startup-mark img {
+    animation: none;
+  }
+}
+
 button,
 input,
 select,
