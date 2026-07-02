@@ -445,6 +445,7 @@ async function finishMobileStartup() {
     ...imageTasks
   ]);
   await waitForTwoFrames();
+  await new Promise(resolve => window.setTimeout(resolve, 220));
 
   loader.classList.add("is-exiting");
   await new Promise(resolve => window.setTimeout(resolve, 320));

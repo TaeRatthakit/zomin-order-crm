@@ -10,6 +10,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="Growup Pilot">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <link rel="preload" as="image" href="/mobile-startup-logo.png?v=20260702-mobile-startup-v2" fetchpriority="high">
     <script>
       if (window.matchMedia("(max-width: 780px)").matches) {
         document.documentElement.classList.add("mobile-startup-pending");
@@ -34,12 +35,12 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=20260701-favicon-restore">
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=20260701-favicon-restore">
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=20260702-ios-enhanced-fullbleed">
-    <link rel="stylesheet" href="/styles.css?v=20260702-mobile-startup">
+    <link rel="stylesheet" href="/styles.css?v=20260702-mobile-startup-v2">
   </head>
   <body>
     <div id="mobileStartupLoader" class="mobile-startup-loader" aria-hidden="true">
       <div class="mobile-startup-mark">
-        <img src="/mobile-startup-logo.png?v=20260702-mobile-startup" alt="">
+        <img src="/mobile-startup-logo.png?v=20260702-mobile-startup-v2" alt="" width="1254" height="1254" fetchpriority="high" decoding="sync">
       </div>
     </div>
 
@@ -280,9 +281,9 @@
       </form>
     </dialog>
 
-    <script src="/app.js?v=20260702-mobile-startup"></script>
+    <script src="/app.js?v=20260702-mobile-startup-v2"></script>
     <script>
-      const swUrl = "/service-worker.js?v=20260702-mobile-startup";
+      const swUrl = "/service-worker.js?v=20260702-mobile-startup-v2";
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", () => {
           navigator.serviceWorker.register(swUrl).then(registration => registration.update()).catch(() => {});
