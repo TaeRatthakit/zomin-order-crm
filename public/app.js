@@ -407,9 +407,7 @@ function isMobileStartupViewport() {
 }
 
 function waitForImageElement(image) {
-  if (image.complete) {
-    return typeof image.decode === "function" ? image.decode().catch(() => {}) : Promise.resolve();
-  }
+  if (image.complete) return Promise.resolve();
   return new Promise(resolve => {
     image.addEventListener("load", resolve, { once: true });
     image.addEventListener("error", resolve, { once: true });
