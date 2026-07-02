@@ -5911,22 +5911,13 @@ small,
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 7px;
-    padding: 0 8px;
+    padding: 0 10px;
+    border-color: rgba(147, 61, 255, 0.64);
+    background: linear-gradient(145deg, rgba(64, 20, 113, 0.72), rgba(28, 13, 55, 0.82));
+    color: #c679ff;
     font-size: 13.5px;
     font-weight: 400;
     white-space: nowrap;
-  }
-
-  body.mobile-orders-view .mobile-orders-filter svg {
-    width: 20px;
-    height: 20px;
-  }
-
-  body.mobile-orders-view .mobile-orders-filter.active {
-    border-color: rgba(147, 61, 255, 0.64);
-    color: #b56bff;
-    background: rgba(67, 21, 113, 0.28);
   }
 
   body.mobile-orders-view .mobile-orders-sort {
@@ -5943,7 +5934,7 @@ small,
   body.mobile-orders-view .mobile-orders-list-head,
   body.mobile-orders-view .mobile-order-row {
     display: grid;
-    grid-template-columns: 30px 84px minmax(0, 1fr) 65px 80px 16px;
+    grid-template-columns: 26px 66px minmax(0, 1fr) 58px 82px 16px;
     align-items: center;
     min-width: 0;
   }
@@ -5970,6 +5961,7 @@ small,
 
   body.mobile-orders-view .mobile-orders-list {
     display: grid;
+    align-content: start;
     gap: 5px;
     height: calc(100dvh - 354px);
     margin-top: -7px;

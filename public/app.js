@@ -80,7 +80,7 @@ const app = {
   customersShowAll: false,
   ordersFilterQ: "",
   ordersFilterDraft: "",
-  mobileOrdersDateOnly: false,
+  mobileOrdersDateOnly: true,
   mobileOrdersDescending: true,
   mobileOrderMenuId: "",
   orderSavePending: false,
@@ -1764,9 +1764,8 @@ function renderMobileOrders(selectedDate) {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
           <input data-order-filter="q" value="${escapeHtml(app.ordersFilterDraft)}" placeholder="ค้นหาออเดอร์, ลูกค้า, เบอร์โทร">
         </label>
-        <button class="mobile-orders-filter ${app.mobileOrdersDateOnly ? "active" : ""}" type="button" data-mobile-orders-filter aria-pressed="${app.mobileOrdersDateOnly}">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h18l-7 8v6l-4 2v-8L3 5Z"/></svg>
-          <span>ตัวกรอง</span>
+        <button class="mobile-orders-filter" type="button" data-mobile-orders-filter>
+          <span>ค้นหา</span>
         </button>
         <button class="mobile-orders-sort" type="button" data-mobile-orders-sort aria-label="${app.mobileOrdersDescending ? "เรียงจากเก่าไปใหม่" : "เรียงจากใหม่ไปเก่า"}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 4v16"/><path d="m4 8 4-4 4 4"/><path d="M16 20V4"/><path d="m12 16 4 4 4-4"/></svg>
@@ -4413,7 +4412,9 @@ document.addEventListener("click", async event => {
   }
 
   if (event.target.closest("[data-mobile-orders-filter]") && app.view === "orders" && isMobileViewport()) {
-    app.mobileOrdersDateOnly = !app.mobileOrdersDateOnly;
+    const searchInput = document.querySelector("[data-order-filter='q']");
+    app.ordersFilterDraft = searchInput?.value ?? app.ordersFilterDraft;
+    app.ordersFilterQ = app.ordersFilterDraft;
     app.mobileOrderMenuId = "";
     renderOrders();
     return;
@@ -4677,7 +4678,8 @@ document.addEventListener("keydown", event => {
   if (event.key !== "Enter") return;
   if (event.target?.matches?.("[data-order-filter]")) {
     event.preventDefault();
-    app.ordersFilterQ = app.ordersFilterDraft;
+    app.ordersFilterDraft = event.target.value;
+    app.ordersFilterQ = event.target.value;
     renderOrders();
   }
 });
