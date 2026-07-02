@@ -1797,7 +1797,7 @@ function renderMobileOrders(selectedDate) {
               </span>
               <span class="mobile-order-date">
                 <strong>${escapeHtml(mobileOrderDate(order.date))}</strong>
-                <small>${escapeHtml(order.time || "09:00")}</small>
+                <small>${escapeHtml(String(order.time || "09:00").slice(0, 5))}</small>
               </span>
               <strong class="mobile-order-total">฿ ${escapeHtml(mobileOrderMoney(order.amount))}</strong>
               <button class="mobile-order-chevron" type="button" data-mobile-order-actions="${escapeHtml(order.id)}" aria-label="จัดการ ${escapeHtml(mobileOrderNumber(order))}">›</button>
