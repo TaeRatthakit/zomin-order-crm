@@ -1,4 +1,4 @@
-const CACHE_NAME = "growup-pilot-pwa-v35";
+const CACHE_NAME = "growup-pilot-pwa-v36";
 const CORE_ASSETS = [
   "/",
   "/index.html",
@@ -7,7 +7,7 @@ const CORE_ASSETS = [
   "/favicon-16x16.png?v=20260701-favicon-restore",
   "/favicon-32x32.png?v=20260701-favicon-restore",
   "/favicon-48x48.png?v=20260701-favicon-restore",
-  "/apple-touch-icon.png?v=20260701-favicon-restore",
+  "/apple-touch-icon.png?v=20260702-ios-fullbleed",
   "/styles.css?v=20260702-desktop-growpilot",
   "/app.js?v=20260702-desktop-growpilot",
   "/mobile-home-hero.png",
@@ -16,7 +16,7 @@ const CORE_ASSETS = [
   "/xlsx.full.min.js",
   "/manifest.webmanifest?v=20260701-favicon-restore",
   "/icons/logo.png?v=20260701-growup-logo-transparent",
-  "/icons/apple-touch-icon.png?v=20260701-favicon-restore",
+  "/icons/apple-touch-icon.png?v=20260702-ios-fullbleed",
   "/icons/icon-192.png?v=20260701-favicon-restore",
   "/icons/icon-512.png?v=20260701-favicon-restore",
   "/icons/maskable-icon-192.png?v=20260701-favicon-restore",
