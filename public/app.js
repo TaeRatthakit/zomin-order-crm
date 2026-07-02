@@ -414,15 +414,6 @@ function waitForImageElement(image) {
   });
 }
 
-function waitForImageUrl(url) {
-  return new Promise(resolve => {
-    const image = new Image();
-    image.addEventListener("load", resolve, { once: true });
-    image.addEventListener("error", resolve, { once: true });
-    image.src = url;
-  });
-}
-
 function waitForTwoFrames() {
   return new Promise(resolve => {
     requestAnimationFrame(() => requestAnimationFrame(resolve));
@@ -435,9 +426,6 @@ async function finishMobileStartup() {
   if (!isMobileStartupViewport() || !root.classList.contains("mobile-startup-pending") || !loader) return;
 
   const imageTasks = [...document.images].map(waitForImageElement);
-  if (app.currentUser && app.view === "dashboard") {
-    imageTasks.push(waitForImageUrl("/mobile-home-avatar.png"));
-  }
   await Promise.allSettled([
     document.fonts?.ready || Promise.resolve(),
     ...imageTasks
