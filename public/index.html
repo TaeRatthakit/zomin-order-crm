@@ -38,11 +38,16 @@
     <link rel="stylesheet" href="/styles.css?v=20260702-mobile-startup-v2">
   </head>
   <body>
-    <div id="mobileStartupLoader" class="mobile-startup-loader" aria-hidden="true">
+    <div id="mobileStartupLoader" class="mobile-startup-loader" aria-hidden="true" hidden>
       <div class="mobile-startup-mark">
         <img src="/mobile-startup-logo.png?v=20260702-mobile-startup-v2" alt="" width="1254" height="1254" fetchpriority="high" decoding="sync">
       </div>
     </div>
+    <script>
+      if (document.documentElement.classList.contains("mobile-startup-pending")) {
+        document.querySelector("#mobileStartupLoader").hidden = false;
+      }
+    </script>
 
     <div class="app-shell">
       <aside class="sidebar" aria-label="เมนูหลัก">
