@@ -5,7 +5,6 @@ const desktopNavItems = [
   ["products", "/products", "สินค้า", "box"],
   ["opportunities", "/opportunities", "การขาย", "chart"],
   ["reports", "/reports", "รายงาน", "chart"],
-  ["aiInsights", "/ai-insight", "AI ผู้ช่วยธุรกิจ", "stars"],
   ["marketing", "/marketing", "การตลาด", "send"],
   ["settings", "/settings", "ตั้งค่า", "settings"]
 ];
