@@ -6873,21 +6873,22 @@ small,
     opacity: 1;
   }
 
-  body.mobile-orders-view #orderDialog label:has([name="orderNumber"]) { order: 1; }
-  body.mobile-orders-view #orderDialog label:has([name="date"]) { order: 2; }
-  body.mobile-orders-view #orderDialog label:has([name="sourceChannel"]) { order: 3; grid-column: 1 / -1; }
-  body.mobile-orders-view #orderDialog label:has([name="socialName"]) { order: 4; grid-column: 1 / -1; }
-  body.mobile-orders-view #orderDialog label:has([name="name"]) { order: 5; }
-  body.mobile-orders-view #orderDialog label:has([name="phone"]) { order: 6; }
-  body.mobile-orders-view #orderDialog label:has([name="alternatePhone"]) { order: 7; grid-column: 1 / -1; }
-  body.mobile-orders-view #orderDialog label:has([name="address"]) { order: 8; grid-column: 1 / -1; }
-  body.mobile-orders-view #orderDialog label:has([name="jars"]) { order: 9; }
-  body.mobile-orders-view #orderDialog label:has([name="amount"]) { order: 10; }
-  body.mobile-orders-view #orderDialog label:has([name="freeGift"]) { order: 11; grid-column: 1 / -1; }
-  body.mobile-orders-view #orderDialog label:has([name="vipCardStatus"]) { order: 12; }
-  body.mobile-orders-view #orderDialog label:has([name="originSourceChoice"]) { order: 13; }
+  body.mobile-orders-view #orderDialog label:has([name="items"]) { order: 1; grid-column: 1 / -1; }
+  body.mobile-orders-view #orderDialog label:has([name="orderNumber"]) { order: 2; }
+  body.mobile-orders-view #orderDialog label:has([name="date"]) { order: 3; }
+  body.mobile-orders-view #orderDialog label:has([name="sourceChannel"]) { order: 4; grid-column: 1 / -1; }
+  body.mobile-orders-view #orderDialog label:has([name="socialName"]) { order: 5; grid-column: 1 / -1; }
+  body.mobile-orders-view #orderDialog label:has([name="name"]) { order: 6; }
+  body.mobile-orders-view #orderDialog label:has([name="phone"]) { order: 7; }
+  body.mobile-orders-view #orderDialog label:has([name="alternatePhone"]) { order: 8; grid-column: 1 / -1; }
+  body.mobile-orders-view #orderDialog label:has([name="address"]) { order: 9; grid-column: 1 / -1; }
+  body.mobile-orders-view #orderDialog label:has([name="jars"]) { order: 10; }
+  body.mobile-orders-view #orderDialog label:has([name="amount"]) { order: 11; }
+  body.mobile-orders-view #orderDialog label:has([name="freeGift"]) { order: 12; grid-column: 1 / -1; }
+  body.mobile-orders-view #orderDialog label:has([name="vipCardStatus"]) { order: 13; grid-column: 1 / -1; }
   body.mobile-orders-view #orderDialog label:has([name="tags"]) { order: 14; grid-column: 1 / -1; }
-  body.mobile-orders-view #orderDialog label:has([name="note"]) { order: 15; grid-column: 1 / -1; }
+  body.mobile-orders-view #orderDialog label:has([name="originSourceChoice"]) { order: 15; grid-column: 1 / -1; }
+  body.mobile-orders-view #orderDialog label:has([name="note"]) { order: 16; grid-column: 1 / -1; }
 
   body.mobile-orders-view #orderDialog input[name="address"] {
     min-height: 62px;

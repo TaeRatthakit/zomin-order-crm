@@ -4734,16 +4734,18 @@ function openOrderDialog(order = null) {
     els.orderForm.elements.date.value = isMobileViewport() ? `${dateValue}T${timeValue}` : dateValue;
     els.orderForm.elements.amount.value = app.data?.settings?.defaultJarPrice || 750;
   }
-  const mobileRequiredFields = ["orderNumber", "date", "sourceChannel", "name", "phone", "address", "jars", "amount"];
+  const mobileRequiredFields = ["items", "orderNumber", "date", "sourceChannel", "name", "phone", "address", "jars", "amount"];
   for (const fieldName of mobileRequiredFields) {
     const field = els.orderForm.elements[fieldName];
     if (field) field.required = isMobileViewport() || ["date", "name", "phone", "jars", "amount"].includes(fieldName);
   }
   if (isMobileViewport()) {
+    els.orderForm.elements.items.placeholder = "ชื่อ สินค้า";
     els.orderForm.elements.orderNumber.placeholder = "เช่น 1/1";
     els.orderForm.elements.sourceChannel.placeholder = "เช่น F: สมใจ / L: somjai";
     els.orderForm.elements.freeGift.placeholder = "เช่น แถมกระบอกน้ำ";
   } else {
+    els.orderForm.elements.items.placeholder = "เช่น Zomin";
     els.orderForm.elements.orderNumber.placeholder = "เช่น 1/27";
     els.orderForm.elements.sourceChannel.placeholder = "เลือกหรือพิมพ์ช่องทางการสั่งซื้อ";
     els.orderForm.elements.freeGift.placeholder = "เช่น แถม 1 กระปุก, ค่าส่งฟรี";

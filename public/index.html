@@ -45,7 +45,7 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=20260701-favicon-restore">
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=20260701-favicon-restore">
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=20260702-ios-enhanced-fullbleed">
-    <link rel="stylesheet" href="/styles.css?v=20260703-mobile-profile">
+    <link rel="stylesheet" href="/styles.css?v=20260704-mobile-order-form">
   </head>
   <body>
     <div id="mobileStartupLoader" class="mobile-startup-loader" aria-hidden="true" hidden>
@@ -164,7 +164,7 @@
           <button class="icon-button" type="button" data-close-order aria-label="ปิด">×</button>
         </div>
         <div class="form-grid">
-          <label>สินค้า<input name="items" placeholder="เช่น Zomin"></label>
+          <label><span class="order-field-label">สินค้า <i>*</i></span><input name="items" placeholder="เช่น Zomin"></label>
           <label><span class="order-field-label">เลขออเดอร์ <i>*</i></span><input name="orderNumber" placeholder="เช่น 1/27"></label>
           <label><span class="order-field-label">วันที่ซื้อ <i>*</i></span><input name="date" type="date" required></label>
           <label><span class="order-field-label">ช่องทางการสั่งซื้อ <i>*</i></span>
@@ -330,9 +330,9 @@
       </form>
     </dialog>
 
-    <script src="/app.js?v=20260703-mobile-profile"></script>
+    <script src="/app.js?v=20260704-mobile-order-form"></script>
     <script>
-      const swUrl = "/service-worker.js?v=20260703-mobile-profile";
+      const swUrl = "/service-worker.js?v=20260704-mobile-order-form";
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", () => {
           navigator.serviceWorker.register(swUrl).then(registration => registration.update()).catch(() => {});
