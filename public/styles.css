@@ -6596,6 +6596,13 @@ small,
     display: none;
   }
 
+  body.mobile-app-shell.mobile-home-view:not(.login-view) .date-pill {
+    width: 100%;
+    max-width: 114px;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
   body.mobile-app-shell:not(.login-view) .page-heading {
     display: none;
   }
