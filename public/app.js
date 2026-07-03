@@ -176,7 +176,6 @@ function iconSvg(name) {
     home: '<path d="m3 10 9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M9 20v-6h6v6"/>',
     users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
     clipboard: '<rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M8 11h8"/><path d="M8 16h6"/>',
-    orderbag: '<path d="M5 8h14l1 13H4L5 8Z"/><path d="M9 10V6a3 3 0 0 1 6 0v4"/>',
     bell: '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>',
     spark: '<path d="M12 3 9.5 9.5 3 12l6.5 2.5L12 21l2.5-6.5L21 12l-6.5-2.5z"/>',
     box: '<path d="M21 8.5 12 13 3 8.5"/><path d="M3 8.5 12 3l9 5.5v7L12 21l-9-5.5z"/><path d="M12 13v8"/>',
@@ -586,7 +585,7 @@ function renderNav() {
   els.nav.innerHTML = navItems
     .map(([id, path, label, icon]) => `
       <button class="nav-button ${activeGroup === id ? "active" : ""}" data-view="${id}" data-path="${path}" aria-label="${escapeHtml(label)}">
-        <span class="nav-index">${iconSvg(isMobileViewport() && app.view === "orders" && id === "orders" ? "orderbag" : icon)}</span>
+        <span class="nav-index">${iconSvg(icon)}</span>
         <span>${escapeHtml(label)}</span>
       </button>
     `)
