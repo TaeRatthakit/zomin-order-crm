@@ -3624,23 +3624,40 @@ small,
   }
 
   body.mobile-home-view .topbar-logo {
-    content: url("/icons/logo.png?v=20260702-mobile-home");
+    content: url("/icons/logo.png?v=20260704-mobile-header-fast");
     width: 66px;
     height: 66px;
     object-fit: contain;
     filter: drop-shadow(0 0 16px rgba(135, 45, 255, 0.34));
   }
 
-  body.mobile-home-view .header-profile {
+  body.mobile-home-view .header-profile,
+  body.mobile-home-view .header-profile-trigger {
     gap: 7px;
+  }
+
+  body.mobile-home-view .header-profile-trigger {
+    display: grid;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    text-align: left;
   }
 
   body.mobile-home-view .header-profile-avatar {
     width: 54px;
     height: 54px;
     border: 0;
-    background: url("/mobile-home-avatar.png") center / cover no-repeat;
     box-shadow: none;
+  }
+
+  body.mobile-home-view .header-profile-avatar img {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: cover;
+    border-radius: 50%;
   }
 
   body.mobile-home-view .header-profile-avatar-core,
@@ -3749,15 +3766,11 @@ small,
     box-shadow: none;
   }
 
-  body.mobile-home-view .mobile-hero-card img {
-    display: block;
-    width: 100%;
-    height: auto;
-    aspect-ratio: 779 / 338;
+  body.mobile-home-view .mobile-hero-copy,
+  body.mobile-home-view .mobile-hero-stage {
+    display: grid;
   }
 
-  body.mobile-home-view .mobile-hero-copy,
-  body.mobile-home-view .mobile-hero-stage,
   body.mobile-home-view .mobile-hero-dots {
     display: none;
   }
@@ -5772,16 +5785,33 @@ small,
     filter: drop-shadow(0 0 15px rgba(143, 45, 255, 0.55));
   }
 
-  body.mobile-orders-view .header-profile {
+  body.mobile-orders-view .header-profile,
+  body.mobile-orders-view .header-profile-trigger {
     gap: 0;
+  }
+
+  body.mobile-orders-view .header-profile-trigger {
+    display: grid;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    text-align: left;
   }
 
   body.mobile-orders-view .header-profile-avatar {
     width: 55px;
     height: 55px;
     border: 0;
-    background: url("/mobile-home-avatar.png") center / cover no-repeat;
     box-shadow: none;
+  }
+
+  body.mobile-orders-view .header-profile-avatar img {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: cover;
+    border-radius: 50%;
   }
 
   body.mobile-orders-view .header-profile-avatar-core,
@@ -6144,57 +6174,6 @@ small,
     white-space: nowrap;
   }
 
-  body.mobile-orders-view .sidebar {
-    height: 67px;
-    padding: 5px 14px 4px;
-    border: 1px solid rgba(65, 98, 121, 0.3);
-    border-radius: 16px 16px 0 0;
-    background: rgba(3, 16, 27, 0.97);
-    backdrop-filter: blur(18px);
-  }
-
-  body.mobile-orders-view .nav-list {
-    height: 57px;
-    gap: 0;
-  }
-
-  body.mobile-orders-view .nav-button {
-    min-height: 57px;
-    height: 57px;
-    padding: 3px 1px 1px;
-    gap: 1px;
-    border: 0;
-    border-radius: 24px;
-    background: transparent;
-    color: #8d939d;
-    font-weight: 400;
-  }
-
-  body.mobile-orders-view .nav-button.active {
-    background: radial-gradient(ellipse at center, rgba(91, 27, 164, 0.38), rgba(34, 21, 78, 0.28) 58%, transparent 72%);
-    color: #b451ff;
-  }
-
-  body.mobile-orders-view .nav-button .nav-index {
-    width: 31px;
-    height: 31px;
-    border-radius: 0;
-    background: transparent;
-  }
-
-  body.mobile-orders-view .nav-button .nav-icon {
-    width: 25px;
-    height: 25px;
-    stroke-width: 1.8;
-  }
-
-  body.mobile-orders-view .nav-button > span:last-child {
-    font-size: 12px;
-    font-weight: 400;
-    line-height: 1.15;
-    letter-spacing: 0;
-  }
-
   body.mobile-orders-view #orderDialog {
     width: min(430px, 100vw);
     max-width: 100vw;
@@ -6510,6 +6489,11 @@ small,
     box-shadow: none;
   }
 
+  body.mobile-app-shell:not(.login-view) .header-profile-avatar-core,
+  body.mobile-app-shell:not(.login-view) .header-profile-badge {
+    display: none;
+  }
+
   body.mobile-app-shell:not(.login-view) .header-profile-avatar img {
     width: 100%;
     height: 100%;
@@ -6681,5 +6665,32 @@ small,
 
   body.mobile-home-view .mobile-kpi-delta {
     white-space: nowrap;
+  }
+
+  #profileDialog {
+    width: min(430px, 100vw);
+    max-width: 100vw;
+    margin: auto auto 0;
+    border-radius: 26px 26px 0 0;
+  }
+
+  #profileDialog form {
+    padding: 28px 22px 22px;
+    border: 1px solid rgba(82, 101, 125, 0.34);
+    border-radius: 26px 26px 0 0;
+    background: linear-gradient(145deg, #0c1929, #071321);
+  }
+
+  .profile-form-avatar {
+    grid-column: 1 / -1;
+    display: grid;
+    justify-items: center;
+    gap: 12px;
+    margin-bottom: 4px;
+  }
+
+  .profile-form-avatar .header-profile-avatar {
+    width: 92px;
+    height: 92px;
   }
 }

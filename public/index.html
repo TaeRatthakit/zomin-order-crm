@@ -11,7 +11,7 @@
     <meta name="apple-mobile-web-app-title" content="Growup Pilot">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <link rel="preload" as="image" href="/mobile-startup-logo.png?v=20260702-mobile-startup-v2" fetchpriority="high" media="(max-width: 780px)">
-    <link rel="preload" as="image" href="/icons/logo.png?v=20260703-mobile-shell" fetchpriority="high" media="(max-width: 780px)">
+    <link rel="preload" as="image" href="/icons/logo.png?v=20260704-mobile-header-fast" fetchpriority="high" media="(max-width: 780px)">
     <link rel="preload" as="image" href="/mobile-home-hero.png?v=20260703-mobile-hero-static" fetchpriority="high" media="(max-width: 780px)">
     <script>
       if (window.matchMedia("(max-width: 780px)").matches) {
@@ -20,8 +20,9 @@
         mobileHero.decoding = "async";
         mobileHero.src = "/mobile-home-hero.png?v=20260703-mobile-hero-static";
         const mobileLogo = new Image();
-        mobileLogo.decoding = "async";
-        mobileLogo.src = "/icons/logo.png?v=20260703-mobile-shell";
+        mobileLogo.fetchPriority = "high";
+        mobileLogo.decoding = "sync";
+        mobileLogo.src = "/icons/logo.png?v=20260704-mobile-header-fast";
       }
     </script>
     <meta property="og:type" content="website">
@@ -78,7 +79,7 @@
               <div id="headerProfile" class="header-profile" hidden></div>
             </div>
             <div class="topbar-brand" aria-label="Growup Pilot">
-              <img class="topbar-logo" src="/icons/logo.png?v=20260701-growup-logo-transparent" alt="Growup Pilot">
+              <img class="topbar-logo" src="/icons/logo.png?v=20260704-mobile-header-fast" alt="Growup Pilot" fetchpriority="high" loading="eager" decoding="sync">
             </div>
             <div class="topbar-side topbar-side-right">
               <div class="topbar-icon-row">
@@ -122,6 +123,33 @@
           <button class="icon-button" type="button" data-close-customer aria-label="ปิด">×</button>
         </div>
         <div id="customerDetail"></div>
+      </form>
+    </dialog>
+
+    <dialog id="profileDialog" class="dialog">
+      <form id="profileForm" method="dialog">
+        <div class="dialog-header">
+          <div>
+            <p class="eyebrow">Profile Settings</p>
+            <h2>แก้ไขโปรไฟล์</h2>
+          </div>
+          <button class="icon-button" type="button" data-close-profile aria-label="ปิด">×</button>
+        </div>
+        <div class="form-grid">
+          <div class="profile-form-avatar">
+            <div id="profileAvatarPreview" class="header-profile-avatar" aria-hidden="true">
+              <span class="header-profile-avatar-core">GP</span>
+              <span class="header-profile-badge">👑</span>
+            </div>
+            <button class="button ghost" type="button" data-pick-profile-image>อัปโหลดรูป</button>
+            <input id="profileImageInput" name="profileImageInput" type="file" accept="image/*" hidden>
+          </div>
+          <label class="span-2"><span class="order-field-label">ชื่อที่แสดง</span><input name="displayName" maxlength="60" required></label>
+        </div>
+        <div class="dialog-actions">
+          <button class="button ghost" type="button" data-close-profile>ยกเลิก</button>
+          <button class="button primary" type="submit">บันทึกโปรไฟล์</button>
+        </div>
       </form>
     </dialog>
 

@@ -96,7 +96,9 @@ const app = {
   editingProductId: "",
   productSavePending: false,
   deletingOrderId: "",
-  deletingCustomerId: ""
+  deletingCustomerId: "",
+  profileDraftImage: "",
+  profileSaving: false
 };
 
 const adminViews = new Set([
@@ -216,6 +218,9 @@ const els = {
   deleteCustomerForm: document.querySelector("#deleteCustomerForm"),
   logoutDialog: document.querySelector("#logoutDialog"),
   logoutForm: document.querySelector("#logoutForm"),
+  profileDialog: document.querySelector("#profileDialog"),
+  profileForm: document.querySelector("#profileForm"),
+  profileAvatarPreview: document.querySelector("#profileAvatarPreview"),
   customerDialog: document.querySelector("#customerDialog"),
   customerDetail: document.querySelector("#customerDetail"),
   dialogCustomerName: document.querySelector("#dialogCustomerName"),
@@ -588,7 +593,29 @@ function sidebarNotificationCount() {
 }
 
 function currentUserAvatar() {
-  return String(app.currentUser?.avatar || "").trim();
+  return String(app.currentUser?.avatar || "/mobile-home-avatar.png").trim();
+}
+
+function syncProfileAvatarPreview() {
+  if (!els.profileAvatarPreview) return;
+  const avatar = escapeHtml(app.profileDraftImage || currentUserAvatar());
+  const initialText = escapeHtml(initials(app.currentUser?.name || "GP"));
+  els.profileAvatarPreview.innerHTML = avatar
+    ? `<img src="${avatar}" alt="${escapeHtml(app.currentUser?.name || "Growup Pilot")}" decoding="async"><span class="header-profile-badge">👑</span>`
+    : `<span class="header-profile-avatar-core">${initialText}</span><span class="header-profile-badge">👑</span>`;
+}
+
+function openProfileDialog() {
+  if (!els.profileDialog || !els.profileForm || !app.currentUser) return;
+  app.profileDraftImage = "";
+  els.profileForm.reset();
+  if (els.profileForm.elements.displayName) {
+    els.profileForm.elements.displayName.value = app.currentUser.name || "";
+  }
+  const input = document.querySelector("#profileImageInput");
+  if (input) input.value = "";
+  syncProfileAvatarPreview();
+  els.profileDialog.showModal();
 }
 
 function avatarMarkup(name, avatar, className = "header-profile-avatar", interactive = false) {
@@ -1460,7 +1487,21 @@ function renderMobileDashboard(viewModel) {
     <section class="section saas-page mobile-dashboard-page">
       <div class="mobile-dashboard-shell">
         <section class="mobile-hero-card">
-          <img src="/mobile-home-hero.png?v=20260703-mobile-hero-static" alt="จัดการธุรกิจให้เติบโตไปกับ Growup Pilot" fetchpriority="high" loading="eager" decoding="async">
+          <div class="mobile-hero-copy">
+            <h2>
+              <span>จัดการธุรกิจ</span>
+              <em>ให้เติบโต</em>
+              <small>ไปกับ Growup Pilot</small>
+            </h2>
+          </div>
+          <div class="mobile-hero-stage" aria-hidden="true">
+            <div class="mobile-stage-orbit orbit-top">${dashboardCardIcon("profit")}</div>
+            <div class="mobile-stage-orbit orbit-left">${dashboardCardIcon("users")}</div>
+            <div class="mobile-stage-orbit orbit-right">${dashboardCardIcon("chart")}</div>
+            <div class="mobile-stage-arrow"></div>
+            <div class="mobile-stage-bars"><span></span><span></span><span></span><span></span></div>
+            <div class="mobile-stage-platform"></div>
+          </div>
         </section>
 
         <section class="mobile-kpi-grid">
@@ -4338,6 +4379,22 @@ document.addEventListener("click", async event => {
     return;
   }
 
+  if (event.target.closest("[data-open-profile]")) {
+    openProfileDialog();
+    return;
+  }
+
+  if (event.target.closest("[data-pick-profile-image]")) {
+    document.querySelector("#profileImageInput")?.click();
+    return;
+  }
+
+  if (event.target.closest("[data-close-profile]")) {
+    app.profileDraftImage = "";
+    els.profileDialog?.close();
+    return;
+  }
+
   if (event.target.closest("[data-add-product]")) {
     openProductDialog();
   }
@@ -4623,6 +4680,7 @@ document.addEventListener("click", async event => {
   }
 
   if (event.target.closest("[data-close-customer]")) els.customerDialog.close();
+  if (event.target.closest("[data-close-profile]")) els.profileDialog.close();
   if (event.target.closest("[data-close-product]")) {
     app.editingProductId = "";
     app.productSavePending = false;
@@ -4755,6 +4813,19 @@ document.addEventListener("change", async event => {
       if (!result) return;
       els.productForm.elements.image.value = result;
       updateProductImagePreview(result, els.productForm.elements.name?.value || "");
+    };
+    reader.readAsDataURL(file);
+  }
+
+  if (event.target?.id === "profileImageInput") {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = loadEvent => {
+      const result = String(loadEvent.target?.result || "");
+      if (!result) return;
+      app.profileDraftImage = result;
+      syncProfileAvatarPreview();
     };
     reader.readAsDataURL(file);
   }
@@ -4979,9 +5050,29 @@ document.addEventListener("submit", async event => {
       await loadState();
     }
 
+    if (form.id === "profileForm") {
+      app.profileSaving = true;
+      const data = Object.fromEntries(new FormData(form).entries());
+      const payload = await api("/api/profile", {
+        method: "PUT",
+        body: JSON.stringify({
+          displayName: data.displayName,
+          avatar: app.profileDraftImage || currentUserAvatar()
+        })
+      });
+      app.currentUser = payload.user;
+      app.profileDraftImage = "";
+      els.profileDialog?.close();
+      showToast("บันทึกโปรไฟล์แล้ว");
+      await loadState();
+    }
+
   } catch (error) {
+    app.profileSaving = false;
     showToast(error.message);
+    return;
   }
+  app.profileSaving = false;
 });
 
 window.addEventListener("hashchange", syncViewFromLocation);
