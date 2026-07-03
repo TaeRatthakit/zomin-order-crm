@@ -16,7 +16,8 @@ const {
   saveImportJob,
   importOrdersBatch,
   verifyCustomerSync,
-  persistOrderMutation
+  persistOrderMutation,
+  persistUserProfile
 } = require("./lib/db");
 const {
   hashPassword,
@@ -1865,11 +1866,13 @@ async function handleApi(req, res) {
     if (!user) return json(res, 404, { ok: false, error: "ไม่พบผู้ใช้งาน" });
     const displayName = String(body.displayName || "").trim();
     if (!displayName) return json(res, 400, { ok: false, error: "กรุณาใส่ชื่อที่ต้องการแสดง" });
-    user.name = displayName;
-    user.avatar = sanitizeAvatarDataUrl(body.avatar);
-    await writeDb(db);
-    const session = createSession(user);
-    return json(res, 200, { ok: true, user: publicUser(user) }, {
+    const avatar = sanitizeAvatarDataUrl(body.avatar);
+    const savedUser = typeof persistUserProfile === "function"
+      ? await persistUserProfile(currentUser.id, { displayName, avatar })
+      : null;
+    if (!savedUser) return json(res, 404, { ok: false, error: "ไม่พบผู้ใช้งาน" });
+    const session = createSession(savedUser);
+    return json(res, 200, { ok: true, user: publicUser(savedUser) }, {
       "Set-Cookie": sessionCookie(session.token, session.expiresAt)
     });
   }

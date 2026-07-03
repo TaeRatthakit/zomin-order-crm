@@ -7072,17 +7072,32 @@ small,
     box-shadow: none;
   }
 
-  body.mobile-app-shell:not(.login-view) .header-profile-avatar-core,
   body.mobile-app-shell:not(.login-view) .header-profile-badge {
     display: none;
   }
 
+  body.mobile-app-shell:not(.login-view) .header-profile-avatar-core {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: grid;
+    font-size: 16px;
+  }
+
   body.mobile-app-shell:not(.login-view) .header-profile-avatar img {
+    position: absolute;
+    inset: 0;
     width: 100%;
     height: 100%;
     display: block;
     object-fit: cover;
     border-radius: 50%;
+    opacity: 0;
+  }
+
+  body.mobile-app-shell:not(.login-view) .header-profile-avatar img.is-loaded {
+    opacity: 1;
   }
 
   body.mobile-app-shell:not(.login-view) .topbar-side-right {

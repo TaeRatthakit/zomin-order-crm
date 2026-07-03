@@ -11,6 +11,7 @@
     <meta name="apple-mobile-web-app-title" content="Growup Pilot">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <link rel="preload" as="image" href="/mobile-startup-logo.png?v=20260702-mobile-startup-v2" fetchpriority="high" media="(max-width: 780px)">
+    <link rel="preload" as="image" href="/mobile-home-avatar.png" fetchpriority="high" media="(max-width: 780px)">
     <link rel="preload" as="image" href="/icons/logo.png?v=20260704-mobile-header-fast" fetchpriority="high" media="(max-width: 780px)">
     <link rel="preload" as="image" href="/mobile-home-hero.png?v=20260703-mobile-hero-clean" fetchpriority="high" media="(max-width: 780px)">
     <script>
@@ -44,7 +45,7 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=20260701-favicon-restore">
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=20260701-favicon-restore">
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=20260702-ios-enhanced-fullbleed">
-    <link rel="stylesheet" href="/styles.css?v=20260703-mobile-reports-compact">
+    <link rel="stylesheet" href="/styles.css?v=20260703-mobile-profile">
   </head>
   <body>
     <div id="mobileStartupLoader" class="mobile-startup-loader" aria-hidden="true" hidden>
@@ -148,7 +149,7 @@
         </div>
         <div class="dialog-actions">
           <button class="button ghost" type="button" data-close-profile>ยกเลิก</button>
-          <button class="button primary" type="submit">บันทึกโปรไฟล์</button>
+          <button class="button primary" id="profileSubmitButton" type="submit">บันทึกโปรไฟล์</button>
         </div>
       </form>
     </dialog>
@@ -328,9 +329,9 @@
       </form>
     </dialog>
 
-    <script src="/app.js?v=20260703-mobile-orders-scroll"></script>
+    <script src="/app.js?v=20260703-mobile-profile"></script>
     <script>
-      const swUrl = "/service-worker.js?v=20260703-mobile-orders-scroll";
+      const swUrl = "/service-worker.js?v=20260703-mobile-profile";
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", () => {
           navigator.serviceWorker.register(swUrl).then(registration => registration.update()).catch(() => {});

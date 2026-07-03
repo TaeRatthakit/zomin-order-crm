@@ -54,6 +54,7 @@ const routeToView = {
 };
 const viewToRoute = Object.fromEntries(Object.entries(routeToView).map(([path, view]) => [view, path]));
 const MISSING_CHANNEL_LABEL = "อื่นๆ";
+const MOBILE_PROFILE_CACHE_KEY = "growup_mobile_profile_v1";
 
 const app = {
   view: routeFromLocation(),
@@ -101,6 +102,38 @@ const app = {
   profileDraftImage: "",
   profileSaving: false
 };
+
+function readCachedMobileProfile() {
+  try {
+    return JSON.parse(localStorage.getItem(MOBILE_PROFILE_CACHE_KEY) || "null");
+  } catch {
+    return null;
+  }
+}
+
+function cacheMobileProfile(user) {
+  if (!isMobileViewport() || !user?.id) return;
+  try {
+    localStorage.setItem(MOBILE_PROFILE_CACHE_KEY, JSON.stringify({
+      id: user.id,
+      name: user.name || "",
+      avatar: user.avatar || ""
+    }));
+  } catch {
+    // The server remains authoritative if browser storage is unavailable or full.
+  }
+}
+
+function mergeCachedMobileProfile(user) {
+  if (!isMobileViewport() || !user?.id) return user;
+  const cached = readCachedMobileProfile();
+  if (!cached || cached.id !== user.id) return user;
+  return {
+    ...user,
+    name: user.name || cached.name || "",
+    avatar: user.avatar || cached.avatar || ""
+  };
+}
 
 const adminViews = new Set([
   "settingsStore", "settingsFinance", "settingsCustomers", "settingsLineHub",
@@ -242,7 +275,8 @@ async function restoreSession() {
       headers: { "Content-Type": "application/json" }
     });
     const payload = await res.json();
-    app.currentUser = payload.user?.id ? payload.user : null;
+    app.currentUser = payload.user?.id ? mergeCachedMobileProfile(payload.user) : null;
+    cacheMobileProfile(app.currentUser);
   } catch {
     app.currentUser = null;
   }
@@ -516,7 +550,11 @@ async function loadState() {
   const selectedDate = els.workDate?.value || todayISO();
   try {
     app.data = await api(`/api/state?date=${encodeURIComponent(selectedDate)}`);
-    if (app.data.currentUser) app.currentUser = app.data.currentUser;
+    if (app.data.currentUser) {
+      app.currentUser = mergeCachedMobileProfile(app.data.currentUser);
+      app.data.currentUser = app.currentUser;
+      cacheMobileProfile(app.currentUser);
+    }
   } catch (error) {
     if (error.status === 401) {
       clearSession();
@@ -599,7 +637,29 @@ function sidebarNotificationCount() {
 }
 
 function currentUserAvatar() {
+  if (isMobileViewport()) {
+    const cached = readCachedMobileProfile();
+    if (cached?.id === app.currentUser?.id && cached.avatar) return String(cached.avatar).trim();
+  }
   return String(app.currentUser?.avatar || "/mobile-home-avatar.png").trim();
+}
+
+function markAvatarLoaded(image) {
+  if (!image) return;
+  if (image.complete && image.naturalWidth > 0) image.classList.add("is-loaded");
+  else image.addEventListener("load", () => image.classList.add("is-loaded"), { once: true });
+}
+
+function setProfileSaveState(isSaving) {
+  app.profileSaving = isSaving;
+  const button = document.querySelector("#profileSubmitButton");
+  if (!button) return;
+  const displayName = String(els.profileForm?.elements.displayName?.value || "").trim();
+  const nameChanged = displayName !== String(app.currentUser?.name || "").trim();
+  const imageChanged = Boolean(app.profileDraftImage);
+  button.disabled = isSaving || !displayName || (!nameChanged && !imageChanged);
+  button.dataset.loading = isSaving ? "true" : "false";
+  button.textContent = isSaving ? "กำลังบันทึก..." : "บันทึกโปรไฟล์";
 }
 
 function syncProfileAvatarPreview() {
@@ -607,8 +667,9 @@ function syncProfileAvatarPreview() {
   const avatar = escapeHtml(app.profileDraftImage || currentUserAvatar());
   const initialText = escapeHtml(initials(app.currentUser?.name || "GP"));
   els.profileAvatarPreview.innerHTML = avatar
-    ? `<img src="${avatar}" alt="${escapeHtml(app.currentUser?.name || "Growup Pilot")}" decoding="async"><span class="header-profile-badge">👑</span>`
+    ? `<span class="header-profile-avatar-core">${initialText}</span><img class="profile-avatar-image" src="${avatar}" alt="${escapeHtml(app.currentUser?.name || "Growup Pilot")}" loading="eager" decoding="async" width="92" height="92"><span class="header-profile-badge">👑</span>`
     : `<span class="header-profile-avatar-core">${initialText}</span><span class="header-profile-badge">👑</span>`;
+  markAvatarLoaded(els.profileAvatarPreview.querySelector("img"));
 }
 
 function openProfileDialog() {
@@ -621,6 +682,7 @@ function openProfileDialog() {
   const input = document.querySelector("#profileImageInput");
   if (input) input.value = "";
   syncProfileAvatarPreview();
+  setProfileSaveState(false);
   els.profileDialog.showModal();
 }
 
@@ -629,14 +691,45 @@ function avatarMarkup(name, avatar, className = "header-profile-avatar", interac
   const safeAvatar = escapeHtml(avatar || "");
   const initialText = escapeHtml(initials(name || "GP"));
   const image = safeAvatar
-    ? `<img src="${safeAvatar}" alt="${safeName}" loading="${interactive ? "eager" : "lazy"}" decoding="async">`
-    : `<span class="header-profile-avatar-core">${initialText}</span>`;
+    ? `<img class="profile-avatar-image" src="${safeAvatar}" alt="${safeName}" loading="${isMobileViewport() || interactive ? "eager" : "lazy"}" decoding="async" width="74" height="74"${isMobileViewport() ? ' fetchpriority="high"' : ""}>`
+    : "";
   return `
     <span class="${className}${interactive ? " is-interactive" : ""}" ${interactive ? 'role="button" tabindex="0" aria-label="เปิดการตั้งค่าโปรไฟล์"' : 'aria-hidden="true"'}>
+      <span class="header-profile-avatar-core">${initialText}</span>
       ${image}
       <span class="header-profile-badge">👑</span>
     </span>
   `;
+}
+
+function syncMobileHeaderProfile() {
+  const name = String(app.currentUser?.name || "");
+  const avatar = currentUserAvatar();
+  const existing = els.headerProfile.querySelector(".header-profile-trigger");
+  if (!existing) {
+    els.headerProfile.innerHTML = `
+      <button class="header-profile-trigger" type="button" data-open-profile aria-label="เปิดการตั้งค่าโปรไฟล์">
+        ${avatarMarkup(name, avatar)}
+        <div class="header-profile-copy">
+          <strong>${escapeHtml(name)}</strong>
+          <span>${escapeHtml(app.currentUser.role === "Admin" ? "เจ้าของร้าน" : "ทีมงาน")}</span>
+        </div>
+      </button>
+    `;
+  } else {
+    const image = existing.querySelector(".profile-avatar-image");
+    if (image && image.getAttribute("src") !== avatar) {
+      image.classList.remove("is-loaded");
+      image.setAttribute("src", avatar);
+    }
+    const fallback = existing.querySelector(".header-profile-avatar-core");
+    if (fallback) fallback.textContent = initials(name || "GP");
+    const nameElement = existing.querySelector(".header-profile-copy strong");
+    if (nameElement) nameElement.textContent = name;
+    const roleElement = existing.querySelector(".header-profile-copy span");
+    if (roleElement) roleElement.textContent = app.currentUser.role === "Admin" ? "เจ้าของร้าน" : "ทีมงาน";
+  }
+  markAvatarLoaded(els.headerProfile.querySelector(".profile-avatar-image"));
 }
 
 function updateShell() {
@@ -670,15 +763,19 @@ function updateShell() {
     els.headerNotificationBadge.textContent = String(notificationCount);
   }
   els.headerProfile.hidden = false;
-  els.headerProfile.innerHTML = `
-    <button class="header-profile-trigger" type="button" data-open-profile aria-label="เปิดการตั้งค่าโปรไฟล์">
-      ${avatarMarkup(app.currentUser.name, currentUserAvatar())}
-      <div class="header-profile-copy">
-        <strong>${escapeHtml(app.currentUser.name)}</strong>
-        <span>${escapeHtml(app.currentUser.role === "Admin" ? "เจ้าของร้าน" : "ทีมงาน")}</span>
-      </div>
-    </button>
-  `;
+  if (isMobileViewport()) syncMobileHeaderProfile();
+  else {
+    els.headerProfile.innerHTML = `
+      <button class="header-profile-trigger" type="button" data-open-profile aria-label="เปิดการตั้งค่าโปรไฟล์">
+        ${avatarMarkup(app.currentUser.name, currentUserAvatar())}
+        <div class="header-profile-copy">
+          <strong>${escapeHtml(app.currentUser.name)}</strong>
+          <span>${escapeHtml(app.currentUser.role === "Admin" ? "เจ้าของร้าน" : "ทีมงาน")}</span>
+        </div>
+      </button>
+    `;
+    markAvatarLoaded(els.headerProfile.querySelector(".profile-avatar-image"));
+  }
   if (els.sidebarFooter) {
     els.sidebarFooter.hidden = false;
     els.sidebarFooter.innerHTML = `
@@ -5055,6 +5152,10 @@ document.addEventListener("input", event => {
   if (event.target?.name === "name" && event.target.form?.id === "productForm") {
     updateProductImagePreview(els.productForm?.elements?.image?.value || "", event.target.value);
   }
+
+  if (event.target?.name === "displayName" && event.target.form?.id === "profileForm") {
+    setProfileSaveState(false);
+  }
 });
 
 document.addEventListener("change", event => {
@@ -5143,6 +5244,7 @@ document.addEventListener("change", async event => {
       if (!result) return;
       app.profileDraftImage = result;
       syncProfileAvatarPreview();
+      setProfileSaveState(false);
     };
     reader.readAsDataURL(file);
   }
@@ -5368,28 +5470,44 @@ document.addEventListener("submit", async event => {
     }
 
     if (form.id === "profileForm") {
-      app.profileSaving = true;
       const data = Object.fromEntries(new FormData(form).entries());
-      const payload = await api("/api/profile", {
-        method: "PUT",
-        body: JSON.stringify({
-          displayName: data.displayName,
-          avatar: app.profileDraftImage || currentUserAvatar()
-        })
-      });
-      app.currentUser = payload.user;
-      app.profileDraftImage = "";
-      els.profileDialog?.close();
-      showToast("บันทึกโปรไฟล์แล้ว");
-      await loadState();
+      const displayName = String(data.displayName || "").trim();
+      if (!displayName) {
+        showToast("กรุณาใส่ชื่อที่ต้องการแสดง");
+        return;
+      }
+      setProfileSaveState(true);
+      try {
+        const avatar = app.profileDraftImage || app.currentUser?.avatar || "";
+        const payload = await api("/api/profile", {
+          method: "PUT",
+          body: JSON.stringify({ displayName, avatar })
+        });
+        app.currentUser = mergeCachedMobileProfile({
+          ...payload.user,
+          avatar: payload.user?.avatar || avatar
+        });
+        if (app.data) {
+          app.data.currentUser = app.currentUser;
+          const userIndex = (app.data.users || []).findIndex(user => user.id === app.currentUser.id);
+          if (userIndex >= 0) app.data.users[userIndex] = app.currentUser;
+        }
+        cacheMobileProfile(app.currentUser);
+        app.profileDraftImage = "";
+        updateShell();
+        els.profileDialog?.close();
+        showToast("บันทึกโปรไฟล์แล้ว");
+      } finally {
+        setProfileSaveState(false);
+      }
     }
 
   } catch (error) {
-    app.profileSaving = false;
+    setProfileSaveState(false);
     showToast(error.message);
     return;
   }
-  app.profileSaving = false;
+  setProfileSaveState(false);
 });
 
 window.addEventListener("hashchange", syncViewFromLocation);
