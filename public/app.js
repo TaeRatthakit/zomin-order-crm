@@ -644,6 +644,7 @@ function updateShell() {
   document.body.classList.toggle("desktop-app-shell", !isMobileViewport());
   document.body.classList.toggle("mobile-home-view", isMobileViewport() && app.view === "dashboard");
   document.body.classList.toggle("mobile-orders-view", isMobileViewport() && app.view === "orders");
+  document.body.classList.toggle("mobile-reports-view", isMobileViewport() && app.view === "reports");
   if (!els.headerProfile) return;
   if (els.workDateDisplay) {
     const dateValue = els.workDate?.value || app.data?.summary?.selectedDate || todayISO();
@@ -2980,9 +2981,278 @@ function summarizeOriginSource(value) {
   return MISSING_CHANNEL_LABEL;
 }
 
+function reportPreviousMonth(month) {
+  const [year, monthNumber] = String(month || "").split("-").map(Number);
+  if (!year || !monthNumber) return "";
+  const date = new Date(Date.UTC(year, monthNumber - 2, 1));
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+function reportMonthLabel(month) {
+  const [year, monthNumber] = String(month || "").split("-").map(Number);
+  if (!year || !monthNumber) return String(month || "");
+  return new Intl.DateTimeFormat("th-TH", { month: "long", year: "numeric" })
+    .format(new Date(Date.UTC(year, monthNumber - 1, 1)));
+}
+
+function reportMonthRange(month) {
+  const [year, monthNumber] = String(month || "").split("-").map(Number);
+  if (!year || !monthNumber) return "";
+  const days = new Date(Date.UTC(year, monthNumber, 0)).getUTCDate();
+  const shortMonth = new Intl.DateTimeFormat("th-TH", { month: "short" })
+    .format(new Date(Date.UTC(year, monthNumber - 1, 1)));
+  return `1 - ${days} ${shortMonth} ${year + 543}`;
+}
+
+function reportDelta(currentValue, previousValue) {
+  const current = Number(currentValue || 0);
+  const previous = Number(previousValue || 0);
+  if (current === 0 && previous === 0) return { text: "0%", tone: "flat" };
+  if (previous <= 0) return { text: "↑ 100%", tone: "up" };
+  const percent = ((current - previous) / previous) * 100;
+  const rounded = Math.abs(percent) >= 10 ? Math.round(Math.abs(percent)) : Math.abs(percent).toFixed(1);
+  if (percent > 0) return { text: `↑ ${rounded}%`, tone: "up" };
+  if (percent < 0) return { text: `↓ ${rounded}%`, tone: "down" };
+  return { text: "0%", tone: "flat" };
+}
+
+function reportChannelName(order = {}) {
+  const raw = displayOrderChannel(order);
+  const normalized = String(raw || "").toLowerCase();
+  if (!raw || raw === MISSING_CHANNEL_LABEL) return "ไม่ระบุช่องทาง";
+  if (
+    normalized.includes("facebook") ||
+    normalized.includes("fb") ||
+    raw.includes("เฟส") ||
+    raw.includes("เพจ") ||
+    raw.includes("ไลฟ์") ||
+    normalized.includes("inbox")
+  ) return "Facebook";
+  if (normalized.includes("line") || raw.includes("ไลน์")) return "LINE OA";
+  if (raw.includes("โทร") || normalized.includes("phone") || normalized.includes("call") || normalized.includes("tel")) return "โทรสั่ง";
+  return raw;
+}
+
+function reportChannelIcon(channel) {
+  if (channel === "Facebook") return "f";
+  if (channel === "LINE OA") return "LINE";
+  if (channel === "โทรสั่ง") return "☎";
+  return "●";
+}
+
+function mobileReportKpiCard({ label, value, suffix = "", comparison, tone, icon }) {
+  return `
+    <article class="mobile-report-kpi tone-${escapeHtml(tone)}">
+      <div class="mobile-report-kpi-head">
+        <span class="mobile-report-kpi-icon" aria-hidden="true">${dashboardCardIcon(icon)}</span>
+        <span>${escapeHtml(label)}</span>
+      </div>
+      <strong>${escapeHtml(value)}${suffix ? `<small>${escapeHtml(suffix)}</small>` : ""}</strong>
+      <div class="mobile-report-kpi-foot">
+        <span class="report-trend ${escapeHtml(comparison.tone)}">${escapeHtml(comparison.text)}</span>
+        <small>${escapeHtml(comparison.hint)}</small>
+      </div>
+    </article>
+  `;
+}
+
+function renderMobileReports(selectedDate, selectedMonth) {
+  const orders = app.data.orders || [];
+  const customers = app.data.customers || [];
+  const todayOrders = orders.filter(order => order.date === selectedDate);
+  const monthOrders = orders.filter(order => monthKey(order.date) === selectedMonth);
+  const yesterdayOrders = orders.filter(order => order.date === addDaysISO(selectedDate, -1));
+  const previousMonth = reportPreviousMonth(selectedMonth);
+  const previousMonthOrders = orders.filter(order => monthKey(order.date) === previousMonth);
+  const additionalCosts = additionalCostTotal();
+  const sales = rows => rows.reduce((sum, order) => sum + Number(order.amount || 0), 0);
+  const units = rows => rows.reduce((sum, order) => sum + Number(order.jars || 0), 0);
+  const profit = rows => Math.max(0, sales(rows) - rows.reduce((sum, order) => sum + productCostForOrder(order), 0) - additionalCosts);
+  const todaySales = sales(todayOrders);
+  const monthSales = sales(monthOrders);
+  const todayProfit = profit(todayOrders);
+  const monthProfit = profit(monthOrders);
+
+  const channelMap = new Map();
+  for (const order of monthOrders) {
+    const name = reportChannelName(order);
+    if (!channelMap.has(name)) channelMap.set(name, { name, revenue: 0, count: 0 });
+    const row = channelMap.get(name);
+    row.revenue += Number(order.amount || 0);
+    row.count += 1;
+  }
+  const channelColors = ["#1769e8", "#10c86f", "#ff9f0a", "#8f45f7", "#ff337d", "#aab4c4"];
+  const channelRows = [...channelMap.values()]
+    .sort((a, b) => b.revenue - a.revenue)
+    .map((row, index) => ({
+      ...row,
+      color: channelColors[index % channelColors.length],
+      percent: monthSales ? (row.revenue / monthSales) * 100 : 0
+    }));
+  let gradientOffset = 0;
+  const donutGradient = channelRows.length && monthSales
+    ? channelRows.map(row => {
+      const start = gradientOffset;
+      gradientOffset += row.percent;
+      return `${row.color} ${start.toFixed(2)}% ${gradientOffset.toFixed(2)}%`;
+    }).join(", ")
+    : "#253345 0% 100%";
+
+  const customerIds = new Set(monthOrders.map(order => order.customerId).filter(Boolean));
+  const monthCustomers = customers.filter(customer => customerIds.has(customer.id));
+  const newCustomerCount = customers.filter(customer => monthKey(customer.firstPurchaseDate) === selectedMonth).length;
+  const monthOrderCounts = monthOrders.reduce((map, order) => {
+    if (order.customerId) map.set(order.customerId, (map.get(order.customerId) || 0) + 1);
+    return map;
+  }, new Map());
+  const repeatCustomerCount = [...monthOrderCounts.values()].filter(count => count > 1).length;
+  const previousNewCustomers = customers.filter(customer => monthKey(customer.firstPurchaseDate) === previousMonth).length;
+  const previousOrderCounts = previousMonthOrders.reduce((map, order) => {
+    if (order.customerId) map.set(order.customerId, (map.get(order.customerId) || 0) + 1);
+    return map;
+  }, new Map());
+  const previousRepeatCustomers = [...previousOrderCounts.values()].filter(count => count > 1).length;
+  const vipCounts = {
+    VIP: monthCustomers.filter(customer => customer.vipLevel === "VIP").length,
+    VVIP: monthCustomers.filter(customer => customer.vipLevel === "VVIP").length,
+    "SUPER VIP": monthCustomers.filter(customer => customer.vipLevel === "SUPER VIP").length
+  };
+
+  const productMap = new Map();
+  for (const order of monthOrders) {
+    const name = normalizeProductName(order.items || "ไม่ระบุสินค้า") || "ไม่ระบุสินค้า";
+    if (!productMap.has(name)) productMap.set(name, { name, revenue: 0, units: 0, orders: 0 });
+    const row = productMap.get(name);
+    row.revenue += Number(order.amount || 0);
+    row.units += Number(order.jars || 0);
+    row.orders += 1;
+  }
+  const configuredProducts = normalizeProductRecords();
+  const productRows = [...productMap.values()]
+    .sort((a, b) => b.revenue - a.revenue)
+    .slice(0, 5)
+    .map(row => ({
+      ...row,
+      image: configuredProducts.find(product => normalizeProductName(product.name) === row.name)?.image || ""
+    }));
+
+  const todayCards = [
+    { label: "ยอดขายวันนี้", value: `฿${money(todaySales)}`, comparison: { ...reportDelta(todaySales, sales(yesterdayOrders)), hint: "เทียบกับเมื่อวาน" }, tone: "green", icon: "wallet" },
+    { label: "ออเดอร์วันนี้", value: money(todayOrders.length), suffix: "ออเดอร์", comparison: { ...reportDelta(todayOrders.length, yesterdayOrders.length), hint: "เทียบกับเมื่อวาน" }, tone: "amber", icon: "orders" },
+    { label: "กำไรวันนี้", value: `฿${money(todayProfit)}`, comparison: { ...reportDelta(todayProfit, profit(yesterdayOrders)), hint: "เทียบกับเมื่อวาน" }, tone: "violet", icon: "database" },
+    { label: "ขายได้วันนี้", value: money(units(todayOrders)), suffix: "ชิ้น", comparison: { ...reportDelta(units(todayOrders), units(yesterdayOrders)), hint: "เทียบกับเมื่อวาน" }, tone: "blue", icon: "sales" }
+  ];
+  const monthCards = [
+    { label: "ยอดขายเดือนนี้", value: `฿${money(monthSales)}`, comparison: { ...reportDelta(monthSales, sales(previousMonthOrders)), hint: "เทียบกับเดือนที่แล้ว" }, tone: "green", icon: "wallet" },
+    { label: "ออเดอร์เดือนนี้", value: money(monthOrders.length), suffix: "ออเดอร์", comparison: { ...reportDelta(monthOrders.length, previousMonthOrders.length), hint: "เทียบกับเดือนที่แล้ว" }, tone: "amber", icon: "orders" },
+    { label: "กำไรเดือนนี้", value: `฿${money(monthProfit)}`, comparison: { ...reportDelta(monthProfit, profit(previousMonthOrders)), hint: "เทียบกับเดือนที่แล้ว" }, tone: "violet", icon: "database" },
+    { label: "ขายได้เดือนนี้", value: money(units(monthOrders)), suffix: "ชิ้น", comparison: { ...reportDelta(units(monthOrders), units(previousMonthOrders)), hint: "เทียบกับเดือนที่แล้ว" }, tone: "blue", icon: "sales" }
+  ];
+
+  els.content.innerHTML = `
+    <section class="section saas-page mobile-reports-page">
+      <div class="mobile-reports-shell">
+        <h2 class="mobile-report-heading">สรุปวันนี้</h2>
+        <div class="mobile-report-kpi-grid">
+          ${todayCards.map(mobileReportKpiCard).join("")}
+        </div>
+
+        <h2 class="mobile-report-heading">สรุปเดือนนี้ <small>(${escapeHtml(reportMonthRange(selectedMonth))})</small></h2>
+        <div class="mobile-report-kpi-grid">
+          ${monthCards.map(mobileReportKpiCard).join("")}
+        </div>
+
+        <section class="mobile-report-card channel-report-card">
+          <h2>ช่องทางการขาย <small>(${escapeHtml(reportMonthLabel(selectedMonth))})</small></h2>
+          <div class="mobile-report-channel-layout">
+            <div class="mobile-report-donut" style="--report-donut:${donutGradient};">
+              <div>
+                <span>ยอดขายรวม</span>
+                <strong>฿${money(monthSales)}</strong>
+                <small>บาท</small>
+              </div>
+            </div>
+            <div class="mobile-report-channel-legend">
+              ${channelRows.map(row => `
+                <div class="mobile-report-channel-row">
+                  <span class="report-channel-name"><i style="--channel-color:${row.color}">${escapeHtml(reportChannelIcon(row.name))}</i>${escapeHtml(row.name)}</span>
+                  <span>${row.percent.toFixed(1)}%</span>
+                  <strong>฿${money(row.revenue)}</strong>
+                </div>
+              `).join("") || `<div class="mobile-report-empty">ยังไม่มีข้อมูลช่องทางในเดือนนี้</div>`}
+            </div>
+          </div>
+        </section>
+
+        <section class="mobile-report-card">
+          <h2>ลูกค้า <small>(${escapeHtml(reportMonthLabel(selectedMonth))})</small></h2>
+          <div class="mobile-report-customer-grid">
+            <article class="mobile-report-customer-stat tone-blue">
+              <span class="customer-stat-icon" aria-hidden="true">${iconSvg("users")}</span>
+              <span>ลูกค้าใหม่</span>
+              <strong>${money(newCustomerCount)} <small>คน</small></strong>
+              <span class="report-trend ${reportDelta(newCustomerCount, previousNewCustomers).tone}">${escapeHtml(reportDelta(newCustomerCount, previousNewCustomers).text)}</span>
+              <small>เทียบกับเดือนที่แล้ว</small>
+            </article>
+            <article class="mobile-report-customer-stat tone-violet">
+              <span class="customer-stat-icon" aria-hidden="true">↻</span>
+              <span>ลูกค้าเก่ากลับมาซื้อซ้ำ</span>
+              <strong>${money(repeatCustomerCount)} <small>คน</small></strong>
+              <span class="report-trend ${reportDelta(repeatCustomerCount, previousRepeatCustomers).tone}">${escapeHtml(reportDelta(repeatCustomerCount, previousRepeatCustomers).text)}</span>
+              <small>เทียบกับเดือนที่แล้ว</small>
+            </article>
+          </div>
+          <article class="mobile-report-vip-card">
+            <div class="mobile-report-vip-title"><span aria-hidden="true">♛</span> ลูกค้า VIP</div>
+            <div class="mobile-report-vip-grid">
+              ${Object.entries(vipCounts).map(([level, count]) => `
+                <div><span>${escapeHtml(level)}</span><strong>${money(count)} <small>คน</small></strong></div>
+              `).join("")}
+            </div>
+          </article>
+        </section>
+
+        <section class="mobile-report-card mobile-report-table-card">
+          <h2>สินค้าขายดี <small>(${escapeHtml(reportMonthLabel(selectedMonth))})</small></h2>
+          <div class="mobile-product-table-head"><span>สินค้า</span><span>ยอดขาย</span><span>ชิ้น</span><span>ออเดอร์</span></div>
+          <div class="mobile-product-table-body">
+            ${productRows.map(row => `
+              <div class="mobile-product-table-row">
+                <span class="mobile-report-product">
+                  <i>${row.image ? `<img src="${escapeHtml(row.image)}" alt="">` : escapeHtml(initials(row.name))}</i>
+                  <b>${escapeHtml(row.name)}</b>
+                </span>
+                <strong>฿${money(row.revenue)}</strong>
+                <span>${money(row.units)}</span>
+                <span>${money(row.orders)}</span>
+              </div>
+            `).join("") || `<div class="mobile-report-empty">ยังไม่มีข้อมูลสินค้าในเดือนนี้</div>`}
+          </div>
+        </section>
+
+        <section class="mobile-report-card mobile-report-order-channel-card">
+          <h2>ช่องทางขาย <small>(จำนวนออเดอร์ ${escapeHtml(reportMonthLabel(selectedMonth))})</small></h2>
+          <div class="mobile-report-order-channel-list">
+            ${channelRows.map(row => `
+              <div>
+                <span class="report-channel-name"><i style="--channel-color:${row.color}">${escapeHtml(reportChannelIcon(row.name))}</i>${escapeHtml(row.name)}</span>
+                <strong>${money(row.count)} ออเดอร์</strong>
+              </div>
+            `).join("") || `<div class="mobile-report-empty">ยังไม่มีออเดอร์ในเดือนนี้</div>`}
+          </div>
+        </section>
+      </div>
+    </section>
+  `;
+}
+
 function renderReports() {
   const selectedDate = app.reportDate || app.data.summary.selectedDate || todayISO();
   const selectedMonth = app.reportMonth || selectedDate.slice(0, 7);
+  if (isMobileViewport()) {
+    renderMobileReports(selectedDate, selectedMonth);
+    return;
+  }
   const selectedYear = selectedMonth.slice(0, 4);
   const monthly = {};
   const daily = {};
