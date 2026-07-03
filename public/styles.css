@@ -5820,8 +5820,7 @@ small,
   }
 
   body.mobile-orders-view .header-profile-avatar-core,
-  body.mobile-orders-view .header-profile-badge,
-  body.mobile-orders-view .header-profile-copy {
+  body.mobile-orders-view .header-profile-badge {
     display: none;
   }
 
