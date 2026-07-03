@@ -1396,6 +1396,7 @@ function orderCard(order) {
   return `
     <tr data-order-id="${escapeHtml(order.id)}">
       <td data-label="ออเดอร์"><strong>${escapeHtml(order.orderNumber || "-")}</strong></td>
+      <td data-label="สินค้า">${escapeHtml(order.items || "-")}</td>
       <td data-label="ลูกค้า">
         <button class="table-identity" type="button" data-open-customer="${escapeHtml(order.customerId)}">
           <span class="avatar">${escapeHtml(initials(order.customerName || "-"))}</span>
@@ -1430,6 +1431,7 @@ function orderTable(orders) {
         <thead>
           <tr>
             <th>ออเดอร์</th>
+            <th>สินค้า</th>
             <th>ลูกค้า</th>
             <th>วันที่</th>
             <th>ช่องทาง</th>
@@ -1870,6 +1872,7 @@ function mobileOrderRows(selectedDate) {
     const dateMatch = Boolean(q) || !app.mobileOrdersDateOnly || order.date === selectedDate;
     const textMatch = !q || [
       order.orderNumber,
+      order.items,
       order.id,
       order.customerName,
       order.phone,
@@ -1955,7 +1958,7 @@ function renderMobileOrders(selectedDate) {
       <div class="mobile-orders-toolbar">
         <label class="mobile-orders-search">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
-          <input data-order-filter="q" value="${escapeHtml(app.ordersFilterDraft)}" placeholder="ค้นหาออเดอร์, ลูกค้า, เบอร์โทร">
+          <input data-order-filter="q" value="${escapeHtml(app.ordersFilterDraft)}" placeholder="ค้นหาออเดอร์, สินค้า, ลูกค้า, เบอร์โทร">
         </label>
         <button class="mobile-orders-filter" type="button" data-mobile-orders-filter>
           <span>ค้นหา</span>
@@ -2019,6 +2022,7 @@ function renderOrders() {
     const dateMatch = app.ordersShowAll || order.date === selectedDate;
     const textMatch = !q || [
       order.orderNumber,
+      order.items,
       order.customerName,
       order.phone,
       order.alternatePhone,
@@ -2067,7 +2071,7 @@ function renderOrders() {
         </div>
         <div class="filters">
           <div class="orders-search-row">
-            <input class="orders-search-input" data-order-filter="q" placeholder="ค้นหาเลขออเดอร์ ชื่อ หรือเบอร์โทร" value="${escapeHtml(app.ordersFilterDraft)}">
+            <input class="orders-search-input" data-order-filter="q" placeholder="ค้นหาเลขออเดอร์ สินค้า ชื่อ หรือเบอร์โทร" value="${escapeHtml(app.ordersFilterDraft)}">
             <button class="button primary orders-search-button" data-order-search type="button">ค้นหา</button>
           </div>
         </div>
@@ -2092,6 +2096,7 @@ function applyCustomerFilters() {
       ...(customer.tags || []),
       ...(customer.orders || []).flatMap(order => [
         order.orderNumber,
+        order.items,
         order.customerName,
         order.phone,
         order.alternatePhone,
@@ -2416,6 +2421,7 @@ function filteredOrdersForCurrentView() {
     const dateMatch = app.ordersShowAll || order.date === selectedDate;
     const textMatch = !q || [
       order.orderNumber,
+      order.items,
       order.customerName,
       order.phone,
       order.alternatePhone,
@@ -2466,6 +2472,7 @@ function optimisticOrderFromForm(data, orderId, clientMutationId) {
     id: orderId || clientMutationId,
     customerId: existing?.customerId || `temp_customer_${clientMutationId}`,
     orderNumber: data.orderNumber ?? existing?.orderNumber ?? "",
+    items: data.items ?? existing?.items ?? "Growup",
     customerName: data.name ?? existing?.customerName ?? "",
     phone: data.phone ?? existing?.phone ?? "",
     alternatePhone: data.alternatePhone ?? existing?.alternatePhone ?? "",
@@ -4400,7 +4407,7 @@ function renderCustomerDetail(customer) {
         <div class="timeline">
           ${customer.orders.slice().reverse().map(order => `
             <div class="timeline-item">
-              <strong>${formatShortDate(order.date)} · ${order.jars} กระปุก · ${money(order.amount)} บาท</strong>
+              <strong>${formatShortDate(order.date)} · ${escapeHtml(order.items || "-")} · ${order.jars} กระปุก · ${money(order.amount)} บาท</strong>
               <span class="muted">ช่องทางการสั่งซื้อ ${escapeHtml(displayOrderChannel(order))}</span>
               <span class="muted">เบอร์สำรอง ${escapeHtml(order.alternatePhone || "-")} · ลูกค้ามาจาก ${escapeHtml(order.originSource || "-")}</span>
               <span class="muted">Facebook / LINE ลูกค้า ${escapeHtml(order.socialName || "-")} · ของแถม ${escapeHtml(order.freeGift || "-")}</span>
@@ -4695,6 +4702,7 @@ function openOrderDialog(order = null) {
   els.orderSubmitButton.textContent = order ? "บันทึกการแก้ไข" : "บันทึกออเดอร์";
   if (order) {
     const fields = {
+      items: order.items,
       orderNumber: order.orderNumber,
       date: isMobileViewport() ? `${order.date}T${order.time || "09:00"}` : order.date,
       sourceChannel: displayOrderChannel(order) === MISSING_CHANNEL_LABEL ? "" : displayOrderChannel(order),
@@ -5076,6 +5084,11 @@ document.addEventListener("click", async event => {
     renderOrders();
   }
 
+  if (event.target.closest("[data-order-search]")) {
+    app.ordersFilterQ = app.ordersFilterDraft;
+    renderOrders();
+  }
+
   if (event.target.closest("[data-close-order]")) {
     app.editingOrderId = "";
     els.orderDialog.close();
@@ -5115,11 +5128,6 @@ document.addEventListener("input", event => {
   const orderFilter = event.target.closest("[data-order-filter]");
   if (orderFilter) {
     app.ordersFilterDraft = orderFilter.value;
-  }
-
-  if (event.target.closest("[data-order-search]")) {
-    app.ordersFilterQ = app.ordersFilterDraft;
-    renderOrders();
   }
 
   if (event.target?.id === "followupDaysPerUnit") {

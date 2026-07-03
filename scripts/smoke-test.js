@@ -1,5 +1,15 @@
 const { Readable } = require("stream");
 const crypto = require("crypto");
+const fs = require("fs");
+const os = require("os");
+const path = require("path");
+process.env.NODE_ENV = "development";
+process.env.DATABASE_PROVIDER = "json";
+process.env.LINE_WEBHOOK_ENABLED = "true";
+if (!process.env.JSON_DB_PATH) {
+  process.env.JSON_DB_PATH = path.join(os.tmpdir(), `zomin-smoke-${process.pid}.json`);
+  fs.copyFileSync(path.join(__dirname, "..", "data", "db.json"), process.env.JSON_DB_PATH);
+}
 const appHandler = require("../server");
 
 function makeRequest(path, options = {}) {
@@ -76,9 +86,6 @@ function bangkokNow() {
 }
 
 async function main() {
-  process.env.NODE_ENV = "development";
-  process.env.DATABASE_PROVIDER = "json";
-  process.env.JSON_DB_PATH = "./data/db.json";
   process.env.SESSION_SECRET = process.env.SESSION_SECRET || "zomin-smoke-test-secret";
 
   const login = await request("/api/login", {
@@ -129,8 +136,112 @@ async function main() {
 
   const nowInBangkok = bangkokNow();
   const uniqueSuffix = crypto.randomBytes(3).toString("hex");
+  const uniquePhoneSuffix = String(Date.now()).slice(-5);
+  const newLineOrderText = [
+    "สินค้า : Zomin Plus",
+    `เลขออเดอร์ : LINE-${uniqueSuffix}`,
+    "วันที่ซื้อ : 3/7/2569",
+    "ช่องทางการสั่งซื้อ : ไลน์บริษัท",
+    "Facebook / LINE ลูกค้า : line-test",
+    "",
+    "ชื่อลูกค้า : คุณไลน์ ทดสอบ",
+    `เบอร์โทร : 08123${uniquePhoneSuffix}`,
+    "เบอร์โทรสำรอง : 0891234567",
+    "ที่อยู่จัดส่ง : 99 ถนนสุขุมวิท กรุงเทพฯ",
+    "",
+    "จำนวนกระปุก : 3",
+    "ยอดซื้อ : 2,250 บาท",
+    "ของแถมที่ลูกค้าได้ : แถม 1 กระปุก",
+    "",
+    "สถานะบัตร VIP : ส่งบัตรแล้ว",
+    "",
+    "อาการลูกค้า : ปวดเข่า, นอนไม่หลับ",
+    "",
+    "ลูกค้ามาจาก : ลูกค้าบอกต่อ",
+    "",
+    "หมายเหตุ : โทรก่อนส่ง"
+  ].join("\n");
+  const newLinePreview = await request("/api/parse-preview", {
+    method: "POST",
+    headers: { cookie, "content-type": "application/json" },
+    body: JSON.stringify({ content: newLineOrderText })
+  });
+  if (newLinePreview.status !== 200) fail(`new LINE format preview returned ${newLinePreview.status}`);
+  const newLineRow = JSON.parse(newLinePreview.text).rows?.[0];
+  if (!newLineRow || newLineRow.items !== "Zomin Plus") {
+    fail(`new LINE format did not parse สินค้า: ${JSON.stringify(newLineRow)}`);
+  }
+  if (newLineRow.orderNumber !== `LINE-${uniqueSuffix}` || newLineRow.sourceChannel !== "ไลน์บริษัท") {
+    fail("new LINE format did not parse order number or sales channel");
+  }
+  if (newLineRow.name !== "คุณไลน์ ทดสอบ" || newLineRow.phone !== `08123${uniquePhoneSuffix}`) {
+    fail("new LINE format did not parse customer fields");
+  }
+  if (newLineRow.date !== "2026-07-03" || newLineRow.socialName !== "line-test") {
+    fail("new LINE format did not parse date or customer social");
+  }
+  if (newLineRow.alternatePhone !== "0891234567" || newLineRow.address !== "99 ถนนสุขุมวิท กรุงเทพฯ") {
+    fail("new LINE format did not parse alternate phone or shipping address");
+  }
+  if (newLineRow.jars !== 3 || newLineRow.amount !== 2250 || newLineRow.freeGift !== "แถม 1 กระปุก") {
+    fail("new LINE format did not parse quantity, amount, or free gift");
+  }
+  if (newLineRow.vipCardStatus !== "ส่งบัตรแล้ว" || newLineRow.originSource !== "ลูกค้าบอกต่อ" || newLineRow.note !== "โทรก่อนส่ง") {
+    fail("new LINE format did not parse VIP, source, or note");
+  }
+  if (!Array.isArray(newLineRow.tags) || !newLineRow.tags.includes("ปวดเข่า") || !newLineRow.tags.includes("นอนไม่หลับ")) {
+    fail("new LINE format did not parse customer symptoms");
+  }
+  const newLineImport = await request("/api/line/webhook", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      events: [{
+        type: "message",
+        replyToken: "",
+        source: { type: "group", groupId: "smoke-test-group" },
+        message: { type: "text", id: `line-message-${uniqueSuffix}`, text: newLineOrderText }
+      }]
+    })
+  });
+  if (newLineImport.status !== 200) fail(`new LINE format import returned ${newLineImport.status}: ${newLineImport.text}`);
+  if (JSON.parse(newLineImport.text).parsedOrders !== 1) {
+    fail(`new LINE webhook format was not imported: ${newLineImport.text}`);
+  }
+  const stateAfterLineImport = await request("/api/state", { headers: { cookie } });
+  const importedLineOrder = JSON.parse(stateAfterLineImport.text).orders?.find(order => order.orderNumber === `LINE-${uniqueSuffix}`);
+  if (!importedLineOrder || importedLineOrder.items !== "Zomin Plus" || importedLineOrder.orderNumber !== `LINE-${uniqueSuffix}`) {
+    fail("new LINE format product was not persisted by the webhook path");
+  }
+
+  const oldLinePreview = await request("/api/parse-preview", {
+    method: "POST",
+    headers: { cookie, "content-type": "application/json" },
+    body: JSON.stringify({
+      content: [
+        `เลขออเดอร์ : OLD-${uniqueSuffix}`,
+        "วันที่ซื้อ : 3/7/2569",
+        "ช่องทางการสั่งซื้อ : LINE",
+        "Facebook / LINE ลูกค้า :",
+        "",
+        "ชื่อลูกค้า : ลูกค้าเดิม",
+        "เบอร์โทร : 0821234567",
+        "ที่อยู่จัดส่ง : กรุงเทพฯ",
+        "จำนวนกระปุก : 2",
+        "ยอดซื้อ : 1,500 บาท"
+      ].join("\n")
+    })
+  });
+  if (oldLinePreview.status !== 200) fail(`legacy LINE format preview returned ${oldLinePreview.status}`);
+  const oldLineRow = JSON.parse(oldLinePreview.text).rows?.[0];
+  if (!oldLineRow || oldLineRow.orderNumber !== `OLD-${uniqueSuffix}` || oldLineRow.items) {
+    fail("legacy LINE format without สินค้า is no longer compatible");
+  }
+  if (oldLineRow.socialName) fail("blank LINE field consumed the next Thai label");
+
   const duplicateBase = {
     orderNumber: `DUP-BASE-${uniqueSuffix}-001`,
+    items: "Zomin Plus",
     name: "  Somchai   Dee  ",
     phone: `089-111-${uniqueSuffix}`,
     address: ` 123/4   Bangkok ${uniqueSuffix} `,
@@ -146,6 +257,9 @@ async function main() {
     body: JSON.stringify(duplicateBase)
   });
   if (firstOrder.status !== 200) fail(`first duplicate-check order returned ${firstOrder.status}: ${firstOrder.text}`);
+  if (JSON.parse(firstOrder.text).mutation?.order?.items !== "Zomin Plus") {
+    fail("product was not saved into the order record");
+  }
 
   const differentAmount = await request("/api/orders", {
     method: "POST",

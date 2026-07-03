@@ -20,7 +20,7 @@ const FIELD_DEFS = [
   { key: "tags", label: "อาการลูกค้า", required: false, aliases: ["อาการลูกค้า", "tags", "tag", "แท็ก", "อาการ"] },
   { key: "originSource", label: "ลูกค้ามาจาก", required: false, aliases: ["ลูกค้ามาจาก", "origin_source", "origin source", "มาจาก", "แหล่งที่มา"] },
   { key: "note", label: "หมายเหตุ", required: false, aliases: ["หมายเหตุ", "note", "remark", "remarks"] },
-  { key: "items", label: "สินค้า", required: false, aliases: ["สินค้า", "items", "product"] }
+  { key: "items", label: "สินค้า", required: false, aliases: ["สินค้า", "items", "product", "product_name"] }
 ];
 
 function normalizeHeader(value) {

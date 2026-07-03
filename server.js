@@ -947,12 +947,12 @@ function addOrder(db, payload) {
     id: payload.id || uid("o"),
     customerId: customer.id,
     orderNumber: normalizeImportText(payload.orderNumber),
+    items: normalizeImportText(payload.items || payload.product || payload.productName || "Growup"),
     customerName: normalizeImportText(payload.name || customer.name),
     phone,
     address: normalizeImportText(payload.address || customer.address),
     date: toDateOnly(payload.date || new Date()),
     time: String(payload.time || bangkokTime()),
-    items: String(payload.items || "Growup").trim(),
     jars,
     amount,
     source: isPlaceholderChannel(payload.source) ? "" : String(payload.source || sourceChannel || "").trim(),
@@ -1025,6 +1025,10 @@ function splitLineImportChunks(content) {
 function parseLineImportContent(content, defaultJarPrice = 750) {
   const text = String(content || "").trim();
   if (!text) return [];
+  if (parsePrimaryLineOrderForm(text)) {
+    const parsed = parseLineOrder(text, defaultJarPrice);
+    return parsed?.phone ? [parsed] : [];
+  }
   const phoneMatches = text.match(/0[\d\s.-]{8,12}/g) || [];
   if (phoneMatches.length <= 1) {
     const parsed = parseLineOrder(text, defaultJarPrice);
@@ -1042,6 +1046,7 @@ function parseLabel(textValue, labels) {
 }
 
 const PRIMARY_LINE_ORDER_FIELDS = [
+  ["items", "สินค้า"],
   ["orderNumber", "เลขออเดอร์"],
   ["date", "วันที่ซื้อ"],
   ["sourceChannel", "ช่องทางการสั่งซื้อ"],
@@ -1076,7 +1081,12 @@ function parsePrimaryLineOrderForm(rawText) {
     });
     if (!matchedLabel) continue;
     const inlineValue = line.slice(matchedLabel.length).replace(/^\s*[:：]\s*/, "").trim();
-    labelMap.set(matchedLabel, inlineValue || lines[index + 1] || "");
+    const nextLine = lines[index + 1] || "";
+    const nextLineIsLabel = labels.some(label => {
+      const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      return new RegExp(`^${escapedLabel}\\s*(?:[:：]|$)`, "i").test(nextLine);
+    });
+    labelMap.set(matchedLabel, inlineValue || (nextLineIsLabel ? "" : nextLine));
   }
   if (!labelMap.size) return null;
   const requiredLabels = ["วันที่ซื้อ", "ชื่อลูกค้า", "เบอร์โทร", "ที่อยู่จัดส่ง", "จำนวนกระปุก", "ยอดซื้อ"];
@@ -1086,6 +1096,7 @@ function parsePrimaryLineOrderForm(rawText) {
   const phone = normalizePhone(get("เบอร์โทร"));
   if (!phone) return null;
   return {
+    items: normalizeImportText(get("สินค้า")),
     orderNumber: normalizeImportText(get("เลขออเดอร์")),
     name: normalizeImportText(get("ชื่อลูกค้า") || `ลูกค้า ${phone}`),
     phone,
@@ -1402,7 +1413,7 @@ async function parseOrderWithAI(textValue, settings = {}) {
         input: [
           {
             role: "system",
-            content: "Extract a LINE order into JSON. If exact Thai key names are present, never guess, rename, or swap them. Return only valid JSON with keys: orderDate, orderNumber, salesChannel, originSource, tag, customerSocial, customerName, shippingAddress, phoneNumber, alternatePhone, quantity, totalAmount, freeGift, vipStatus, note. Use empty string for missing fields."
+            content: "Extract a LINE order into JSON. If exact Thai key names are present, never guess, rename, or swap them. Return only valid JSON with keys: productName, orderDate, orderNumber, salesChannel, originSource, tag, customerSocial, customerName, shippingAddress, phoneNumber, alternatePhone, quantity, totalAmount, freeGift, vipStatus, note. Use empty string for missing fields."
           },
           {
             role: "user",
@@ -1417,6 +1428,7 @@ async function parseOrderWithAI(textValue, settings = {}) {
     if (!raw.trim()) return fallback;
     const parsed = JSON.parse(raw);
     return {
+      items: normalizeImportText(parsed.productName || fallback?.items || ""),
       date: normalizeImportDate(parsed.orderDate) || fallback?.date || toDateOnly(),
       orderNumber: normalizeImportText(parsed.orderNumber || ""),
       sourceChannel: normalizeImportText(parsed.salesChannel || fallback?.sourceChannel || "LINE"),
@@ -1634,6 +1646,7 @@ function normalizeImportRow(row, defaultJarPrice) {
     "เคยได้บัตรvipแล้วหรือยัง"
   ));
   return {
+    items: get("items", "product", "product_name", "สินค้า") || "Growup",
     orderNumber,
     name: get("name", "customer", "customer name", "ชื่อ", "ชื่อลูกค้า", "ชื่อลูกค้ารับของ", "ลูกค้า"),
     phone: get("phone", "tel", "mobile", "เบอร์", "เบอร์โทร", "โทร", "โทรศัพท์", "เบอร์โทรศัพท์"),
@@ -1643,7 +1656,6 @@ function normalizeImportRow(row, defaultJarPrice) {
     jars,
     amount: Number.isFinite(parsedAmount) ? parsedAmount : jars * defaultJarPrice,
     tags: get("tags", "tag", "แท็ก", "อาการลูกค้า", "อาการ"),
-    items: get("items", "product", "สินค้า") || "Growup",
     source: "Import",
     sourceChannel,
     socialName: get(
@@ -1953,6 +1965,7 @@ async function handleApi(req, res) {
     }
     Object.assign(order, {
       orderNumber: body.orderNumber !== undefined ? normalizeImportText(body.orderNumber) : order.orderNumber,
+      items: body.items !== undefined ? normalizeImportText(body.items) : order.items,
       customerName: body.name !== undefined ? String(body.name).trim() : order.customerName,
       phone: body.phone !== undefined ? normalizePhone(body.phone) : order.phone,
       address: body.address !== undefined ? String(body.address).trim() : order.address,
@@ -2330,6 +2343,7 @@ async function handleApi(req, res) {
       return csvResponse(res, "orders.csv", enriched.orders.map(order => ({
         id: order.id,
         order_number: order.orderNumber || "",
+        product: order.items || "",
         date: order.date,
         time: order.time || "",
         source_channel: order.sourceChannel || "",
