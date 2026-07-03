@@ -83,6 +83,7 @@ const app = {
   mobileOrdersDateOnly: true,
   mobileOrdersDescending: true,
   mobileOrderMenuId: "",
+  mobileOrdersScrollTop: 0,
   orderSavePending: false,
   filters: {
     q: "",
@@ -1808,6 +1809,48 @@ function mobileOrderActionMenu(order) {
   `;
 }
 
+function mobileOrdersScrollElement() {
+  return document.querySelector(".mobile-orders-list");
+}
+
+function rememberMobileOrdersScrollPosition() {
+  if (app.view !== "orders" || !isMobileViewport()) return;
+  const list = mobileOrdersScrollElement();
+  if (list) app.mobileOrdersScrollTop = list.scrollTop;
+}
+
+function restoreMobileOrdersScrollPosition() {
+  if (app.view !== "orders" || !isMobileViewport()) return;
+  const scrollTop = Number(app.mobileOrdersScrollTop || 0);
+  const restore = () => {
+    const list = mobileOrdersScrollElement();
+    if (list) list.scrollTop = scrollTop;
+  };
+  restore();
+  requestAnimationFrame(restore);
+}
+
+function closeMobileOrderActionMenu() {
+  const menu = document.querySelector("[data-mobile-order-menu]");
+  menu?.closest(".mobile-order-row")?.classList.remove("menu-open");
+  menu?.remove();
+  app.mobileOrderMenuId = "";
+}
+
+function toggleMobileOrderActionMenu(orderId, button) {
+  rememberMobileOrdersScrollPosition();
+  const shouldOpen = app.mobileOrderMenuId !== orderId;
+  closeMobileOrderActionMenu();
+  if (!shouldOpen) return;
+  const order = app.data.orders.find(item => item.id === orderId);
+  const row = button.closest(".mobile-order-row");
+  if (!order || !row) return;
+  app.mobileOrderMenuId = orderId;
+  row.classList.add("menu-open");
+  row.insertAdjacentHTML("beforeend", mobileOrderActionMenu(order));
+  restoreMobileOrdersScrollPosition();
+}
+
 function renderMobileOrders(selectedDate) {
   const orders = mobileOrderRows(selectedDate);
   els.content.innerHTML = `
@@ -2289,6 +2332,8 @@ function filteredOrdersForCurrentView() {
 
 function patchOrdersView(mutation) {
   if (app.view !== "orders") return;
+  const preserveMobileScroll = isMobileViewport();
+  if (preserveMobileScroll) rememberMobileOrdersScrollPosition();
   const countText = document.querySelector("#ordersCountText");
   const orders = filteredOrdersForCurrentView();
   if (countText) {
@@ -2297,6 +2342,7 @@ function patchOrdersView(mutation) {
       : `แสดง ${money(orders.length)} ออเดอร์จากวันที่เลือก`;
   }
   renderOrders();
+  if (preserveMobileScroll) restoreMobileOrdersScrollPosition();
 }
 
 function cloneUiState() {
@@ -4538,8 +4584,11 @@ function openDeleteCustomerDialog(customerId) {
 }
 
 function openOrderDialog(order = null) {
+  if (isMobileViewport() && app.view === "orders") {
+    rememberMobileOrdersScrollPosition();
+    closeMobileOrderActionMenu();
+  }
   app.editingOrderId = order?.id || "";
-  app.mobileOrderMenuId = "";
   setOrderSaveState(false);
   const dateField = els.orderForm.elements.date;
   dateField.type = isMobileViewport() ? "datetime-local" : "date";
@@ -4595,6 +4644,7 @@ function openOrderDialog(order = null) {
     els.orderForm.elements.freeGift.placeholder = "เช่น แถม 1 กระปุก, ค่าส่งฟรี";
   }
   els.orderDialog.showModal();
+  if (isMobileViewport() && app.view === "orders") restoreMobileOrdersScrollPosition();
 }
 
 function syncOriginSourceFields() {
@@ -4744,8 +4794,7 @@ document.addEventListener("click", async event => {
   const mobileOrderActions = event.target.closest("[data-mobile-order-actions]");
   if (mobileOrderActions && app.view === "orders" && isMobileViewport()) {
     const orderId = mobileOrderActions.dataset.mobileOrderActions;
-    app.mobileOrderMenuId = app.mobileOrderMenuId === orderId ? "" : orderId;
-    renderOrders();
+    toggleMobileOrderActionMenu(orderId, mobileOrderActions);
     return;
   }
 
@@ -4780,8 +4829,7 @@ document.addEventListener("click", async event => {
     && app.mobileOrderMenuId
     && !event.target.closest("[data-mobile-order-menu]")
   ) {
-    app.mobileOrderMenuId = "";
-    renderOrders();
+    closeMobileOrderActionMenu();
   }
 
   const deleteCustomerButton = event.target.closest("[data-delete-customer]");
@@ -4934,7 +4982,7 @@ document.addEventListener("click", async event => {
   if (event.target.closest("[data-close-order]")) {
     app.editingOrderId = "";
     els.orderDialog.close();
-    if (app.view === "orders" && isMobileViewport()) renderOrders();
+    if (app.view === "orders" && isMobileViewport()) restoreMobileOrdersScrollPosition();
   }
 
   if (event.target.closest("[data-close-delete-order]")) {
