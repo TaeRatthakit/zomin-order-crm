@@ -6485,6 +6485,7 @@ small,
   body.mobile-app-shell:not(.login-view) .header-profile-avatar {
     width: 55px;
     height: 55px;
+    border: 0;
     overflow: hidden;
     box-shadow: none;
   }
