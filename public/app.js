@@ -1487,21 +1487,14 @@ function renderMobileDashboard(viewModel) {
     <section class="section saas-page mobile-dashboard-page">
       <div class="mobile-dashboard-shell">
         <section class="mobile-hero-card">
-          <div class="mobile-hero-copy">
-            <h2>
-              <span>จัดการธุรกิจ</span>
-              <em>ให้เติบโต</em>
-              <small>ไปกับ Growup Pilot</small>
-            </h2>
-          </div>
-          <div class="mobile-hero-stage" aria-hidden="true">
-            <div class="mobile-stage-orbit orbit-top">${dashboardCardIcon("profit")}</div>
-            <div class="mobile-stage-orbit orbit-left">${dashboardCardIcon("users")}</div>
-            <div class="mobile-stage-orbit orbit-right">${dashboardCardIcon("chart")}</div>
-            <div class="mobile-stage-arrow"></div>
-            <div class="mobile-stage-bars"><span></span><span></span><span></span><span></span></div>
-            <div class="mobile-stage-platform"></div>
-          </div>
+          <img
+            class="mobile-hero-image"
+            src="/mobile-home-hero.png?v=20260703-mobile-hero-static"
+            alt="จัดการธุรกิจให้เติบโต ไปกับ Growup Pilot"
+            loading="eager"
+            fetchpriority="high"
+            decoding="sync"
+          >
         </section>
 
         <section class="mobile-kpi-grid">
