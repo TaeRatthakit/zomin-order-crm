@@ -12,13 +12,13 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <link rel="preload" as="image" href="/mobile-startup-logo.png?v=20260702-mobile-startup-v2" fetchpriority="high" media="(max-width: 780px)">
     <link rel="preload" as="image" href="/icons/logo.png?v=20260704-mobile-header-fast" fetchpriority="high" media="(max-width: 780px)">
-    <link rel="preload" as="image" href="/mobile-home-hero.png?v=20260703-mobile-hero-static" fetchpriority="high" media="(max-width: 780px)">
+    <link rel="preload" as="image" href="/mobile-home-hero.png?v=20260703-mobile-hero-clean" fetchpriority="high" media="(max-width: 780px)">
     <script>
       if (window.matchMedia("(max-width: 780px)").matches) {
         document.documentElement.classList.add("mobile-startup-pending");
         const mobileHero = new Image();
         mobileHero.decoding = "async";
-        mobileHero.src = "/mobile-home-hero.png?v=20260703-mobile-hero-static";
+        mobileHero.src = "/mobile-home-hero.png?v=20260703-mobile-hero-clean";
         const mobileLogo = new Image();
         mobileLogo.fetchPriority = "high";
         mobileLogo.decoding = "sync";
@@ -44,7 +44,7 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=20260701-favicon-restore">
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=20260701-favicon-restore">
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=20260702-ios-enhanced-fullbleed">
-    <link rel="stylesheet" href="/styles.css?v=20260703-mobile-orders-instant-date">
+    <link rel="stylesheet" href="/styles.css?v=20260703-mobile-hero-clean">
   </head>
   <body>
     <div id="mobileStartupLoader" class="mobile-startup-loader" aria-hidden="true" hidden>
@@ -328,9 +328,9 @@
       </form>
     </dialog>
 
-    <script src="/app.js?v=20260703-mobile-orders-instant-date"></script>
+    <script src="/app.js?v=20260703-mobile-hero-clean"></script>
     <script>
-      const swUrl = "/service-worker.js?v=20260703-mobile-orders-instant-date";
+      const swUrl = "/service-worker.js?v=20260703-mobile-hero-clean";
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", () => {
           navigator.serviceWorker.register(swUrl).then(registration => registration.update()).catch(() => {});

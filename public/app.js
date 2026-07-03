@@ -1489,7 +1489,7 @@ function renderMobileDashboard(viewModel) {
         <section class="mobile-hero-card">
           <img
             class="mobile-hero-image"
-            src="/mobile-home-hero.png?v=20260703-mobile-hero-static"
+            src="/mobile-home-hero.png?v=20260703-mobile-hero-clean"
             alt="จัดการธุรกิจให้เติบโต ไปกับ Growup Pilot"
             loading="eager"
             fetchpriority="high"
