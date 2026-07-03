@@ -6570,11 +6570,12 @@ small,
     width: 144px;
     min-width: 144px;
     min-height: 42px;
-    padding: 0 14px;
+    padding: 0 12px;
     display: flex;
     align-items: center;
-    justify-content: center;
-    gap: 10px;
+    justify-content: space-between;
+    gap: 8px;
+    box-sizing: border-box;
     border-radius: 14px;
     border-color: rgba(95, 125, 151, 0.3);
     background: rgba(4, 16, 27, 0.88);
@@ -6588,13 +6589,16 @@ small,
     font-size: 14px;
     font-weight: 400;
     line-height: 1;
-    text-align: center;
+    text-align: left;
+    white-space: nowrap;
   }
 
   body.mobile-app-shell:not(.login-view) .date-pill-icon {
     width: 18px;
     height: 18px;
     flex: 0 0 auto;
+    position: static;
+    pointer-events: none;
   }
 
   body.mobile-app-shell:not(.login-view) .date-pill-chevron {
@@ -6605,6 +6609,8 @@ small,
     width: 100%;
     max-width: 114px;
     min-width: 0;
+    padding-inline: 10px;
+    gap: 6px;
     box-sizing: border-box;
   }
 
