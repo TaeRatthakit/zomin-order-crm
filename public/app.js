@@ -1717,9 +1717,10 @@ function mobileOrderMoney(value) {
 function mobileOrderRows(selectedDate) {
   const q = app.ordersFilterQ.trim().toLowerCase();
   const rows = app.data.orders.filter(order => {
-    const dateMatch = !app.mobileOrdersDateOnly || order.date === selectedDate;
+    const dateMatch = Boolean(q) || !app.mobileOrdersDateOnly || order.date === selectedDate;
     const textMatch = !q || [
       order.orderNumber,
+      order.id,
       order.customerName,
       order.phone,
       order.alternatePhone,
@@ -1803,7 +1804,7 @@ function renderMobileOrders(selectedDate) {
               ${mobileOrderActionMenu(order)}
             </article>
           `;
-        }).join("") || `<div class="mobile-orders-empty">ไม่พบออเดอร์ที่ค้นหา</div>`}
+        }).join("") || `<div class="mobile-orders-empty">ไม่พบออเดอร์ที่ค้นหา 🔍</div>`}
       </div>
 
       <button class="mobile-add-order" type="button" data-open-order aria-label="เพิ่มออเดอร์">
