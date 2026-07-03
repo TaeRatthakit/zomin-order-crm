@@ -311,6 +311,12 @@ function formatDatePill(dateValue) {
   return `${String(d).padStart(2, "0")}/${String(m).padStart(2, "0")}/${String(y).padStart(4, "0")}`;
 }
 
+function formatMobileDatePill(dateValue) {
+  if (!dateValue) return "-";
+  const [y, m, d] = String(dateValue).split("-").map(Number);
+  return `${String(d).padStart(2, "0")}/${String(m).padStart(2, "0")}/${String(y % 100).padStart(2, "0")}`;
+}
+
 function formatDateTime(dateValue) {
   if (!dateValue) return "-";
   const date = new Date(dateValue);
@@ -641,7 +647,8 @@ function updateShell() {
   document.body.classList.toggle("mobile-orders-view", isMobileViewport() && app.view === "orders");
   if (!els.headerProfile) return;
   if (els.workDateDisplay) {
-    els.workDateDisplay.textContent = formatDatePill(els.workDate?.value || app.data?.summary?.selectedDate || todayISO());
+    const dateValue = els.workDate?.value || app.data?.summary?.selectedDate || todayISO();
+    els.workDateDisplay.textContent = isMobileViewport() ? formatMobileDatePill(dateValue) : formatDatePill(dateValue);
   }
   if (!app.currentUser || app.view === "login") {
     els.headerProfile.hidden = true;
@@ -4758,7 +4765,7 @@ document.addEventListener("change", async event => {
       app.mobileOrdersDateOnly = true;
       app.mobileOrderMenuId = "";
       app.data.summary = buildLocalSummary(selectedDate);
-      if (els.workDateDisplay) els.workDateDisplay.textContent = formatDatePill(selectedDate);
+      if (els.workDateDisplay) els.workDateDisplay.textContent = formatMobileDatePill(selectedDate);
       renderOrders();
       return;
     }

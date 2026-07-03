@@ -6567,8 +6567,8 @@ small,
   }
 
   body.mobile-app-shell:not(.login-view) .date-pill {
-    width: 144px;
-    min-width: 144px;
+    width: 116px;
+    min-width: 116px;
     min-height: 42px;
     padding: 0 12px;
     display: flex;
@@ -6606,12 +6606,9 @@ small,
   }
 
   body.mobile-app-shell.mobile-home-view:not(.login-view) .date-pill {
-    width: 100%;
-    max-width: 114px;
-    min-width: 0;
-    padding-inline: 10px;
-    gap: 6px;
-    box-sizing: border-box;
+    width: 116px;
+    max-width: 116px;
+    min-width: 116px;
   }
 
   body.mobile-app-shell:not(.login-view) .page-heading {
