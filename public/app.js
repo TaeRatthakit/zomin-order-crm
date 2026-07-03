@@ -85,6 +85,10 @@ const app = {
   mobileOrdersDescending: true,
   mobileOrderMenuId: "",
   mobileOrdersScrollTop: 0,
+  mobileOpportunityFilter: "",
+  mobileOpportunitySearchDraft: "",
+  mobileOpportunitySearch: "",
+  mobileOpportunitySort: "urgency",
   orderSavePending: false,
   filters: {
     q: "",
@@ -739,6 +743,7 @@ function updateShell() {
   document.body.classList.toggle("mobile-home-view", isMobileViewport() && app.view === "dashboard");
   document.body.classList.toggle("mobile-orders-view", isMobileViewport() && app.view === "orders");
   document.body.classList.toggle("mobile-reports-view", isMobileViewport() && app.view === "reports");
+  document.body.classList.toggle("mobile-opportunities-view", isMobileViewport() && app.view === "opportunities");
   if (!els.headerProfile) return;
   if (els.workDateDisplay) {
     const dateValue = els.workDate?.value || app.data?.summary?.selectedDate || todayISO();
@@ -2165,7 +2170,195 @@ function renderSearch() {
   `;
 }
 
+function mobileOpportunityData() {
+  const selectedDate = app.data.summary?.selectedDate || todayISO();
+  const ordersToday = app.data.orders.filter(order => order.date === selectedDate);
+  const closedCustomerIds = new Set(ordersToday.map(order => order.customerId));
+  const rows = app.data.customers
+    .filter(customer => customer.followUpDate)
+    .map(customer => {
+      const customerOrders = Array.isArray(customer.orders)
+        ? customer.orders
+        : app.data.orders.filter(order => order.customerId === customer.id);
+      const lastOrder = customerOrders[customerOrders.length - 1] || null;
+      const socialName = [...customerOrders].reverse().find(order => order.socialName)?.socialName || customer.socialName || "";
+      return {
+        customer,
+        lastOrder,
+        socialName,
+        days: diffDaysISO(selectedDate, customer.followUpDate),
+        value: Number(lastOrder?.amount || 0),
+        closedToday: closedCustomerIds.has(customer.id)
+      };
+    });
+  const dueRows = rows.filter(row => row.days <= 0);
+  return {
+    selectedDate,
+    rows,
+    dueRows,
+    closedRevenue: ordersToday.reduce((sum, order) => sum + Number(order.amount || 0), 0),
+    counts: {
+      today: rows.filter(row => row.days === 0).length,
+      overdue: rows.filter(row => row.days < 0).length,
+      vip: rows.filter(row => row.customer.vipLevel && row.customer.vipLevel !== "NORMAL").length,
+      closed: rows.filter(row => row.closedToday).length
+    }
+  };
+}
+
+function mobileOpportunityRows(model) {
+  const query = app.mobileOpportunitySearch.trim().toLocaleLowerCase("th");
+  const filtered = model.rows.filter(row => {
+    const filterMatches = {
+      today: row.days === 0,
+      overdue: row.days < 0,
+      vip: row.customer.vipLevel && row.customer.vipLevel !== "NORMAL",
+      closed: row.closedToday
+    }[app.mobileOpportunityFilter];
+    if (!filterMatches) return false;
+    if (!query) return true;
+    const searchable = [
+      row.customer.name,
+      row.customer.phone,
+      row.socialName,
+      row.lastOrder?.orderNumber,
+      row.lastOrder?.id,
+      row.lastOrder?.items
+    ].filter(Boolean).join(" ").toLocaleLowerCase("th");
+    return searchable.includes(query);
+  });
+  return filtered.sort((a, b) => {
+    if (app.mobileOpportunitySort === "value") {
+      return b.value - a.value || a.days - b.days || a.customer.name.localeCompare(b.customer.name, "th");
+    }
+    return a.days - b.days || b.value - a.value || a.customer.name.localeCompare(b.customer.name, "th");
+  });
+}
+
+function mobileOpportunityStatus(row) {
+  if (row.days < 0) {
+    return `<span class="mobile-opportunity-due-label overdue">เลยกำหนดแล้ว</span><strong class="overdue">${money(Math.abs(row.days))} วัน</strong>`;
+  }
+  if (row.days === 0) {
+    return `<span class="mobile-opportunity-due-label today">ครบกำหนดวันนี้</span><strong>${money(row.days)} วัน</strong>`;
+  }
+  return `<span class="mobile-opportunity-due-label">ใกล้หมดในอีก</span><strong>${money(row.days)} วัน</strong>`;
+}
+
+function mobileOpportunityCustomerCard(row) {
+  const { customer, lastOrder } = row;
+  const orderNumber = lastOrder?.orderNumber || lastOrder?.id || "-";
+  const lastPurchase = lastOrder
+    ? `${lastOrder.items || "สินค้า"} ${money(lastOrder.jars || 0)} กระปุก (${formatShortDate(lastOrder.date)})`
+    : "ยังไม่มีข้อมูลการซื้อ";
+  return `
+    <article class="mobile-opportunity-customer-card">
+      <div class="mobile-opportunity-customer-main">
+        <span class="mobile-opportunity-avatar" aria-hidden="true">${escapeHtml(initials(customer.name))}</span>
+        <div class="mobile-opportunity-identity">
+          <strong>${escapeHtml(customer.name || "-")}</strong>
+          <span>${escapeHtml(customer.phone || "-")}${row.socialName ? ` · ${escapeHtml(row.socialName)}` : ""}</span>
+          <small><b>#${escapeHtml(orderNumber)}</b> ${escapeHtml(lastPurchase)}</small>
+        </div>
+        <div class="mobile-opportunity-due">
+          ${mobileOpportunityStatus(row)}
+          <small>กำหนด ${formatShortDate(customer.followUpDate)}</small>
+        </div>
+        <div class="mobile-opportunity-value">
+          <span>โอกาสปิดยอด</span>
+          <strong>฿ ${money(row.value)}</strong>
+        </div>
+        <button class="mobile-opportunity-chevron" type="button" data-open-customer="${escapeHtml(customer.id)}" aria-label="ดูรายละเอียด ${escapeHtml(customer.name)}">›</button>
+      </div>
+      <div class="mobile-opportunity-actions">
+        ${customer.phone
+          ? `<a class="call" href="tel:${escapeHtml(customer.phone)}"><span aria-hidden="true">⌕</span> โทร</a>`
+          : `<button class="call" type="button" disabled>โทร</button>`}
+        <button class="save" type="button" data-open-customer="${escapeHtml(customer.id)}"><span aria-hidden="true">▣</span> บันทึกผล</button>
+        <button class="reschedule" type="button" data-open-customer="${escapeHtml(customer.id)}"><span aria-hidden="true">▦</span> เลื่อนติดตาม</button>
+      </div>
+    </article>
+  `;
+}
+
+function renderMobileOpportunities() {
+  const model = mobileOpportunityData();
+  if (!app.mobileOpportunityFilter) {
+    app.mobileOpportunityFilter = model.counts.today > 0 ? "today" : "overdue";
+  }
+  const rows = mobileOpportunityRows(model);
+  const totalOpportunity = model.dueRows.reduce((sum, row) => sum + row.value, 0);
+  const filters = [
+    ["today", "ควรโทรวันนี้", model.counts.today],
+    ["overdue", "เลยกำหนดแล้ว", model.counts.overdue],
+    ["vip", "ลูกค้า VIP", model.counts.vip],
+    ["closed", "ปิดการขายแล้ว", model.counts.closed]
+  ];
+  return `
+    <section class="mobile-opportunities-page" aria-label="โอกาสทำเงิน">
+      <div class="mobile-opportunity-summary">
+        <div class="purple">
+          <span class="mobile-opportunity-summary-icon" aria-hidden="true">♟</span>
+          <span>ลูกค้าที่ควรติดตาม</span>
+          <strong>${money(model.dueRows.length)} <small>ราย</small></strong>
+        </div>
+        <div class="orange">
+          <span class="mobile-opportunity-summary-icon" aria-hidden="true">◎</span>
+          <span>โอกาสปิดยอดรวม</span>
+          <strong>฿ ${money(totalOpportunity)}</strong>
+        </div>
+        <div class="green">
+          <span class="mobile-opportunity-summary-icon" aria-hidden="true">↗</span>
+          <span>ยอดปิดได้แล้ววันนี้</span>
+          <strong>฿ ${money(model.closedRevenue)}</strong>
+        </div>
+      </div>
+
+      <div class="mobile-opportunity-status-grid">
+        ${filters.map(([id, label, count], index) => `
+          <button class="tone-${index + 1}" type="button" data-mobile-opportunity-filter="${id}">
+            <span class="mobile-opportunity-status-icon" aria-hidden="true">${["☎", "◷", "◇", "✓"][index]}</span>
+            <span>${label}</span>
+            <strong>${money(count)} <small>ราย</small></strong>
+          </button>
+        `).join("")}
+      </div>
+
+      <form class="mobile-opportunity-search-row" data-mobile-opportunity-search>
+        <label>
+          <span aria-hidden="true">⌕</span>
+          <input name="q" value="${escapeHtml(app.mobileOpportunitySearchDraft)}" placeholder="ค้นหาออเดอร์, ลูกค้า, เบอร์โทร" autocomplete="off">
+        </label>
+        <button class="mobile-opportunity-search-button" type="submit">ค้นหา</button>
+        <button class="mobile-opportunity-sort-button ${app.mobileOpportunitySort === "value" ? "value" : ""}" type="button" data-mobile-opportunity-sort aria-label="เรียงตาม${app.mobileOpportunitySort === "urgency" ? "มูลค่า" : "ความเร่งด่วน"}" title="ตอนนี้เรียงตาม${app.mobileOpportunitySort === "urgency" ? "ความเร่งด่วน" : "มูลค่า"}">⇅</button>
+      </form>
+
+      <div class="mobile-opportunity-filter-row" role="tablist" aria-label="ตัวกรองโอกาสทำเงิน">
+        ${filters.map(([id, label, count]) => `
+          <button class="${app.mobileOpportunityFilter === id ? "active" : ""}" type="button" role="tab" aria-selected="${app.mobileOpportunityFilter === id}" data-mobile-opportunity-filter="${id}">
+            ${label} (${money(count)})
+          </button>
+        `).join("")}
+      </div>
+
+      <div class="mobile-opportunity-list-heading">
+        <strong><span aria-hidden="true">☎</span> ${escapeHtml(filters.find(([id]) => id === app.mobileOpportunityFilter)?.[1] || "ลูกค้าที่ควรติดตาม")}</strong>
+        <span>${money(rows.length)} ราย</span>
+      </div>
+      <div class="mobile-opportunity-customer-list">
+        ${rows.length
+          ? rows.map(mobileOpportunityCustomerCard).join("")
+          : `<div class="mobile-opportunity-empty">ไม่พบลูกค้าจากข้อมูลจริงตามตัวกรองนี้</div>`}
+      </div>
+    </section>
+  `;
+}
+
 function renderOpportunities() {
+  if (isMobileViewport()) {
+    els.content.innerHTML = renderMobileOpportunities();
+    return;
+  }
   const cards = opportunityCardsData();
   els.content.innerHTML = `
     <section class="section saas-page opportunities-page">
@@ -4921,6 +5114,19 @@ document.addEventListener("click", async event => {
     return;
   }
 
+  const opportunityFilter = event.target.closest("[data-mobile-opportunity-filter]");
+  if (opportunityFilter && app.view === "opportunities" && isMobileViewport()) {
+    app.mobileOpportunityFilter = opportunityFilter.dataset.mobileOpportunityFilter;
+    renderOpportunities();
+    return;
+  }
+
+  if (event.target.closest("[data-mobile-opportunity-sort]") && app.view === "opportunities" && isMobileViewport()) {
+    app.mobileOpportunitySort = app.mobileOpportunitySort === "urgency" ? "value" : "urgency";
+    renderOpportunities();
+    return;
+  }
+
   const editOrderButton = event.target.closest("[data-edit-order]");
   if (editOrderButton) {
     const order = app.data.orders.find(item => item.id === editOrderButton.dataset.editOrder);
@@ -5132,6 +5338,11 @@ document.addEventListener("input", event => {
     app.ordersFilterDraft = orderFilter.value;
   }
 
+  const opportunitySearch = event.target.closest("[data-mobile-opportunity-search] input[name='q']");
+  if (opportunitySearch) {
+    app.mobileOpportunitySearchDraft = opportunitySearch.value;
+  }
+
   if (event.target?.id === "followupDaysPerUnit") {
     const body = document.querySelector("#followupPreviewBody");
     if (!body) return;
@@ -5275,6 +5486,13 @@ document.addEventListener("submit", async event => {
   const form = event.target;
 
   try {
+    if (form.matches("[data-mobile-opportunity-search]")) {
+      app.mobileOpportunitySearchDraft = String(new FormData(form).get("q") || "");
+      app.mobileOpportunitySearch = app.mobileOpportunitySearchDraft;
+      renderOpportunities();
+      return;
+    }
+
     if (form.id === "loginForm") {
       const data = Object.fromEntries(new FormData(form).entries());
       const payload = await api("/api/login", {
