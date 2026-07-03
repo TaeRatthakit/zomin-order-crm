@@ -4689,6 +4689,17 @@ document.addEventListener("change", async event => {
   if (event.target === els.workDate) {
     app.ordersShowAll = false;
     app.customersShowAll = false;
+    if (app.view === "orders" && isMobileViewport() && app.data) {
+      const selectedDate = event.target.value || todayISO();
+      app.ordersFilterQ = "";
+      app.ordersFilterDraft = "";
+      app.mobileOrdersDateOnly = true;
+      app.mobileOrderMenuId = "";
+      app.data.summary = buildLocalSummary(selectedDate);
+      if (els.workDateDisplay) els.workDateDisplay.textContent = formatDatePill(selectedDate);
+      renderOrders();
+      return;
+    }
     await loadState();
   }
 
