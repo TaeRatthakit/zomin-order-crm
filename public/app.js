@@ -47,7 +47,6 @@ const routeToView = {
   "/settings/follow-up": "settingsFollowup",
   "/settings/vip": "settingsVip",
   "/settings/line-oa": "settingsLine",
-  "/profile": "profileSettings",
   "/admin/line-debug": "lineDebug",
   "/team": "team",
   "/risk": "risk",
@@ -97,9 +96,7 @@ const app = {
   editingProductId: "",
   productSavePending: false,
   deletingOrderId: "",
-  deletingCustomerId: "",
-  profileDraftImage: "",
-  profileSaving: false
+  deletingCustomerId: ""
 };
 
 const adminViews = new Set([
@@ -385,8 +382,7 @@ function titleFor(view) {
     broadcast: "กระจายข้อความ",
     campaigns: "แคมเปญ",
     pricing: "แพ็กเกจ",
-  notifications: "แจ้งเตือน",
-  profileSettings: "แก้ไขโปรไฟล์",
+    notifications: "แจ้งเตือน",
     vip: "ลูกค้า VIP",
     risk: "ลูกค้าเสี่ยงหาย",
     tags: "อาการลูกค้า",
@@ -591,10 +587,6 @@ function sidebarNotificationCount() {
   return liveNotificationItems().reduce((sum, item) => sum + Number(item.count || 0), 0);
 }
 
-function currentUserRoleLabel() {
-  return app.currentUser?.role === "Admin" ? "เจ้าของร้าน" : "ทีมงาน";
-}
-
 function currentUserAvatar() {
   return String(app.currentUser?.avatar || "").trim();
 }
@@ -614,94 +606,12 @@ function avatarMarkup(name, avatar, className = "header-profile-avatar", interac
   `;
 }
 
-function renderMobileHeader() {
-  if (!app.currentUser) return "";
-  return `
-    <div class="mobile-header-shell">
-      <button class="mobile-profile-trigger" type="button" data-open-profile aria-label="เปิดการตั้งค่าโปรไฟล์">
-        ${avatarMarkup(app.currentUser.name, currentUserAvatar(), "header-profile-avatar", true)}
-        <span class="header-profile-copy">
-          <strong>${escapeHtml(app.currentUser.name)}</strong>
-          <span>${escapeHtml(currentUserRoleLabel())}</span>
-        </span>
-      </button>
-      <div class="mobile-header-brand" aria-label="Growup Pilot">
-        <img class="topbar-logo" src="/icons/logo.png?v=20260703-mobile-shell" alt="Growup Pilot" fetchpriority="high" loading="eager" decoding="async">
-      </div>
-      <div class="mobile-header-actions">
-        <div class="topbar-icon-row">
-          <button id="headerNotificationButton" class="icon-button notification-button" type="button" aria-label="แจ้งเตือน">
-            <svg class="topbar-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-            <span id="headerNotificationBadge" class="notification-badge" hidden>0</span>
-          </button>
-          <button id="headerLogoutButton" class="icon-button power-button" type="button" data-logout aria-label="ออกจากระบบ">
-            <svg class="topbar-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2v10"/><path d="M18.36 5.64a9 9 0 1 1-12.72 0"/></svg>
-          </button>
-        </div>
-        <label class="date-picker date-pill">
-          <span class="sr-only">วันที่ทำงาน</span>
-          <input id="workDate" type="date">
-          <span id="workDateDisplay" class="date-pill-display">01/07/2026</span>
-          <svg class="date-pill-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="16" rx="3"></rect><path d="M8 2.5v4"></path><path d="M16 2.5v4"></path><path d="M3 9.5h18"></path></svg>
-        </label>
-      </div>
-    </div>
-  `;
-}
-
-function renderMobileBottomNav() {
-  return `
-    <nav class="mobile-bottom-nav" aria-label="เมนูหลักบนมือถือ">
-      ${mobileNavItems.map(([id, path, label, icon]) => {
-        const activeGroupMap = { settingsStore: "settings", settingsFinance: "settings", settingsCustomers: "settings", settingsLineHub: "settings", settingsUsers: "settings", settingsImportExport: "settings", settingsSubscription: "settings", settingsFollowup: "settings", settingsVip: "settings", settingsLine: "settings", lineDebug: "settings", customers: "settings", products: "settings", aiInsights: "settings", profileSettings: "dashboard" };
-        const activeGroup = activeGroupMap[app.view] || app.view;
-        return `
-          <button class="mobile-bottom-nav-item ${activeGroup === id ? "active" : ""}" type="button" data-view="${id}" data-path="${path}" aria-label="${escapeHtml(label)}">
-            <span class="mobile-bottom-nav-icon">${iconSvg(id === "orders" && app.view === "orders" ? "orderbag" : icon)}</span>
-            <span class="mobile-bottom-nav-label">${escapeHtml(label)}</span>
-          </button>
-        `;
-      }).join("")}
-    </nav>
-  `;
-}
-
-function syncShellElements(scope = document) {
-  els.workDate = scope.querySelector("#workDate") || document.querySelector(".topbar #workDate");
-  els.workDateDisplay = scope.querySelector("#workDateDisplay") || document.querySelector(".topbar #workDateDisplay");
-  els.headerProfile = scope.querySelector("#headerProfile") || document.querySelector(".topbar #headerProfile");
-  els.headerNotificationButton = scope.querySelector("#headerNotificationButton") || document.querySelector(".topbar #headerNotificationButton");
-  els.headerNotificationBadge = scope.querySelector("#headerNotificationBadge") || document.querySelector(".topbar #headerNotificationBadge");
-}
-
-function mountMobileShell() {
-  const shell = document.querySelector("#mobileShell");
-  if (!shell) return;
-  if (!isMobileViewport() || app.view === "login") {
-    shell.hidden = true;
-    els.content = document.querySelector(".main-panel > #content");
-    syncShellElements(document.querySelector(".topbar") || document);
-    return;
-  }
-  shell.hidden = false;
-  shell.innerHTML = `
-    <header class="mobile-unified-header">${renderMobileHeader()}</header>
-    <section id="content" class="content-area mobile-content-area"></section>
-    ${renderMobileBottomNav()}
-  `;
-  els.content = shell.querySelector("#content");
-  syncShellElements(shell);
-  if (els.workDate) els.workDate.value = app.data?.summary?.selectedDate || todayISO();
-}
-
 function updateShell() {
   document.body.classList.toggle("login-view", app.view === "login");
   document.body.classList.toggle("mobile-app-shell", isMobileViewport());
   document.body.classList.toggle("desktop-app-shell", !isMobileViewport());
   document.body.classList.toggle("mobile-home-view", isMobileViewport() && app.view === "dashboard");
   document.body.classList.toggle("mobile-orders-view", isMobileViewport() && app.view === "orders");
-  document.body.classList.toggle("mobile-profile-view", isMobileViewport() && app.view === "profileSettings");
-  mountMobileShell();
   if (!els.headerProfile) return;
   if (els.workDateDisplay) {
     els.workDateDisplay.textContent = formatDatePill(els.workDate?.value || app.data?.summary?.selectedDate || todayISO());
@@ -726,11 +636,13 @@ function updateShell() {
   }
   els.headerProfile.hidden = false;
   els.headerProfile.innerHTML = `
-    ${avatarMarkup(app.currentUser.name, currentUserAvatar())}
-    <div class="header-profile-copy">
-      <strong>${escapeHtml(app.currentUser.name)}</strong>
-      <span>${escapeHtml(currentUserRoleLabel())}</span>
-    </div>
+    <button class="header-profile-trigger" type="button" data-open-profile aria-label="เปิดการตั้งค่าโปรไฟล์">
+      ${avatarMarkup(app.currentUser.name, currentUserAvatar())}
+      <div class="header-profile-copy">
+        <strong>${escapeHtml(app.currentUser.name)}</strong>
+        <span>${escapeHtml(app.currentUser.role === "Admin" ? "เจ้าของร้าน" : "ทีมงาน")}</span>
+      </div>
+    </button>
   `;
   if (els.sidebarFooter) {
     els.sidebarFooter.hidden = false;
@@ -1561,38 +1473,6 @@ function renderMobileDashboard(viewModel) {
         ${mobileDashboardSummaryCard(channelRows, s.salesToday || 0)}
         ${mobileDashboardAlertsCard(alerts)}
       </div>
-    </section>
-  `;
-}
-
-function renderProfileSettings() {
-  const currentAvatar = app.profileDraftImage || currentUserAvatar();
-  els.content.innerHTML = `
-    <section class="section saas-page mobile-profile-page">
-      <article class="mobile-profile-card">
-        <div class="mobile-profile-head">
-          <button class="mobile-profile-back" type="button" data-view-shortcut="dashboard" aria-label="กลับ">‹</button>
-          <h2>แก้ไขโปรไฟล์</h2>
-          <button class="mobile-profile-save" type="submit" form="profileSettingsForm"${app.profileSaving ? " disabled" : ""}>บันทึก</button>
-        </div>
-        <form id="profileSettingsForm" class="mobile-profile-form">
-          <div class="mobile-profile-avatar-wrap">
-            ${avatarMarkup(app.currentUser?.name || "Growup Pilot", currentAvatar, "header-profile-avatar")}
-            <button class="mobile-profile-avatar-edit" type="button" data-pick-profile-image aria-label="เลือกรูปโปรไฟล์">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h4l2-2h4l2 2h4v12H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
-            </button>
-            <input id="profileImageInput" type="file" accept="image/*" hidden>
-          </div>
-          <label>
-            <span>ชื่อ</span>
-            <input name="displayName" value="${escapeHtml(app.currentUser?.name || "")}" maxlength="60" required>
-          </label>
-          <label>
-            <span>ตำแหน่ง</span>
-            <input value="${escapeHtml(currentUserRoleLabel())}" disabled>
-          </label>
-        </form>
-      </article>
     </section>
   `;
 }
@@ -4212,7 +4092,6 @@ function render() {
     campaigns: renderCampaigns,
     pricing: renderPricing,
     notifications: renderNotifications,
-    profileSettings: renderProfileSettings,
     team: renderTeam,
     settings: renderSettings,
     settingsStore: renderSettingsStore,
@@ -4456,16 +4335,6 @@ document.addEventListener("click", async event => {
 
   if (event.target.closest("#headerNotificationButton")) {
     setView("notifications");
-    return;
-  }
-
-  if (event.target.closest("[data-open-profile]")) {
-    setView("profileSettings");
-    return;
-  }
-
-  if (event.target.closest("[data-pick-profile-image]")) {
-    document.querySelector("#profileImageInput")?.click();
     return;
   }
 
@@ -4890,19 +4759,6 @@ document.addEventListener("change", async event => {
     reader.readAsDataURL(file);
   }
 
-  if (event.target?.id === "profileImageInput") {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = loadEvent => {
-      const result = String(loadEvent.target?.result || "");
-      if (!result) return;
-      app.profileDraftImage = result;
-      renderProfileSettings();
-    };
-    reader.readAsDataURL(file);
-  }
-
   if (event.target?.id === "importSheetSelect" && app.importWorker) {
     app.importPreparing = true;
     renderImport();
@@ -5123,26 +4979,7 @@ document.addEventListener("submit", async event => {
       await loadState();
     }
 
-    if (form.id === "profileSettingsForm") {
-      app.profileSaving = true;
-      const data = Object.fromEntries(new FormData(form).entries());
-      const payload = await api("/api/profile", {
-        method: "PUT",
-        body: JSON.stringify({
-          displayName: data.displayName,
-          avatar: app.profileDraftImage || currentUserAvatar()
-        })
-      });
-      app.currentUser = payload.user;
-      if (app.data?.currentUser) app.data.currentUser = payload.user;
-      app.profileDraftImage = "";
-      app.profileSaving = false;
-      showToast("บันทึกโปรไฟล์แล้ว");
-      setView("dashboard");
-      await loadState();
-    }
   } catch (error) {
-    app.profileSaving = false;
     showToast(error.message);
   }
 });

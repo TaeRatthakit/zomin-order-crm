@@ -183,16 +183,6 @@ function publicUser(user) {
   return safeUser;
 }
 
-function sanitizeAvatarDataUrl(value) {
-  const textValue = String(value || "").trim();
-  if (!textValue) return "";
-  if (!/^data:image\/(?:png|jpeg|jpg|webp|gif);base64,/i.test(textValue)) return "";
-  if (Buffer.byteLength(textValue, "utf8") > 2_500_000) {
-    throw new Error("รูปโปรไฟล์มีขนาดใหญ่เกินไป");
-  }
-  return textValue;
-}
-
 function booleanEnv(value, fallback = false) {
   if (value === undefined || value === "") return fallback;
   return ["1", "true", "yes", "on"].includes(String(value).toLowerCase());
@@ -1856,21 +1846,6 @@ async function handleApi(req, res) {
       users: currentUser.role === "Admin" ? enriched.users.map(publicUser) : [currentUser],
       currentUser,
       summary: buildSummary(enriched, date)
-    });
-  }
-
-  if (req.method === "PUT" && url.pathname === "/api/profile") {
-    const body = await readBody(req);
-    const user = db.users.find(item => item.id === currentUser.id);
-    if (!user) return json(res, 404, { ok: false, error: "ไม่พบผู้ใช้งาน" });
-    const displayName = String(body.displayName || "").trim();
-    if (!displayName) return json(res, 400, { ok: false, error: "กรุณาใส่ชื่อที่ต้องการแสดง" });
-    user.name = displayName;
-    user.avatar = sanitizeAvatarDataUrl(body.avatar);
-    await writeDb(db);
-    const session = createSession(user);
-    return json(res, 200, { ok: true, user: publicUser(user) }, {
-      "Set-Cookie": sessionCookie(session.token, session.expiresAt)
     });
   }
 
