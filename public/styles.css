@@ -71,21 +71,23 @@
 
   body.mobile-reports-view .mobile-report-kpi-grid {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 9px;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
   }
 
   body.mobile-reports-view .mobile-report-kpi {
     position: relative;
     display: grid;
     grid-template-rows: auto auto 1fr;
-    gap: 9px;
+    justify-items: center;
+    gap: 5px;
     min-width: 0;
-    min-height: 148px;
-    padding: 13px 12px 12px;
+    min-height: 118px;
+    height: 118px;
+    padding: 8px 4px 7px;
     overflow: hidden;
     border: 1px solid var(--report-border);
-    border-radius: 20px;
+    border-radius: 13px;
     background:
       radial-gradient(circle at 18% 8%, var(--report-glow), transparent 48%),
       linear-gradient(145deg, var(--report-surface), rgba(3, 12, 22, 0.94));
@@ -121,20 +123,31 @@
   }
 
   body.mobile-reports-view .mobile-report-kpi-head {
-    display: flex;
+    width: 100%;
+    display: grid;
+    justify-items: center;
     align-items: center;
-    gap: 8px;
+    gap: 3px;
     min-width: 0;
     color: #e8ebf1;
-    font-size: 13px;
-    font-weight: 600;
-    white-space: nowrap;
+    font-size: 9px;
+    font-weight: 500;
+    line-height: 1.12;
+    text-align: center;
+  }
+
+  body.mobile-reports-view .mobile-report-kpi-head > span:last-child {
+    width: 100%;
+    min-height: 20px;
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
   }
 
   body.mobile-reports-view .mobile-report-kpi-icon {
-    width: 36px;
-    height: 36px;
-    flex: 0 0 36px;
+    width: 28px;
+    height: 28px;
     display: grid;
     place-items: center;
     border-radius: 50%;
@@ -144,45 +157,60 @@
   }
 
   body.mobile-reports-view .mobile-report-kpi-icon .metric-icon-svg {
-    width: 20px;
-    height: 20px;
+    width: 15px;
+    height: 15px;
   }
 
   body.mobile-reports-view .mobile-report-kpi > strong {
+    width: 100%;
     min-width: 0;
     overflow: hidden;
     color: #fff;
-    font-size: clamp(21px, 6vw, 28px);
+    font-size: clamp(13px, 4vw, 16px);
     font-weight: 500;
     line-height: 1.05;
-    letter-spacing: -0.045em;
+    letter-spacing: -0.035em;
+    text-align: center;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
   body.mobile-reports-view .mobile-report-kpi > strong small {
-    margin-left: 5px;
-    font-size: 12px;
+    margin-left: 2px;
+    font-size: 8px;
     font-weight: 500;
     letter-spacing: 0;
   }
 
   body.mobile-reports-view .mobile-report-kpi-foot {
     align-self: end;
+    justify-items: center;
     display: grid;
-    gap: 2px;
+    gap: 1px;
+    min-width: 0;
+    text-align: center;
   }
 
-  body.mobile-reports-view .mobile-report-kpi-foot > small,
+  body.mobile-reports-view .mobile-report-kpi-foot > small {
+    max-width: 100%;
+    overflow: hidden;
+    color: #a8aeb8;
+    font-size: 8px;
+    line-height: 1.1;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   body.mobile-reports-view .mobile-report-customer-stat > small {
     color: #a8aeb8;
     font-size: 11px;
   }
 
-  body.mobile-reports-view .report-trend {
+  body.mobile-reports-view .mobile-report-kpi .report-trend {
     color: #36ee58;
-    font-size: 16px;
+    font-size: 11px;
     font-weight: 700;
+    line-height: 1;
   }
 
   body.mobile-reports-view .report-trend.down {
@@ -531,19 +559,31 @@
 
 @media (max-width: 360px) {
   body.mobile-reports-view .mobile-report-kpi {
-    min-height: 140px;
-    padding: 11px 10px;
+    min-height: 112px;
+    height: 112px;
+    padding: 7px 3px 6px;
   }
 
   body.mobile-reports-view .mobile-report-kpi-head {
-    gap: 6px;
-    font-size: 11px;
+    gap: 2px;
+    font-size: 8px;
   }
 
   body.mobile-reports-view .mobile-report-kpi-icon {
-    width: 31px;
-    height: 31px;
-    flex-basis: 31px;
+    width: 25px;
+    height: 25px;
+  }
+
+  body.mobile-reports-view .mobile-report-kpi > strong {
+    font-size: 13px;
+  }
+
+  body.mobile-reports-view .mobile-report-kpi .report-trend {
+    font-size: 10px;
+  }
+
+  body.mobile-reports-view .mobile-report-kpi-foot > small {
+    font-size: 7px;
   }
 
   body.mobile-reports-view .mobile-report-channel-layout {
