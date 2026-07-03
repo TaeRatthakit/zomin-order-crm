@@ -11,9 +11,17 @@
     <meta name="apple-mobile-web-app-title" content="Growup Pilot">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <link rel="preload" as="image" href="/mobile-startup-logo.png?v=20260702-mobile-startup-v2" fetchpriority="high" media="(max-width: 780px)">
+    <link rel="preload" as="image" href="/icons/logo.png?v=20260703-mobile-shell" fetchpriority="high" media="(max-width: 780px)">
+    <link rel="preload" as="image" href="/mobile-home-hero.png?v=20260703-mobile-hero-static" fetchpriority="high" media="(max-width: 780px)">
     <script>
       if (window.matchMedia("(max-width: 780px)").matches) {
         document.documentElement.classList.add("mobile-startup-pending");
+        const mobileHero = new Image();
+        mobileHero.decoding = "async";
+        mobileHero.src = "/mobile-home-hero.png?v=20260703-mobile-hero-static";
+        const mobileLogo = new Image();
+        mobileLogo.decoding = "async";
+        mobileLogo.src = "/icons/logo.png?v=20260703-mobile-shell";
       }
     </script>
     <meta property="og:type" content="website">
@@ -101,6 +109,7 @@
 
         <section id="toast" class="toast" hidden></section>
         <section id="content" class="content-area"></section>
+        <section id="mobileShell" class="mobile-shell" hidden></section>
       </main>
     </div>
 
