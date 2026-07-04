@@ -213,13 +213,20 @@ function effectiveSettings(settings = {}) {
 }
 
 function normalizeSettingsCostRows(rows = [], fieldName) {
+  const allowedAdditionalCostTypes = new Set(["fixed_per_order", "per_item", "percent_sales"]);
   return (Array.isArray(rows) ? rows : [])
-    .map((row, index) => ({
-      id: String(row?.id || `${fieldName}_${index + 1}`),
-      name: String(row?.name || "").trim(),
-      [fieldName]: Math.max(0, Number(row?.[fieldName] || 0)),
-      enabled: row?.enabled !== false
-    }))
+    .map((row, index) => {
+      const normalized = {
+        id: String(row?.id || `${fieldName}_${index + 1}`),
+        name: String(row?.name || "").trim(),
+        [fieldName]: Math.max(0, Number(row?.[fieldName] || 0)),
+        enabled: row?.enabled !== false
+      };
+      if (fieldName === "amount") {
+        normalized.type = allowedAdditionalCostTypes.has(row?.type) ? row.type : "fixed_per_order";
+      }
+      return normalized;
+    })
     .filter(row => row.name);
 }
 

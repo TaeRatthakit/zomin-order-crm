@@ -104,6 +104,28 @@ async function main() {
     fail("state did not return Admin session");
   }
 
+  const financeSettings = await request("/api/settings", {
+    method: "PUT",
+    headers: { cookie, "content-type": "application/json" },
+    body: JSON.stringify({
+      productCosts: [{ id: "pc_smoke", name: "Zomin", costPerJar: 48, enabled: true }],
+      additionalCosts: [
+        { id: "ac_order", name: "ค่ากล่อง", amount: 5, type: "fixed_per_order", enabled: true },
+        { id: "ac_item", name: "ค่าแพ็ก", amount: 2, type: "per_item", enabled: true },
+        { id: "ac_cod", name: "ค่า COD", amount: 2.5, type: "percent_sales", enabled: true }
+      ]
+    })
+  });
+  if (financeSettings.status !== 200) fail(`finance settings returned ${financeSettings.status}: ${financeSettings.text}`);
+  const savedFinanceSettings = JSON.parse(financeSettings.text).settings;
+  if (savedFinanceSettings.productCosts?.[0]?.costPerJar !== 48) fail("product cost did not persist");
+  if (
+    savedFinanceSettings.additionalCosts?.map(item => item.type).join(",")
+    !== "fixed_per_order,per_item,percent_sales"
+  ) {
+    fail("additional cost calculation types did not persist");
+  }
+
   const staffLogin = await request("/api/login", {
     method: "POST",
     headers: { "content-type": "application/json" },

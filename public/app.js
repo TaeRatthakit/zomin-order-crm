@@ -866,7 +866,6 @@ function dashboardDelta(todayValue, yesterdayValue, unit = "") {
 
 function dashboardTrendSeries(metric, length = 10) {
   const selectedDate = app.data.summary?.selectedDate || todayISO();
-  const additionalCosts = additionalCostTotal();
   return Array.from({ length }, (_, index) => {
     const date = addDaysISO(selectedDate, index - (length - 1));
     const dayOrders = app.data.orders.filter(order => order.date === date);
@@ -879,7 +878,7 @@ function dashboardTrendSeries(metric, length = 10) {
     if (metric === "salesThisMonth") return monthOrders.reduce((sum, order) => sum + Number(order.amount || 0), 0);
     if (metric === "ordersToday") return dayOrders.length;
     if (metric === "ordersThisMonth") return monthOrders.length;
-    if (metric === "profitToday") return Math.max(0, daySales - dayOrders.reduce((sum, order) => sum + productCostForOrder(order), 0) - additionalCosts);
+    if (metric === "profitToday") return profitBreakdownForOrders(dayOrders).profit;
     if (metric === "opportunityToday") return estimatedOpportunityRevenue(dueCustomers, 0.36) + estimatedOpportunityRevenue(silentCustomers, 0.18);
     return 0;
   });
@@ -1077,11 +1076,13 @@ function normalizeProductCostEntries(settings = {}) {
 
 function normalizeAdditionalCostEntries(settings = {}) {
   const configured = Array.isArray(settings.additionalCosts) ? settings.additionalCosts : [];
+  const allowedTypes = new Set(["fixed_per_order", "per_item", "percent_sales"]);
   return configured
     .map((item, index) => ({
       id: String(item?.id || `ac_${index + 1}`),
       name: String(item?.name || "").trim(),
       amount: Number(item?.amount || 0),
+      type: allowedTypes.has(item?.type) ? item.type : "fixed_per_order",
       enabled: item?.enabled !== false
     }))
     .filter(item => item.name);
@@ -1094,10 +1095,47 @@ function productCostForOrder(order, settings = app.data?.settings || {}) {
   return Number(order?.jars || 0) * Number(productConfig.costPerJar || 0);
 }
 
-function additionalCostTotal(settings = app.data?.settings || {}) {
+function additionalCostTypeLabel(type) {
+  return {
+    fixed_per_order: "คงที่ต่อออเดอร์",
+    per_item: "ต่อชิ้น",
+    percent_sales: "% ของยอดขาย"
+  }[type] || "คงที่ต่อออเดอร์";
+}
+
+function additionalCostBreakdownForOrders(orders = [], settings = app.data?.settings || {}) {
+  const rows = Array.isArray(orders) ? orders : [];
+  const orderCount = rows.length;
+  const itemCount = rows.reduce((sum, order) => sum + Number(order.jars || 0), 0);
+  const sales = rows.reduce((sum, order) => sum + Number(order.amount || 0), 0);
   return normalizeAdditionalCostEntries(settings)
     .filter(item => item.enabled)
-    .reduce((sum, item) => sum + Number(item.amount || 0), 0);
+    .map(item => {
+      const total = item.type === "percent_sales"
+        ? sales * Number(item.amount || 0) / 100
+        : item.type === "per_item"
+          ? itemCount * Number(item.amount || 0)
+          : orderCount * Number(item.amount || 0);
+      return { ...item, total };
+    });
+}
+
+function additionalCostTotalForOrders(orders = [], settings = app.data?.settings || {}) {
+  return additionalCostBreakdownForOrders(orders, settings)
+    .reduce((sum, item) => sum + Number(item.total || 0), 0);
+}
+
+function profitBreakdownForOrders(orders = [], settings = app.data?.settings || {}) {
+  const rows = Array.isArray(orders) ? orders : [];
+  const sales = rows.reduce((sum, order) => sum + Number(order.amount || 0), 0);
+  const productCosts = rows.reduce((sum, order) => sum + productCostForOrder(order, settings), 0);
+  const additionalCosts = additionalCostTotalForOrders(rows, settings);
+  return {
+    sales,
+    productCosts,
+    additionalCosts,
+    profit: sales - productCosts - additionalCosts
+  };
 }
 
 function normalizeProductRecords(settings = app.data?.settings || {}) {
@@ -1750,9 +1788,10 @@ function renderDashboard() {
   const previousMonthSales = previousMonthOrders.reduce((sum, order) => sum + Number(order.amount || 0), 0);
   const revenueOpportunity = opportunities.reduce((sum, item) => sum + item.revenue, 0);
   const todaysOrders = app.data.orders.filter(order => order.date === s.selectedDate);
-  const productCostsToday = todaysOrders.reduce((sum, order) => sum + productCostForOrder(order), 0);
-  const additionalCostsToday = additionalCostTotal();
-  const estimatedProfitToday = Math.max(0, (s.salesToday || 0) - productCostsToday - additionalCostsToday);
+  const todayProfitBreakdown = profitBreakdownForOrders(todaysOrders);
+  const productCostsToday = todayProfitBreakdown.productCosts;
+  const additionalCostsToday = todayProfitBreakdown.additionalCosts;
+  const estimatedProfitToday = todayProfitBreakdown.profit;
   const previousOpportunityRevenue = estimatedOpportunityRevenue(
     app.data.customers.filter(customer => customer.followUpDate && customer.followUpDate <= yesterday),
     0.36
@@ -1764,7 +1803,7 @@ function renderDashboard() {
   const salesMonthDelta = dashboardDelta(s.salesThisMonth || 0, previousMonthSales, "currency");
   const ordersDelta = dashboardDelta(s.ordersToday || 0, yesterdayOrderCount);
   const ordersMonthDelta = dashboardDelta(s.ordersThisMonth || 0, previousMonthOrders.length);
-  const yesterdayProfit = Math.max(0, yesterdaySales - yesterdayOrders.reduce((sum, order) => sum + productCostForOrder(order), 0) - additionalCostsToday);
+  const yesterdayProfit = profitBreakdownForOrders(yesterdayOrders).profit;
   const profitDelta = dashboardDelta(estimatedProfitToday, yesterdayProfit, "currency");
   const opportunityDelta = dashboardDelta(revenueOpportunity, previousOpportunityRevenue, "currency");
   const compactDate = new Intl.DateTimeFormat("th-TH-u-ca-buddhist", {
@@ -2006,12 +2045,10 @@ function renderMobileBusinessProductDetail() {
   if (!product) return renderMobileBusinessProducts();
   const productCost = normalizeProductCostEntries(app.data.settings || {}).find(item => item.id === product.id || item.name === product.name);
   const relatedOrders = (app.data.orders || []).filter(order => normalizeProductName(order.items) === product.name);
-  const revenue = relatedOrders.reduce((sum, order) => sum + Number(order.amount || 0), 0);
   const units = relatedOrders.reduce((sum, order) => sum + Number(order.jars || 0), 0);
   const unitCost = Number(productCost?.costPerJar ?? product.costPerItem ?? 0);
-  const productCostTotal = units * unitCost;
-  const extraCosts = additionalCostTotal(app.data.settings || {});
-  const profit = revenue - productCostTotal - extraCosts;
+  const breakdown = profitBreakdownForOrders(relatedOrders, app.data.settings || {});
+  const extraCostRows = additionalCostBreakdownForOrders(relatedOrders, app.data.settings || {});
   return `
     <section class="mobile-business-page mobile-business-subpage">
       <header class="mobile-business-subhead">
@@ -2027,12 +2064,13 @@ function renderMobileBusinessProductDetail() {
         <div class="mobile-business-finance-grid">
           <article class="purple"><span>ต้นทุนต่อชิ้น</span><strong>${money(unitCost)} บาท</strong></article>
           <article class="blue"><span>ขายแล้ว</span><strong>${money(units)} ชิ้น</strong></article>
-          <article class="orange"><span>ยอดขาย</span><strong>${money(revenue)} บาท</strong></article>
-          <article class="${profit >= 0 ? "green" : "red"}"><span>กำไรสุทธิประมาณการ</span><strong>${money(profit)} บาท</strong></article>
+          <article class="orange"><span>ยอดขาย</span><strong>${money(breakdown.sales)} บาท</strong></article>
+          <article class="${breakdown.profit >= 0 ? "green" : "red"}"><span>กำไรสุทธิประมาณการ</span><strong>${money(breakdown.profit)} บาท</strong></article>
         </div>
         <div class="mobile-business-info-list">
-          <div><span>ต้นทุนสินค้า</span><strong>${money(productCostTotal)} บาท</strong></div>
-          <div><span>ค่าใช้จ่ายเพิ่มเติมที่เปิดใช้</span><strong>${money(extraCosts)} บาท</strong></div>
+          <div><span>ต้นทุนสินค้า</span><strong>${money(breakdown.productCosts)} บาท</strong></div>
+          ${extraCostRows.map(item => `<div><span>${escapeHtml(item.name)} · ${escapeHtml(additionalCostTypeLabel(item.type))}</span><strong>${money(item.total)} บาท</strong></div>`).join("") || `<div><span>ค่าใช้จ่ายเพิ่มเติม</span><strong>0 บาท</strong></div>`}
+          <div><span>ค่าใช้จ่ายเพิ่มเติมรวม</span><strong>${money(breakdown.additionalCosts)} บาท</strong></div>
           <div><span>จำนวนออเดอร์</span><strong>${money(relatedOrders.length)} ออเดอร์</strong></div>
         </div>
       </article>
@@ -2078,36 +2116,57 @@ function renderMobileBusinessNotifications() {
 function renderMobileBusinessFinance() {
   const settings = app.data.settings || {};
   const orders = app.data.orders || [];
-  const sales = orders.reduce((sum, order) => sum + Number(order.amount || 0), 0);
-  const productCosts = orders.reduce((sum, order) => sum + productCostForOrder(order), 0);
-  const extras = additionalCostTotal(settings);
+  const breakdown = profitBreakdownForOrders(orders, settings);
   const products = productRowsData();
   return `
     <section class="mobile-business-page mobile-business-subpage">
       ${mobileBusinessHeader("การเงิน ต้นทุน/กำไร", "คำนวณจากสินค้า ออเดอร์ และค่าใช้จ่ายจริง", "chart")}
-      <div class="mobile-business-finance-grid">
-        <article class="blue"><span>ยอดขายรวม</span><strong>${money(sales)} บาท</strong></article>
-        <article class="purple"><span>ต้นทุนสินค้า</span><strong>${money(productCosts)} บาท</strong></article>
-        <article class="orange"><span>ค่าใช้จ่ายเพิ่มเติม</span><strong>${money(extras)} บาท</strong></article>
-        <article class="green"><span>กำไรประมาณการ</span><strong>${money(sales - productCosts - extras)} บาท</strong></article>
-      </div>
-      <h3 class="mobile-business-inner-title">ต้นทุนสินค้า</h3>
-      <div class="mobile-business-record-list">
-        ${products.map(product => {
-          const cost = normalizeProductCostEntries(settings).find(item => item.id === product.id || item.name === product.name);
-          return `
-            <button class="mobile-business-product-record" type="button" data-business-product="${escapeHtml(product.id)}">
-              <span class="mobile-business-product-thumb">${iconSvg("box")}</span>
-              <span><strong>${escapeHtml(product.name)}</strong><small>ต้นทุนต่อชิ้น ${money(cost?.costPerJar ?? product.costPerItem ?? 0)} บาท</small></span>
-              <b>ดูรายละเอียด</b>
-            </button>
-          `;
-        }).join("") || mobileBusinessEmpty("ยังไม่มีต้นทุนสินค้า", "เพิ่มสินค้าและกำหนดต้นทุนก่อนเริ่มคำนวณกำไร")}
-      </div>
-      <h3 class="mobile-business-inner-title">ค่าใช้จ่ายเพิ่มเติม</h3>
-      <div class="mobile-business-info-list">
-        ${normalizeAdditionalCostEntries(settings).map(item => `<div><span>${escapeHtml(item.name)}</span><strong>${money(item.amount)} บาท${item.enabled ? "" : " · ปิดใช้งาน"}</strong></div>`).join("") || `<div><span>ยังไม่มีรายการ</span><strong>0 บาท</strong></div>`}
-      </div>
+      <form class="mobile-finance-form" id="settingsForm">
+        <input name="daysPerUnit" type="hidden" value="${Math.max(1, Number(settings.followUpDaysPerUnit || 15))}">
+        <div class="mobile-business-finance-grid">
+          <article class="blue"><span>ยอดขายรวม</span><strong>${money(breakdown.sales)} บาท</strong></article>
+          <article class="purple"><span>ต้นทุนสินค้า</span><strong>${money(breakdown.productCosts)} บาท</strong></article>
+          <article class="orange"><span>ค่าใช้จ่ายเพิ่มเติม</span><strong id="additionalCostsTotal">${money(breakdown.additionalCosts)} บาท</strong></article>
+          <article class="${breakdown.profit >= 0 ? "green" : "red"}"><span>กำไรสุทธิประมาณการ</span><strong>${money(breakdown.profit)} บาท</strong></article>
+        </div>
+
+        <div class="mobile-finance-section-head">
+          <div><h3>ต้นทุนสินค้า</h3><p>กำหนดต้นทุนต่อหน่วยและดูผลจากยอดขายจริง</p></div>
+        </div>
+        <div class="mobile-finance-product-list">
+          ${products.map(product => {
+            const cost = normalizeProductCostEntries(settings).find(item => item.id === product.id || item.name === product.name);
+            const productOrders = orders.filter(order => normalizeProductName(order.items) === product.name);
+            const productBreakdown = profitBreakdownForOrders(productOrders, settings);
+            const sold = productOrders.reduce((sum, order) => sum + Number(order.jars || 0), 0);
+            return `
+              <article class="mobile-finance-product" data-product-cost-row data-id="${escapeHtml(cost?.id || product.id)}">
+                <span class="mobile-business-product-thumb">${product.image ? `<img src="${escapeHtml(product.image)}" alt="">` : iconSvg("box")}</span>
+                <div class="mobile-finance-product-name">
+                  <strong>${escapeHtml(product.name)}</strong>
+                  <input name="productCostName" type="hidden" value="${escapeHtml(product.name)}">
+                  <span>${money(sold)} ชิ้น · ${money(productOrders.length)} ออเดอร์</span>
+                </div>
+                <label><span>ต้นทุน/หน่วย</span><input name="productCostAmount" type="number" min="0" step="0.01" value="${Number(cost?.costPerJar ?? product.costPerItem ?? 0)}"></label>
+                <input name="productCostEnabled" type="checkbox" checked hidden>
+                <div class="mobile-finance-product-metrics">
+                  <span>ยอดขาย <strong>${money(productBreakdown.sales)} บาท</strong></span>
+                  <span>กำไรขั้นต้น <strong>${money(productBreakdown.sales - productBreakdown.productCosts)} บาท</strong></span>
+                </div>
+                <button class="button ghost compact-action" type="button" data-business-product="${escapeHtml(product.id)}">ดูรายละเอียดกำไร</button>
+              </article>
+            `;
+          }).join("") || mobileBusinessEmpty("ยังไม่มีสินค้า", "เพิ่มสินค้า หรือบันทึกออเดอร์จริงก่อนกำหนดต้นทุน")}
+        </div>
+
+        <div class="mobile-finance-section-head">
+          <div><h3>ค่าใช้จ่ายเพิ่มเติม</h3><p>เลือกวิธีคิดต่อออเดอร์ ต่อชิ้น หรือเปอร์เซ็นต์ยอดขาย</p></div>
+          <button class="button primary compact-action" type="button" data-add-additional-cost>เพิ่มค่าใช้จ่าย</button>
+        </div>
+        <div class="settings-cost-list mobile-finance-expense-list" id="additionalCostList">${settingsAdditionalCostRows(settings)}</div>
+        <div class="mobile-finance-formula-note">กำไร = ยอดขาย - ต้นทุนสินค้า - ค่าใช้จ่ายเพิ่มเติมที่เปิดใช้งาน</div>
+        <button class="button primary mobile-business-full-button" type="submit">บันทึกต้นทุนและค่าใช้จ่าย</button>
+      </form>
     </section>
   `;
 }
@@ -3163,6 +3222,16 @@ function createAdditionalCostRow(item = {}) {
         <span>จำนวนเงิน (บาท)</span>
         <input name="additionalCostAmount" type="number" min="0" step="0.01" value="${Number(item.amount || 0)}">
       </label>
+      <label class="settings-cost-field">
+        <span>วิธีคิด</span>
+        <select name="additionalCostType">
+          ${[
+            ["fixed_per_order", "คงที่ต่อออเดอร์"],
+            ["per_item", "ต่อชิ้น"],
+            ["percent_sales", "% ของยอดขาย"]
+          ].map(([value, label]) => `<option value="${value}" ${(item.type || "fixed_per_order") === value ? "selected" : ""}>${label}</option>`).join("")}
+        </select>
+      </label>
       <label class="settings-switch compact">
         <span>เปิดใช้งาน</span>
         <input name="additionalCostEnabled" type="checkbox" ${item.enabled === false ? "" : "checked"}>
@@ -3179,8 +3248,9 @@ function createAdditionalCostRow(item = {}) {
 function toggleCostRowEditing(row, editable) {
   if (!row) return;
   row.classList.toggle("is-editing", editable);
-  row.querySelectorAll("input[name$='Name'], input[name$='Amount']").forEach(input => {
+  row.querySelectorAll("input[name$='Name'], input[name$='Amount'], select[name='additionalCostType']").forEach(input => {
     input.readOnly = !editable;
+    if (input.tagName === "SELECT") input.disabled = !editable;
   });
   row.querySelectorAll("input[type='checkbox']").forEach(input => {
     input.disabled = !editable;
@@ -3191,11 +3261,21 @@ function toggleCostRowEditing(row, editable) {
 
 function refreshAdditionalCostsSummary() {
   const rows = Array.from(document.querySelectorAll("[data-additional-cost-row]"));
-  const total = rows.reduce((sum, row) => {
-    const enabled = row.querySelector("[name='additionalCostEnabled']")?.checked;
-    const amount = Number(row.querySelector("[name='additionalCostAmount']")?.value || 0);
-    return enabled ? sum + amount : sum;
-  }, 0);
+  const additionalCosts = rows.map(row => ({
+    id: row.dataset.id,
+    name: row.querySelector("[name='additionalCostName']")?.value.trim(),
+    amount: Number(row.querySelector("[name='additionalCostAmount']")?.value || 0),
+    type: row.querySelector("[name='additionalCostType']")?.value || "fixed_per_order",
+    enabled: row.querySelector("[name='additionalCostEnabled']")?.checked
+  })).filter(item => item.name);
+  const selectedDate = app.data?.summary?.selectedDate || todayISO();
+  const scopeOrders = document.querySelector(".mobile-finance-form")
+    ? (app.data?.orders || [])
+    : (app.data?.orders || []).filter(order => order.date === selectedDate);
+  const total = additionalCostTotalForOrders(scopeOrders, {
+    ...(app.data?.settings || {}),
+    additionalCosts
+  });
   const target = document.querySelector("#additionalCostsTotal");
   if (target) target.textContent = `${money(total)} บาท`;
 }
@@ -3855,10 +3935,9 @@ function renderMobileReports(selectedDate, selectedMonth) {
   const yesterdayOrders = orders.filter(order => order.date === addDaysISO(selectedDate, -1));
   const previousMonth = reportPreviousMonth(selectedMonth);
   const previousMonthOrders = orders.filter(order => monthKey(order.date) === previousMonth);
-  const additionalCosts = additionalCostTotal();
   const sales = rows => rows.reduce((sum, order) => sum + Number(order.amount || 0), 0);
   const units = rows => rows.reduce((sum, order) => sum + Number(order.jars || 0), 0);
-  const profit = rows => Math.max(0, sales(rows) - rows.reduce((sum, order) => sum + productCostForOrder(order), 0) - additionalCosts);
+  const profit = rows => profitBreakdownForOrders(rows).profit;
   const todaySales = sales(todayOrders);
   const monthSales = sales(monthOrders);
   const todayProfit = profit(todayOrders);
@@ -4468,6 +4547,16 @@ function settingsAdditionalCostRows(settings) {
         <span>จำนวนเงิน (บาท)</span>
         <input name="additionalCostAmount" type="number" min="0" step="0.01" value="${Number(item.amount || 0)}" readonly>
       </label>
+      <label class="settings-cost-field">
+        <span>วิธีคิด</span>
+        <select name="additionalCostType" disabled>
+          ${[
+            ["fixed_per_order", "คงที่ต่อออเดอร์"],
+            ["per_item", "ต่อชิ้น"],
+            ["percent_sales", "% ของยอดขาย"]
+          ].map(([value, label]) => `<option value="${value}" ${item.type === value ? "selected" : ""}>${label}</option>`).join("")}
+        </select>
+      </label>
       <label class="settings-switch compact">
         <span>เปิดใช้งาน</span>
         <input name="additionalCostEnabled" type="checkbox" ${item.enabled ? "checked" : ""} disabled>
@@ -4506,10 +4595,11 @@ function renderSettingsStore() {
 function renderSettingsFinance() {
   const settings = app.data.settings;
   const todayOrders = app.data.orders.filter(order => order.date === (app.data.summary?.selectedDate || todayISO()));
-  const todaySales = todayOrders.reduce((sum, order) => sum + Number(order.amount || 0), 0);
-  const todayProductCosts = todayOrders.reduce((sum, order) => sum + productCostForOrder(order), 0);
-  const totalAdditionalCosts = additionalCostTotal(settings);
-  const todayProfit = Math.max(0, todaySales - todayProductCosts - totalAdditionalCosts);
+  const todayBreakdown = profitBreakdownForOrders(todayOrders, settings);
+  const todaySales = todayBreakdown.sales;
+  const todayProductCosts = todayBreakdown.productCosts;
+  const totalAdditionalCosts = todayBreakdown.additionalCosts;
+  const todayProfit = todayBreakdown.profit;
   els.content.innerHTML = settingsSubpageShell(
     "Finance",
     "การเงิน",
@@ -5682,6 +5772,7 @@ document.addEventListener("click", async event => {
   if (event.target.closest("[data-add-additional-cost]")) {
     const list = document.querySelector("#additionalCostList");
     if (list) {
+      list.querySelector(".empty-state")?.remove();
       list.insertAdjacentHTML("beforeend", createAdditionalCostRow({ enabled: true }));
       refreshAdditionalCostsSummary();
     }
@@ -5831,7 +5922,7 @@ document.addEventListener("input", event => {
     `).join("");
   }
 
-  if (event.target?.matches?.("[name='additionalCostAmount'], [name='additionalCostEnabled']")) {
+  if (event.target?.matches?.("[name='additionalCostAmount'], [name='additionalCostEnabled'], [name='additionalCostType']")) {
     refreshAdditionalCostsSummary();
   }
 
@@ -5857,6 +5948,7 @@ document.addEventListener("input", event => {
 
 document.addEventListener("change", event => {
   if (event.target === els.orderForm.elements.originSourceChoice) syncOriginSourceFields();
+  if (event.target?.matches?.("[name='additionalCostType'], [name='additionalCostEnabled']")) refreshAdditionalCostsSummary();
 });
 
 document.addEventListener("keydown", event => {
@@ -6099,6 +6191,7 @@ document.addEventListener("submit", async event => {
           id: row.dataset.id,
           name: row.querySelector("[name='additionalCostName']")?.value.trim(),
           amount: Number(row.querySelector("[name='additionalCostAmount']")?.value || 0),
+          type: row.querySelector("[name='additionalCostType']")?.value || "fixed_per_order",
           enabled: row.querySelector("[name='additionalCostEnabled']")?.checked
         })).filter(item => item.name);
       }
