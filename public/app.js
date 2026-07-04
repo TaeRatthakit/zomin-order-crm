@@ -109,7 +109,8 @@ const app = {
   mobileBusinessPage: "main",
   mobileBusinessCustomerId: "",
   mobileBusinessProductId: "",
-  mobileBusinessProductReturnPage: "products"
+  mobileBusinessProductReturnPage: "products",
+  mobileNavigationSequence: 0
 };
 
 function readCachedMobileProfile() {
@@ -5323,16 +5324,17 @@ function renderProductDetail(product) {
   els.productDetailDialog.showModal();
 }
 
-function render() {
+function render(options = {}) {
   if (!app.data && app.view !== "login") return;
-  app.layoutMode = isMobileViewport() ? "mobile" : "desktop";
-  renderNav();
+  const mobile = isMobileViewport();
+  app.layoutMode = mobile ? "mobile" : "desktop";
+  if (!mobile) renderNav();
   updateShell();
-  els.pageTitle.textContent = !isMobileViewport() && app.view === "dashboard"
+  els.pageTitle.textContent = !mobile && app.view === "dashboard"
     ? `สวัสดีครับ, ${app.currentUser?.name || "เจ้าของธุรกิจ"} 👋`
     : titleFor(app.view);
   if (els.pageSubtitle) {
-    els.pageSubtitle.textContent = !isMobileViewport() && app.view === "dashboard" ? "นี่คือภาพรวมธุรกิจของคุณวันนี้" : "";
+    els.pageSubtitle.textContent = !mobile && app.view === "dashboard" ? "นี่คือภาพรวมธุรกิจของคุณวันนี้" : "";
   }
   document.title = app.view === "login" ? "Growup Pilot" : `${titleFor(app.view)} | Growup Pilot`;
   renderSubpageNav();
@@ -5368,7 +5370,12 @@ function render() {
     settingsLine: renderSettingsLine,
     lineDebug: renderLineDebug
   }[app.view] || renderDashboard;
-  renderer();
+  const renderResult = renderer();
+  if (mobile) {
+    els.content.dataset.renderedView = app.view;
+    if (!options.deferMobileNavSync) renderNav();
+  }
+  return renderResult;
 }
 
 function handleViewportResize() {
@@ -5393,6 +5400,50 @@ function setView(view) {
   navigateToView(view);
   render();
   if (view === "import" && !app.importWorker) refreshImportJob().catch(error => showToast(error.message));
+}
+
+async function setMobileNavView(view) {
+  if (!canAccessView(view)) {
+    showToast("เมนูนี้ต้องใช้สิทธิ์ Admin");
+    return;
+  }
+
+  const sequence = ++app.mobileNavigationSequence;
+  const previousPage = app.view;
+  const clickedAt = performance.now();
+  let renderStartedAt = 0;
+  let renderEndedAt = 0;
+  let activeNavSyncedAt = 0;
+
+  app.mobileOrderMenuId = "";
+  app.view = view;
+  clearTimeout(app.importPollTimer);
+  navigateToView(view);
+
+  try {
+    renderStartedAt = performance.now();
+    await Promise.resolve(render({ deferMobileNavSync: true }));
+    renderEndedAt = performance.now();
+
+    if (sequence !== app.mobileNavigationSequence || app.view !== view) return;
+    renderNav();
+    activeNavSyncedAt = performance.now();
+    console.debug("[mobile-nav]", {
+      clickedTab: view,
+      previousPage,
+      nextPage: view,
+      renderStart: Number((renderStartedAt - clickedAt).toFixed(2)),
+      renderEnd: Number((renderEndedAt - clickedAt).toFixed(2)),
+      activeNavSync: Number((activeNavSyncedAt - clickedAt).toFixed(2))
+    });
+  } catch (error) {
+    if (sequence === app.mobileNavigationSequence) {
+      app.view = previousPage;
+      navigateToView(previousPage, true);
+      render();
+    }
+    throw error;
+  }
 }
 
 function syncViewFromLocation() {
@@ -5688,9 +5739,12 @@ document.addEventListener("click", async event => {
 
   const navButton = event.target.closest("[data-view]");
   if (navButton) {
-    if (navButton.dataset.view === "settings" && isMobileViewport()) app.mobileBusinessPage = "main";
-    setView(navButton.dataset.view);
+    const nextView = navButton.dataset.view;
+    if (nextView === "settings" && isMobileViewport()) app.mobileBusinessPage = "main";
+    if (isMobileViewport()) await setMobileNavView(nextView);
+    else setView(nextView);
     document.body.classList.remove("sidebar-open");
+    return;
   }
 
   const businessPageButton = event.target.closest("[data-business-page]");
