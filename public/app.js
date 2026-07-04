@@ -113,6 +113,10 @@ const app = {
   mobileBusinessCustomerId: "",
   mobileBusinessProductId: "",
   mobileBusinessProductReturnPage: "products",
+  editingAdCostId: "",
+  editingAdPlatformId: "",
+  marketingDate: "",
+  marketingMonth: "",
   mobileNavigationSequence: 0
 };
 
@@ -1279,6 +1283,176 @@ function profitBreakdownForOrders(orders = [], settings = app.data?.settings || 
   };
 }
 
+const DEFAULT_AD_PLATFORMS = [
+  ["facebook_ads", "Facebook Ads"],
+  ["tiktok_ads", "TikTok Ads"],
+  ["google_ads", "Google Ads"],
+  ["line_oa", "LINE OA"],
+  ["shopee_ads", "Shopee Ads"],
+  ["lazada_ads", "Lazada Ads"],
+  ["other", "Other"]
+].map(([id, name]) => ({ id, name, enabled: true }));
+
+function normalizeAdPlatforms(settings = app.data?.settings || {}) {
+  const configured = Array.isArray(settings.adPlatforms) ? settings.adPlatforms : DEFAULT_AD_PLATFORMS;
+  return configured.map((platform, index) => ({
+    id: String(platform?.id || `ad_platform_${index + 1}`),
+    name: String(platform?.name || "").trim(),
+    enabled: platform?.enabled !== false
+  })).filter(platform => platform.name);
+}
+
+function normalizeAdCostRecords(settings = app.data?.settings || {}) {
+  const allowedModes = new Set(["fixed_amount", "percent_sales", "cost_per_order"]);
+  return (Array.isArray(settings.adCostRecords) ? settings.adCostRecords : [])
+    .map((record, index) => ({
+      id: String(record?.id || `ad_cost_${index + 1}`),
+      date: String(record?.date || ""),
+      productId: String(record?.productId || ""),
+      productName: String(record?.productName || "").trim(),
+      platformId: String(record?.platformId || ""),
+      platformName: String(record?.platformName || "").trim(),
+      campaignName: String(record?.campaignName || "").trim(),
+      costMode: allowedModes.has(record?.costMode) ? record.costMode : "fixed_amount",
+      value: Math.max(0, Number(record?.value || 0)),
+      enabled: record?.enabled !== false,
+      note: String(record?.note || "").trim()
+    }))
+    .filter(record => record.date && record.productName && record.platformName);
+}
+
+function orderMatchesAdRecord(order, record) {
+  if (String(order?.date || "") !== record.date) return false;
+  if (record.productId && order?.productId) return String(order.productId) === record.productId;
+  return normalizeProductName(order?.items).toLocaleLowerCase("th-TH")
+    === record.productName.toLocaleLowerCase("th-TH");
+}
+
+function adCostForRecord(record, orders = app.data?.orders || []) {
+  if (!record?.enabled) return 0;
+  const matches = orders.filter(order => orderMatchesAdRecord(order, record));
+  if (record.costMode === "percent_sales") {
+    return matches.reduce((sum, order) => sum + profitForOrder(order).sales, 0) * record.value / 100;
+  }
+  if (record.costMode === "cost_per_order") return matches.length * record.value;
+  return record.value;
+}
+
+function marketingPerformanceForPeriod({ date = "", month = "" } = {}) {
+  const allOrders = app.data?.orders || [];
+  const periodOrders = allOrders.filter(order => date ? order.date === date : month ? monthKey(order.date) === month : true);
+  const records = normalizeAdCostRecords()
+    .filter(record => record.enabled && (date ? record.date === date : month ? monthKey(record.date) === month : true))
+    .map(record => ({ ...record, cost: adCostForRecord(record, allOrders) }));
+  const breakdown = profitBreakdownForOrders(periodOrders);
+  const adCost = records.reduce((sum, record) => sum + record.cost, 0);
+  const productMap = new Map();
+  const productKey = (id, name) => id || `name:${normalizeProductName(name).toLocaleLowerCase("th-TH")}`;
+  periodOrders.forEach(order => {
+    const key = productKey(order.productId, order.items);
+    if (!productMap.has(key)) {
+      productMap.set(key, {
+        productId: String(order.productId || ""),
+        productName: normalizeProductName(order.items) || "ไม่ระบุสินค้า",
+        sales: 0,
+        orderCount: 0,
+        profitBeforeAds: 0,
+        adCost: 0
+      });
+    }
+    const row = productMap.get(key);
+    const profit = profitForOrder(order);
+    row.sales += profit.sales;
+    row.orderCount += 1;
+    row.profitBeforeAds += profit.profitBeforeAds;
+  });
+  records.forEach(record => {
+    const key = productKey(record.productId, record.productName);
+    if (!productMap.has(key)) {
+      productMap.set(key, {
+        productId: record.productId,
+        productName: record.productName,
+        sales: 0,
+        orderCount: 0,
+        profitBeforeAds: 0,
+        adCost: 0
+      });
+    }
+    productMap.get(key).adCost += record.cost;
+  });
+
+  const platformMap = new Map();
+  records.forEach(record => {
+    const key = record.platformId || `name:${record.platformName.toLocaleLowerCase("th-TH")}`;
+    if (!platformMap.has(key)) {
+      platformMap.set(key, {
+        platformId: record.platformId,
+        platformName: record.platformName,
+        sales: 0,
+        orderCount: 0,
+        profitBeforeAds: 0,
+        adCost: 0
+      });
+    }
+    platformMap.get(key).adCost += record.cost;
+  });
+  const allocationGroups = new Map();
+  records.forEach(record => {
+    const key = `${record.date}|${productKey(record.productId, record.productName)}`;
+    if (!allocationGroups.has(key)) allocationGroups.set(key, []);
+    allocationGroups.get(key).push(record);
+  });
+  allocationGroups.forEach(group => {
+    const matchingOrders = periodOrders.filter(order => orderMatchesAdRecord(order, group[0]));
+    const sales = matchingOrders.reduce((sum, order) => sum + profitForOrder(order).sales, 0);
+    const profit = matchingOrders.reduce((sum, order) => sum + profitForOrder(order).profitBeforeAds, 0);
+    const groupCost = group.reduce((sum, record) => sum + record.cost, 0);
+    group.forEach(record => {
+      const key = record.platformId || `name:${record.platformName.toLocaleLowerCase("th-TH")}`;
+      const row = platformMap.get(key);
+      const share = groupCost > 0 ? record.cost / groupCost : 1 / group.length;
+      row.sales += sales * share;
+      row.orderCount += matchingOrders.length * share;
+      row.profitBeforeAds += profit * share;
+    });
+  });
+  const finishRow = row => ({
+    ...row,
+    profitAfterAds: row.profitBeforeAds - row.adCost,
+    roas: row.adCost ? row.sales / row.adCost : 0,
+    adCostPercent: row.sales ? row.adCost / row.sales * 100 : 0,
+    costPerOrder: row.orderCount ? row.adCost / row.orderCount : 0
+  });
+  return {
+    sales: breakdown.sales,
+    orderCount: periodOrders.length,
+    profitBeforeAds: breakdown.profitBeforeAds,
+    adCost,
+    profitAfterAds: breakdown.profitBeforeAds - adCost,
+    roas: adCost ? breakdown.sales / adCost : 0,
+    adCostPercent: breakdown.sales ? adCost / breakdown.sales * 100 : 0,
+    costPerOrder: periodOrders.length ? adCost / periodOrders.length : 0,
+    productPerformance: [...productMap.values()].map(finishRow).sort((a, b) => b.sales - a.sales),
+    platformPerformance: [...platformMap.values()].map(finishRow).sort((a, b) => b.adCost - a.adCost),
+    calculatedRecords: records
+  };
+}
+
+function marketingNumber(value, digits = 2) {
+  return Number(value || 0).toLocaleString("th-TH", {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits
+  });
+}
+
+function adCostModeLabel(mode) {
+  return {
+    fixed_amount: "จำนวนเงินคงที่",
+    percent_sales: "% ของยอดขาย",
+    cost_per_order: "ค่าใช้จ่ายต่อออเดอร์"
+  }[mode] || "จำนวนเงินคงที่";
+}
+
 function normalizePackageExpenses(expenses = []) {
   return (Array.isArray(expenses) ? expenses : [])
     .map((expense, index) => ({
@@ -2070,6 +2244,8 @@ function renderMobileBusinessMain() {
   const products = productRowsData();
   const startDate = mobileBusinessStartDate();
   const totalSales = orders.reduce((sum, order) => sum + Number(order.amount || 0), 0);
+  const todayPerformance = marketingPerformanceForPeriod({ date: todayISO() });
+  const todayFinance = profitBreakdownForOrders(orders.filter(order => order.date === todayISO()));
   return `
     <section class="mobile-business-page">
       <article class="mobile-business-profile-card">
@@ -2093,6 +2269,18 @@ function renderMobileBusinessMain() {
             ${mobileBusinessIcon("box")}
             <span><strong>จัดการสินค้า</strong><small>เพิ่ม แก้ไข และจัดการสินค้า</small><b>${money(products.length)} รายการ</b></span>
           </button>
+          <button class="mobile-business-data-card green finance-feature-card" type="button" data-business-page="finance">
+            ${mobileBusinessIcon("chart")}
+            <span><strong>ต้นทุนและกำไร</strong><small>คำนวณต้นทุนและกำไรของสินค้า</small><b>กำไรวันนี้ ฿ ${money(todayFinance.profitBeforeAds)}</b></span>
+          </button>
+          <button class="mobile-business-data-card blue ad-feature-card" type="button" data-business-page="advertising">
+            ${mobileBusinessIcon("megaphone")}
+            <span><i class="mobile-business-new-badge">ใหม่</i><strong>ค่าโฆษณา</strong><small>จัดการค่าโฆษณาและวิเคราะห์ผลลัพธ์</small><b>ใช้ไปวันนี้ ฿ ${money(todayPerformance.adCost)}</b></span>
+          </button>
+          <button class="mobile-business-data-card pink ad-feature-card" type="button" data-business-page="marketingPerformance">
+            ${mobileBusinessIcon("chart")}
+            <span><i class="mobile-business-new-badge">ใหม่</i><strong>Dashboard Marketing Performance</strong><small>ดูภาพรวมประสิทธิภาพการตลาด</small><b>ROAS ${marketingNumber(todayPerformance.roas)}</b></span>
+          </button>
         </div>
       </section>
 
@@ -2101,7 +2289,6 @@ function renderMobileBusinessMain() {
         <div class="mobile-business-menu-list">
           ${mobileBusinessMenuRow("system", "ตั้งค่าระบบ", "ข้อมูลธุรกิจและการทำงานของระบบ", "settings", "blue")}
           ${mobileBusinessMenuRow("notifications", "การแจ้งเตือน", "ดูการแจ้งเตือนจากข้อมูลล่าสุด", "bell", "orange")}
-          ${mobileBusinessMenuRow("finance", "การเงิน ต้นทุน/กำไร", "จัดการต้นทุน รายรับ รายจ่าย และกำไร", "chart", "purple")}
           ${mobileBusinessMenuRow("security", "ความปลอดภัย", "ข้อมูลบัญชีและความปลอดภัย", "flag", "green")}
           ${mobileBusinessMenuRow("roles", "การจัดการสิทธิ์ / ผู้ใช้งาน", "จัดการผู้ใช้และสิทธิ์การเข้าถึงระบบ", "users", "cyan")}
         </div>
@@ -2294,6 +2481,7 @@ function renderMobileBusinessFinance() {
   const settings = app.data.settings || {};
   const orders = app.data.orders || [];
   const breakdown = profitBreakdownForOrders(orders, settings);
+  const advertising = marketingPerformanceForPeriod();
   const products = productRowsData();
   return `
     <section class="mobile-business-page mobile-business-subpage">
@@ -2304,7 +2492,9 @@ function renderMobileBusinessFinance() {
           <article class="blue"><span>ยอดขายรวม</span><strong>${money(breakdown.sales)} บาท</strong></article>
           <article class="purple"><span>ต้นทุนสินค้า</span><strong>${money(breakdown.productCosts)} บาท</strong></article>
           <article class="orange"><span>ค่าใช้จ่ายเพิ่มเติม</span><strong id="additionalCostsTotal">${money(breakdown.additionalCosts)} บาท</strong></article>
-          <article class="${breakdown.profit >= 0 ? "green" : "red"}"><span>กำไรสุทธิประมาณการ</span><strong>${money(breakdown.profit)} บาท</strong></article>
+          <article class="${breakdown.profitBeforeAds >= 0 ? "green" : "red"}"><span>กำไรก่อนค่าโฆษณา</span><strong>${money(breakdown.profitBeforeAds)} บาท</strong></article>
+          <article class="blue"><span>ค่าโฆษณา</span><strong>${money(advertising.adCost)} บาท</strong></article>
+          <article class="${advertising.profitAfterAds >= 0 ? "green" : "red"}"><span>กำไรสุทธิหลังโฆษณา</span><strong>${money(advertising.profitAfterAds)} บาท</strong></article>
         </div>
 
         <div class="mobile-finance-section-head">
@@ -2341,9 +2531,205 @@ function renderMobileBusinessFinance() {
           <button class="button primary compact-action" type="button" data-add-additional-cost>เพิ่มค่าใช้จ่าย</button>
         </div>
         <div class="settings-cost-list mobile-finance-expense-list" id="additionalCostList">${settingsAdditionalCostRows(settings)}</div>
-        <div class="mobile-finance-formula-note">กำไร = ยอดขาย - ต้นทุนสินค้า - ค่าใช้จ่ายเพิ่มเติมที่เปิดใช้งาน</div>
+        <div class="mobile-finance-formula-note">กำไรก่อนโฆษณา = ยอดขาย - ต้นทุนสินค้า - ค่าใช้จ่ายเดิม · กำไรหลังโฆษณา = กำไรก่อนโฆษณา - ค่าโฆษณา</div>
         <button class="button primary mobile-business-full-button" type="submit">บันทึกต้นทุนและค่าใช้จ่าย</button>
       </form>
+    </section>
+  `;
+}
+
+function adProductOptions(selectedId = "", selectedName = "") {
+  const products = productRowsData();
+  const options = products.map(product => `
+    <option value="${escapeHtml(product.id)}" ${product.id === selectedId || (!selectedId && product.name === selectedName) ? "selected" : ""}>
+      ${escapeHtml(product.name)}
+    </option>
+  `);
+  if (selectedName && !products.some(product => product.id === selectedId || product.name === selectedName)) {
+    options.unshift(`<option value="${escapeHtml(selectedId)}" selected>${escapeHtml(selectedName)}</option>`);
+  }
+  return options.join("");
+}
+
+function adPlatformOptions(selectedId = "", selectedName = "") {
+  const platforms = normalizeAdPlatforms();
+  const options = platforms.filter(platform => platform.enabled || platform.id === selectedId).map(platform => `
+    <option value="${escapeHtml(platform.id)}" ${platform.id === selectedId ? "selected" : ""}>
+      ${escapeHtml(platform.name)}${platform.enabled ? "" : " (ปิดใช้งาน)"}
+    </option>
+  `);
+  if (selectedName && !platforms.some(platform => platform.id === selectedId)) {
+    options.unshift(`<option value="${escapeHtml(selectedId)}" selected>${escapeHtml(selectedName)} (เดิม)</option>`);
+  }
+  return options.join("");
+}
+
+function renderMobileBusinessAdvertising() {
+  const records = normalizeAdCostRecords()
+    .sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
+  const platforms = normalizeAdPlatforms();
+  const editing = records.find(record => record.id === app.editingAdCostId);
+  const editingPlatform = platforms.find(platform => platform.id === app.editingAdPlatformId);
+  const defaultProduct = productRowsData()[0] || {};
+  const defaultPlatform = platforms.find(platform => platform.enabled) || platforms[0] || {};
+  const formRecord = editing || {
+    date: todayISO(),
+    productId: defaultProduct.id || "",
+    productName: defaultProduct.name || "",
+    platformId: defaultPlatform.id || "",
+    platformName: defaultPlatform.name || "",
+    campaignName: "",
+    costMode: "fixed_amount",
+    value: 0,
+    enabled: true,
+    note: ""
+  };
+  const todayPerformance = marketingPerformanceForPeriod({ date: todayISO() });
+  return `
+    <section class="mobile-business-page mobile-business-subpage mobile-advertising-page">
+      ${mobileBusinessHeader("ค่าโฆษณา", "จัดการค่าโฆษณาตามวันที่ สินค้า และแพลตฟอร์ม", "megaphone")}
+      <div class="mobile-business-finance-grid mobile-ad-summary-grid">
+        <article class="blue"><span>ใช้ไปวันนี้</span><strong>฿ ${money(todayPerformance.adCost)}</strong></article>
+        <article class="purple"><span>ROAS วันนี้</span><strong>${marketingNumber(todayPerformance.roas)}</strong></article>
+      </div>
+
+      <form id="adCostForm" class="mobile-business-form mobile-ad-form">
+        <div class="mobile-finance-section-head">
+          <div><h3>${editing ? "แก้ไขรายการค่าโฆษณา" : "เพิ่มค่าโฆษณา"}</h3><p>เพิ่มได้ไม่จำกัด และคำนวณแยกตามวันที่</p></div>
+          ${editing ? `<button class="button ghost compact-action" type="button" data-cancel-ad-cost>ยกเลิก</button>` : ""}
+        </div>
+        <input name="id" type="hidden" value="${escapeHtml(editing?.id || "")}">
+        <div class="mobile-ad-form-grid">
+          <label>วันที่<input name="date" type="date" required value="${escapeHtml(formRecord.date)}"></label>
+          <label>สินค้า<select name="productId" required>${adProductOptions(formRecord.productId, formRecord.productName)}</select></label>
+          <label>แพลตฟอร์ม<select name="platformId" required>${adPlatformOptions(formRecord.platformId, formRecord.platformName)}</select></label>
+          <label>ชื่อแคมเปญ (ไม่บังคับ)<input name="campaignName" value="${escapeHtml(formRecord.campaignName)}" placeholder="เช่น Retargeting กรกฎาคม"></label>
+          <label>วิธีคิด
+            <select name="costMode">
+              ${[
+                ["fixed_amount", "จำนวนเงินคงที่"],
+                ["percent_sales", "% ของยอดขาย"],
+                ["cost_per_order", "ค่าใช้จ่ายต่อออเดอร์"]
+              ].map(([value, label]) => `<option value="${value}" ${formRecord.costMode === value ? "selected" : ""}>${label}</option>`).join("")}
+            </select>
+          </label>
+          <label>ค่าใช้จ่าย<input name="value" type="number" min="0" step="0.01" required value="${Number(formRecord.value || 0)}"></label>
+          <label class="mobile-ad-note">หมายเหตุ (ไม่บังคับ)<textarea name="note" rows="2">${escapeHtml(formRecord.note)}</textarea></label>
+          <label class="settings-switch mobile-ad-enabled"><span>เปิดใช้งาน</span><input name="enabled" type="checkbox" ${formRecord.enabled ? "checked" : ""}><span class="settings-switch-ui"></span></label>
+        </div>
+        <button class="button primary mobile-business-full-button" type="submit">${editing ? "บันทึกการแก้ไข" : "เพิ่มรายการค่าโฆษณา"}</button>
+      </form>
+
+      <section class="mobile-ad-record-section">
+        <div class="mobile-finance-section-head"><div><h3>รายการค่าโฆษณา</h3><p>${money(records.length)} รายการ</p></div></div>
+        <div class="mobile-ad-record-list">
+          ${records.map(record => {
+            const calculated = adCostForRecord(record);
+            return `
+              <article class="mobile-ad-record ${record.enabled ? "" : "is-disabled"}">
+                <div class="mobile-ad-record-head">
+                  <span class="mobile-ad-platform-icon">${iconSvg("megaphone")}</span>
+                  <span><strong>${escapeHtml(record.platformName)}</strong><small>${formatDate(record.date)} · ${escapeHtml(record.productName)}</small></span>
+                  <b>฿ ${money(calculated)}</b>
+                </div>
+                <div class="mobile-ad-record-meta">
+                  <span>${escapeHtml(adCostModeLabel(record.costMode))}: ${marketingNumber(record.value)}</span>
+                  ${record.campaignName ? `<span>แคมเปญ: ${escapeHtml(record.campaignName)}</span>` : ""}
+                  ${record.note ? `<span>${escapeHtml(record.note)}</span>` : ""}
+                </div>
+                <div class="mobile-ad-record-actions">
+                  <button class="button ghost compact-action" type="button" data-toggle-ad-cost="${escapeHtml(record.id)}">${record.enabled ? "ปิดใช้งาน" : "เปิดใช้งาน"}</button>
+                  <button class="button ghost compact-action" type="button" data-edit-ad-cost="${escapeHtml(record.id)}">แก้ไข</button>
+                  <button class="button danger compact-action" type="button" data-delete-ad-cost="${escapeHtml(record.id)}">ลบ</button>
+                </div>
+              </article>
+            `;
+          }).join("") || mobileBusinessEmpty("ยังไม่มีค่าโฆษณา", "เพิ่มรายการแรกเพื่อเริ่มวิเคราะห์ Marketing Performance")}
+        </div>
+      </section>
+
+      <section class="mobile-ad-platform-section">
+        <div class="mobile-finance-section-head"><div><h3>จัดการแพลตฟอร์ม</h3><p>เพิ่ม แก้ไข ลบ เปิดหรือปิดใช้งานได้</p></div></div>
+        <form id="adPlatformForm" class="mobile-ad-platform-form">
+          <input name="id" type="hidden" value="${escapeHtml(editingPlatform?.id || "")}">
+          <input name="name" required value="${escapeHtml(editingPlatform?.name || "")}" placeholder="ชื่อแพลตฟอร์ม">
+          <label class="settings-switch compact"><input name="enabled" type="checkbox" ${editingPlatform?.enabled !== false ? "checked" : ""}><span class="settings-switch-ui"></span></label>
+          <button class="button primary compact-action" type="submit">${editingPlatform ? "บันทึก" : "เพิ่ม"}</button>
+          ${editingPlatform ? `<button class="button ghost compact-action" type="button" data-cancel-ad-platform>ยกเลิก</button>` : ""}
+        </form>
+        <div class="mobile-ad-platform-list">
+          ${platforms.map(platform => `
+            <div class="${platform.enabled ? "" : "is-disabled"}">
+              <span><strong>${escapeHtml(platform.name)}</strong><small>${platform.enabled ? "เปิดใช้งาน" : "ปิดใช้งาน"}</small></span>
+              <button class="button ghost compact-action" type="button" data-toggle-ad-platform="${escapeHtml(platform.id)}">${platform.enabled ? "ปิด" : "เปิด"}</button>
+              <button class="button ghost compact-action" type="button" data-edit-ad-platform="${escapeHtml(platform.id)}">แก้ไข</button>
+              <button class="button danger compact-action" type="button" data-delete-ad-platform="${escapeHtml(platform.id)}">ลบ</button>
+            </div>
+          `).join("")}
+        </div>
+      </section>
+    </section>
+  `;
+}
+
+function marketingMetricCard(label, value, tone = "blue") {
+  return `<article class="${escapeHtml(tone)}"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></article>`;
+}
+
+function marketingPerformanceRows(rows, type) {
+  const labelKey = type === "product" ? "productName" : "platformName";
+  return rows.map(row => `
+    <div class="mobile-marketing-table-row">
+      <strong>${escapeHtml(row[labelKey])}</strong>
+      <span><small>ยอดขาย</small>฿ ${money(row.sales)}</span>
+      <span><small>ค่าโฆษณา</small>฿ ${money(row.adCost)}</span>
+      <span><small>กำไรหลัง Ads</small>฿ ${money(row.profitAfterAds)}</span>
+      <span><small>ROAS</small>${marketingNumber(row.roas)}</span>
+    </div>
+  `).join("") || `<div class="mobile-report-empty">ยังไม่มีข้อมูลในช่วงเวลานี้</div>`;
+}
+
+function renderMobileBusinessMarketingPerformance() {
+  app.marketingDate = app.marketingDate || todayISO();
+  app.marketingMonth = app.marketingMonth || app.marketingDate.slice(0, 7);
+  const today = marketingPerformanceForPeriod({ date: app.marketingDate });
+  const month = marketingPerformanceForPeriod({ month: app.marketingMonth });
+  return `
+    <section class="mobile-business-page mobile-business-subpage mobile-marketing-page">
+      ${mobileBusinessHeader("Dashboard Marketing Performance", "ดูภาพรวมประสิทธิภาพการตลาดโดยไม่เปลี่ยนกำไรเดิม", "chart")}
+      <div class="mobile-marketing-filters">
+        <label>วันที่<input data-marketing-date type="date" value="${escapeHtml(app.marketingDate)}"></label>
+        <label>เดือน<input data-marketing-month type="month" value="${escapeHtml(app.marketingMonth)}"></label>
+      </div>
+      <h3 class="mobile-business-inner-title">ภาพรวมวันที่เลือก</h3>
+      <div class="mobile-business-finance-grid mobile-marketing-kpis">
+        ${marketingMetricCard("ค่าโฆษณา", `฿ ${money(today.adCost)}`, "blue")}
+        ${marketingMetricCard("ยอดขาย", `฿ ${money(today.sales)}`, "green")}
+        ${marketingMetricCard("กำไรก่อนโฆษณา", `฿ ${money(today.profitBeforeAds)}`, "purple")}
+        ${marketingMetricCard("กำไรหลังโฆษณา", `฿ ${money(today.profitAfterAds)}`, today.profitAfterAds >= 0 ? "green" : "red")}
+        ${marketingMetricCard("ROAS", marketingNumber(today.roas), "purple")}
+        ${marketingMetricCard("ค่าโฆษณา / ยอดขาย", `${marketingNumber(today.adCostPercent)}%`, "orange")}
+        ${marketingMetricCard("ค่าโฆษณา / ออเดอร์", `฿ ${money(today.costPerOrder)}`, "blue")}
+        ${marketingMetricCard("จำนวนออเดอร์", money(today.orderCount), "orange")}
+      </div>
+      <h3 class="mobile-business-inner-title">ภาพรวมเดือนที่เลือก</h3>
+      <div class="mobile-business-finance-grid mobile-marketing-kpis">
+        ${marketingMetricCard("ค่าโฆษณาเดือนนี้", `฿ ${money(month.adCost)}`, "blue")}
+        ${marketingMetricCard("ยอดขายเดือนนี้", `฿ ${money(month.sales)}`, "green")}
+        ${marketingMetricCard("กำไรก่อนโฆษณา", `฿ ${money(month.profitBeforeAds)}`, "purple")}
+        ${marketingMetricCard("กำไรหลังโฆษณา", `฿ ${money(month.profitAfterAds)}`, month.profitAfterAds >= 0 ? "green" : "red")}
+        ${marketingMetricCard("ROAS เดือน", marketingNumber(month.roas), "purple")}
+        ${marketingMetricCard("ค่าโฆษณา %", `${marketingNumber(month.adCostPercent)}%`, "orange")}
+        ${marketingMetricCard("ค่าใช้จ่ายต่อออเดอร์", `฿ ${money(month.costPerOrder)}`, "blue")}
+      </div>
+      <section class="mobile-marketing-table">
+        <div class="mobile-finance-section-head"><div><h3>ประสิทธิภาพรายสินค้า</h3><p>ยอดขาย กำไร และค่าโฆษณาแยกตามสินค้า</p></div></div>
+        ${marketingPerformanceRows(month.productPerformance, "product")}
+      </section>
+      <section class="mobile-marketing-table">
+        <div class="mobile-finance-section-head"><div><h3>ประสิทธิภาพรายแพลตฟอร์ม</h3><p>กระจายยอดขายตามสัดส่วนค่าโฆษณาของสินค้าและวันเดียวกัน</p></div></div>
+        ${marketingPerformanceRows(month.platformPerformance, "platform")}
+      </section>
     </section>
   `;
 }
@@ -2465,6 +2851,8 @@ function renderMobileBusinessManagement() {
     system: renderMobileBusinessSystem,
     notifications: renderMobileBusinessNotifications,
     finance: renderMobileBusinessFinance,
+    advertising: renderMobileBusinessAdvertising,
+    marketingPerformance: renderMobileBusinessMarketingPerformance,
     security: renderMobileBusinessSecurity,
     roles: renderMobileBusinessRoles,
     goals: renderMobileBusinessGoals,
@@ -4206,6 +4594,10 @@ function renderMobileReports(selectedDate, selectedMonth) {
   const monthSales = sales(monthOrders);
   const todayProfit = profit(todayOrders);
   const monthProfit = profit(monthOrders);
+  const todayMarketing = marketingPerformanceForPeriod({ date: selectedDate });
+  const yesterdayMarketing = marketingPerformanceForPeriod({ date: addDaysISO(selectedDate, -1) });
+  const monthMarketing = marketingPerformanceForPeriod({ month: selectedMonth });
+  const previousMonthMarketing = marketingPerformanceForPeriod({ month: previousMonth });
 
   const channelMap = new Map();
   for (const order of monthOrders) {
@@ -4273,14 +4665,20 @@ function renderMobileReports(selectedDate, selectedMonth) {
   const todayCards = [
     { label: "ยอดขายวันนี้", value: `฿${money(todaySales)}`, comparison: { ...reportDelta(todaySales, sales(yesterdayOrders)), hint: "เทียบกับเมื่อวาน" }, tone: "green", icon: "wallet" },
     { label: "ออเดอร์วันนี้", value: money(todayOrders.length), suffix: "ออเดอร์", comparison: { ...reportDelta(todayOrders.length, yesterdayOrders.length), hint: "เทียบกับเมื่อวาน" }, tone: "amber", icon: "orders" },
-    { label: "กำไรวันนี้", value: `฿${money(todayProfit)}`, comparison: { ...reportDelta(todayProfit, profit(yesterdayOrders)), hint: "เทียบกับเมื่อวาน" }, tone: "violet", icon: "database" },
-    { label: "ขายได้วันนี้", value: money(units(todayOrders)), suffix: "ชิ้น", comparison: { ...reportDelta(units(todayOrders), units(yesterdayOrders)), hint: "เทียบกับเมื่อวาน" }, tone: "blue", icon: "sales" }
+    { label: "กำไรวันนี้ (ก่อน Ads)", value: `฿${money(todayProfit)}`, comparison: { ...reportDelta(todayProfit, profit(yesterdayOrders)), hint: "ตัวเลขกำไรเดิม" }, tone: "violet", icon: "database" },
+    { label: "ขายได้วันนี้", value: money(units(todayOrders)), suffix: "ชิ้น", comparison: { ...reportDelta(units(todayOrders), units(yesterdayOrders)), hint: "เทียบกับเมื่อวาน" }, tone: "blue", icon: "sales" },
+    { label: "ค่าโฆษณาวันนี้", value: `฿${money(todayMarketing.adCost)}`, comparison: { ...reportDelta(todayMarketing.adCost, yesterdayMarketing.adCost), hint: "ค่าใช้จ่ายการตลาด" }, tone: "blue", icon: "wallet" },
+    { label: "กำไรหลัง Ads", value: `฿${money(todayMarketing.profitAfterAds)}`, comparison: { ...reportDelta(todayMarketing.profitAfterAds, yesterdayMarketing.profitAfterAds), hint: "กำไรก่อน Ads - ค่าโฆษณา" }, tone: "green", icon: "database" },
+    { label: "ROAS วันนี้", value: marketingNumber(todayMarketing.roas), comparison: { ...reportDelta(todayMarketing.roas, yesterdayMarketing.roas), hint: "ยอดขาย ÷ ค่าโฆษณา" }, tone: "amber", icon: "chart" }
   ];
   const monthCards = [
     { label: "ยอดขายเดือนนี้", value: `฿${money(monthSales)}`, comparison: { ...reportDelta(monthSales, sales(previousMonthOrders)), hint: "เทียบกับเดือนที่แล้ว" }, tone: "green", icon: "wallet" },
     { label: "ออเดอร์เดือนนี้", value: money(monthOrders.length), suffix: "ออเดอร์", comparison: { ...reportDelta(monthOrders.length, previousMonthOrders.length), hint: "เทียบกับเดือนที่แล้ว" }, tone: "amber", icon: "orders" },
-    { label: "กำไรเดือนนี้", value: `฿${money(monthProfit)}`, comparison: { ...reportDelta(monthProfit, profit(previousMonthOrders)), hint: "เทียบกับเดือนที่แล้ว" }, tone: "violet", icon: "database" },
-    { label: "ขายได้เดือนนี้", value: money(units(monthOrders)), suffix: "ชิ้น", comparison: { ...reportDelta(units(monthOrders), units(previousMonthOrders)), hint: "เทียบกับเดือนที่แล้ว" }, tone: "blue", icon: "sales" }
+    { label: "กำไรเดือนนี้ (ก่อน Ads)", value: `฿${money(monthProfit)}`, comparison: { ...reportDelta(monthProfit, profit(previousMonthOrders)), hint: "ตัวเลขกำไรเดิม" }, tone: "violet", icon: "database" },
+    { label: "ขายได้เดือนนี้", value: money(units(monthOrders)), suffix: "ชิ้น", comparison: { ...reportDelta(units(monthOrders), units(previousMonthOrders)), hint: "เทียบกับเดือนที่แล้ว" }, tone: "blue", icon: "sales" },
+    { label: "ค่าโฆษณาเดือนนี้", value: `฿${money(monthMarketing.adCost)}`, comparison: { ...reportDelta(monthMarketing.adCost, previousMonthMarketing.adCost), hint: "ค่าใช้จ่ายการตลาด" }, tone: "blue", icon: "wallet" },
+    { label: "กำไรหลัง Ads เดือนนี้", value: `฿${money(monthMarketing.profitAfterAds)}`, comparison: { ...reportDelta(monthMarketing.profitAfterAds, previousMonthMarketing.profitAfterAds), hint: "กำไรก่อน Ads - ค่าโฆษณา" }, tone: "green", icon: "database" },
+    { label: "ROAS เดือนนี้", value: marketingNumber(monthMarketing.roas), comparison: { ...reportDelta(monthMarketing.roas, previousMonthMarketing.roas), hint: "ยอดขาย ÷ ค่าโฆษณา" }, tone: "amber", icon: "chart" }
   ];
 
   els.content.innerHTML = `
@@ -4410,6 +4808,8 @@ function renderReports() {
   const dailyRows = Object.entries(daily).sort(([a], [b]) => b.localeCompare(a)).slice(0, 12);
   const maxDaily = Math.max(1, ...dailyRows.map(([, value]) => value));
   const monthOrders = app.data.orders.filter(order => String(order.date).startsWith(selectedMonth));
+  const selectedDayMarketing = marketingPerformanceForPeriod({ date: selectedDate });
+  const selectedMonthMarketing = marketingPerformanceForPeriod({ month: selectedMonth });
   const repeatCustomers = app.data.customers.filter(customer => customer.purchaseCount > 1).length;
   const topCustomers = [...app.data.customers].sort((a, b) => b.totalSpent - a.totalSpent).slice(0, 5);
   const monthOptions = Array.from(new Set(app.data.orders.map(order => monthKey(order.date)).filter(Boolean))).sort((a, b) => b.localeCompare(a));
@@ -4433,6 +4833,12 @@ function renderReports() {
         ${metric("ลูกค้าใหม่", money(app.data.summary.newCustomers))}
         ${metric("ลูกค้าซื้อซ้ำ", money(repeatCustomers), "purple")}
         ${metric("ออเดอร์เดือนนี้", money(monthOrders.length))}
+        ${metric("ค่าโฆษณาวันที่เลือก", `${money(selectedDayMarketing.adCost)} บาท`, "accent")}
+        ${metric("กำไรก่อน Ads วันที่เลือก", `${money(selectedDayMarketing.profitBeforeAds)} บาท`, "purple")}
+        ${metric("กำไรหลัง Ads วันที่เลือก", `${money(selectedDayMarketing.profitAfterAds)} บาท`, "green")}
+        ${metric("ค่าโฆษณาเดือนนี้", `${money(selectedMonthMarketing.adCost)} บาท`)}
+        ${metric("กำไรหลัง Ads เดือนนี้", `${money(selectedMonthMarketing.profitAfterAds)} บาท`, "green")}
+        ${metric("ROAS เดือนนี้", marketingNumber(selectedMonthMarketing.roas), "purple")}
       </div>
       <div class="report-grid">
         <div class="panel stack panel-premium">
@@ -4863,7 +5269,10 @@ function renderSettingsFinance() {
   const todaySales = todayBreakdown.sales;
   const todayProductCosts = todayBreakdown.productCosts;
   const totalAdditionalCosts = todayBreakdown.additionalCosts;
-  const todayProfit = todayBreakdown.profit;
+  const todayProfit = todayBreakdown.profitBeforeAds;
+  const todayMarketing = marketingPerformanceForPeriod({
+    date: app.data.summary?.selectedDate || todayISO()
+  });
   els.content.innerHTML = settingsSubpageShell(
     "Finance",
     "การเงิน",
@@ -4879,7 +5288,14 @@ function renderSettingsFinance() {
             <span class="settings-finance-operator">-</span>
             <div class="settings-finance-pill extra"><span>ต้นทุนเพิ่มเติม</span><strong>${money(totalAdditionalCosts)} บาท</strong></div>
             <span class="settings-finance-operator">=</span>
-            <div class="settings-finance-pill profit"><span>กำไรวันนี้</span><strong>${money(todayProfit)} บาท</strong></div>
+            <div class="settings-finance-pill profit"><span>กำไรก่อนค่าโฆษณา</span><strong>${money(todayProfit)} บาท</strong></div>
+          </div>
+          <div class="settings-finance-equation ad-adjusted-equation">
+            <div class="settings-finance-pill profit"><span>กำไรก่อนค่าโฆษณา</span><strong>${money(todayMarketing.profitBeforeAds)} บาท</strong></div>
+            <span class="settings-finance-operator">-</span>
+            <div class="settings-finance-pill extra"><span>ค่าโฆษณา</span><strong>${money(todayMarketing.adCost)} บาท</strong></div>
+            <span class="settings-finance-operator">=</span>
+            <div class="settings-finance-pill profit"><span>กำไรหลังค่าโฆษณา</span><strong>${money(todayMarketing.profitAfterAds)} บาท</strong></div>
           </div>
         </div>
         <div class="settings-finance-block">
@@ -6192,6 +6608,81 @@ document.addEventListener("click", async event => {
     return;
   }
 
+  const editAdCostButton = event.target.closest("[data-edit-ad-cost]");
+  if (editAdCostButton) {
+    app.editingAdCostId = editAdCostButton.dataset.editAdCost;
+    renderMobileBusinessManagement();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    return;
+  }
+
+  if (event.target.closest("[data-cancel-ad-cost]")) {
+    app.editingAdCostId = "";
+    renderMobileBusinessManagement();
+    return;
+  }
+
+  const toggleAdCostButton = event.target.closest("[data-toggle-ad-cost]");
+  if (toggleAdCostButton) {
+    const record = normalizeAdCostRecords().find(item => item.id === toggleAdCostButton.dataset.toggleAdCost);
+    if (record) {
+      await api(`/api/ad-costs/${encodeURIComponent(record.id)}`, {
+        method: "PUT",
+        body: JSON.stringify({ enabled: !record.enabled })
+      });
+      showToast(record.enabled ? "ปิดใช้รายการค่าโฆษณาแล้ว" : "เปิดใช้รายการค่าโฆษณาแล้ว");
+      await loadState();
+    }
+    return;
+  }
+
+  const deleteAdCostButton = event.target.closest("[data-delete-ad-cost]");
+  if (deleteAdCostButton) {
+    if (!window.confirm("ลบรายการค่าโฆษณานี้ใช่หรือไม่?")) return;
+    await api(`/api/ad-costs/${encodeURIComponent(deleteAdCostButton.dataset.deleteAdCost)}`, { method: "DELETE" });
+    app.editingAdCostId = "";
+    showToast("ลบรายการค่าโฆษณาแล้ว");
+    await loadState();
+    return;
+  }
+
+  const editAdPlatformButton = event.target.closest("[data-edit-ad-platform]");
+  if (editAdPlatformButton) {
+    app.editingAdPlatformId = editAdPlatformButton.dataset.editAdPlatform;
+    renderMobileBusinessManagement();
+    return;
+  }
+
+  if (event.target.closest("[data-cancel-ad-platform]")) {
+    app.editingAdPlatformId = "";
+    renderMobileBusinessManagement();
+    return;
+  }
+
+  const toggleAdPlatformButton = event.target.closest("[data-toggle-ad-platform]");
+  if (toggleAdPlatformButton) {
+    const platform = normalizeAdPlatforms().find(item => item.id === toggleAdPlatformButton.dataset.toggleAdPlatform);
+    if (platform) {
+      await api(`/api/ad-platforms/${encodeURIComponent(platform.id)}`, {
+        method: "PUT",
+        body: JSON.stringify({ enabled: !platform.enabled })
+      });
+      showToast(platform.enabled ? "ปิดใช้แพลตฟอร์มแล้ว" : "เปิดใช้แพลตฟอร์มแล้ว");
+      await loadState();
+    }
+    return;
+  }
+
+  const deleteAdPlatformButton = event.target.closest("[data-delete-ad-platform]");
+  if (deleteAdPlatformButton) {
+    if (!window.confirm("ลบแพลตฟอร์มนี้ใช่หรือไม่? รายการค่าโฆษณาเดิมจะยังคงอยู่")) return;
+    await api(`/api/ad-platforms/${encodeURIComponent(deleteAdPlatformButton.dataset.deleteAdPlatform)}`, { method: "DELETE" });
+    app.editingAdPlatformId = "";
+    showToast("ลบแพลตฟอร์มแล้ว");
+    await loadState();
+    return;
+  }
+
   const shortcut = event.target.closest("[data-view-shortcut]");
   if (shortcut) {
     setView(shortcut.dataset.viewShortcut);
@@ -6578,6 +7069,16 @@ document.addEventListener("change", async event => {
     renderReports();
   }
 
+  if (event.target?.matches?.("[data-marketing-date]")) {
+    app.marketingDate = event.target.value || todayISO();
+    renderMobileBusinessManagement();
+  }
+
+  if (event.target?.matches?.("[data-marketing-month]")) {
+    app.marketingMonth = event.target.value || todayISO().slice(0, 7);
+    renderMobileBusinessManagement();
+  }
+
   if (event.target?.id === "followupDatePicker") {
     els.workDate.value = event.target.value;
     app.followupMode = "custom";
@@ -6755,6 +7256,41 @@ document.addEventListener("submit", async event => {
       showToast("เพิ่มอาการลูกค้าแล้ว");
       form.reset();
       await loadState();
+    }
+
+    if (form.id === "adCostForm") {
+      const data = Object.fromEntries(new FormData(form).entries());
+      const product = productRowsData().find(item => item.id === data.productId);
+      const platform = normalizeAdPlatforms().find(item => item.id === data.platformId);
+      data.productName = product?.name || "";
+      data.platformName = platform?.name || "";
+      data.value = Number(data.value || 0);
+      data.enabled = form.elements.enabled.checked;
+      const id = String(data.id || "");
+      delete data.id;
+      await api(id ? `/api/ad-costs/${encodeURIComponent(id)}` : "/api/ad-costs", {
+        method: id ? "PUT" : "POST",
+        body: JSON.stringify(data)
+      });
+      app.editingAdCostId = "";
+      showToast(id ? "แก้ไขค่าโฆษณาแล้ว" : "เพิ่มค่าโฆษณาแล้ว");
+      await loadState();
+      return;
+    }
+
+    if (form.id === "adPlatformForm") {
+      const data = Object.fromEntries(new FormData(form).entries());
+      data.enabled = form.elements.enabled.checked;
+      const id = String(data.id || "");
+      delete data.id;
+      await api(id ? `/api/ad-platforms/${encodeURIComponent(id)}` : "/api/ad-platforms", {
+        method: id ? "PUT" : "POST",
+        body: JSON.stringify(data)
+      });
+      app.editingAdPlatformId = "";
+      showToast(id ? "แก้ไขแพลตฟอร์มแล้ว" : "เพิ่มแพลตฟอร์มแล้ว");
+      await loadState();
+      return;
     }
 
     if (form.id === "settingsForm") {

@@ -85,6 +85,12 @@ function bangkokNow() {
   };
 }
 
+function shiftDate(dateValue, days) {
+  const date = new Date(`${dateValue}T12:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
 async function main() {
   process.env.SESSION_SECRET = process.env.SESSION_SECRET || "zomin-smoke-test-secret";
 
@@ -392,6 +398,133 @@ async function main() {
     || editedPackageOrder?.profitSnapshotUpdatedAt === originalProfitSnapshot.profitSnapshotCreatedAt
   ) {
     fail("editing an order did not recalculate and update its immutable profit snapshot");
+  }
+
+  const adTestDate = bangkokNow().date;
+  const adStateBefore = JSON.parse((await request("/api/state", { headers: { cookie } })).text);
+  const zominOrdersForAdDate = adStateBefore.orders.filter(order => (
+    order.date === adTestDate
+    && (order.productId === savedZomin.id || order.items === "Zomin")
+  ));
+  const zominSalesForAdDate = zominOrdersForAdDate
+    .reduce((sum, order) => sum + Number(order.revenueSnapshot ?? order.amount ?? 0), 0);
+  const profitBeforeAdsForDate = adStateBefore.orders
+    .filter(order => order.date === adTestDate)
+    .reduce((sum, order) => sum + Number(order.profitBeforeAdsSnapshot || 0), 0);
+  const profitSnapshotBeforeAdvertising = editedPackageOrder.profitBeforeAdsSnapshot;
+  const adInputs = [
+    {
+      date: adTestDate,
+      productId: savedZomin.id,
+      productName: "Zomin",
+      platformId: "facebook_ads",
+      costMode: "fixed_amount",
+      value: 120,
+      enabled: true
+    },
+    {
+      date: adTestDate,
+      productId: savedZomin.id,
+      productName: "Zomin",
+      platformId: "tiktok_ads",
+      costMode: "percent_sales",
+      value: 10,
+      enabled: true
+    },
+    {
+      date: adTestDate,
+      productId: savedZomin.id,
+      productName: "Zomin",
+      platformId: "google_ads",
+      costMode: "cost_per_order",
+      value: 30,
+      enabled: true
+    }
+  ];
+  const savedAdRecords = [];
+  for (const adInput of adInputs) {
+    const response = await request("/api/ad-costs", {
+      method: "POST",
+      headers: { cookie, "content-type": "application/json" },
+      body: JSON.stringify(adInput)
+    });
+    if (response.status !== 200) fail(`ad cost creation returned ${response.status}: ${response.text}`);
+    savedAdRecords.push(JSON.parse(response.text).record);
+  }
+  const adPerformanceResponse = await request(`/api/marketing-performance?date=${adTestDate}`, {
+    headers: { cookie }
+  });
+  if (adPerformanceResponse.status !== 200) fail("marketing performance endpoint failed");
+  const adPerformance = JSON.parse(adPerformanceResponse.text).performance;
+  const expectedFixedAdCost = 120;
+  const expectedPercentAdCost = zominSalesForAdDate * 0.1;
+  const expectedPerOrderAdCost = zominOrdersForAdDate.length * 30;
+  const expectedAdCost = expectedFixedAdCost + expectedPercentAdCost + expectedPerOrderAdCost;
+  if (Math.abs(adPerformance.adCost - expectedAdCost) > 0.000001) {
+    fail("fixed, percent-of-sales, or cost-per-order ad cost calculation is incorrect");
+  }
+  const zominProductPerformance = adPerformance.productPerformance
+    .find(row => row.productId === savedZomin.id || row.productName === "Zomin");
+  if (!zominProductPerformance || Math.abs(zominProductPerformance.adCost - expectedAdCost) > 0.000001) {
+    fail("product-level ad cost was not grouped correctly");
+  }
+  const expectedPlatformCosts = {
+    facebook_ads: expectedFixedAdCost,
+    tiktok_ads: expectedPercentAdCost,
+    google_ads: expectedPerOrderAdCost
+  };
+  for (const [platformId, expectedCost] of Object.entries(expectedPlatformCosts)) {
+    const row = adPerformance.platformPerformance.find(item => item.platformId === platformId);
+    if (!row || Math.abs(row.adCost - expectedCost) > 0.000001) {
+      fail(`platform-level ad cost was not grouped correctly: ${platformId}`);
+    }
+  }
+  if (
+    Math.abs(adPerformance.profitBeforeAds - profitBeforeAdsForDate) > 0.000001
+    || Math.abs(adPerformance.profitAfterAds - (profitBeforeAdsForDate - expectedAdCost)) > 0.000001
+  ) {
+    fail("profit before ads changed or profit after ads did not subtract advertising cost");
+  }
+  const stateAfterAdvertising = JSON.parse((await request("/api/state", { headers: { cookie } })).text);
+  const orderAfterAdvertising = stateAfterAdvertising.orders.find(order => order.id === packageOrderId);
+  if (
+    orderAfterAdvertising?.profitBeforeAdsSnapshot !== profitSnapshotBeforeAdvertising
+    || orderAfterAdvertising?.profitAfterAdsSnapshot !== profitSnapshotBeforeAdvertising
+  ) {
+    fail("advertising cost mutated an existing order profit snapshot");
+  }
+
+  const historicalAdDate = shiftDate(adTestDate, -1);
+  const historicalAd = await request("/api/ad-costs", {
+    method: "POST",
+    headers: { cookie, "content-type": "application/json" },
+    body: JSON.stringify({
+      date: historicalAdDate,
+      productId: savedZomin.id,
+      productName: "Zomin",
+      platformId: "facebook_ads",
+      costMode: "fixed_amount",
+      value: 77,
+      enabled: true
+    })
+  });
+  if (historicalAd.status !== 200) fail("historical ad cost creation failed");
+  const historicalBeforeEdit = JSON.parse((await request(
+    `/api/marketing-performance?date=${historicalAdDate}`,
+    { headers: { cookie } }
+  )).text).performance;
+  const editTodayAd = await request(`/api/ad-costs/${encodeURIComponent(savedAdRecords[0].id)}`, {
+    method: "PUT",
+    headers: { cookie, "content-type": "application/json" },
+    body: JSON.stringify({ value: 140 })
+  });
+  if (editTodayAd.status !== 200) fail("editing today's ad cost failed");
+  const historicalAfterEdit = JSON.parse((await request(
+    `/api/marketing-performance?date=${historicalAdDate}`,
+    { headers: { cookie } }
+  )).text).performance;
+  if (historicalBeforeEdit.adCost !== 77 || historicalAfterEdit.adCost !== 77) {
+    fail("editing today's ad cost changed a previous day's advertising cost");
   }
 
   const legacyOrderId = `legacy_profit_${productSuffix}`;

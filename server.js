@@ -30,6 +30,11 @@ const {
   clearSessionCookie
 } = require("./lib/auth");
 const { synchronizeCustomers } = require("./lib/customer-sync");
+const {
+  normalizeAdPlatforms,
+  normalizeAdCostRecords,
+  marketingPerformance
+} = require("./lib/advertising");
 
 const PORT = Number(process.env.PORT || 3000);
 const HOST = process.env.HOST || "0.0.0.0";
@@ -415,6 +420,10 @@ function publicSettings(settings = {}) {
     products: normalizeProductRecords(effective.products),
     productCosts: normalizeSettingsCostRows(effective.productCosts, "costPerJar"),
     additionalCosts: normalizeSettingsCostRows(effective.additionalCosts, "amount"),
+    adPlatforms: normalizeAdPlatforms(effective.adPlatforms, {
+      useDefaults: effective.adPlatforms === undefined
+    }),
+    adCostRecords: normalizeAdCostRecords(effective.adCostRecords),
     lineChannelSecret: "",
     lineChannelAccessToken: "",
     lineGroupId: "",
@@ -427,6 +436,55 @@ function publicSettings(settings = {}) {
     lineGroupIdFromEnv: Boolean(process.env.LINE_GROUP_ID),
     openaiApiKeyFromEnv: Boolean(process.env.OPENAI_API_KEY)
   };
+}
+
+function marketingPerformanceForDb(db, period = {}) {
+  return marketingPerformance({
+    orders: db.orders || [],
+    records: db.settings?.adCostRecords || [],
+    ...period,
+    fallbackProfitForOrder: order => {
+      const snapshot = calculateOrderProfitSnapshot(order, db.settings || {}, { source: "fallback" });
+      return { profitBeforeAds: snapshot.profitBeforeAdsSnapshot };
+    }
+  });
+}
+
+function adPlatformById(settings, id) {
+  return normalizeAdPlatforms(settings?.adPlatforms, {
+    useDefaults: settings?.adPlatforms === undefined
+  }).find(platform => platform.id === id);
+}
+
+function adProductSnapshot(db, productId, productName) {
+  const products = normalizeProductRecords(db.settings?.products);
+  const product = products.find(item => item.id === productId)
+    || products.find(item => item.name === productName);
+  return {
+    productId: String(product?.id || productId || "").trim(),
+    productName: String(product?.name || productName || "").trim()
+  };
+}
+
+function normalizeAdCostInput(db, body = {}, existing = {}) {
+  const product = adProductSnapshot(
+    db,
+    String(body.productId ?? existing.productId ?? "").trim(),
+    String(body.productName ?? existing.productName ?? "").trim()
+  );
+  const platformId = String(body.platformId ?? existing.platformId ?? "").trim();
+  const platform = adPlatformById(db.settings, platformId);
+  return normalizeAdCostRecords([{
+    ...existing,
+    ...body,
+    id: existing.id || uid("ad"),
+    productId: product.productId,
+    productName: product.productName,
+    platformId,
+    platformName: platform?.name || String(body.platformName ?? existing.platformName ?? "").trim(),
+    createdAt: existing.createdAt || new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  }])[0];
 }
 
 function isPlaceholderChannel(value) {
@@ -2042,6 +2100,102 @@ async function handleApi(req, res) {
       currentUser,
       summary: buildSummary(enriched, date)
     });
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/marketing-performance") {
+    const date = String(url.searchParams.get("date") || "").trim();
+    const month = String(url.searchParams.get("month") || "").trim();
+    return json(res, 200, {
+      ok: true,
+      performance: marketingPerformanceForDb(db, {
+        date: /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : "",
+        month: /^\d{4}-\d{2}$/.test(month) ? month : ""
+      })
+    });
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/ad-costs") {
+    const body = await readBody(req);
+    const record = normalizeAdCostInput(db, body);
+    if (!record) {
+      return json(res, 400, {
+        ok: false,
+        error: "กรุณาระบุวันที่ สินค้า แพลตฟอร์ม และค่าโฆษณาให้ครบ"
+      });
+    }
+    db.settings.adCostRecords = normalizeAdCostRecords(db.settings.adCostRecords);
+    db.settings.adCostRecords.push(record);
+    await writeDb(db);
+    return json(res, 200, { ok: true, record });
+  }
+
+  if (url.pathname.startsWith("/api/ad-costs/")) {
+    const id = decodeURIComponent(url.pathname.split("/").pop());
+    db.settings.adCostRecords = normalizeAdCostRecords(db.settings.adCostRecords);
+    const index = db.settings.adCostRecords.findIndex(record => record.id === id);
+    if (index === -1) return json(res, 404, { ok: false, error: "ไม่พบรายการค่าโฆษณา" });
+    if (req.method === "PUT") {
+      const body = await readBody(req);
+      const record = normalizeAdCostInput(db, body, db.settings.adCostRecords[index]);
+      if (!record) return json(res, 400, { ok: false, error: "ข้อมูลค่าโฆษณาไม่ครบ" });
+      db.settings.adCostRecords[index] = record;
+      await writeDb(db);
+      return json(res, 200, { ok: true, record });
+    }
+    if (req.method === "DELETE") {
+      const [record] = db.settings.adCostRecords.splice(index, 1);
+      await writeDb(db);
+      return json(res, 200, { ok: true, record });
+    }
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/ad-platforms") {
+    const body = await readBody(req);
+    const name = String(body.name || "").trim();
+    if (!name) return json(res, 400, { ok: false, error: "กรุณาระบุชื่อแพลตฟอร์ม" });
+    const platforms = normalizeAdPlatforms(db.settings.adPlatforms, {
+      useDefaults: db.settings.adPlatforms === undefined
+    });
+    const platform = {
+      id: uid("ad_platform"),
+      name,
+      enabled: body.enabled !== false
+    };
+    platforms.push(platform);
+    db.settings.adPlatforms = platforms;
+    await writeDb(db);
+    return json(res, 200, { ok: true, platform });
+  }
+
+  if (url.pathname.startsWith("/api/ad-platforms/")) {
+    const id = decodeURIComponent(url.pathname.split("/").pop());
+    const platforms = normalizeAdPlatforms(db.settings.adPlatforms, {
+      useDefaults: db.settings.adPlatforms === undefined
+    });
+    const index = platforms.findIndex(platform => platform.id === id);
+    if (index === -1) return json(res, 404, { ok: false, error: "ไม่พบแพลตฟอร์ม" });
+    if (req.method === "PUT") {
+      const body = await readBody(req);
+      const name = String(body.name ?? platforms[index].name).trim();
+      if (!name) return json(res, 400, { ok: false, error: "กรุณาระบุชื่อแพลตฟอร์ม" });
+      platforms[index] = {
+        ...platforms[index],
+        name,
+        enabled: body.enabled === undefined ? platforms[index].enabled : body.enabled !== false
+      };
+      db.settings.adPlatforms = platforms;
+      db.settings.adCostRecords = normalizeAdCostRecords(db.settings.adCostRecords).map(record => (
+        record.platformId === id ? { ...record, platformName: name } : record
+      ));
+      await writeDb(db);
+      return json(res, 200, { ok: true, platform: platforms[index] });
+    }
+    if (req.method === "DELETE") {
+      const [platform] = platforms.splice(index, 1);
+      db.settings.adPlatforms = platforms;
+      await writeDb(db);
+      return json(res, 200, { ok: true, platform });
+    }
   }
 
   if (req.method === "PUT" && url.pathname === "/api/profile") {

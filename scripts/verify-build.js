@@ -9,6 +9,7 @@ const checkFiles = [
   "public/service-worker.js",
   "lib/env.js",
   "lib/auth.js",
+  "lib/advertising.js",
   "lib/db/index.js",
   "lib/db/json-adapter.js",
   "lib/db/supabase-adapter.js",
