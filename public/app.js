@@ -927,7 +927,10 @@ function dashboardCardIcon(kind) {
     calendar: '<rect x="3.5" y="5.5" width="17" height="15" rx="3"/><path d="M7 3.5v4"/><path d="M17 3.5v4"/><path d="M3.5 10.5h17"/>',
     orders: '<rect x="3" y="3" width="18" height="18" rx="4"/><path d="M8 7.5h8"/><path d="M8 12h8"/><path d="M8 16.5h5"/>',
     profit: '<path d="M4 16 9 11l3 3 8-8"/><path d="M16 6h4v4"/><path d="M4 20h16"/>',
-    target: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><path d="M12 4v3"/><path d="M20 12h-3"/><path d="m17.5 6.5-2 2"/>'
+    target: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><path d="M12 4v3"/><path d="M20 12h-3"/><path d="m17.5 6.5-2 2"/>',
+    search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/>',
+    sort: '<path d="M8 4v16"/><path d="m4 8 4-4 4 4"/><path d="M16 20V4"/><path d="m12 16 4 4 4-4"/>',
+    chevron: '<path d="m7 10 5 5 5-5"/>'
   };
   return `<svg class="metric-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icons[kind] || icons.sales}</svg>`;
 }
@@ -2268,14 +2271,14 @@ function mobileOpportunityCustomerCard(row) {
           <span>โอกาสปิดยอด</span>
           <strong>฿ ${money(row.value)}</strong>
         </div>
-        <button class="mobile-opportunity-chevron" type="button" data-open-customer="${escapeHtml(customer.id)}" aria-label="ดูรายละเอียด ${escapeHtml(customer.name)}">›</button>
+        <button class="mobile-opportunity-chevron" type="button" data-open-customer="${escapeHtml(customer.id)}" aria-label="ดูรายละเอียด ${escapeHtml(customer.name)}">${dashboardCardIcon("chevron")}</button>
       </div>
       <div class="mobile-opportunity-actions">
         ${customer.phone
-          ? `<a class="call" href="tel:${escapeHtml(customer.phone)}"><span aria-hidden="true">⌕</span> โทร</a>`
+          ? `<a class="call" href="tel:${escapeHtml(customer.phone)}">${iconSvg("chat")} โทร</a>`
           : `<button class="call" type="button" disabled>โทร</button>`}
-        <button class="save" type="button" data-open-customer="${escapeHtml(customer.id)}"><span aria-hidden="true">▣</span> บันทึกผล</button>
-        <button class="reschedule" type="button" data-open-customer="${escapeHtml(customer.id)}"><span aria-hidden="true">▦</span> เลื่อนติดตาม</button>
+        <button class="save" type="button" data-open-customer="${escapeHtml(customer.id)}">${iconSvg("clipboard")} บันทึกผล</button>
+        <button class="reschedule" type="button" data-open-customer="${escapeHtml(customer.id)}">${dashboardCardIcon("calendar")} เลื่อนติดตาม</button>
       </div>
     </article>
   `;
@@ -2298,17 +2301,17 @@ function renderMobileOpportunities() {
     <section class="mobile-opportunities-page" aria-label="โอกาสทำเงิน">
       <div class="mobile-opportunity-summary">
         <div class="purple">
-          <span class="mobile-opportunity-summary-icon" aria-hidden="true">♟</span>
+          <span class="mobile-opportunity-summary-icon" aria-hidden="true">${iconSvg("users")}</span>
           <span>ลูกค้าที่ควรติดตาม</span>
           <strong>${money(model.dueRows.length)} <small>ราย</small></strong>
         </div>
         <div class="orange">
-          <span class="mobile-opportunity-summary-icon" aria-hidden="true">◎</span>
+          <span class="mobile-opportunity-summary-icon" aria-hidden="true">${dashboardCardIcon("target")}</span>
           <span>โอกาสปิดยอดรวม</span>
           <strong>฿ ${money(totalOpportunity)}</strong>
         </div>
         <div class="green">
-          <span class="mobile-opportunity-summary-icon" aria-hidden="true">↗</span>
+          <span class="mobile-opportunity-summary-icon" aria-hidden="true">${dashboardCardIcon("profit")}</span>
           <span>ยอดปิดได้แล้ววันนี้</span>
           <strong>฿ ${money(model.closedRevenue)}</strong>
         </div>
@@ -2317,7 +2320,12 @@ function renderMobileOpportunities() {
       <div class="mobile-opportunity-status-grid">
         ${filters.map(([id, label, count], index) => `
           <button class="tone-${index + 1}" type="button" data-mobile-opportunity-filter="${id}">
-            <span class="mobile-opportunity-status-icon" aria-hidden="true">${["☎", "◷", "◇", "✓"][index]}</span>
+            <span class="mobile-opportunity-status-icon" aria-hidden="true">${[
+              iconSvg("chat"),
+              dashboardCardIcon("calendar"),
+              iconSvg("stars"),
+              dashboardCardIcon("bag")
+            ][index]}</span>
             <span>${label}</span>
             <strong>${money(count)} <small>ราย</small></strong>
           </button>
@@ -2326,11 +2334,11 @@ function renderMobileOpportunities() {
 
       <form class="mobile-opportunity-search-row" data-mobile-opportunity-search>
         <label>
-          <span aria-hidden="true">⌕</span>
+          <span aria-hidden="true">${dashboardCardIcon("search")}</span>
           <input name="q" value="${escapeHtml(app.mobileOpportunitySearchDraft)}" placeholder="ค้นหาออเดอร์, ลูกค้า, เบอร์โทร" autocomplete="off">
         </label>
         <button class="mobile-opportunity-search-button" type="submit">ค้นหา</button>
-        <button class="mobile-opportunity-sort-button ${app.mobileOpportunitySort === "value" ? "value" : ""}" type="button" data-mobile-opportunity-sort aria-label="เรียงตาม${app.mobileOpportunitySort === "urgency" ? "มูลค่า" : "ความเร่งด่วน"}" title="ตอนนี้เรียงตาม${app.mobileOpportunitySort === "urgency" ? "ความเร่งด่วน" : "มูลค่า"}">⇅</button>
+        <button class="mobile-opportunity-sort-button ${app.mobileOpportunitySort === "value" ? "value" : ""}" type="button" data-mobile-opportunity-sort aria-label="เรียงตาม${app.mobileOpportunitySort === "urgency" ? "มูลค่า" : "ความเร่งด่วน"}" title="ตอนนี้เรียงตาม${app.mobileOpportunitySort === "urgency" ? "ความเร่งด่วน" : "มูลค่า"}">${dashboardCardIcon("sort")}</button>
       </form>
 
       <div class="mobile-opportunity-filter-row" role="tablist" aria-label="ตัวกรองโอกาสทำเงิน">
@@ -2342,7 +2350,7 @@ function renderMobileOpportunities() {
       </div>
 
       <div class="mobile-opportunity-list-heading">
-        <strong><span aria-hidden="true">☎</span> ${escapeHtml(filters.find(([id]) => id === app.mobileOpportunityFilter)?.[1] || "ลูกค้าที่ควรติดตาม")}</strong>
+        <strong><span aria-hidden="true">${iconSvg("chat")}</span> ${escapeHtml(filters.find(([id]) => id === app.mobileOpportunityFilter)?.[1] || "ลูกค้าที่ควรติดตาม")}</strong>
         <span>${money(rows.length)} ราย</span>
       </div>
       <div class="mobile-opportunity-customer-list">
