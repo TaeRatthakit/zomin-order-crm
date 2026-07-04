@@ -126,6 +126,93 @@ async function main() {
     fail("additional cost calculation types did not persist");
   }
 
+  const productSuffix = crypto.randomBytes(3).toString("hex");
+  const zominProductInput = {
+    name: "Zomin",
+    sku: `ZOMIN-${productSuffix}`,
+    image: "https://example.com/images/zomin.png",
+    description: "รายละเอียดสินค้า Zomin เดิม",
+    salePrice: 750,
+    costPerItem: 48,
+    stockQuantity: 120,
+    lowStockAlert: 10,
+    status: "พร้อมขาย"
+  };
+  const createZomin = await request("/api/products", {
+    method: "POST",
+    headers: { cookie, "content-type": "application/json" },
+    body: JSON.stringify(zominProductInput)
+  });
+  if (createZomin.status !== 200) fail(`Zomin product creation returned ${createZomin.status}: ${createZomin.text}`);
+  const savedZomin = JSON.parse(createZomin.text).product;
+
+  const acnaProductInput = {
+    ...zominProductInput,
+    name: "ACNA",
+    sku: `ACNA-${productSuffix}`,
+    image: "https://example.com/images/acna.png",
+    description: "รายละเอียดสินค้า ACNA"
+  };
+  const createAcna = await request("/api/products", {
+    method: "POST",
+    headers: { cookie, "content-type": "application/json" },
+    body: JSON.stringify(acnaProductInput)
+  });
+  if (createAcna.status !== 200) fail(`ACNA product creation returned ${createAcna.status}: ${createAcna.text}`);
+  const savedAcna = JSON.parse(createAcna.text).product;
+  if (!savedZomin.id || !savedAcna.id || savedZomin.id === savedAcna.id) {
+    fail("new products did not receive separate unique ids");
+  }
+
+  const productsAfterCreate = JSON.parse((await request("/api/state", { headers: { cookie } })).text).settings.products;
+  const unchangedZomin = productsAfterCreate.find(product => product.id === savedZomin.id);
+  const independentAcna = productsAfterCreate.find(product => product.id === savedAcna.id);
+  if (
+    unchangedZomin?.image !== zominProductInput.image
+    || unchangedZomin?.salePrice !== zominProductInput.salePrice
+    || unchangedZomin?.stockQuantity !== zominProductInput.stockQuantity
+    || unchangedZomin?.description !== zominProductInput.description
+  ) {
+    fail("adding ACNA overwrote Zomin product fields");
+  }
+  if (
+    independentAcna?.name !== acnaProductInput.name
+    || independentAcna?.image !== acnaProductInput.image
+    || independentAcna?.costPerItem !== acnaProductInput.costPerItem
+    || independentAcna?.stockQuantity !== acnaProductInput.stockQuantity
+  ) {
+    fail("ACNA product fields were not saved independently");
+  }
+
+  const editZomin = await request(`/api/products/${encodeURIComponent(savedZomin.id)}`, {
+    method: "PUT",
+    headers: { cookie, "content-type": "application/json" },
+    body: JSON.stringify({ stockQuantity: 119, description: "Zomin edited independently" })
+  });
+  const editAcna = await request(`/api/products/${encodeURIComponent(savedAcna.id)}`, {
+    method: "PUT",
+    headers: { cookie, "content-type": "application/json" },
+    body: JSON.stringify({ salePrice: 790, image: "https://example.com/images/acna-v2.png" })
+  });
+  if (editZomin.status !== 200 || editAcna.status !== 200) fail("one or both products could not be opened and edited by id");
+
+  const productsAfterEdit = JSON.parse((await request("/api/state", { headers: { cookie } })).text).settings.products;
+  const editedZomin = productsAfterEdit.find(product => product.id === savedZomin.id);
+  const editedAcna = productsAfterEdit.find(product => product.id === savedAcna.id);
+  if (editedZomin?.stockQuantity !== 119 || editedZomin?.image !== zominProductInput.image) {
+    fail("editing Zomin changed the wrong fields or lost its image");
+  }
+  if (editedAcna?.salePrice !== 790 || editedAcna?.image !== "https://example.com/images/acna-v2.png") {
+    fail("editing ACNA did not persist its own fields");
+  }
+  const productCostsAfterEdit = JSON.parse((await request("/api/state", { headers: { cookie } })).text).settings.productCosts;
+  if (
+    !productCostsAfterEdit.find(item => item.id === savedZomin.id && item.name === "Zomin")
+    || !productCostsAfterEdit.find(item => item.id === savedAcna.id && item.name === "ACNA")
+  ) {
+    fail("product cost rows were not kept separate by product id");
+  }
+
   const staffLogin = await request("/api/login", {
     method: "POST",
     headers: { "content-type": "application/json" },

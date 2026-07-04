@@ -246,7 +246,9 @@ function normalizeProductRecords(products = []) {
       followUpEnabled: product?.followUpEnabled !== false,
       followUpDays: Math.max(1, Number(product?.followUpDays || 15)),
       followUpRule: String(product?.followUpRule || "1 ชิ้น = 15 วัน").trim() || "1 ชิ้น = 15 วัน",
-      archived: Boolean(product?.archived)
+      archived: Boolean(product?.archived),
+      createdAt: String(product?.createdAt || "").trim(),
+      updatedAt: String(product?.updatedAt || "").trim()
     }))
     .filter(product => product.name);
   const unique = new Map();
@@ -263,6 +265,20 @@ function normalizedProductIdentity(product = {}) {
     sku: String(product?.sku || "").trim().toLowerCase(),
     name: String(product?.name || "").trim().toLowerCase()
   };
+}
+
+function newProductId(products = []) {
+  const existingIds = new Set(products.map(product => String(product?.id || "")));
+  let id = uid("product");
+  while (existingIds.has(id)) id = uid("product");
+  return id;
+}
+
+function productCostIndex(productCosts = [], productId = "", legacyNames = []) {
+  const idIndex = productCosts.findIndex(item => String(item?.id || "") === String(productId || ""));
+  if (idIndex >= 0) return idIndex;
+  const names = new Set(legacyNames.map(name => String(name || "").trim()).filter(Boolean));
+  return productCosts.findIndex(item => names.has(String(item?.name || "").trim()));
 }
 
 function publicSettings(settings = {}) {
@@ -2191,6 +2207,7 @@ async function handleApi(req, res) {
     const body = await readBody(req);
     const incoming = normalizeProductRecords([body])[0];
     if (!incoming?.name) return json(res, 400, { ok: false, error: "กรุณาระบุชื่อสินค้า" });
+    incoming.id = body.id ? String(body.id) : "";
     const products = normalizeProductRecords(db.settings.products);
     const incomingIdentity = normalizedProductIdentity(incoming);
     const existingIndex = products.findIndex(item => {
@@ -2201,18 +2218,31 @@ async function handleApi(req, res) {
         (incomingIdentity.name && incomingIdentity.name === identity.name)
       );
     });
+    const previousProduct = existingIndex >= 0 ? products[existingIndex] : null;
+    const now = new Date().toISOString();
     const product = existingIndex >= 0
       ? normalizeProductRecords([{
           ...products[existingIndex],
           ...incoming,
           id: products[existingIndex].id,
-          archived: false
+          archived: false,
+          createdAt: products[existingIndex].createdAt || now,
+          updatedAt: now
         }])[0]
-      : { ...incoming, id: incoming.id || uid("product"), archived: false };
+      : {
+          ...incoming,
+          id: incoming.id || newProductId(products),
+          archived: false,
+          createdAt: incoming.createdAt || now,
+          updatedAt: now
+        };
     if (existingIndex >= 0) products[existingIndex] = product;
     else products.push(product);
     const productCosts = normalizeSettingsCostRows(db.settings.productCosts, "costPerJar");
-    const existingCostIndex = productCosts.findIndex(item => item.id === product.id || item.name === product.name);
+    const existingCostIndex = productCostIndex(productCosts, product.id, [
+      previousProduct?.name,
+      product.name
+    ]);
     const costRow = {
       id: product.id,
       name: product.name,
@@ -2233,10 +2263,18 @@ async function handleApi(req, res) {
     const products = normalizeProductRecords(db.settings.products);
     const index = products.findIndex(item => item.id === productId);
     if (index === -1) return json(res, 404, { ok: false, error: "ไม่พบสินค้า" });
-    const next = normalizeProductRecords([{ ...products[index], ...body, id: productId, archived: products[index].archived }])[0];
+    const previous = products[index];
+    const next = normalizeProductRecords([{
+      ...previous,
+      ...body,
+      id: productId,
+      archived: previous.archived,
+      createdAt: previous.createdAt,
+      updatedAt: new Date().toISOString()
+    }])[0];
     products[index] = next;
     const productCosts = normalizeSettingsCostRows(db.settings.productCosts, "costPerJar");
-    const costIndex = productCosts.findIndex(item => item.id === productId || item.name === products[index].name);
+    const costIndex = productCostIndex(productCosts, productId, [previous.name, next.name]);
     const costRow = {
       id: productId,
       name: next.name,

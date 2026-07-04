@@ -1156,7 +1156,9 @@ function normalizeProductRecords(settings = app.data?.settings || {}) {
     followUpEnabled: product?.followUpEnabled !== false,
     followUpDays: Math.max(1, Number(product?.followUpDays || 15)),
     followUpRule: String(product?.followUpRule || "1 ชิ้น = 15 วัน").trim() || "1 ชิ้น = 15 วัน",
-    archived: Boolean(product?.archived)
+    archived: Boolean(product?.archived),
+    createdAt: String(product?.createdAt || "").trim(),
+    updatedAt: String(product?.updatedAt || "").trim()
   })).filter(product => product.name);
   const unique = new Map();
   for (const product of normalized) {
@@ -2070,11 +2072,16 @@ function renderMobileBusinessProductDetail() {
           <article class="${breakdown.profit >= 0 ? "green" : "red"}"><span>กำไรสุทธิประมาณการ</span><strong>${money(breakdown.profit)} บาท</strong></article>
         </div>
         <div class="mobile-business-info-list">
+          <div><span>ราคาขาย</span><strong>${money(product.salePrice)} บาท</strong></div>
+          <div><span>สต๊อกคงเหลือ</span><strong>${money(product.stockQuantity)} ชิ้น</strong></div>
+          <div><span>สถานะ</span><strong>${escapeHtml(product.computedStatus)}</strong></div>
+          <div><span>รายละเอียด</span><strong>${escapeHtml(product.description || "ยังไม่มีรายละเอียด")}</strong></div>
           <div><span>ต้นทุนสินค้า</span><strong>${money(breakdown.productCosts)} บาท</strong></div>
           ${extraCostRows.map(item => `<div><span>${escapeHtml(item.name)} · ${escapeHtml(additionalCostTypeLabel(item.type))}</span><strong>${money(item.total)} บาท</strong></div>`).join("") || `<div><span>ค่าใช้จ่ายเพิ่มเติม</span><strong>0 บาท</strong></div>`}
           <div><span>ค่าใช้จ่ายเพิ่มเติมรวม</span><strong>${money(breakdown.additionalCosts)} บาท</strong></div>
           <div><span>จำนวนออเดอร์</span><strong>${money(relatedOrders.length)} ออเดอร์</strong></div>
         </div>
+        <button class="button primary mobile-business-full-button" type="button" data-edit-product="${escapeHtml(product.id)}">แก้ไขสินค้า</button>
       </article>
     </section>
   `;
