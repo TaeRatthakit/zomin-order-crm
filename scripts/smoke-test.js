@@ -303,6 +303,130 @@ async function main() {
   ) {
     fail("package order snapshot did not persist");
   }
+  const enabledPackageExpenseTotal = packageOrderExpenses
+    .filter(expense => expense.enabled)
+    .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
+  const expectedGlobalExpense = 5 + (2 * 2) + (750 * 0.025);
+  const expectedInitialProfit = 750 - (46.85 * 2) - enabledPackageExpenseTotal - expectedGlobalExpense;
+  if (
+    packageOrderAfterSave.revenueSnapshot !== 750
+    || packageOrderAfterSave.productCostSnapshot !== 93.7
+    || packageOrderAfterSave.packageExpenseSnapshot !== enabledPackageExpenseTotal
+    || packageOrderAfterSave.globalExpenseSnapshot !== expectedGlobalExpense
+    || packageOrderAfterSave.profitBeforeAdsSnapshot !== expectedInitialProfit
+    || packageOrderAfterSave.profitAfterAdsSnapshot !== expectedInitialProfit
+    || packageOrderAfterSave.profitSnapshotVersion !== 1
+    || packageOrderAfterSave.profitSnapshotSource !== "created"
+    || !packageOrderAfterSave.profitSnapshotCreatedAt
+    || !packageOrderAfterSave.profitSnapshotUpdatedAt
+  ) {
+    fail("package order immutable profit snapshot was not calculated correctly");
+  }
+
+  const originalProfitSnapshot = {
+    productCostSnapshot: packageOrderAfterSave.productCostSnapshot,
+    packageExpenseSnapshot: packageOrderAfterSave.packageExpenseSnapshot,
+    globalExpenseSnapshot: packageOrderAfterSave.globalExpenseSnapshot,
+    profitBeforeAdsSnapshot: packageOrderAfterSave.profitBeforeAdsSnapshot,
+    profitAfterAdsSnapshot: packageOrderAfterSave.profitAfterAdsSnapshot,
+    profitSnapshotCreatedAt: packageOrderAfterSave.profitSnapshotCreatedAt
+  };
+  const changedPackages = editedZomin.salesPackages.map((salesPackage, index) => (
+    index === 0
+      ? {
+          ...salesPackage,
+          expenses: salesPackage.expenses.map((expense, expenseIndex) => (
+            expenseIndex === 0 ? { ...expense, amount: 999 } : expense
+          ))
+        }
+      : salesPackage
+  ));
+  const changePackageExpense = await request(`/api/products/${encodeURIComponent(savedZomin.id)}`, {
+    method: "PUT",
+    headers: { cookie, "content-type": "application/json" },
+    body: JSON.stringify({ salesPackages: changedPackages })
+  });
+  if (changePackageExpense.status !== 200) fail("package expense change failed during snapshot regression");
+
+  const settingsBeforeCostChange = JSON.parse((await request("/api/state", { headers: { cookie } })).text).settings;
+  const changedProductCosts = settingsBeforeCostChange.productCosts.map(item => (
+    item.id === savedZomin.id || item.name === "Zomin"
+      ? { ...item, costPerJar: 99 }
+      : item
+  ));
+  const changeProductCost = await request("/api/settings", {
+    method: "PUT",
+    headers: { cookie, "content-type": "application/json" },
+    body: JSON.stringify({ productCosts: changedProductCosts })
+  });
+  if (changeProductCost.status !== 200) fail("product cost change failed during snapshot regression");
+
+  const packageOrderAfterCostChanges = JSON.parse((await request("/api/state", { headers: { cookie } })).text)
+    .orders.find(order => order.id === packageOrderId);
+  for (const [field, value] of Object.entries(originalProfitSnapshot)) {
+    if (packageOrderAfterCostChanges?.[field] !== value) {
+      fail(`historical order snapshot changed after product/package cost edit: ${field}`);
+    }
+  }
+
+  await new Promise(resolve => setTimeout(resolve, 5));
+  const editPackageOrder = await request(`/api/orders/${encodeURIComponent(packageOrderId)}`, {
+    method: "PUT",
+    headers: { cookie, "content-type": "application/json" },
+    body: JSON.stringify({ amount: 800, selectedDate: bangkokNow().date })
+  });
+  if (editPackageOrder.status !== 200) fail(`package order edit returned ${editPackageOrder.status}`);
+  const editedPackageOrder = JSON.parse((await request("/api/state", { headers: { cookie } })).text)
+    .orders.find(order => order.id === packageOrderId);
+  const expectedEditedGlobalExpense = 5 + (2 * 2) + (800 * 0.025);
+  const expectedEditedProfit = 800 - (99 * 2) - enabledPackageExpenseTotal - expectedEditedGlobalExpense;
+  if (
+    editedPackageOrder?.revenueSnapshot !== 800
+    || editedPackageOrder?.productCostSnapshot !== 198
+    || editedPackageOrder?.packageExpenseSnapshot !== enabledPackageExpenseTotal
+    || editedPackageOrder?.globalExpenseSnapshot !== expectedEditedGlobalExpense
+    || editedPackageOrder?.profitBeforeAdsSnapshot !== expectedEditedProfit
+    || editedPackageOrder?.profitAfterAdsSnapshot !== expectedEditedProfit
+    || editedPackageOrder?.profitSnapshotSource !== "edited"
+    || editedPackageOrder?.profitSnapshotCreatedAt !== originalProfitSnapshot.profitSnapshotCreatedAt
+    || editedPackageOrder?.profitSnapshotUpdatedAt === originalProfitSnapshot.profitSnapshotCreatedAt
+  ) {
+    fail("editing an order did not recalculate and update its immutable profit snapshot");
+  }
+
+  const legacyOrderId = `legacy_profit_${productSuffix}`;
+  const legacyDb = JSON.parse(fs.readFileSync(process.env.JSON_DB_PATH, "utf8"));
+  legacyDb.orders.push({
+    id: legacyOrderId,
+    customerId: packageOrderAfterSave.customerId,
+    orderNumber: `LEGACY-${productSuffix}`,
+    items: "Zomin",
+    customerName: "ลูกค้า Legacy Profit",
+    phone: packageOrderAfterSave.phone,
+    address: "กรุงเทพฯ",
+    date: bangkokNow().date,
+    time: bangkokNow().time,
+    jars: 1,
+    amount: 1000,
+    source: "Legacy",
+    sourceChannel: "Legacy",
+    packageId: "",
+    packageExpenses: []
+  });
+  fs.writeFileSync(process.env.JSON_DB_PATH, `${JSON.stringify(legacyDb, null, 2)}\n`, "utf8");
+  const stateAfterLegacyBackfill = JSON.parse((await request("/api/state", { headers: { cookie } })).text);
+  const backfilledLegacyOrder = stateAfterLegacyBackfill.orders.find(order => order.id === legacyOrderId);
+  const expectedLegacyGlobalExpense = 5 + 2 + (1000 * 0.025);
+  if (
+    backfilledLegacyOrder?.productCostSnapshot !== 99
+    || backfilledLegacyOrder?.packageExpenseSnapshot !== 0
+    || backfilledLegacyOrder?.globalExpenseSnapshot !== expectedLegacyGlobalExpense
+    || backfilledLegacyOrder?.profitAfterAdsSnapshot !== 1000 - 99 - expectedLegacyGlobalExpense
+    || backfilledLegacyOrder?.profitSnapshotSource !== "backfilled"
+    || backfilledLegacyOrder?.profitSnapshotVersion !== 1
+  ) {
+    fail("legacy order did not use the current fallback formula for lazy backfill");
+  }
 
   const productClient = await request("/app.js");
   if (
@@ -313,9 +437,55 @@ async function main() {
     || !productClient.text.includes("data.image = app.productDraftImage")
     || !productClient.text.includes("data-duplicate-sales-package")
     || !productClient.text.includes("packageExpenseTotalForOrder")
+    || !productClient.text.includes("function hasOrderProfitSnapshot")
+    || !productClient.text.includes("function fallbackProfitForOrder")
+    || !productClient.text.includes("function profitForOrder")
     || !productClient.text.includes("function productCostMoney")
   ) {
     fail("product image or decimal cost renderer is missing from the client");
+  }
+  const clientSections = {
+    home: productClient.text.slice(
+      productClient.text.indexOf("function renderDashboard()"),
+      productClient.text.indexOf("const businessManagementItems")
+    ),
+    reports: productClient.text.slice(
+      productClient.text.indexOf("function renderMobileReports("),
+      productClient.text.indexOf("function renderReports(")
+    ),
+    finance: productClient.text.slice(
+      productClient.text.indexOf("function renderMobileBusinessFinance()"),
+      productClient.text.indexOf("function renderMobileBusinessSecurity()")
+    ),
+    productProfitDetail: productClient.text.slice(
+      productClient.text.indexOf("function renderMobileBusinessProductDetail()"),
+      productClient.text.indexOf("function renderMobileBusinessSystem()")
+    )
+  };
+  for (const [page, source] of Object.entries(clientSections)) {
+    if (!source.includes("profitBreakdownForOrders(")) {
+      fail(`${page} does not use the snapshot-first profit breakdown`);
+    }
+  }
+  const supabaseAdapterSource = fs.readFileSync(
+    path.join(__dirname, "..", "lib", "db", "supabase-adapter.js"),
+    "utf8"
+  );
+  for (const metadataKey of [
+    "__revenueSnapshot",
+    "__productCostSnapshot",
+    "__packageExpenseSnapshot",
+    "__globalExpenseSnapshot",
+    "__profitBeforeAdsSnapshot",
+    "__profitAfterAdsSnapshot",
+    "__profitSnapshotVersion",
+    "__profitSnapshotCreatedAt",
+    "__profitSnapshotUpdatedAt",
+    "__profitSnapshotSource"
+  ]) {
+    if (!supabaseAdapterSource.includes(metadataKey)) {
+      fail(`Supabase order metadata is missing ${metadataKey}`);
+    }
   }
 
   const staffLogin = await request("/api/login", {

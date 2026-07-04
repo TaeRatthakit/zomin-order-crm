@@ -17,6 +17,7 @@ const {
   importOrdersBatch,
   verifyCustomerSync,
   persistOrderMutation,
+  persistOrderProfitSnapshots,
   persistUserProfile
 } = require("./lib/db");
 const {
@@ -239,6 +240,102 @@ function normalizePackageExpenses(expenses = []) {
       enabled: expense?.enabled !== false
     }))
     .filter(expense => expense.name);
+}
+
+const PROFIT_SNAPSHOT_VERSION = 1;
+const PROFIT_SNAPSHOT_FIELDS = [
+  "revenueSnapshot",
+  "productCostSnapshot",
+  "packageExpenseSnapshot",
+  "globalExpenseSnapshot",
+  "profitBeforeAdsSnapshot",
+  "profitAfterAdsSnapshot"
+];
+
+function snapshotMoney(value) {
+  const numeric = Number(value || 0);
+  return Number.isFinite(numeric) ? Number(numeric.toFixed(6)) : 0;
+}
+
+function hasOrderProfitSnapshot(order = {}) {
+  return Number(order.profitSnapshotVersion || 0) >= PROFIT_SNAPSHOT_VERSION
+    && PROFIT_SNAPSHOT_FIELDS.every(field => Number.isFinite(Number(order[field])));
+}
+
+function productCostForOrderSnapshot(order = {}, settings = {}) {
+  const productName = String(order.items || "Growup Formula").trim();
+  const productConfig = normalizeSettingsCostRows(settings.productCosts, "costPerJar")
+    .find(item => item.name === productName);
+  if (!productConfig?.enabled) return 0;
+  const quantity = order.packageId
+    ? Number(order.totalQuantityShipped || order.jars || 0)
+    : Number(order.jars || 0);
+  return quantity * Number(productConfig.costPerJar || 0);
+}
+
+function packageExpenseForOrderSnapshot(order = {}) {
+  if (!order.packageId) return 0;
+  return normalizePackageExpenses(order.packageExpenses)
+    .filter(expense => expense.enabled)
+    .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
+}
+
+function globalExpenseForOrderSnapshot(order = {}, settings = {}) {
+  const revenue = Number(order.amount || 0);
+  const itemCount = Number(order.jars || 0);
+  return normalizeSettingsCostRows(settings.additionalCosts, "amount")
+    .filter(expense => expense.enabled)
+    .reduce((sum, expense) => {
+      if (expense.type === "percent_sales") return sum + (revenue * Number(expense.amount || 0) / 100);
+      if (expense.type === "per_item") return sum + (itemCount * Number(expense.amount || 0));
+      return sum + Number(expense.amount || 0);
+    }, 0);
+}
+
+function calculateOrderProfitSnapshot(order = {}, settings = {}, {
+  source = "created",
+  timestamp = new Date().toISOString(),
+  createdAt = ""
+} = {}) {
+  const revenueSnapshot = snapshotMoney(order.amount);
+  const productCostSnapshot = snapshotMoney(productCostForOrderSnapshot(order, settings));
+  const packageExpenseSnapshot = snapshotMoney(packageExpenseForOrderSnapshot(order));
+  const globalExpenseSnapshot = snapshotMoney(globalExpenseForOrderSnapshot(order, settings));
+  const profitBeforeAdsSnapshot = snapshotMoney(
+    revenueSnapshot - productCostSnapshot - packageExpenseSnapshot - globalExpenseSnapshot
+  );
+  return {
+    revenueSnapshot,
+    productCostSnapshot,
+    packageExpenseSnapshot,
+    globalExpenseSnapshot,
+    profitBeforeAdsSnapshot,
+    profitAfterAdsSnapshot: profitBeforeAdsSnapshot,
+    profitSnapshotVersion: PROFIT_SNAPSHOT_VERSION,
+    profitSnapshotCreatedAt: String(createdAt || timestamp),
+    profitSnapshotUpdatedAt: timestamp,
+    profitSnapshotSource: source
+  };
+}
+
+function applyOrderProfitSnapshot(order, settings, source) {
+  const timestamp = new Date().toISOString();
+  Object.assign(order, calculateOrderProfitSnapshot(order, settings, {
+    source,
+    timestamp,
+    createdAt: source === "edited" ? order.profitSnapshotCreatedAt : ""
+  }));
+  return order;
+}
+
+function backfillMissingOrderProfitSnapshots(db) {
+  const backfilled = [];
+  for (const order of db.orders || []) {
+    if (hasOrderProfitSnapshot(order)) continue;
+    applyOrderProfitSnapshot(order, db.settings || {}, "backfilled");
+    backfilled.push(order);
+  }
+  return backfilled;
 }
 
 function normalizeSalesPackages(packages = []) {
@@ -1027,6 +1124,7 @@ function addOrder(db, payload) {
     rawText: String(payload.rawText || "").trim()
   };
 
+  applyOrderProfitSnapshot(order, db.settings || {}, "created");
   db.orders.push(order);
   return order;
 }
@@ -1921,6 +2019,21 @@ async function handleApi(req, res) {
 
   if (req.method === "GET" && url.pathname === "/api/state") {
     const date = url.searchParams.get("date") || toDateOnly();
+    const backfilledOrders = backfillMissingOrderProfitSnapshots(db);
+    if (backfilledOrders.length) {
+      try {
+        if (typeof persistOrderProfitSnapshots === "function") {
+          await persistOrderProfitSnapshots(backfilledOrders);
+        } else {
+          await writeDb(db);
+        }
+      } catch (error) {
+        console.error("Profit snapshot lazy backfill persistence failed", JSON.stringify({
+          orderCount: backfilledOrders.length,
+          message: error.message
+        }));
+      }
+    }
     const enriched = enrichDb(db, date);
     return json(res, 200, {
       ...enriched,
@@ -2051,6 +2164,7 @@ async function handleApi(req, res) {
       vipCardStatus: body.vipCardStatus ?? order.vipCardStatus,
       note: body.note ?? order.note
     });
+    applyOrderProfitSnapshot(order, db.settings || {}, "edited");
     const mutation = orderMutationPayload(db, {
       orderId: order.id,
       previousCustomerIds,

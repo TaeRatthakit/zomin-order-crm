@@ -1207,12 +1207,63 @@ function additionalCostTotalForOrders(orders = [], settings = app.data?.settings
     .reduce((sum, item) => sum + Number(item.total || 0), 0);
 }
 
+const PROFIT_SNAPSHOT_VERSION = 1;
+const PROFIT_SNAPSHOT_FIELDS = [
+  "revenueSnapshot",
+  "productCostSnapshot",
+  "packageExpenseSnapshot",
+  "globalExpenseSnapshot",
+  "profitBeforeAdsSnapshot"
+];
+
+function hasOrderProfitSnapshot(order = {}) {
+  return Number(order.profitSnapshotVersion || 0) >= PROFIT_SNAPSHOT_VERSION
+    && PROFIT_SNAPSHOT_FIELDS.every(field => Number.isFinite(Number(order[field])));
+}
+
+function fallbackProfitForOrder(order, settings) {
+  const sales = Number(order?.amount || 0);
+  const productCosts = productCostForOrder(order, settings);
+  const packageExpenses = packageExpenseTotalForOrder(order);
+  const globalAdditionalCosts = additionalCostTotalForOrders([order], settings);
+  const profitBeforeAds = sales - productCosts - packageExpenses - globalAdditionalCosts;
+  return {
+    sales,
+    productCosts,
+    packageExpenses,
+    globalAdditionalCosts,
+    profitBeforeAds,
+    profitAfterAds: profitBeforeAds,
+    source: "fallback"
+  };
+}
+
+function profitForOrder(order, settings = app.data?.settings || {}) {
+  if (!hasOrderProfitSnapshot(order)) return fallbackProfitForOrder(order, settings);
+  const profitBeforeAds = Number(order.profitBeforeAdsSnapshot);
+  const profitAfterAds = Number.isFinite(Number(order.profitAfterAdsSnapshot))
+    ? Number(order.profitAfterAdsSnapshot)
+    : profitBeforeAds;
+  return {
+    sales: Number(order.revenueSnapshot),
+    productCosts: Number(order.productCostSnapshot),
+    packageExpenses: Number(order.packageExpenseSnapshot),
+    globalAdditionalCosts: Number(order.globalExpenseSnapshot),
+    profitBeforeAds,
+    profitAfterAds,
+    source: String(order.profitSnapshotSource || "snapshot")
+  };
+}
+
 function profitBreakdownForOrders(orders = [], settings = app.data?.settings || {}) {
   const rows = Array.isArray(orders) ? orders : [];
-  const sales = rows.reduce((sum, order) => sum + Number(order.amount || 0), 0);
-  const productCosts = rows.reduce((sum, order) => sum + productCostForOrder(order, settings), 0);
-  const globalAdditionalCosts = additionalCostTotalForOrders(rows, settings);
-  const packageExpenses = rows.reduce((sum, order) => sum + packageExpenseTotalForOrder(order), 0);
+  const values = rows.map(order => profitForOrder(order, settings));
+  const sales = values.reduce((sum, item) => sum + item.sales, 0);
+  const productCosts = values.reduce((sum, item) => sum + item.productCosts, 0);
+  const globalAdditionalCosts = values.reduce((sum, item) => sum + item.globalAdditionalCosts, 0);
+  const packageExpenses = values.reduce((sum, item) => sum + item.packageExpenses, 0);
+  const profitBeforeAds = values.reduce((sum, item) => sum + item.profitBeforeAds, 0);
+  const profitAfterAds = values.reduce((sum, item) => sum + item.profitAfterAds, 0);
   const additionalCosts = globalAdditionalCosts + packageExpenses;
   return {
     sales,
@@ -1220,7 +1271,11 @@ function profitBreakdownForOrders(orders = [], settings = app.data?.settings || 
     packageExpenses,
     globalAdditionalCosts,
     additionalCosts,
-    profit: sales - productCosts - additionalCosts
+    profitBeforeAds,
+    profitAfterAds,
+    profit: profitAfterAds,
+    snapshotOrderCount: values.filter(item => item.source !== "fallback").length,
+    fallbackOrderCount: values.filter(item => item.source === "fallback").length
   };
 }
 
@@ -2165,7 +2220,6 @@ function renderMobileBusinessProductDetail() {
   const units = relatedOrders.reduce((sum, order) => sum + Number(order.jars || 0), 0);
   const unitCost = Number(productCost?.costPerJar ?? product.costPerItem ?? 0);
   const breakdown = profitBreakdownForOrders(relatedOrders, app.data.settings || {});
-  const extraCostRows = additionalCostBreakdownForOrders(relatedOrders, app.data.settings || {});
   return `
     <section class="mobile-business-page mobile-business-subpage">
       <header class="mobile-business-subhead">
@@ -2191,7 +2245,7 @@ function renderMobileBusinessProductDetail() {
           <div><span>รายละเอียด</span><strong>${escapeHtml(product.description || "ยังไม่มีรายละเอียด")}</strong></div>
           <div><span>ต้นทุนสินค้า</span><strong>${money(breakdown.productCosts)} บาท</strong></div>
           <div><span>ค่าใช้จ่ายแพ็กเกจ</span><strong>${money(breakdown.packageExpenses)} บาท</strong></div>
-          ${extraCostRows.map(item => `<div><span>${escapeHtml(item.name)} · ${escapeHtml(additionalCostTypeLabel(item.type))}</span><strong>${money(item.total)} บาท</strong></div>`).join("") || `<div><span>ค่าใช้จ่ายเพิ่มเติม</span><strong>0 บาท</strong></div>`}
+          <div><span>ค่าใช้จ่ายส่วนกลางตามออเดอร์</span><strong>${money(breakdown.globalAdditionalCosts)} บาท</strong></div>
           <div><span>ค่าใช้จ่ายเพิ่มเติมรวม</span><strong>${money(breakdown.additionalCosts)} บาท</strong></div>
           <div><span>จำนวนออเดอร์</span><strong>${money(relatedOrders.length)} ออเดอร์</strong></div>
         </div>
@@ -3386,6 +3440,16 @@ function optimisticOrderFromForm(data, orderId, clientMutationId) {
     freeQuantity: Number(data.freeQuantity ?? existing?.freeQuantity ?? 0),
     totalQuantityShipped: Number(data.totalQuantityShipped ?? existing?.totalQuantityShipped ?? 0),
     packageExpenses: Array.isArray(data.packageExpenses) ? data.packageExpenses : (existing?.packageExpenses || []),
+    revenueSnapshot: undefined,
+    productCostSnapshot: undefined,
+    packageExpenseSnapshot: undefined,
+    globalExpenseSnapshot: undefined,
+    profitBeforeAdsSnapshot: undefined,
+    profitAfterAdsSnapshot: undefined,
+    profitSnapshotVersion: 0,
+    profitSnapshotCreatedAt: "",
+    profitSnapshotUpdatedAt: "",
+    profitSnapshotSource: "",
     vipCardStatus: data.vipCardStatus ?? existing?.vipCardStatus ?? "",
     note: data.note ?? existing?.note ?? "",
     tags: splitTags(data.tags ?? existing?.tags ?? []),
