@@ -129,6 +129,30 @@ async function main() {
   const productSuffix = crypto.randomBytes(3).toString("hex");
   const zominImageDataUrl = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
   const acnaImageDataUrl = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8zwAAAgEBAScY42YAAAAASUVORK5CYII=";
+  const zominPackages = Array.from({ length: 25 }, (_, packageIndex) => ({
+    id: `z_pkg_${packageIndex + 1}`,
+    name: `Zomin Package ${packageIndex + 1}`,
+    paidQuantity: packageIndex + 1,
+    freeQuantity: 1,
+    totalQuantityShipped: packageIndex + 2,
+    salePrice: 750 * (packageIndex + 1),
+    enabled: true,
+    expenses: Array.from({ length: 12 }, (_, expenseIndex) => ({
+      id: `z_pkg_${packageIndex + 1}_expense_${expenseIndex + 1}`,
+      name: `Zomin Expense ${packageIndex + 1}-${expenseIndex + 1}`,
+      amount: expenseIndex + 0.5,
+      enabled: expenseIndex % 2 === 0
+    }))
+  }));
+  zominPackages.splice(1, 0, {
+    ...zominPackages[0],
+    id: "z_pkg_duplicate",
+    name: "Zomin Package 1 สำเนา",
+    expenses: zominPackages[0].expenses.map(expense => ({
+      ...expense,
+      id: `${expense.id}_duplicate`
+    }))
+  });
   const zominProductInput = {
     name: "Zomin",
     sku: `ZOMIN-${productSuffix}`,
@@ -138,7 +162,8 @@ async function main() {
     costPerItem: 46.85,
     stockQuantity: 120,
     lowStockAlert: 10,
-    status: "พร้อมขาย"
+    status: "พร้อมขาย",
+    salesPackages: zominPackages
   };
   const createZomin = await request("/api/products", {
     method: "POST",
@@ -153,7 +178,20 @@ async function main() {
     name: "ACNA",
     sku: `ACNA-${productSuffix}`,
     image: acnaImageDataUrl,
-    description: "รายละเอียดสินค้า ACNA"
+    description: "รายละเอียดสินค้า ACNA",
+    salesPackages: [{
+      id: "acna_pkg_1",
+      name: "ACNA Starter",
+      paidQuantity: 2,
+      freeQuantity: 0,
+      totalQuantityShipped: 2,
+      salePrice: 990,
+      enabled: true,
+      expenses: [
+        { id: "acna_box", name: "ACNA Box", amount: 8, enabled: true },
+        { id: "acna_shipping", name: "ACNA Shipping", amount: 45, enabled: true }
+      ]
+    }]
   };
   const createAcna = await request("/api/products", {
     method: "POST",
@@ -183,8 +221,17 @@ async function main() {
     || independentAcna?.image !== acnaProductInput.image
     || independentAcna?.costPerItem !== acnaProductInput.costPerItem
     || independentAcna?.stockQuantity !== acnaProductInput.stockQuantity
+    || unchangedZomin?.salesPackages?.length !== 26
+    || unchangedZomin?.salesPackages?.[0]?.expenses?.length !== 12
+    || independentAcna?.salesPackages?.length !== 1
   ) {
     fail("ACNA product fields were not saved independently");
+  }
+  if (
+    unchangedZomin.salesPackages[0].id === unchangedZomin.salesPackages[1].id
+    || unchangedZomin.salesPackages[0].expenses[0].id === unchangedZomin.salesPackages[1].expenses[0].id
+  ) {
+    fail("duplicated package or expenses reused ids");
   }
 
   const editZomin = await request(`/api/products/${encodeURIComponent(savedZomin.id)}`, {
@@ -208,12 +255,53 @@ async function main() {
   if (editedAcna?.salePrice !== 790 || editedAcna?.image !== "https://example.com/images/acna-v2.png") {
     fail("editing ACNA did not persist its own fields");
   }
+  if (
+    editedZomin?.salesPackages?.[0]?.expenses?.[0]?.amount !== 0.5
+    || editedAcna?.salesPackages?.[0]?.expenses?.[0]?.amount !== 8
+  ) {
+    fail("package expenses leaked between products");
+  }
   const productCostsAfterEdit = JSON.parse((await request("/api/state", { headers: { cookie } })).text).settings.productCosts;
   if (
     !productCostsAfterEdit.find(item => item.id === savedZomin.id && item.name === "Zomin" && item.costPerJar === 46.85)
     || !productCostsAfterEdit.find(item => item.id === savedAcna.id && item.name === "ACNA" && item.costPerJar === 46.85)
   ) {
     fail("product cost rows were not kept separate by product id");
+  }
+
+  const packageOrderExpenses = editedZomin.salesPackages[0].expenses.map(expense => ({ ...expense }));
+  const packageOrder = await request("/api/orders", {
+    method: "POST",
+    headers: { cookie, "content-type": "application/json" },
+    body: JSON.stringify({
+      orderNumber: `PKG-${productSuffix}`,
+      items: "Zomin",
+      name: "ลูกค้าแพ็กเกจทดสอบ",
+      phone: `086${Date.now().toString().slice(-7)}`,
+      address: "กรุงเทพฯ",
+      date: bangkokNow().date,
+      jars: 2,
+      amount: 750,
+      productId: savedZomin.id,
+      packageId: editedZomin.salesPackages[0].id,
+      packageName: editedZomin.salesPackages[0].name,
+      paidQuantity: editedZomin.salesPackages[0].paidQuantity,
+      freeQuantity: editedZomin.salesPackages[0].freeQuantity,
+      totalQuantityShipped: editedZomin.salesPackages[0].totalQuantityShipped,
+      packageExpenses: packageOrderExpenses
+    })
+  });
+  if (packageOrder.status !== 200) fail(`package order returned ${packageOrder.status}: ${packageOrder.text}`);
+  const packageOrderId = JSON.parse(packageOrder.text).mutation?.order?.id;
+  const packageOrderAfterSave = JSON.parse((await request("/api/state", { headers: { cookie } })).text)
+    .orders.find(order => order.id === packageOrderId);
+  if (
+    packageOrderAfterSave?.productId !== savedZomin.id
+    || packageOrderAfterSave?.packageId !== editedZomin.salesPackages[0].id
+    || packageOrderAfterSave?.packageExpenses?.length !== 12
+    || packageOrderAfterSave?.totalQuantityShipped !== 2
+  ) {
+    fail("package order snapshot did not persist");
   }
 
   const productClient = await request("/app.js");
@@ -223,6 +311,8 @@ async function main() {
     || !productClient.text.includes("function productImageMarkup")
     || !productClient.text.includes('console.debug("[product-image-debug]"')
     || !productClient.text.includes("data.image = app.productDraftImage")
+    || !productClient.text.includes("data-duplicate-sales-package")
+    || !productClient.text.includes("packageExpenseTotalForOrder")
     || !productClient.text.includes("function productCostMoney")
   ) {
     fail("product image or decimal cost renderer is missing from the client");

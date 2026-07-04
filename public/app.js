@@ -104,6 +104,7 @@ const app = {
   productSavePending: false,
   productDraftImage: "",
   productImageDebugKeys: new Set(),
+  productPackageDraft: [],
   deletingOrderId: "",
   deletingCustomerId: "",
   profileDraftImage: "",
@@ -1163,7 +1164,17 @@ function productCostForOrder(order, settings = app.data?.settings || {}) {
   const productName = normalizeProductName(order?.items || "Growup Formula");
   const productConfig = normalizeProductCostEntries(settings).find(item => item.name === productName);
   if (!productConfig?.enabled) return 0;
-  return Number(order?.jars || 0) * Number(productConfig.costPerJar || 0);
+  const quantity = order?.packageId
+    ? Number(order?.totalQuantityShipped || order?.jars || 0)
+    : Number(order?.jars || 0);
+  return quantity * Number(productConfig.costPerJar || 0);
+}
+
+function packageExpenseTotalForOrder(order) {
+  if (!order?.packageId) return 0;
+  return normalizePackageExpenses(order.packageExpenses)
+    .filter(expense => expense.enabled)
+    .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
 }
 
 function additionalCostTypeLabel(type) {
@@ -1200,13 +1211,45 @@ function profitBreakdownForOrders(orders = [], settings = app.data?.settings || 
   const rows = Array.isArray(orders) ? orders : [];
   const sales = rows.reduce((sum, order) => sum + Number(order.amount || 0), 0);
   const productCosts = rows.reduce((sum, order) => sum + productCostForOrder(order, settings), 0);
-  const additionalCosts = additionalCostTotalForOrders(rows, settings);
+  const globalAdditionalCosts = additionalCostTotalForOrders(rows, settings);
+  const packageExpenses = rows.reduce((sum, order) => sum + packageExpenseTotalForOrder(order), 0);
+  const additionalCosts = globalAdditionalCosts + packageExpenses;
   return {
     sales,
     productCosts,
+    packageExpenses,
+    globalAdditionalCosts,
     additionalCosts,
     profit: sales - productCosts - additionalCosts
   };
+}
+
+function normalizePackageExpenses(expenses = []) {
+  return (Array.isArray(expenses) ? expenses : [])
+    .map((expense, index) => ({
+      id: String(expense?.id || `expense_${index + 1}`),
+      name: String(expense?.name || "").trim(),
+      amount: Math.max(0, Number(expense?.amount || 0)),
+      enabled: expense?.enabled !== false
+    }))
+    .filter(expense => expense.name);
+}
+
+function normalizeSalesPackages(packages = []) {
+  return (Array.isArray(packages) ? packages : []).map((item, index) => {
+    const paidQuantity = Math.max(0, Number(item?.paidQuantity || 0));
+    const freeQuantity = Math.max(0, Number(item?.freeQuantity || 0));
+    return {
+      id: String(item?.id || `package_${index + 1}`),
+      name: String(item?.name || `แพ็กเกจ ${index + 1}`).trim() || `แพ็กเกจ ${index + 1}`,
+      paidQuantity,
+      freeQuantity,
+      totalQuantityShipped: Math.max(0, Number(item?.totalQuantityShipped ?? paidQuantity + freeQuantity)),
+      salePrice: Math.max(0, Number(item?.salePrice || 0)),
+      enabled: item?.enabled !== false,
+      expenses: normalizePackageExpenses(item?.expenses)
+    };
+  });
 }
 
 function normalizeProductRecords(settings = app.data?.settings || {}) {
@@ -1227,7 +1270,8 @@ function normalizeProductRecords(settings = app.data?.settings || {}) {
     followUpRule: String(product?.followUpRule || "1 ชิ้น = 15 วัน").trim() || "1 ชิ้น = 15 วัน",
     archived: Boolean(product?.archived),
     createdAt: String(product?.createdAt || "").trim(),
-    updatedAt: String(product?.updatedAt || "").trim()
+    updatedAt: String(product?.updatedAt || "").trim(),
+    salesPackages: normalizeSalesPackages(product?.salesPackages)
   })).filter(product => product.name);
   const unique = new Map();
   for (const product of normalized) {
@@ -2146,6 +2190,7 @@ function renderMobileBusinessProductDetail() {
           <div><span>สถานะ</span><strong>${escapeHtml(product.computedStatus)}</strong></div>
           <div><span>รายละเอียด</span><strong>${escapeHtml(product.description || "ยังไม่มีรายละเอียด")}</strong></div>
           <div><span>ต้นทุนสินค้า</span><strong>${money(breakdown.productCosts)} บาท</strong></div>
+          <div><span>ค่าใช้จ่ายแพ็กเกจ</span><strong>${money(breakdown.packageExpenses)} บาท</strong></div>
           ${extraCostRows.map(item => `<div><span>${escapeHtml(item.name)} · ${escapeHtml(additionalCostTypeLabel(item.type))}</span><strong>${money(item.total)} บาท</strong></div>`).join("") || `<div><span>ค่าใช้จ่ายเพิ่มเติม</span><strong>0 บาท</strong></div>`}
           <div><span>ค่าใช้จ่ายเพิ่มเติมรวม</span><strong>${money(breakdown.additionalCosts)} บาท</strong></div>
           <div><span>จำนวนออเดอร์</span><strong>${money(relatedOrders.length)} ออเดอร์</strong></div>
@@ -3334,6 +3379,13 @@ function optimisticOrderFromForm(data, orderId, clientMutationId) {
     socialName: data.socialName ?? existing?.socialName ?? "",
     originSource: data.originSource ?? existing?.originSource ?? "",
     freeGift: data.freeGift ?? existing?.freeGift ?? "",
+    productId: data.productId ?? existing?.productId ?? "",
+    packageId: data.packageId ?? existing?.packageId ?? "",
+    packageName: data.packageName ?? existing?.packageName ?? "",
+    paidQuantity: Number(data.paidQuantity ?? existing?.paidQuantity ?? 0),
+    freeQuantity: Number(data.freeQuantity ?? existing?.freeQuantity ?? 0),
+    totalQuantityShipped: Number(data.totalQuantityShipped ?? existing?.totalQuantityShipped ?? 0),
+    packageExpenses: Array.isArray(data.packageExpenses) ? data.packageExpenses : (existing?.packageExpenses || []),
     vipCardStatus: data.vipCardStatus ?? existing?.vipCardStatus ?? "",
     note: data.note ?? existing?.note ?? "",
     tags: splitTags(data.tags ?? existing?.tags ?? []),
@@ -5317,6 +5369,7 @@ function openProductDialog(product = null) {
   app.editingProductId = product?.id || "";
   app.productSavePending = false;
   app.productDraftImage = normalizeProductImageSource(product?.image);
+  app.productPackageDraft = normalizeSalesPackages(product?.salesPackages);
   els.productForm.reset();
   els.productDialogTitle.textContent = product ? "แก้ไขสินค้า" : "เพิ่มสินค้า";
   if (product) {
@@ -5347,6 +5400,7 @@ function openProductDialog(product = null) {
   if (els.productImageFileInput) els.productImageFileInput.value = "";
   setProductSaveState(false);
   updateProductImagePreview(app.productDraftImage, product?.name || "");
+  renderProductPackageEditor();
   els.productDialog.showModal();
 }
 
@@ -5358,6 +5412,68 @@ function updateProductImagePreview(imageUrl = "", productName = "") {
     return;
   }
   els.productImagePreview.textContent = label;
+}
+
+function packageDraftId(prefix) {
+  return `${prefix}_${globalThis.crypto?.randomUUID?.() || `${Date.now().toString(36)}_${Math.random().toString(36).slice(2)}`}`;
+}
+
+function renderProductPackageEditor() {
+  const list = document.querySelector("#productPackageList");
+  if (!list) return;
+  list.innerHTML = app.productPackageDraft.map((item, packageIndex) => `
+    <article class="sales-package-card" data-sales-package-id="${escapeHtml(item.id)}">
+      <div class="sales-package-card-head">
+        <strong>${escapeHtml(item.name || `แพ็กเกจ ${packageIndex + 1}`)}</strong>
+        <div class="table-actions">
+          <button class="button ghost compact-action" type="button" data-move-sales-package="-1" aria-label="เลื่อนขึ้น">↑</button>
+          <button class="button ghost compact-action" type="button" data-move-sales-package="1" aria-label="เลื่อนลง">↓</button>
+          <button class="button ghost compact-action" type="button" data-duplicate-sales-package>ทำซ้ำ</button>
+          <button class="button danger compact-action" type="button" data-delete-sales-package>ลบ</button>
+        </div>
+      </div>
+      <div class="sales-package-grid">
+        <label>ชื่อแพ็กเกจ<input name="packageName" value="${escapeHtml(item.name)}"></label>
+        <label class="inline"><input name="packageEnabled" type="checkbox" ${item.enabled ? "checked" : ""} style="width:auto"> เปิดใช้งาน</label>
+        <label>จำนวนที่ชำระ<input name="packagePaidQuantity" type="number" min="0" step="1" value="${item.paidQuantity}"></label>
+        <label>จำนวนแถม<input name="packageFreeQuantity" type="number" min="0" step="1" value="${item.freeQuantity}"></label>
+        <label>จำนวนจัดส่งรวม<input name="packageTotalQuantity" type="number" min="0" step="1" value="${item.totalQuantityShipped}"></label>
+        <label>ราคาขาย<input name="packageSalePrice" type="number" min="0" step="0.01" value="${item.salePrice}"></label>
+      </div>
+      <div class="package-expense-head">
+        <span>ค่าใช้จ่ายของแพ็กเกจนี้</span>
+        <button class="button ghost compact-action" type="button" data-add-package-expense>+ เพิ่มค่าใช้จ่าย</button>
+      </div>
+      <div class="package-expense-list">
+        ${item.expenses.map(expense => `
+          <div class="package-expense-row" data-package-expense-id="${escapeHtml(expense.id)}">
+            <label>ชื่อ<input name="packageExpenseName" value="${escapeHtml(expense.name)}" placeholder="เช่น ค่ากล่อง"></label>
+            <label>จำนวนเงิน<input name="packageExpenseAmount" type="number" min="0" step="0.01" value="${expense.amount}"></label>
+            <label class="inline"><input name="packageExpenseEnabled" type="checkbox" ${expense.enabled ? "checked" : ""} style="width:auto"> ใช้</label>
+            <button class="button danger compact-action" type="button" data-delete-package-expense>ลบ</button>
+          </div>
+        `).join("")}
+      </div>
+    </article>
+  `).join("") || `<div class="empty-state">ยังไม่มีแพ็กเกจ กด “+ เพิ่มแพ็กเกจ” เพื่อเริ่มต้น</div>`;
+}
+
+function readProductPackageDraft() {
+  return [...document.querySelectorAll("[data-sales-package-id]")].map(card => ({
+    id: card.dataset.salesPackageId,
+    name: card.querySelector("[name='packageName']")?.value.trim() || "แพ็กเกจ",
+    paidQuantity: Math.max(0, Number(card.querySelector("[name='packagePaidQuantity']")?.value || 0)),
+    freeQuantity: Math.max(0, Number(card.querySelector("[name='packageFreeQuantity']")?.value || 0)),
+    totalQuantityShipped: Math.max(0, Number(card.querySelector("[name='packageTotalQuantity']")?.value || 0)),
+    salePrice: Math.max(0, Number(card.querySelector("[name='packageSalePrice']")?.value || 0)),
+    enabled: Boolean(card.querySelector("[name='packageEnabled']")?.checked),
+    expenses: [...card.querySelectorAll("[data-package-expense-id]")].map(row => ({
+      id: row.dataset.packageExpenseId,
+      name: row.querySelector("[name='packageExpenseName']")?.value.trim() || "ค่าใช้จ่าย",
+      amount: Math.max(0, Number(row.querySelector("[name='packageExpenseAmount']")?.value || 0)),
+      enabled: Boolean(row.querySelector("[name='packageExpenseEnabled']")?.checked)
+    }))
+  }));
 }
 
 function setProductSaveState(isSaving) {
@@ -5570,6 +5686,10 @@ async function submitOrder(form) {
   const preservedOriginSource = String(form.dataset.originSourceValue || "").trim();
   data.originSource = String(data.originSourceChoice || "").trim() || preservedOriginSource;
   delete data.originSourceChoice;
+  const packageProduct = packageProducts().find(product => product.id === data.productId);
+  const selectedPackage = packageProduct?.salesPackages.find(item => item.id === data.packageId);
+  data.packageName = selectedPackage?.name || "";
+  data.packageExpenses = data.packageId ? readOrderPackageExpenses() : [];
   const orderId = app.editingOrderId;
   const snapshot = cloneUiState();
   const clientMutationId = `tmp_${Date.now().toString(36)}`;
@@ -5619,6 +5739,87 @@ function openDeleteCustomerDialog(customerId) {
   els.deleteCustomerDialog.showModal();
 }
 
+function packageProducts() {
+  return normalizeProductRecords().filter(product => product.salesPackages.length);
+}
+
+function renderOrderPackageExpenses(expenses = []) {
+  const list = document.querySelector("#orderPackageExpenseList");
+  if (!list) return;
+  list.innerHTML = normalizePackageExpenses(expenses).map(expense => `
+    <div class="package-expense-row" data-order-package-expense-id="${escapeHtml(expense.id)}">
+      <label>ชื่อ<input name="orderPackageExpenseName" value="${escapeHtml(expense.name)}"></label>
+      <label>จำนวนเงิน<input name="orderPackageExpenseAmount" type="number" min="0" step="0.01" value="${expense.amount}"></label>
+      <label class="inline"><input name="orderPackageExpenseEnabled" type="checkbox" ${expense.enabled ? "checked" : ""} style="width:auto"> ใช้</label>
+    </div>
+  `).join("");
+}
+
+function selectedOrderPackageProduct() {
+  const productId = els.orderForm?.elements?.productId?.value || "";
+  return packageProducts().find(product => product.id === productId) || null;
+}
+
+function updateOrderPackageOptions(selectedPackageId = "", expenses = []) {
+  const product = selectedOrderPackageProduct();
+  const select = els.orderForm?.elements?.packageId;
+  if (!select) return;
+  const packages = (product?.salesPackages || []).filter(item => item.enabled || item.id === selectedPackageId);
+  select.innerHTML = `<option value="">ไม่ใช้แพ็กเกจ</option>${packages.map(item => `
+    <option value="${escapeHtml(item.id)}" ${item.id === selectedPackageId ? "selected" : ""}>${escapeHtml(item.name)}</option>
+  `).join("")}`;
+  renderOrderPackageExpenses(expenses);
+}
+
+function setupOrderPackageFields(order = null) {
+  const section = document.querySelector("#orderPackageSection");
+  const productSelect = els.orderForm?.elements?.productId;
+  if (!section || !productSelect) return;
+  const products = packageProducts();
+  section.hidden = !products.length;
+  productSelect.innerHTML = `<option value="">เลือกสินค้า</option>${products.map(product => `
+    <option value="${escapeHtml(product.id)}">${escapeHtml(product.name)}</option>
+  `).join("")}`;
+  const matchedProduct = products.find(product =>
+    product.id === order?.productId || normalizeProductName(product.name) === normalizeProductName(order?.items)
+  );
+  productSelect.value = matchedProduct?.id || "";
+  updateOrderPackageOptions(order?.packageId || "", order?.packageExpenses || []);
+  for (const [name, value] of Object.entries({
+    paidQuantity: order?.paidQuantity || "",
+    freeQuantity: order?.freeQuantity || "",
+    totalQuantityShipped: order?.totalQuantityShipped || ""
+  })) {
+    if (els.orderForm.elements[name]) els.orderForm.elements[name].value = value;
+  }
+}
+
+function applySelectedOrderPackage() {
+  const product = selectedOrderPackageProduct();
+  const packageId = els.orderForm?.elements?.packageId?.value || "";
+  const item = product?.salesPackages.find(entry => entry.id === packageId);
+  if (!product || !item) {
+    renderOrderPackageExpenses([]);
+    return;
+  }
+  els.orderForm.elements.items.value = product.name;
+  els.orderForm.elements.paidQuantity.value = item.paidQuantity;
+  els.orderForm.elements.freeQuantity.value = item.freeQuantity;
+  els.orderForm.elements.totalQuantityShipped.value = item.totalQuantityShipped;
+  els.orderForm.elements.jars.value = item.totalQuantityShipped;
+  els.orderForm.elements.amount.value = item.salePrice;
+  renderOrderPackageExpenses(item.expenses);
+}
+
+function readOrderPackageExpenses() {
+  return [...document.querySelectorAll("[data-order-package-expense-id]")].map(row => ({
+    id: row.dataset.orderPackageExpenseId,
+    name: row.querySelector("[name='orderPackageExpenseName']")?.value.trim() || "ค่าใช้จ่าย",
+    amount: Math.max(0, Number(row.querySelector("[name='orderPackageExpenseAmount']")?.value || 0)),
+    enabled: Boolean(row.querySelector("[name='orderPackageExpenseEnabled']")?.checked)
+  }));
+}
+
 function openOrderDialog(order = null) {
   if (isMobileViewport() && app.view === "orders") {
     rememberMobileOrdersScrollPosition();
@@ -5666,6 +5867,7 @@ function openOrderDialog(order = null) {
     els.orderForm.elements.date.value = isMobileViewport() ? `${dateValue}T${timeValue}` : dateValue;
     els.orderForm.elements.amount.value = app.data?.settings?.defaultJarPrice || 750;
   }
+  setupOrderPackageFields(order);
   const mobileRequiredFields = ["items", "orderNumber", "date", "sourceChannel", "name", "phone", "address", "jars", "amount"];
   for (const fieldName of mobileRequiredFields) {
     const field = els.orderForm.elements[fieldName];
@@ -5778,6 +5980,78 @@ document.addEventListener("click", async event => {
       if (els.productImageFileInput) els.productImageFileInput.value = "";
       updateProductImagePreview("", els.productForm.elements.name?.value || "");
     }
+  }
+
+  if (event.target.closest("[data-add-sales-package]")) {
+    app.productPackageDraft = readProductPackageDraft();
+    app.productPackageDraft.push({
+      id: packageDraftId("package"),
+      name: `แพ็กเกจ ${app.productPackageDraft.length + 1}`,
+      paidQuantity: 1,
+      freeQuantity: 0,
+      totalQuantityShipped: 1,
+      salePrice: 0,
+      enabled: true,
+      expenses: []
+    });
+    renderProductPackageEditor();
+    return;
+  }
+
+  const packageCard = event.target.closest("[data-sales-package-id]");
+  if (packageCard && event.target.closest("[data-duplicate-sales-package]")) {
+    app.productPackageDraft = readProductPackageDraft();
+    const index = app.productPackageDraft.findIndex(item => item.id === packageCard.dataset.salesPackageId);
+    if (index >= 0) {
+      const original = app.productPackageDraft[index];
+      app.productPackageDraft.splice(index + 1, 0, {
+        ...original,
+        id: packageDraftId("package"),
+        name: `${original.name} สำเนา`,
+        expenses: original.expenses.map(expense => ({ ...expense, id: packageDraftId("expense") }))
+      });
+      renderProductPackageEditor();
+    }
+    return;
+  }
+
+  if (packageCard && event.target.closest("[data-delete-sales-package]")) {
+    app.productPackageDraft = readProductPackageDraft()
+      .filter(item => item.id !== packageCard.dataset.salesPackageId);
+    renderProductPackageEditor();
+    return;
+  }
+
+  const movePackageButton = event.target.closest("[data-move-sales-package]");
+  if (packageCard && movePackageButton) {
+    app.productPackageDraft = readProductPackageDraft();
+    const index = app.productPackageDraft.findIndex(item => item.id === packageCard.dataset.salesPackageId);
+    const nextIndex = index + Number(movePackageButton.dataset.moveSalesPackage || 0);
+    if (index >= 0 && nextIndex >= 0 && nextIndex < app.productPackageDraft.length) {
+      const [item] = app.productPackageDraft.splice(index, 1);
+      app.productPackageDraft.splice(nextIndex, 0, item);
+      renderProductPackageEditor();
+    }
+    return;
+  }
+
+  if (packageCard && event.target.closest("[data-add-package-expense]")) {
+    app.productPackageDraft = readProductPackageDraft();
+    const item = app.productPackageDraft.find(entry => entry.id === packageCard.dataset.salesPackageId);
+    if (item) {
+      item.expenses.push({ id: packageDraftId("expense"), name: "", amount: 0, enabled: true });
+      renderProductPackageEditor();
+    }
+    return;
+  }
+
+  const expenseRow = event.target.closest("[data-package-expense-id]");
+  if (packageCard && expenseRow && event.target.closest("[data-delete-package-expense]")) {
+    app.productPackageDraft = readProductPackageDraft();
+    const item = app.productPackageDraft.find(entry => entry.id === packageCard.dataset.salesPackageId);
+    if (item) item.expenses = item.expenses.filter(expense => expense.id !== expenseRow.dataset.packageExpenseId);
+    renderProductPackageEditor();
+    return;
   }
 
   const editProductButton = event.target.closest("[data-edit-product]");
@@ -6091,6 +6365,7 @@ document.addEventListener("click", async event => {
   if (event.target.closest("[data-close-product]")) {
     app.editingProductId = "";
     app.productDraftImage = "";
+    app.productPackageDraft = [];
     app.productSavePending = false;
     setProductSaveState(false);
     els.productDialog.close();
@@ -6100,6 +6375,18 @@ document.addEventListener("click", async event => {
 });
 
 document.addEventListener("input", event => {
+  if (event.target?.name === "totalQuantityShipped" && event.target.form?.id === "orderForm") {
+    els.orderForm.elements.jars.value = event.target.value;
+  }
+
+  if (event.target?.matches?.("[name='packagePaidQuantity'], [name='packageFreeQuantity']")) {
+    const card = event.target.closest("[data-sales-package-id]");
+    const paid = Number(card?.querySelector("[name='packagePaidQuantity']")?.value || 0);
+    const free = Number(card?.querySelector("[name='packageFreeQuantity']")?.value || 0);
+    const total = card?.querySelector("[name='packageTotalQuantity']");
+    if (total) total.value = String(Math.max(0, paid + free));
+  }
+
   const filter = event.target.closest("[data-filter]");
   if (filter) {
     app.filters[filter.dataset.filter] = filter.value;
@@ -6155,6 +6442,12 @@ document.addEventListener("input", event => {
 
 document.addEventListener("change", event => {
   if (event.target === els.orderForm.elements.originSourceChoice) syncOriginSourceFields();
+  if (event.target === els.orderForm.elements.productId) {
+    const product = selectedOrderPackageProduct();
+    if (product) els.orderForm.elements.items.value = product.name;
+    updateOrderPackageOptions();
+  }
+  if (event.target === els.orderForm.elements.packageId) applySelectedOrderPackage();
   if (event.target?.matches?.("[name='additionalCostType'], [name='additionalCostEnabled']")) refreshAdditionalCostsSummary();
 });
 
@@ -6307,6 +6600,7 @@ document.addEventListener("submit", async event => {
       const data = Object.fromEntries(new FormData(form).entries());
       delete data.imageFile;
       data.image = app.productDraftImage;
+      data.salesPackages = readProductPackageDraft();
       data.followUpEnabled = form.elements.followUpEnabled.checked;
       const editingProduct = productRowsData().find(item => item.id === app.editingProductId);
       const useCreate = !app.editingProductId || editingProduct?.derived;
@@ -6319,6 +6613,7 @@ document.addEventListener("submit", async event => {
         });
         app.editingProductId = "";
         app.productDraftImage = "";
+        app.productPackageDraft = [];
         if (els.productImageFileInput) els.productImageFileInput.value = "";
         els.productDialog.close();
         showToast("บันทึกสินค้าแล้ว");

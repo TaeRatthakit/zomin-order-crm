@@ -230,6 +230,34 @@ function normalizeSettingsCostRows(rows = [], fieldName) {
     .filter(row => row.name);
 }
 
+function normalizePackageExpenses(expenses = []) {
+  return (Array.isArray(expenses) ? expenses : [])
+    .map((expense, index) => ({
+      id: String(expense?.id || `expense_${index + 1}`),
+      name: String(expense?.name || "").trim(),
+      amount: Math.max(0, Number(expense?.amount || 0)),
+      enabled: expense?.enabled !== false
+    }))
+    .filter(expense => expense.name);
+}
+
+function normalizeSalesPackages(packages = []) {
+  return (Array.isArray(packages) ? packages : []).map((item, index) => {
+    const paidQuantity = Math.max(0, Number(item?.paidQuantity || 0));
+    const freeQuantity = Math.max(0, Number(item?.freeQuantity || 0));
+    return {
+      id: String(item?.id || `package_${index + 1}`),
+      name: String(item?.name || `แพ็กเกจ ${index + 1}`).trim() || `แพ็กเกจ ${index + 1}`,
+      paidQuantity,
+      freeQuantity,
+      totalQuantityShipped: Math.max(0, Number(item?.totalQuantityShipped ?? paidQuantity + freeQuantity)),
+      salePrice: Math.max(0, Number(item?.salePrice || 0)),
+      enabled: item?.enabled !== false,
+      expenses: normalizePackageExpenses(item?.expenses)
+    };
+  });
+}
+
 function normalizeProductRecords(products = []) {
   const normalized = (Array.isArray(products) ? products : [])
     .map((product, index) => ({
@@ -248,7 +276,8 @@ function normalizeProductRecords(products = []) {
       followUpRule: String(product?.followUpRule || "1 ชิ้น = 15 วัน").trim() || "1 ชิ้น = 15 วัน",
       archived: Boolean(product?.archived),
       createdAt: String(product?.createdAt || "").trim(),
-      updatedAt: String(product?.updatedAt || "").trim()
+      updatedAt: String(product?.updatedAt || "").trim(),
+      salesPackages: normalizeSalesPackages(product?.salesPackages)
     }))
     .filter(product => product.name);
   const unique = new Map();
@@ -986,6 +1015,13 @@ function addOrder(db, payload) {
     duplicateFingerprint: duplicateFingerprint(payload),
     socialName: String(payload.socialName || payload.social_name || "").trim(),
     freeGift: String(payload.freeGift || payload.free_gift || "").trim(),
+    productId: String(payload.productId || "").trim(),
+    packageId: String(payload.packageId || "").trim(),
+    packageName: String(payload.packageName || "").trim(),
+    paidQuantity: Math.max(0, Number(payload.paidQuantity || 0)),
+    freeQuantity: Math.max(0, Number(payload.freeQuantity || 0)),
+    totalQuantityShipped: Math.max(0, Number(payload.totalQuantityShipped || 0)),
+    packageExpenses: normalizePackageExpenses(payload.packageExpenses),
     vipCardStatus,
     note,
     rawText: String(payload.rawText || "").trim()
@@ -2001,6 +2037,17 @@ async function handleApi(req, res) {
       originSource: body.originSource ?? order.originSource,
       socialName: body.socialName ?? order.socialName,
       freeGift: body.freeGift ?? order.freeGift,
+      productId: body.productId !== undefined ? String(body.productId || "") : String(order.productId || ""),
+      packageId: body.packageId !== undefined ? String(body.packageId || "") : String(order.packageId || ""),
+      packageName: body.packageName !== undefined ? String(body.packageName || "") : String(order.packageName || ""),
+      paidQuantity: body.paidQuantity !== undefined ? Math.max(0, Number(body.paidQuantity || 0)) : Number(order.paidQuantity || 0),
+      freeQuantity: body.freeQuantity !== undefined ? Math.max(0, Number(body.freeQuantity || 0)) : Number(order.freeQuantity || 0),
+      totalQuantityShipped: body.totalQuantityShipped !== undefined
+        ? Math.max(0, Number(body.totalQuantityShipped || 0))
+        : Number(order.totalQuantityShipped || 0),
+      packageExpenses: body.packageExpenses !== undefined
+        ? normalizePackageExpenses(body.packageExpenses)
+        : normalizePackageExpenses(order.packageExpenses),
       vipCardStatus: body.vipCardStatus ?? order.vipCardStatus,
       note: body.note ?? order.note
     });
