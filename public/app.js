@@ -331,6 +331,19 @@ function money(value) {
   });
 }
 
+function productCostMoney(value) {
+  return Number(value || 0).toLocaleString("en-US", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2
+  });
+}
+
+function productImageMarkup(image, productName = "", fallback = "") {
+  const source = String(image || "").trim();
+  if (!source) return fallback;
+  return `<img src="${escapeHtml(source)}" alt="${escapeHtml(productName)}">`;
+}
+
 function formatDate(dateValue) {
   if (!dateValue) return "-";
   const [y, m, d] = String(dateValue).split("-").map(Number);
@@ -2034,7 +2047,7 @@ function renderMobileBusinessProducts() {
       <div class="mobile-business-record-list">
         ${products.map(product => `
           <button class="mobile-business-product-record" type="button" data-business-product="${escapeHtml(product.id)}">
-            <span class="mobile-business-product-thumb">${product.image ? `<img src="${escapeHtml(product.image)}" alt="">` : iconSvg("box")}</span>
+            <span class="mobile-business-product-thumb">${productImageMarkup(product.image, product.name, iconSvg("box"))}</span>
             <span><strong>${escapeHtml(product.name)}</strong><small>${money(product.salePrice)} บาท · คงเหลือ ${money(product.stockQuantity)} ชิ้น</small></span>
             <b>${escapeHtml(product.computedStatus)}</b>
           </button>
@@ -2062,11 +2075,11 @@ function renderMobileBusinessProductDetail() {
       </header>
       <article class="mobile-business-detail-card">
         <div class="mobile-business-product-hero">
-          <span class="mobile-business-product-thumb large">${product.image ? `<img src="${escapeHtml(product.image)}" alt="">` : iconSvg("box")}</span>
+          <span class="mobile-business-product-thumb large">${productImageMarkup(product.image, product.name, iconSvg("box"))}</span>
           <div><h3>${escapeHtml(product.name)}</h3><p>อัปเดตล่าสุดจากข้อมูลสินค้าและออเดอร์</p></div>
         </div>
         <div class="mobile-business-finance-grid">
-          <article class="purple"><span>ต้นทุนต่อชิ้น</span><strong>${money(unitCost)} บาท</strong></article>
+          <article class="purple"><span>ต้นทุนต่อชิ้น</span><strong>${productCostMoney(unitCost)} บาท</strong></article>
           <article class="blue"><span>ขายแล้ว</span><strong>${money(units)} ชิ้น</strong></article>
           <article class="orange"><span>ยอดขาย</span><strong>${money(breakdown.sales)} บาท</strong></article>
           <article class="${breakdown.profit >= 0 ? "green" : "red"}"><span>กำไรสุทธิประมาณการ</span><strong>${money(breakdown.profit)} บาท</strong></article>
@@ -2150,7 +2163,7 @@ function renderMobileBusinessFinance() {
             const sold = productOrders.reduce((sum, order) => sum + Number(order.jars || 0), 0);
             return `
               <article class="mobile-finance-product" data-product-cost-row data-id="${escapeHtml(cost?.id || product.id)}">
-                <span class="mobile-business-product-thumb">${product.image ? `<img src="${escapeHtml(product.image)}" alt="">` : iconSvg("box")}</span>
+                <span class="mobile-business-product-thumb">${productImageMarkup(product.image, product.name, iconSvg("box"))}</span>
                 <div class="mobile-finance-product-name">
                   <strong>${escapeHtml(product.name)}</strong>
                   <input name="productCostName" type="hidden" value="${escapeHtml(product.name)}">
@@ -2960,7 +2973,7 @@ function renderProducts() {
                 <tr data-product-id="${escapeHtml(product.id)}">
                   <td data-label="สินค้า">
                     <div class="table-identity product-identity">
-                      <span class="product-thumb">${product.image ? `<img src="${escapeHtml(product.image)}" alt="${escapeHtml(product.name)}">` : escapeHtml(initials(product.name))}</span>
+                      <span class="product-thumb">${productImageMarkup(product.image, product.name, escapeHtml(initials(product.name)))}</span>
                       <span>
                         <strong>${escapeHtml(product.name)}</strong>
                         <small>${escapeHtml(product.sku || "ยังไม่มี SKU")} · ${money(product.salePrice)} บาท</small>
@@ -5282,7 +5295,7 @@ function updateProductImagePreview(imageUrl = "", productName = "") {
   if (!els.productImagePreview) return;
   const label = initials(productName || "สินค้า");
   if (String(imageUrl || "").trim()) {
-    els.productImagePreview.innerHTML = `<img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(productName || "สินค้า")}">`;
+  els.productImagePreview.innerHTML = productImageMarkup(imageUrl, productName || "สินค้า");
     return;
   }
   els.productImagePreview.textContent = label;
@@ -5300,7 +5313,7 @@ function renderProductDetail(product) {
   els.productDetailTitle.textContent = product.name;
   els.productDetail.innerHTML = `
     <div class="customer-detail-hero">
-      <div class="product-thumb large">${product.image ? `<img src="${escapeHtml(product.image)}" alt="${escapeHtml(product.name)}">` : escapeHtml(initials(product.name))}</div>
+      <div class="product-thumb large">${productImageMarkup(product.image, product.name, escapeHtml(initials(product.name)))}</div>
       <div>
         <h2>${escapeHtml(product.name)}</h2>
         <div class="inline">${product.sku ? `<span class="tag">${escapeHtml(product.sku)}</span>` : ""}<span class="badge ${product.computedStatus === "พร้อมขาย" ? "vip" : product.computedStatus === "ใกล้หมด" ? "risk" : product.computedStatus === "เหลือน้อย" ? "lost" : "normal"}">${escapeHtml(product.computedStatus)}</span></div>
@@ -5311,7 +5324,7 @@ function renderProductDetail(product) {
       <div class="panel stack detail-card">
         <div class="mini-stats">
           <div class="mini-stat"><span>ราคาขาย</span><strong>${money(product.salePrice)} บาท</strong></div>
-          <div class="mini-stat"><span>ต้นทุนต่อชิ้น</span><strong>${money(product.costPerItem)} บาท</strong></div>
+          <div class="mini-stat"><span>ต้นทุนต่อชิ้น</span><strong>${productCostMoney(product.costPerItem)} บาท</strong></div>
           <div class="mini-stat"><span>สต๊อก</span><strong>${money(product.stockQuantity)} ชิ้น</strong></div>
           <div class="mini-stat"><span>แจ้งเตือนสต๊อกต่ำ</span><strong>${money(product.lowStockAlert)} ชิ้น</strong></div>
           <div class="mini-stat"><span>ติดตามลูกค้า</span><strong>${product.followUpEnabled ? `${money(product.followUpDays)} วัน` : "ปิด"}</strong></div>

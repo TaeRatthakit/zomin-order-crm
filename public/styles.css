@@ -6498,6 +6498,12 @@ small,
   }
 }
 
+@media (max-width: 820px) {
+  .form-grid .product-image-url-control {
+    display: none;
+  }
+}
+
 @media (max-width: 480px) {
   .products-hero-copy {
     min-width: 0;

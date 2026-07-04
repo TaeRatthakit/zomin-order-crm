@@ -127,13 +127,15 @@ async function main() {
   }
 
   const productSuffix = crypto.randomBytes(3).toString("hex");
+  const zominImageDataUrl = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
+  const acnaImageDataUrl = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8zwAAAgEBAScY42YAAAAASUVORK5CYII=";
   const zominProductInput = {
     name: "Zomin",
     sku: `ZOMIN-${productSuffix}`,
-    image: "https://example.com/images/zomin.png",
+    image: zominImageDataUrl,
     description: "รายละเอียดสินค้า Zomin เดิม",
     salePrice: 750,
-    costPerItem: 48,
+    costPerItem: 46.85,
     stockQuantity: 120,
     lowStockAlert: 10,
     status: "พร้อมขาย"
@@ -150,7 +152,7 @@ async function main() {
     ...zominProductInput,
     name: "ACNA",
     sku: `ACNA-${productSuffix}`,
-    image: "https://example.com/images/acna.png",
+    image: acnaImageDataUrl,
     description: "รายละเอียดสินค้า ACNA"
   };
   const createAcna = await request("/api/products", {
@@ -171,6 +173,7 @@ async function main() {
     unchangedZomin?.image !== zominProductInput.image
     || unchangedZomin?.salePrice !== zominProductInput.salePrice
     || unchangedZomin?.stockQuantity !== zominProductInput.stockQuantity
+    || unchangedZomin?.costPerItem !== 46.85
     || unchangedZomin?.description !== zominProductInput.description
   ) {
     fail("adding ACNA overwrote Zomin product fields");
@@ -207,10 +210,19 @@ async function main() {
   }
   const productCostsAfterEdit = JSON.parse((await request("/api/state", { headers: { cookie } })).text).settings.productCosts;
   if (
-    !productCostsAfterEdit.find(item => item.id === savedZomin.id && item.name === "Zomin")
-    || !productCostsAfterEdit.find(item => item.id === savedAcna.id && item.name === "ACNA")
+    !productCostsAfterEdit.find(item => item.id === savedZomin.id && item.name === "Zomin" && item.costPerJar === 46.85)
+    || !productCostsAfterEdit.find(item => item.id === savedAcna.id && item.name === "ACNA" && item.costPerJar === 46.85)
   ) {
     fail("product cost rows were not kept separate by product id");
+  }
+
+  const productClient = await request("/app.js");
+  if (
+    productClient.status !== 200
+    || !productClient.text.includes("function productImageMarkup")
+    || !productClient.text.includes("function productCostMoney")
+  ) {
+    fail("product image or decimal cost renderer is missing from the client");
   }
 
   const staffLogin = await request("/api/login", {

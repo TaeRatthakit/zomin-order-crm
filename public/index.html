@@ -45,7 +45,7 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=20260701-favicon-restore">
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=20260701-favicon-restore">
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=20260702-ios-enhanced-fullbleed">
-    <link rel="stylesheet" href="/styles.css?v=20260704-finance-cost-profit">
+    <link rel="stylesheet" href="/styles.css?v=20260704-product-image-decimal-fix">
   </head>
   <body>
     <div id="mobileStartupLoader" class="mobile-startup-loader" aria-hidden="true" hidden>
@@ -277,16 +277,16 @@
               <div id="productImagePreview" class="product-thumb large product-image-preview">GP</div>
               <div class="product-image-editor-copy">
                 <strong>รูปสินค้า</strong>
-                <span>อัปโหลดจากเครื่องหรือใส่ลิงก์รูปภาพได้ทันที</span>
+                <span>อัปโหลดรูปสินค้าจากเครื่องได้ทันที</span>
               </div>
             </div>
             <div class="product-image-editor-actions">
               <input id="productImageFileInput" name="imageFile" type="file" accept="image/*" hidden>
               <button class="button ghost" type="button" data-pick-product-image>อัปโหลดรูป</button>
-              <button class="button ghost" type="button" data-focus-product-image>ใช้ลิงก์รูป</button>
+              <button class="button ghost product-image-url-control" type="button" data-focus-product-image>ใช้ลิงก์รูป</button>
               <button class="button ghost" type="button" data-clear-product-image>ลบรูป</button>
             </div>
-            <label>ลิงก์รูปภาพ<input name="image" placeholder="https://..." data-product-image-input></label>
+            <label class="product-image-url-control">ลิงก์รูปภาพ<input name="image" placeholder="https://..." data-product-image-input></label>
           </div>
           <label>ชื่อสินค้า<input name="name" required></label>
           <label>SKU<input name="sku" required></label>
@@ -330,9 +330,9 @@
       </form>
     </dialog>
 
-    <script src="/app.js?v=20260704-product-identity-fix"></script>
+    <script src="/app.js?v=20260704-product-image-decimal-fix"></script>
     <script>
-      const swUrl = "/service-worker.js?v=20260704-product-identity-fix";
+      const swUrl = "/service-worker.js?v=20260704-product-image-decimal-fix";
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", () => {
           navigator.serviceWorker.register(swUrl).then(registration => registration.update()).catch(() => {});
