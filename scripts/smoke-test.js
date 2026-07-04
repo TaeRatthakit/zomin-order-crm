@@ -221,6 +221,8 @@ async function main() {
     productClient.status !== 200
     || !productClient.text.includes("function normalizeProductImageSource")
     || !productClient.text.includes("function productImageMarkup")
+    || !productClient.text.includes('console.debug("[product-image-debug]"')
+    || !productClient.text.includes("data.image = app.productDraftImage")
     || !productClient.text.includes("function productCostMoney")
   ) {
     fail("product image or decimal cost renderer is missing from the client");

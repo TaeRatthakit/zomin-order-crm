@@ -102,6 +102,8 @@ const app = {
   editingOrderId: "",
   editingProductId: "",
   productSavePending: false,
+  productDraftImage: "",
+  productImageDebugKeys: new Set(),
   deletingOrderId: "",
   deletingCustomerId: "",
   profileDraftImage: "",
@@ -365,8 +367,35 @@ function normalizeProductImageSource(image) {
   return source;
 }
 
-function productImageMarkup(image, productName = "", fallback = "") {
+function productImageSourceType(value) {
+  if (value === null) return "null";
+  if (typeof value !== "string") return typeof value;
+  const source = value.trim();
+  if (!source) return "empty-string";
+  if (/^data:image\/[^;,]+;base64,/i.test(source)) return "data-image-base64";
+  if (/^https?:\/\//i.test(source)) return "http-url";
+  if (/^[a-z0-9+/=\s]+$/i.test(source) && source.length >= 32) return "raw-base64";
+  return "other-string";
+}
+
+function logProductImageDebug(productId, productName, imageValue, finalSource) {
+  if (!isMobileViewport() || !productId) return;
+  const debugKey = `${productId}|${productImageSourceType(imageValue)}|${productImageSourceType(finalSource)}|${String(imageValue || "").length}`;
+  if (app.productImageDebugKeys.has(debugKey)) return;
+  app.productImageDebugKeys.add(debugKey);
+  console.debug("[product-image-debug]", {
+    productId,
+    name: productName,
+    imageFieldName: "image",
+    imageValueType: productImageSourceType(imageValue),
+    imageValueLength: String(imageValue || "").length,
+    finalImgSrcType: productImageSourceType(finalSource)
+  });
+}
+
+function productImageMarkup(image, productName = "", fallback = "", productId = "") {
   const source = normalizeProductImageSource(image);
+  logProductImageDebug(productId, productName, image, source);
   if (!source) return fallback;
   return `<img src="${escapeHtml(source)}" alt="${escapeHtml(productName)}">`;
 }
@@ -2074,7 +2103,7 @@ function renderMobileBusinessProducts() {
       <div class="mobile-business-record-list">
         ${products.map(product => `
           <button class="mobile-business-product-record" type="button" data-business-product="${escapeHtml(product.id)}">
-            <span class="mobile-business-product-thumb">${productImageMarkup(product.image, product.name, iconSvg("box"))}</span>
+            <span class="mobile-business-product-thumb">${productImageMarkup(product.image, product.name, iconSvg("box"), product.id)}</span>
             <span><strong>${escapeHtml(product.name)}</strong><small>${money(product.salePrice)} บาท · คงเหลือ ${money(product.stockQuantity)} ชิ้น</small></span>
             <b>${escapeHtml(product.computedStatus)}</b>
           </button>
@@ -2102,7 +2131,7 @@ function renderMobileBusinessProductDetail() {
       </header>
       <article class="mobile-business-detail-card">
         <div class="mobile-business-product-hero">
-          <span class="mobile-business-product-thumb large">${productImageMarkup(product.image, product.name, iconSvg("box"))}</span>
+          <span class="mobile-business-product-thumb large">${productImageMarkup(product.image, product.name, iconSvg("box"), product.id)}</span>
           <div><h3>${escapeHtml(product.name)}</h3><p>อัปเดตล่าสุดจากข้อมูลสินค้าและออเดอร์</p></div>
         </div>
         <div class="mobile-business-finance-grid">
@@ -5287,11 +5316,11 @@ function renderCustomerDetail(customer) {
 function openProductDialog(product = null) {
   app.editingProductId = product?.id || "";
   app.productSavePending = false;
+  app.productDraftImage = normalizeProductImageSource(product?.image);
   els.productForm.reset();
   els.productDialogTitle.textContent = product ? "แก้ไขสินค้า" : "เพิ่มสินค้า";
   if (product) {
     Object.entries({
-      image: product.image,
       name: product.name,
       sku: product.sku,
       description: product.description,
@@ -5305,6 +5334,9 @@ function openProductDialog(product = null) {
     }).forEach(([key, value]) => {
       if (els.productForm.elements[key]) els.productForm.elements[key].value = value ?? "";
     });
+    if (els.productForm.elements.image && /^https?:\/\//i.test(app.productDraftImage)) {
+      els.productForm.elements.image.value = app.productDraftImage;
+    }
     els.productForm.elements.followUpEnabled.checked = Boolean(product.followUpEnabled);
   } else {
     els.productForm.elements.followUpEnabled.checked = true;
@@ -5314,7 +5346,7 @@ function openProductDialog(product = null) {
   }
   if (els.productImageFileInput) els.productImageFileInput.value = "";
   setProductSaveState(false);
-  updateProductImagePreview(els.productForm.elements.image.value, product?.name || "");
+  updateProductImagePreview(app.productDraftImage, product?.name || "");
   els.productDialog.showModal();
 }
 
@@ -5741,6 +5773,7 @@ document.addEventListener("click", async event => {
 
   if (event.target.closest("[data-clear-product-image]")) {
     if (els.productForm?.elements?.image) {
+      app.productDraftImage = "";
       els.productForm.elements.image.value = "";
       if (els.productImageFileInput) els.productImageFileInput.value = "";
       updateProductImagePreview("", els.productForm.elements.name?.value || "");
@@ -6057,6 +6090,7 @@ document.addEventListener("click", async event => {
   if (event.target.closest("[data-close-profile]")) els.profileDialog.close();
   if (event.target.closest("[data-close-product]")) {
     app.editingProductId = "";
+    app.productDraftImage = "";
     app.productSavePending = false;
     setProductSaveState(false);
     els.productDialog.close();
@@ -6106,11 +6140,12 @@ document.addEventListener("input", event => {
   }
 
   if (event.target?.matches?.("[data-product-image-input]")) {
+    app.productDraftImage = event.target.value;
     updateProductImagePreview(event.target.value, els.productForm?.elements?.name?.value || "");
   }
 
   if (event.target?.name === "name" && event.target.form?.id === "productForm") {
-    updateProductImagePreview(els.productForm?.elements?.image?.value || "", event.target.value);
+    updateProductImagePreview(app.productDraftImage, event.target.value);
   }
 
   if (event.target?.name === "displayName" && event.target.form?.id === "profileForm") {
@@ -6205,7 +6240,8 @@ document.addEventListener("change", async event => {
     reader.onload = loadEvent => {
       const result = String(loadEvent.target?.result || "");
       if (!result) return;
-      els.productForm.elements.image.value = result;
+      app.productDraftImage = result;
+      if (els.productForm.elements.image) els.productForm.elements.image.value = "";
       updateProductImagePreview(result, els.productForm.elements.name?.value || "");
     };
     reader.readAsDataURL(file);
@@ -6270,6 +6306,7 @@ document.addEventListener("submit", async event => {
       setProductSaveState(true);
       const data = Object.fromEntries(new FormData(form).entries());
       delete data.imageFile;
+      data.image = app.productDraftImage;
       data.followUpEnabled = form.elements.followUpEnabled.checked;
       const editingProduct = productRowsData().find(item => item.id === app.editingProductId);
       const useCreate = !app.editingProductId || editingProduct?.derived;
@@ -6281,6 +6318,7 @@ document.addEventListener("submit", async event => {
           body: JSON.stringify(data)
         });
         app.editingProductId = "";
+        app.productDraftImage = "";
         if (els.productImageFileInput) els.productImageFileInput.value = "";
         els.productDialog.close();
         showToast("บันทึกสินค้าแล้ว");
