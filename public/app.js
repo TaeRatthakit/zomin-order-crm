@@ -338,8 +338,35 @@ function productCostMoney(value) {
   });
 }
 
+function normalizeProductImageSource(image) {
+  let source = String(image || "").trim();
+  if (!source) return "";
+  if (source.startsWith('"') && source.endsWith('"')) {
+    try {
+      const parsed = JSON.parse(source);
+      if (typeof parsed === "string") source = parsed.trim();
+    } catch {
+      // Keep the original value if it is not a JSON-encoded string.
+    }
+  }
+  if (/^data:image\/[^;,]+;base64,/i.test(source)) {
+    const commaIndex = source.indexOf(",");
+    return `${source.slice(0, commaIndex + 1)}${source.slice(commaIndex + 1).replace(/\s+/g, "")}`;
+  }
+  const compact = source.replace(/\s+/g, "");
+  if (/^[a-z0-9+/]+={0,2}$/i.test(compact) && compact.length >= 32) {
+    const mimeType = compact.startsWith("iVBOR") ? "image/png"
+      : compact.startsWith("/9j/") ? "image/jpeg"
+        : compact.startsWith("R0lGOD") ? "image/gif"
+          : compact.startsWith("UklGR") ? "image/webp"
+            : "image/jpeg";
+    return `data:${mimeType};base64,${compact}`;
+  }
+  return source;
+}
+
 function productImageMarkup(image, productName = "", fallback = "") {
-  const source = String(image || "").trim();
+  const source = normalizeProductImageSource(image);
   if (!source) return fallback;
   return `<img src="${escapeHtml(source)}" alt="${escapeHtml(productName)}">`;
 }
@@ -1157,7 +1184,7 @@ function normalizeProductRecords(settings = app.data?.settings || {}) {
   const stored = Array.isArray(settings.products) ? settings.products : [];
   const normalized = stored.map((product, index) => ({
     id: String(product?.id || `product_${index + 1}`),
-    image: String(product?.image || "").trim(),
+    image: normalizeProductImageSource(product?.image),
     name: String(product?.name || "").trim(),
     sku: String(product?.sku || "").trim(),
     description: String(product?.description || "").trim(),

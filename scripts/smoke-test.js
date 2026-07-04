@@ -219,6 +219,7 @@ async function main() {
   const productClient = await request("/app.js");
   if (
     productClient.status !== 200
+    || !productClient.text.includes("function normalizeProductImageSource")
     || !productClient.text.includes("function productImageMarkup")
     || !productClient.text.includes("function productCostMoney")
   ) {
