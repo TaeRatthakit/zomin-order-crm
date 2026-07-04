@@ -70,6 +70,7 @@ const app = {
   importWorker: null,
   importPollTimer: null,
   summaryRefreshTimer: null,
+  mobileAnalyticsIndex: null,
   currentUser: null,
   data: null,
   lineDebugRows: [],
@@ -3043,10 +3044,30 @@ function monthKey(date) {
   return String(date || "").slice(0, 7);
 }
 
+function mobileAnalyticsIndex() {
+  const orders = app.data?.orders || [];
+  const customers = app.data?.customers || [];
+  const cached = app.mobileAnalyticsIndex;
+  if (cached?.orders === orders && cached?.customers === customers) return cached;
+  const ordersByDate = new Map();
+  const ordersByMonth = new Map();
+  for (const order of orders) {
+    const date = String(order.date || "");
+    const month = monthKey(date);
+    if (!ordersByDate.has(date)) ordersByDate.set(date, []);
+    if (!ordersByMonth.has(month)) ordersByMonth.set(month, []);
+    ordersByDate.get(date).push(order);
+    ordersByMonth.get(month).push(order);
+  }
+  app.mobileAnalyticsIndex = { orders, customers, ordersByDate, ordersByMonth };
+  return app.mobileAnalyticsIndex;
+}
+
 function buildLocalSummary(selectedDate = els.workDate.value || todayISO()) {
   const summaryDate = selectedDate || todayISO();
-  const todayOrders = app.data.orders.filter(order => order.date === summaryDate);
-  const monthOrders = app.data.orders.filter(order => monthKey(order.date) === monthKey(summaryDate));
+  const index = isMobileViewport() ? mobileAnalyticsIndex() : null;
+  const todayOrders = index?.ordersByDate.get(summaryDate) || app.data.orders.filter(order => order.date === summaryDate);
+  const monthOrders = index?.ordersByMonth.get(monthKey(summaryDate)) || app.data.orders.filter(order => monthKey(order.date) === monthKey(summaryDate));
   const dueCustomers = app.data.customers.filter(customer => customer.followUpDate && customer.followUpDate <= summaryDate);
   return {
     selectedDate: summaryDate,
@@ -3074,6 +3095,55 @@ function buildLocalSummary(selectedDate = els.workDate.value || todayISO()) {
   };
 }
 
+function syncDomTree(current, next) {
+  if (!current || !next) return;
+  if (current.nodeType !== next.nodeType || current.nodeName !== next.nodeName) {
+    current.replaceWith(next.cloneNode(true));
+    return;
+  }
+  if (current.nodeType === Node.TEXT_NODE) {
+    if (current.nodeValue !== next.nodeValue) current.nodeValue = next.nodeValue;
+    return;
+  }
+  const currentAttributes = new Set([...current.attributes].map(attribute => attribute.name));
+  for (const attribute of next.attributes) {
+    currentAttributes.delete(attribute.name);
+    if (current.getAttribute(attribute.name) !== attribute.value) current.setAttribute(attribute.name, attribute.value);
+  }
+  for (const name of currentAttributes) current.removeAttribute(name);
+  const currentChildren = [...current.childNodes];
+  const nextChildren = [...next.childNodes];
+  const commonLength = Math.min(currentChildren.length, nextChildren.length);
+  for (let index = 0; index < commonLength; index += 1) {
+    syncDomTree(currentChildren[index], nextChildren[index]);
+  }
+  for (let index = currentChildren.length - 1; index >= nextChildren.length; index -= 1) {
+    currentChildren[index].remove();
+  }
+  for (let index = currentChildren.length; index < nextChildren.length; index += 1) {
+    current.append(nextChildren[index].cloneNode(true));
+  }
+}
+
+function patchMobileDateView() {
+  const liveContent = els.content;
+  const detachedContent = document.createElement("div");
+  els.content = detachedContent;
+  try {
+    const renderer = {
+      dashboard: renderDashboard,
+      reports: renderReports,
+      opportunities: renderOpportunities,
+      settings: renderSettings
+    }[app.view];
+    if (renderer) renderer();
+  } finally {
+    els.content = liveContent;
+  }
+  if (!detachedContent.firstElementChild || !liveContent.firstElementChild) return;
+  syncDomTree(liveContent.firstElementChild, detachedContent.firstElementChild);
+}
+
 function queueSummaryRefresh() {
   clearTimeout(app.summaryRefreshTimer);
   app.summaryRefreshTimer = setTimeout(() => {
@@ -3091,6 +3161,7 @@ function upsertArrayItem(items, item) {
 
 function applyOrderMutation(mutation) {
   if (!mutation || !app.data) return;
+  app.mobileAnalyticsIndex = null;
   const deletedOrderId = mutation.deletedOrderId || "";
   if (deletedOrderId) {
     app.data.orders = app.data.orders.filter(order => order.id !== deletedOrderId);
@@ -5965,15 +6036,30 @@ document.addEventListener("change", async event => {
   if (event.target === els.workDate) {
     app.ordersShowAll = false;
     app.customersShowAll = false;
-    if (app.view === "orders" && isMobileViewport() && app.data) {
+    if (isMobileViewport() && app.data) {
+      const startedAt = performance.now();
       const selectedDate = event.target.value || todayISO();
+      console.info("[Mobile date] Date change start", { view: app.view, selectedDate });
       app.ordersFilterQ = "";
       app.ordersFilterDraft = "";
       app.mobileOrdersDateOnly = true;
       app.mobileOrderMenuId = "";
+      const calculationStartedAt = performance.now();
       app.data.summary = buildLocalSummary(selectedDate);
+      if (app.view === "reports") {
+        app.reportDate = selectedDate;
+        app.reportMonth = monthKey(selectedDate);
+      }
+      const calculationTime = performance.now() - calculationStartedAt;
       if (els.workDateDisplay) els.workDateDisplay.textContent = formatMobileDatePill(selectedDate);
-      renderOrders();
+      const domStartedAt = performance.now();
+      if (app.view === "orders") renderOrders();
+      else patchMobileDateView();
+      const domUpdateTime = performance.now() - domStartedAt;
+      const totalTime = performance.now() - startedAt;
+      console.info("[Mobile date] Data calculation time", `${calculationTime.toFixed(2)} ms`);
+      console.info("[Mobile date] DOM update time", `${domUpdateTime.toFixed(2)} ms`);
+      console.info("[Mobile date] Total render time", `${totalTime.toFixed(2)} ms`);
       return;
     }
     await loadState();
