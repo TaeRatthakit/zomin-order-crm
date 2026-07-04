@@ -104,7 +104,11 @@ const app = {
   deletingOrderId: "",
   deletingCustomerId: "",
   profileDraftImage: "",
-  profileSaving: false
+  profileSaving: false,
+  mobileBusinessPage: "main",
+  mobileBusinessCustomerId: "",
+  mobileBusinessProductId: "",
+  mobileBusinessProductReturnPage: "products"
 };
 
 function readCachedMobileProfile() {
@@ -224,6 +228,7 @@ function iconSvg(name) {
     chat: '<path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/><path d="M8 11h.01"/><path d="M12 11h.01"/><path d="M16 11h.01"/>',
     send: '<path d="M22 2 11 13"/><path d="m22 2-7 20-4-9-9-4z"/>',
     flag: '<path d="M4 21V5"/><path d="M4 5h11l-1.5 4L15 13H4"/>',
+    arrow: '<path d="m15 18-6-6 6-6"/>',
     settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 8 19.4a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 8a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V3a2 2 0 1 1 4 0v.09A1.7 1.7 0 0 0 16 4.6a1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9c0 .38.14.74.4 1a1.7 1.7 0 0 0 1.1.4H21a2 2 0 1 1 0 4h-.09c-.41 0-.81.15-1.1.4a1.7 1.7 0 0 0-.41 1.1Z"/>',
     trash: '<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="m19 6-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/>',
     more: '<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>'
@@ -1803,7 +1808,442 @@ const businessManagementItems = [
   { view: "aiInsights", title: "ข้อมูลเชิงลึกจาก AI", description: "คำแนะนำเชิงธุรกิจจากข้อมูลล่าสุดของร้าน", icon: iconSvg("stars") }
 ];
 
+function mobileBusinessStartDate() {
+  const dates = [
+    ...(app.data.orders || []).map(order => order.date),
+    ...(app.data.customers || []).flatMap(customer => [customer.createdAt, customer.firstPurchaseDate])
+  ].filter(value => /^\d{4}-\d{2}-\d{2}$/.test(String(value || "")));
+  return dates.sort()[0] || "";
+}
+
+function mobileBusinessIcon(name) {
+  return `<span class="mobile-business-icon" aria-hidden="true">${iconSvg(name)}</span>`;
+}
+
+function mobileBusinessHeader(title, description, icon = "briefcase") {
+  return `
+    <header class="mobile-business-subhead">
+      <button class="mobile-business-back" type="button" data-business-page="main" aria-label="กลับหน้าจัดการธุรกิจ">${iconSvg("arrow")}</button>
+      ${mobileBusinessIcon(icon)}
+      <div>
+        <h2>${escapeHtml(title)}</h2>
+        <p>${escapeHtml(description)}</p>
+      </div>
+    </header>
+  `;
+}
+
+function mobileBusinessEmpty(title, description) {
+  return `
+    <div class="mobile-business-empty">
+      ${mobileBusinessIcon("clipboard")}
+      <strong>${escapeHtml(title)}</strong>
+      <p>${escapeHtml(description)}</p>
+    </div>
+  `;
+}
+
+function mobileBusinessMenuRow(page, title, description, icon, tone) {
+  return `
+    <button class="mobile-business-menu-row ${escapeHtml(tone)}" type="button" data-business-page="${escapeHtml(page)}">
+      ${mobileBusinessIcon(icon)}
+      <span><strong>${escapeHtml(title)}</strong><small>${escapeHtml(description)}</small></span>
+      <span class="mobile-business-chevron" aria-hidden="true">${iconSvg("arrow")}</span>
+    </button>
+  `;
+}
+
+function renderMobileBusinessMain() {
+  const customers = app.data.customers || [];
+  const orders = app.data.orders || [];
+  const products = productRowsData();
+  const startDate = mobileBusinessStartDate();
+  const totalSales = orders.reduce((sum, order) => sum + Number(order.amount || 0), 0);
+  return `
+    <section class="mobile-business-page">
+      <article class="mobile-business-profile-card">
+        <div class="mobile-business-store-mark">${iconSvg("briefcase")}</div>
+        <div class="mobile-business-profile-copy">
+          <div class="mobile-business-name-line"><h2>Growup Pilot</h2><span>ธุรกิจของคุณ</span></div>
+          <p>ประเภทธุรกิจ: ${escapeHtml(app.data.settings?.businessType || "ยังไม่ได้ระบุ")}</p>
+          <p>เริ่มใช้งาน: ${startDate ? formatDate(startDate) : "ยังไม่มีข้อมูล"}</p>
+        </div>
+        <button class="mobile-business-edit" type="button" data-business-page="system">${iconSvg("settings")}<span>แก้ไขข้อมูล</span></button>
+      </article>
+
+      <section class="mobile-business-section">
+        <h2>จัดการข้อมูล</h2>
+        <div class="mobile-business-data-grid">
+          <button class="mobile-business-data-card purple" type="button" data-business-page="customers">
+            ${mobileBusinessIcon("users")}
+            <span><strong>จัดการลูกค้า</strong><small>เพิ่ม แก้ไข และดูข้อมูลลูกค้า</small><b>${money(customers.length)} ราย</b></span>
+          </button>
+          <button class="mobile-business-data-card orange" type="button" data-business-page="products">
+            ${mobileBusinessIcon("box")}
+            <span><strong>จัดการสินค้า</strong><small>เพิ่ม แก้ไข และจัดการสินค้า</small><b>${money(products.length)} รายการ</b></span>
+          </button>
+        </div>
+      </section>
+
+      <section class="mobile-business-section">
+        <h2>การตั้งค่า</h2>
+        <div class="mobile-business-menu-list">
+          ${mobileBusinessMenuRow("system", "ตั้งค่าระบบ", "ข้อมูลธุรกิจและการทำงานของระบบ", "settings", "blue")}
+          ${mobileBusinessMenuRow("notifications", "การแจ้งเตือน", "ดูการแจ้งเตือนจากข้อมูลล่าสุด", "bell", "orange")}
+          ${mobileBusinessMenuRow("finance", "การเงิน ต้นทุน/กำไร", "จัดการต้นทุน รายรับ รายจ่าย และกำไร", "chart", "purple")}
+          ${mobileBusinessMenuRow("security", "ความปลอดภัย", "ข้อมูลบัญชีและความปลอดภัย", "flag", "green")}
+          ${mobileBusinessMenuRow("roles", "การจัดการสิทธิ์ / ผู้ใช้งาน", "จัดการผู้ใช้และสิทธิ์การเข้าถึงระบบ", "users", "cyan")}
+        </div>
+      </section>
+
+      <section class="mobile-business-section">
+        <h2>เครื่องมือธุรกิจ</h2>
+        <div class="mobile-business-tools-grid">
+          <button class="mobile-business-tool purple" type="button" data-business-page="goals">${mobileBusinessIcon("flag")}<strong>เป้าหมายยอดขาย</strong><small>ตั้งเป้าหมายและติดตามความสำเร็จ</small><b>ดูรายงาน</b></button>
+          <button class="mobile-business-tool orange" type="button" data-business-page="analytics">${mobileBusinessIcon("chart")}<strong>วิเคราะห์ธุรกิจ</strong><small>วิเคราะห์ข้อมูลและแนวโน้มธุรกิจ</small><b>ดูรายงาน</b></button>
+          <button class="mobile-business-tool blue" type="button" data-business-page="import">${mobileBusinessIcon("send")}<strong>นำเข้าข้อมูล</strong><small>นำเข้าลูกค้าและออเดอร์จากไฟล์</small><b>นำเข้า</b></button>
+          <button class="mobile-business-tool green" type="button" data-business-page="backup">${mobileBusinessIcon("clipboard")}<strong>สำรองข้อมูล</strong><small>สำรองและกู้คืนข้อมูลธุรกิจ</small><b>สำรองข้อมูล</b></button>
+        </div>
+      </section>
+
+      <section class="mobile-business-section">
+        <h2>ข้อมูลการใช้งาน</h2>
+        <div class="mobile-business-usage-grid">
+          <article class="purple">${mobileBusinessIcon("clipboard")}<span>วันที่เริ่มใช้งาน</span><strong>${startDate ? formatDate(startDate) : "ไม่มีข้อมูล"}</strong></article>
+          <article class="blue">${mobileBusinessIcon("chart")}<span>ออเดอร์ทั้งหมด</span><strong>${money(orders.length)}</strong><small>ออเดอร์</small></article>
+          <article class="green">${mobileBusinessIcon("users")}<span>ลูกค้าทั้งหมด</span><strong>${money(customers.length)}</strong><small>ราย</small></article>
+          <article class="orange">${mobileBusinessIcon("box")}<span>สินค้าทั้งหมด</span><strong>${money(products.length)}</strong><small>รายการ</small></article>
+          <article class="cyan">${mobileBusinessIcon("briefcase")}<span>ยอดขายรวม</span><strong>${money(totalSales)}</strong><small>บาท</small></article>
+        </div>
+      </section>
+    </section>
+  `;
+}
+
+function renderMobileBusinessCustomers() {
+  const customers = sortByPriority(app.data.customers || []);
+  const newCount = customers.filter(customer => customer.status === "NEW").length;
+  const repeatCount = customers.filter(customer => Number(customer.purchaseCount || 0) > 1).length;
+  return `
+    <section class="mobile-business-page mobile-business-subpage">
+      ${mobileBusinessHeader("จัดการลูกค้า", "เพิ่ม แก้ไข และดูข้อมูลลูกค้าทั้งหมด", "users")}
+      <button class="button primary mobile-business-full-button" type="button" data-view-shortcut="orders">${iconSvg("users")} เพิ่มลูกค้าผ่านออเดอร์</button>
+      <div class="mobile-business-kpis three">
+        <article class="purple"><span>ลูกค้าทั้งหมด</span><strong>${money(customers.length)}</strong><small>ราย</small></article>
+        <article class="blue"><span>ลูกค้าใหม่</span><strong>${money(newCount)}</strong><small>ราย</small></article>
+        <article class="green"><span>ลูกค้าประจำ</span><strong>${money(repeatCount)}</strong><small>ราย</small></article>
+      </div>
+      <div class="mobile-business-record-list">
+        ${customers.map(customer => `
+          <button class="mobile-business-record" type="button" data-business-customer="${escapeHtml(customer.id)}">
+            <span class="mobile-business-avatar">${escapeHtml(initials(customer.name))}</span>
+            <span><strong>${escapeHtml(customer.name)}</strong><small>${escapeHtml(customer.phone || "ไม่มีเบอร์โทร")}</small></span>
+            ${vipBadge(customer.vipLevel)}
+            <span class="mobile-business-record-date">${formatShortDate(customer.lastPurchaseDate)}</span>
+          </button>
+        `).join("") || mobileBusinessEmpty("ยังไม่มีข้อมูลลูกค้า", "เพิ่มลูกค้าจากออเดอร์จริงเพื่อให้แสดงในหน้านี้")}
+      </div>
+    </section>
+  `;
+}
+
+function renderMobileBusinessCustomerDetail() {
+  const customer = (app.data.customers || []).find(item => item.id === app.mobileBusinessCustomerId);
+  if (!customer) return renderMobileBusinessCustomers();
+  return `
+    <section class="mobile-business-page mobile-business-subpage">
+      <header class="mobile-business-subhead">
+        <button class="mobile-business-back" type="button" data-business-page="customers" aria-label="กลับหน้าจัดการลูกค้า">${iconSvg("arrow")}</button>
+        <span class="mobile-business-avatar large">${escapeHtml(initials(customer.name))}</span>
+        <div><h2>รายละเอียดลูกค้า</h2><p>ข้อมูลจากประวัติออเดอร์และโปรไฟล์ลูกค้า</p></div>
+      </header>
+      <article class="mobile-business-detail-card">
+        <div class="mobile-business-customer-name"><div><h3>${escapeHtml(customer.name)}</h3><p>${escapeHtml(customer.phone || "ไม่มีเบอร์โทร")}</p></div>${vipBadge(customer.vipLevel)}</div>
+        <div class="mobile-business-info-list">
+          <div><span>สถานะ</span><strong>${escapeHtml(customer.status || "ยังไม่ได้ระบุ")}</strong></div>
+          <div><span>ที่อยู่</span><strong>${escapeHtml(customer.address || "ยังไม่มีข้อมูล")}</strong></div>
+          <div><span>อาการ / แท็ก</span><strong>${escapeHtml((customer.tags || []).join(", ") || "ยังไม่มีข้อมูล")}</strong></div>
+          <div><span>หมายเหตุ</span><strong>${escapeHtml(customer.note || "ยังไม่มีข้อมูล")}</strong></div>
+          <div><span>ซื้อครั้งแรก</span><strong>${customer.firstPurchaseDate ? formatDate(customer.firstPurchaseDate) : "ยังไม่มีข้อมูล"}</strong></div>
+          <div><span>ซื้อล่าสุด</span><strong>${customer.lastPurchaseDate ? formatDate(customer.lastPurchaseDate) : "ยังไม่มีข้อมูล"}</strong></div>
+          <div><span>ยอดสะสม</span><strong>${money(customer.totalSpent)} บาท</strong></div>
+          <div><span>ออเดอร์ทั้งหมด</span><strong>${money(customer.purchaseCount)} ครั้ง</strong></div>
+        </div>
+        <button class="button primary mobile-business-full-button" type="button" data-open-customer="${escapeHtml(customer.id)}">แก้ไขและบันทึกการติดตาม</button>
+      </article>
+    </section>
+  `;
+}
+
+function renderMobileBusinessProducts() {
+  const products = productRowsData();
+  const ready = products.filter(product => product.computedStatus === "พร้อมขาย").length;
+  const low = products.filter(product => ["ใกล้หมด", "เหลือน้อย"].includes(product.computedStatus)).length;
+  return `
+    <section class="mobile-business-page mobile-business-subpage">
+      ${mobileBusinessHeader("จัดการสินค้า", "เพิ่ม แก้ไข และจัดการสินค้า", "box")}
+      <button class="button primary mobile-business-full-button" type="button" data-add-product>${iconSvg("box")} เพิ่มสินค้า</button>
+      <div class="mobile-business-kpis three">
+        <article class="purple"><span>สินค้าทั้งหมด</span><strong>${money(products.length)}</strong><small>รายการ</small></article>
+        <article class="blue"><span>พร้อมขาย</span><strong>${money(ready)}</strong><small>รายการ</small></article>
+        <article class="orange"><span>สต๊อกต่ำ</span><strong>${money(low)}</strong><small>รายการ</small></article>
+      </div>
+      <div class="mobile-business-record-list">
+        ${products.map(product => `
+          <button class="mobile-business-product-record" type="button" data-business-product="${escapeHtml(product.id)}">
+            <span class="mobile-business-product-thumb">${product.image ? `<img src="${escapeHtml(product.image)}" alt="">` : iconSvg("box")}</span>
+            <span><strong>${escapeHtml(product.name)}</strong><small>${money(product.salePrice)} บาท · คงเหลือ ${money(product.stockQuantity)} ชิ้น</small></span>
+            <b>${escapeHtml(product.computedStatus)}</b>
+          </button>
+        `).join("") || mobileBusinessEmpty("ยังไม่มีข้อมูลสินค้า", "เพิ่มสินค้า หรือบันทึกออเดอร์จริงเพื่อให้แสดงในหน้านี้")}
+      </div>
+    </section>
+  `;
+}
+
+function renderMobileBusinessProductDetail() {
+  const product = productRowsData().find(item => item.id === app.mobileBusinessProductId);
+  if (!product) return renderMobileBusinessProducts();
+  const productCost = normalizeProductCostEntries(app.data.settings || {}).find(item => item.id === product.id || item.name === product.name);
+  const relatedOrders = (app.data.orders || []).filter(order => normalizeProductName(order.items) === product.name);
+  const revenue = relatedOrders.reduce((sum, order) => sum + Number(order.amount || 0), 0);
+  const units = relatedOrders.reduce((sum, order) => sum + Number(order.jars || 0), 0);
+  const unitCost = Number(productCost?.costPerJar ?? product.costPerItem ?? 0);
+  const productCostTotal = units * unitCost;
+  const extraCosts = additionalCostTotal(app.data.settings || {});
+  const profit = revenue - productCostTotal - extraCosts;
+  return `
+    <section class="mobile-business-page mobile-business-subpage">
+      <header class="mobile-business-subhead">
+        <button class="mobile-business-back" type="button" data-business-page="${escapeHtml(app.mobileBusinessProductReturnPage || "products")}" aria-label="กลับหน้าก่อนหน้า">${iconSvg("arrow")}</button>
+        ${mobileBusinessIcon("box")}
+        <div><h2>รายละเอียดต้นทุน / กำไร</h2><p>${escapeHtml(product.name)}</p></div>
+      </header>
+      <article class="mobile-business-detail-card">
+        <div class="mobile-business-product-hero">
+          <span class="mobile-business-product-thumb large">${product.image ? `<img src="${escapeHtml(product.image)}" alt="">` : iconSvg("box")}</span>
+          <div><h3>${escapeHtml(product.name)}</h3><p>อัปเดตล่าสุดจากข้อมูลสินค้าและออเดอร์</p></div>
+        </div>
+        <div class="mobile-business-finance-grid">
+          <article class="purple"><span>ต้นทุนต่อชิ้น</span><strong>${money(unitCost)} บาท</strong></article>
+          <article class="blue"><span>ขายแล้ว</span><strong>${money(units)} ชิ้น</strong></article>
+          <article class="orange"><span>ยอดขาย</span><strong>${money(revenue)} บาท</strong></article>
+          <article class="${profit >= 0 ? "green" : "red"}"><span>กำไรสุทธิประมาณการ</span><strong>${money(profit)} บาท</strong></article>
+        </div>
+        <div class="mobile-business-info-list">
+          <div><span>ต้นทุนสินค้า</span><strong>${money(productCostTotal)} บาท</strong></div>
+          <div><span>ค่าใช้จ่ายเพิ่มเติมที่เปิดใช้</span><strong>${money(extraCosts)} บาท</strong></div>
+          <div><span>จำนวนออเดอร์</span><strong>${money(relatedOrders.length)} ออเดอร์</strong></div>
+        </div>
+      </article>
+    </section>
+  `;
+}
+
+function renderMobileBusinessSystem() {
+  const settings = app.data.settings || {};
+  return `
+    <section class="mobile-business-page mobile-business-subpage">
+      ${mobileBusinessHeader("ตั้งค่าระบบ", "ตั้งค่าข้อมูลธุรกิจและการทำงานของระบบ", "settings")}
+      <form class="mobile-business-form" id="settingsForm">
+        <input name="daysPerUnit" type="hidden" value="${Math.max(1, Number(settings.followUpDaysPerUnit || 15))}">
+        <label>ชื่อธุรกิจ<input name="businessName" value="${escapeHtml(settings.businessName || "Growup Pilot")}"></label>
+        <label>ประเภทธุรกิจ<input value="${escapeHtml(settings.businessType || "")}" placeholder="ยังไม่ได้ระบุ" disabled></label>
+        <label>ราคาต่อชิ้นเริ่มต้น (บาท)<input name="defaultJarPrice" type="number" min="0" value="${Number(settings.defaultJarPrice || 0)}"></label>
+        <p class="mobile-business-form-note">ประเภทธุรกิจยังไม่มีแหล่งข้อมูลสำหรับบันทึก ระบบจึงแสดงสถานะว่างอย่างปลอดภัย</p>
+        <button class="button primary mobile-business-full-button" type="submit">บันทึกการตั้งค่า</button>
+      </form>
+    </section>
+  `;
+}
+
+function renderMobileBusinessNotifications() {
+  const items = liveNotificationItems();
+  return `
+    <section class="mobile-business-page mobile-business-subpage">
+      ${mobileBusinessHeader("การแจ้งเตือน", "รายการแจ้งเตือนจากข้อมูลธุรกิจล่าสุด", "bell")}
+      <div class="mobile-business-notification-list">
+        ${items.map(item => `
+          <article class="mobile-business-notification">
+            ${mobileBusinessIcon(item.type === "stock alerts" ? "box" : item.type === "follow-up customers" ? "users" : "bell")}
+            <span><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.detail)}</small></span>
+            <b>${money(item.count)}</b>
+          </article>
+        `).join("") || mobileBusinessEmpty("ไม่มีการแจ้งเตือน", "ยังไม่มีรายการจากข้อมูลจริงที่ต้องดำเนินการ")}
+      </div>
+    </section>
+  `;
+}
+
+function renderMobileBusinessFinance() {
+  const settings = app.data.settings || {};
+  const orders = app.data.orders || [];
+  const sales = orders.reduce((sum, order) => sum + Number(order.amount || 0), 0);
+  const productCosts = orders.reduce((sum, order) => sum + productCostForOrder(order), 0);
+  const extras = additionalCostTotal(settings);
+  const products = productRowsData();
+  return `
+    <section class="mobile-business-page mobile-business-subpage">
+      ${mobileBusinessHeader("การเงิน ต้นทุน/กำไร", "คำนวณจากสินค้า ออเดอร์ และค่าใช้จ่ายจริง", "chart")}
+      <div class="mobile-business-finance-grid">
+        <article class="blue"><span>ยอดขายรวม</span><strong>${money(sales)} บาท</strong></article>
+        <article class="purple"><span>ต้นทุนสินค้า</span><strong>${money(productCosts)} บาท</strong></article>
+        <article class="orange"><span>ค่าใช้จ่ายเพิ่มเติม</span><strong>${money(extras)} บาท</strong></article>
+        <article class="green"><span>กำไรประมาณการ</span><strong>${money(sales - productCosts - extras)} บาท</strong></article>
+      </div>
+      <h3 class="mobile-business-inner-title">ต้นทุนสินค้า</h3>
+      <div class="mobile-business-record-list">
+        ${products.map(product => {
+          const cost = normalizeProductCostEntries(settings).find(item => item.id === product.id || item.name === product.name);
+          return `
+            <button class="mobile-business-product-record" type="button" data-business-product="${escapeHtml(product.id)}">
+              <span class="mobile-business-product-thumb">${iconSvg("box")}</span>
+              <span><strong>${escapeHtml(product.name)}</strong><small>ต้นทุนต่อชิ้น ${money(cost?.costPerJar ?? product.costPerItem ?? 0)} บาท</small></span>
+              <b>ดูรายละเอียด</b>
+            </button>
+          `;
+        }).join("") || mobileBusinessEmpty("ยังไม่มีต้นทุนสินค้า", "เพิ่มสินค้าและกำหนดต้นทุนก่อนเริ่มคำนวณกำไร")}
+      </div>
+      <h3 class="mobile-business-inner-title">ค่าใช้จ่ายเพิ่มเติม</h3>
+      <div class="mobile-business-info-list">
+        ${normalizeAdditionalCostEntries(settings).map(item => `<div><span>${escapeHtml(item.name)}</span><strong>${money(item.amount)} บาท${item.enabled ? "" : " · ปิดใช้งาน"}</strong></div>`).join("") || `<div><span>ยังไม่มีรายการ</span><strong>0 บาท</strong></div>`}
+      </div>
+    </section>
+  `;
+}
+
+function renderMobileBusinessSecurity() {
+  const user = app.data.currentUser || app.currentUser || {};
+  return `
+    <section class="mobile-business-page mobile-business-subpage">
+      ${mobileBusinessHeader("ความปลอดภัย", "ตรวจสอบบัญชีและสถานะการเข้าถึง", "flag")}
+      <article class="mobile-business-detail-card">
+        <div class="mobile-business-customer-name">
+          <span class="mobile-business-avatar large">${escapeHtml(initials(user.name || "ผู้ใช้"))}</span>
+          <div><h3>${escapeHtml(user.name || "ไม่พบชื่อผู้ใช้")}</h3><p>${escapeHtml(user.role || "ไม่พบข้อมูลสิทธิ์")}</p></div>
+        </div>
+        <div class="mobile-business-info-list">
+          <div><span>ชื่อผู้ใช้</span><strong>${escapeHtml(user.username || "ไม่เปิดเผย")}</strong></div>
+          <div><span>สถานะบัญชี</span><strong>${user.active === false ? "ปิดใช้งาน" : "เปิดใช้งาน"}</strong></div>
+          <div><span>สิทธิ์</span><strong>${escapeHtml(user.role || "ยังไม่ได้ระบุ")}</strong></div>
+        </div>
+        ${mobileBusinessEmpty("ยังไม่มีระบบเปลี่ยนรหัสผ่านในหน้านี้", "เพื่อความปลอดภัย ระบบจะไม่แสดงหรือสร้างข้อมูลรหัสผ่านจำลอง")}
+      </article>
+    </section>
+  `;
+}
+
+function renderMobileBusinessRoles() {
+  const users = app.data.users || [];
+  return `
+    <section class="mobile-business-page mobile-business-subpage">
+      ${mobileBusinessHeader("การจัดการสิทธิ์ / ผู้ใช้งาน", "ผู้ใช้งานและสิทธิ์ที่มีอยู่ในระบบ", "users")}
+      <div class="mobile-business-user-list">
+        ${users.map(user => `
+          <article class="mobile-business-user">
+            <span class="mobile-business-avatar">${escapeHtml(initials(user.name))}</span>
+            <span><strong>${escapeHtml(user.name)}</strong><small>${escapeHtml(user.username || user.phone || "ไม่มีข้อมูลติดต่อ")}</small><em>${escapeHtml(user.role || "ยังไม่ได้ระบุ")}</em></span>
+            <b>${user.active === false ? "ปิด" : "ใช้งาน"}</b>
+          </article>
+        `).join("") || mobileBusinessEmpty("ยังไม่มีผู้ใช้งาน", "ไม่พบข้อมูลผู้ใช้จากระบบ")}
+      </div>
+    </section>
+  `;
+}
+
+function renderMobileBusinessGoals() {
+  const selectedMonth = String(app.data.summary?.selectedDate || todayISO()).slice(0, 7);
+  const monthSales = (app.data.orders || []).filter(order => String(order.date || "").startsWith(selectedMonth)).reduce((sum, order) => sum + Number(order.amount || 0), 0);
+  return `
+    <section class="mobile-business-page mobile-business-subpage">
+      ${mobileBusinessHeader("เป้าหมายยอดขาย", "ติดตามยอดขายจากออเดอร์จริงในเดือนปัจจุบัน", "flag")}
+      <article class="mobile-business-goal-current"><span>ยอดขายเดือนนี้</span><strong>${money(monthSales)} บาท</strong></article>
+      ${mobileBusinessEmpty("ยังไม่ได้ตั้งเป้าหมายยอดขาย", "ระบบยังไม่มีแหล่งข้อมูลเป้าหมาย จึงไม่สร้างตัวเลขเป้าหมายจำลอง")}
+    </section>
+  `;
+}
+
+function renderMobileBusinessAnalytics() {
+  const orders = app.data.orders || [];
+  const customers = app.data.customers || [];
+  const sales = orders.reduce((sum, order) => sum + Number(order.amount || 0), 0);
+  const topProducts = groupedProducts().slice(0, 5);
+  const averageOrder = orders.length ? sales / orders.length : 0;
+  return `
+    <section class="mobile-business-page mobile-business-subpage">
+      ${mobileBusinessHeader("วิเคราะห์ธุรกิจ", "ภาพรวมจากออเดอร์ ลูกค้า และสินค้าจริง", "chart")}
+      <div class="mobile-business-kpis three">
+        <article class="purple"><span>ยอดขายรวม</span><strong>${money(sales)}</strong><small>บาท</small></article>
+        <article class="blue"><span>ยอดเฉลี่ยต่อออเดอร์</span><strong>${money(averageOrder)}</strong><small>บาท</small></article>
+        <article class="green"><span>ลูกค้าซื้อซ้ำ</span><strong>${money(customers.filter(customer => Number(customer.purchaseCount || 0) > 1).length)}</strong><small>ราย</small></article>
+      </div>
+      <h3 class="mobile-business-inner-title">สินค้าขายดี</h3>
+      <div class="mobile-business-ranking">
+        ${topProducts.map((product, index) => `<div><b>${index + 1}</b><span><strong>${escapeHtml(product.name)}</strong><small>${money(product.soldCount)} ชิ้น</small></span><em>${money(product.revenue)} บาท</em></div>`).join("") || mobileBusinessEmpty("ยังไม่มีข้อมูลวิเคราะห์", "บันทึกออเดอร์ก่อนเพื่อดูสินค้าขายดี")}
+      </div>
+    </section>
+  `;
+}
+
+function renderMobileBusinessImport() {
+  return `
+    <section class="mobile-business-page mobile-business-subpage">
+      ${mobileBusinessHeader("นำเข้าข้อมูล", "นำเข้าออเดอร์จากไฟล์ CSV หรือ Excel", "send")}
+      <article class="mobile-business-action-card">
+        ${mobileBusinessIcon("send")}
+        <h3>ใช้ระบบนำเข้าที่มีอยู่</h3>
+        <p>ตรวจหัวตาราง แสดงตัวอย่าง ป้องกันข้อมูลซ้ำ และรายงานแถวที่ผิดพลาดก่อนบันทึกจริง</p>
+        <button class="button primary mobile-business-full-button" type="button" data-view-shortcut="import">เปิดหน้านำเข้าข้อมูล</button>
+      </article>
+    </section>
+  `;
+}
+
+function renderMobileBusinessBackup() {
+  return `
+    <section class="mobile-business-page mobile-business-subpage">
+      ${mobileBusinessHeader("สำรองข้อมูล", "ดาวน์โหลดข้อมูลธุรกิจล่าสุดจากระบบ", "clipboard")}
+      <article class="mobile-business-action-card">
+        ${mobileBusinessIcon("clipboard")}
+        <h3>ข้อมูลพร้อมสำรอง</h3>
+        <div class="mobile-business-info-list">
+          <div><span>ออเดอร์</span><strong>${money((app.data.orders || []).length)} รายการ</strong></div>
+          <div><span>ลูกค้า</span><strong>${money((app.data.customers || []).length)} ราย</strong></div>
+          <div><span>สินค้า</span><strong>${money(productRowsData().length)} รายการ</strong></div>
+          <div><span>ผู้ใช้งาน</span><strong>${money((app.data.users || []).length)} ราย</strong></div>
+        </div>
+        <a class="button primary mobile-business-full-button" href="/api/backup" target="_blank" rel="noreferrer">ดาวน์โหลดข้อมูลสำรอง</a>
+      </article>
+      ${mobileBusinessEmpty("ยังไม่มีประวัติการสำรองข้อมูล", "ระบบปัจจุบันมีเฉพาะการดาวน์โหลดข้อมูลล่าสุด")}
+    </section>
+  `;
+}
+
+function renderMobileBusinessManagement() {
+  const renderers = {
+    main: renderMobileBusinessMain,
+    customers: renderMobileBusinessCustomers,
+    customerDetail: renderMobileBusinessCustomerDetail,
+    products: renderMobileBusinessProducts,
+    productDetail: renderMobileBusinessProductDetail,
+    system: renderMobileBusinessSystem,
+    notifications: renderMobileBusinessNotifications,
+    finance: renderMobileBusinessFinance,
+    security: renderMobileBusinessSecurity,
+    roles: renderMobileBusinessRoles,
+    goals: renderMobileBusinessGoals,
+    analytics: renderMobileBusinessAnalytics,
+    import: renderMobileBusinessImport,
+    backup: renderMobileBusinessBackup
+  };
+  els.content.innerHTML = (renderers[app.mobileBusinessPage] || renderers.main)();
+}
+
 function renderSettings() {
+  if (isMobileViewport()) {
+    renderMobileBusinessManagement();
+    return;
+  }
   els.content.innerHTML = `
     <section class="section saas-page settings-page settings-premium-page business-management-page">
       <div class="stack settings-workspace settings-menu-workspace">
@@ -5087,8 +5527,36 @@ document.addEventListener("click", async event => {
 
   const navButton = event.target.closest("[data-view]");
   if (navButton) {
+    if (navButton.dataset.view === "settings" && isMobileViewport()) app.mobileBusinessPage = "main";
     setView(navButton.dataset.view);
     document.body.classList.remove("sidebar-open");
+  }
+
+  const businessPageButton = event.target.closest("[data-business-page]");
+  if (businessPageButton && app.view === "settings" && isMobileViewport()) {
+    app.mobileBusinessPage = businessPageButton.dataset.businessPage || "main";
+    renderSettings();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    return;
+  }
+
+  const businessCustomerButton = event.target.closest("[data-business-customer]");
+  if (businessCustomerButton && app.view === "settings" && isMobileViewport()) {
+    app.mobileBusinessCustomerId = businessCustomerButton.dataset.businessCustomer;
+    app.mobileBusinessPage = "customerDetail";
+    renderSettings();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    return;
+  }
+
+  const businessProductButton = event.target.closest("[data-business-product]");
+  if (businessProductButton && app.view === "settings" && isMobileViewport()) {
+    app.mobileBusinessProductId = businessProductButton.dataset.businessProduct;
+    app.mobileBusinessProductReturnPage = app.mobileBusinessPage === "finance" ? "finance" : "products";
+    app.mobileBusinessPage = "productDetail";
+    renderSettings();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    return;
   }
 
   const shortcut = event.target.closest("[data-view-shortcut]");

@@ -4884,6 +4884,740 @@ small,
   }
 }
 
+/* Business Management is a mobile-only surface. Desktop settings remain unchanged. */
+@media (max-width: 820px) {
+  .mobile-business-page {
+    --mb-purple: #a64dff;
+    --mb-blue: #178bff;
+    --mb-orange: #ff9300;
+    --mb-green: #13d46a;
+    --mb-cyan: #11ccd4;
+    display: grid;
+    gap: 22px;
+    width: 100%;
+    max-width: 100%;
+    padding: 0 0 24px;
+    color: #f7f5ff;
+    overflow-x: clip;
+  }
+
+  .mobile-business-page button,
+  .mobile-business-page a {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .mobile-business-profile-card,
+  .mobile-business-detail-card,
+  .mobile-business-action-card,
+  .mobile-business-form {
+    border: 1px solid rgba(161, 77, 255, 0.34);
+    border-radius: 18px;
+    background:
+      radial-gradient(circle at 9% 12%, rgba(125, 43, 255, 0.16), transparent 34%),
+      linear-gradient(135deg, rgba(17, 14, 42, 0.96), rgba(3, 18, 29, 0.96));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035), 0 16px 34px rgba(0, 0, 0, 0.22);
+  }
+
+  .mobile-business-profile-card {
+    display: grid;
+    grid-template-columns: 66px minmax(0, 1fr);
+    gap: 12px;
+    align-items: center;
+    padding: 16px;
+  }
+
+  .mobile-business-store-mark {
+    display: grid;
+    place-items: center;
+    width: 66px;
+    height: 66px;
+    border-radius: 18px;
+    color: #c26cff;
+    background: radial-gradient(circle, rgba(175, 69, 255, 0.35), rgba(87, 26, 159, 0.17));
+    box-shadow: 0 0 25px rgba(155, 55, 255, 0.24);
+  }
+
+  .mobile-business-store-mark .nav-icon {
+    width: 34px;
+    height: 34px;
+  }
+
+  .mobile-business-profile-copy {
+    min-width: 0;
+  }
+
+  .mobile-business-name-line {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 5px;
+  }
+
+  .mobile-business-name-line h2 {
+    margin: 0;
+    font-size: 1.2rem;
+    line-height: 1.2;
+  }
+
+  .mobile-business-name-line span {
+    padding: 3px 8px;
+    border-radius: 999px;
+    color: #d99cff;
+    background: rgba(156, 67, 255, 0.13);
+    font-size: 0.67rem;
+    font-weight: 800;
+  }
+
+  .mobile-business-profile-copy p {
+    margin: 2px 0 0;
+    color: #c2bdcd;
+    font-size: 0.76rem;
+    line-height: 1.45;
+  }
+
+  .mobile-business-edit {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    min-height: 42px;
+    border: 1px solid rgba(173, 69, 255, 0.5);
+    border-radius: 12px;
+    color: #c965ff;
+    background: rgba(105, 31, 160, 0.1);
+    font: inherit;
+    font-size: 0.82rem;
+    font-weight: 800;
+  }
+
+  .mobile-business-edit .nav-icon {
+    width: 18px;
+    height: 18px;
+  }
+
+  .mobile-business-section {
+    display: grid;
+    gap: 12px;
+  }
+
+  .mobile-business-section > h2 {
+    margin: 0;
+    font-size: 1.08rem;
+    letter-spacing: -0.02em;
+  }
+
+  .mobile-business-data-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .mobile-business-data-card {
+    display: grid;
+    grid-template-columns: 46px minmax(0, 1fr);
+    gap: 10px;
+    align-items: center;
+    min-width: 0;
+    min-height: 116px;
+    padding: 13px;
+    border: 1px solid color-mix(in srgb, currentColor 36%, transparent);
+    border-radius: 16px;
+    color: var(--mb-purple);
+    text-align: left;
+    background: linear-gradient(135deg, color-mix(in srgb, currentColor 9%, #07101c), #03101a 72%);
+  }
+
+  .mobile-business-data-card.orange {
+    color: var(--mb-orange);
+  }
+
+  .mobile-business-data-card > span:last-child {
+    display: grid;
+    min-width: 0;
+    gap: 3px;
+  }
+
+  .mobile-business-data-card strong {
+    color: #f6f2ff;
+    font-size: 0.9rem;
+  }
+
+  .mobile-business-data-card small {
+    color: #aaa6b5;
+    font-size: 0.68rem;
+    line-height: 1.35;
+  }
+
+  .mobile-business-data-card b {
+    color: currentColor;
+    font-size: 0.78rem;
+  }
+
+  .mobile-business-icon {
+    display: grid;
+    place-items: center;
+    width: 46px;
+    height: 46px;
+    flex: 0 0 46px;
+    border-radius: 14px;
+    color: currentColor;
+    background: color-mix(in srgb, currentColor 13%, rgba(6, 13, 25, 0.92));
+    box-shadow: 0 0 18px color-mix(in srgb, currentColor 16%, transparent);
+  }
+
+  .mobile-business-icon .nav-icon {
+    width: 23px;
+    height: 23px;
+  }
+
+  .mobile-business-menu-list {
+    display: grid;
+    gap: 8px;
+  }
+
+  .mobile-business-menu-row {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr) 18px;
+    gap: 11px;
+    align-items: center;
+    width: 100%;
+    min-width: 0;
+    padding: 11px 12px;
+    border: 1px solid rgba(43, 119, 166, 0.2);
+    border-radius: 14px;
+    color: var(--mb-blue);
+    text-align: left;
+    background: linear-gradient(100deg, rgba(6, 20, 34, 0.96), rgba(3, 16, 27, 0.94));
+  }
+
+  .mobile-business-menu-row.orange { color: var(--mb-orange); }
+  .mobile-business-menu-row.purple { color: var(--mb-purple); }
+  .mobile-business-menu-row.green { color: var(--mb-green); }
+  .mobile-business-menu-row.cyan { color: var(--mb-cyan); }
+
+  .mobile-business-menu-row .mobile-business-icon {
+    width: 44px;
+    height: 44px;
+    flex-basis: 44px;
+  }
+
+  .mobile-business-menu-row > span:nth-child(2) {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .mobile-business-menu-row strong {
+    color: #f5f2fa;
+    font-size: 0.88rem;
+  }
+
+  .mobile-business-menu-row small {
+    color: #aaa6b5;
+    font-size: 0.7rem;
+    line-height: 1.35;
+  }
+
+  .mobile-business-chevron {
+    display: grid;
+    place-items: center;
+    color: #b9b3c2;
+    transform: rotate(180deg);
+  }
+
+  .mobile-business-chevron .nav-icon {
+    width: 18px;
+    height: 18px;
+  }
+
+  .mobile-business-tools-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .mobile-business-tool {
+    display: grid;
+    justify-items: center;
+    align-content: start;
+    gap: 7px;
+    min-width: 0;
+    min-height: 176px;
+    padding: 14px 10px 12px;
+    border: 1px solid color-mix(in srgb, currentColor 45%, transparent);
+    border-radius: 16px;
+    color: var(--mb-purple);
+    text-align: center;
+    background: linear-gradient(160deg, color-mix(in srgb, currentColor 8%, #07101c), #03101a 74%);
+  }
+
+  .mobile-business-tool.orange { color: var(--mb-orange); }
+  .mobile-business-tool.blue { color: var(--mb-blue); }
+  .mobile-business-tool.green { color: var(--mb-green); }
+
+  .mobile-business-tool strong {
+    color: #f6f3fb;
+    font-size: 0.87rem;
+  }
+
+  .mobile-business-tool small {
+    min-height: 38px;
+    color: #aaa6b5;
+    font-size: 0.7rem;
+    line-height: 1.4;
+  }
+
+  .mobile-business-tool b {
+    margin-top: auto;
+    color: currentColor;
+    font-size: 0.77rem;
+  }
+
+  .mobile-business-usage-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .mobile-business-usage-grid article,
+  .mobile-business-kpis article,
+  .mobile-business-finance-grid article {
+    display: grid;
+    justify-items: center;
+    align-content: center;
+    gap: 3px;
+    min-width: 0;
+    padding: 12px 8px;
+    border: 1px solid color-mix(in srgb, currentColor 24%, transparent);
+    border-radius: 14px;
+    color: var(--mb-purple);
+    text-align: center;
+    background: linear-gradient(160deg, color-mix(in srgb, currentColor 8%, #07101c), #03101a);
+  }
+
+  .mobile-business-usage-grid article:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .mobile-business-usage-grid .blue,
+  .mobile-business-kpis .blue,
+  .mobile-business-finance-grid .blue { color: var(--mb-blue); }
+  .mobile-business-usage-grid .green,
+  .mobile-business-kpis .green,
+  .mobile-business-finance-grid .green { color: var(--mb-green); }
+  .mobile-business-usage-grid .orange,
+  .mobile-business-kpis .orange,
+  .mobile-business-finance-grid .orange { color: var(--mb-orange); }
+  .mobile-business-usage-grid .cyan { color: var(--mb-cyan); }
+  .mobile-business-finance-grid .red { color: #ff5364; }
+
+  .mobile-business-usage-grid .mobile-business-icon {
+    width: 38px;
+    height: 38px;
+  }
+
+  .mobile-business-usage-grid span,
+  .mobile-business-kpis span,
+  .mobile-business-finance-grid span {
+    color: #aaa6b5;
+    font-size: 0.69rem;
+  }
+
+  .mobile-business-usage-grid strong,
+  .mobile-business-kpis strong,
+  .mobile-business-finance-grid strong {
+    max-width: 100%;
+    color: #f7f5ff;
+    font-size: 1rem;
+    overflow-wrap: anywhere;
+  }
+
+  .mobile-business-usage-grid small,
+  .mobile-business-kpis small {
+    color: #8f8b98;
+    font-size: 0.66rem;
+  }
+
+  .mobile-business-subpage {
+    gap: 16px;
+  }
+
+  .mobile-business-subhead {
+    display: grid;
+    grid-template-columns: 38px 46px minmax(0, 1fr);
+    gap: 9px;
+    align-items: center;
+    padding: 2px 0 10px;
+    border-bottom: 1px solid rgba(110, 88, 145, 0.18);
+  }
+
+  .mobile-business-subhead h2,
+  .mobile-business-subhead p {
+    margin: 0;
+  }
+
+  .mobile-business-subhead h2 {
+    font-size: 1.05rem;
+  }
+
+  .mobile-business-subhead p {
+    margin-top: 3px;
+    color: #9994a5;
+    font-size: 0.7rem;
+    line-height: 1.35;
+  }
+
+  .mobile-business-back {
+    display: grid;
+    place-items: center;
+    width: 38px;
+    height: 38px;
+    padding: 0;
+    border: 1px solid rgba(159, 104, 255, 0.2);
+    border-radius: 12px;
+    color: #f3eff9;
+    background: rgba(10, 19, 34, 0.86);
+  }
+
+  .mobile-business-back .nav-icon {
+    width: 20px;
+    height: 20px;
+  }
+
+  .mobile-business-kpis,
+  .mobile-business-finance-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .mobile-business-kpis.three article:first-child {
+    grid-column: 1 / -1;
+  }
+
+  .mobile-business-record-list,
+  .mobile-business-notification-list,
+  .mobile-business-user-list,
+  .mobile-business-ranking {
+    display: grid;
+    gap: 8px;
+  }
+
+  .mobile-business-record,
+  .mobile-business-product-record,
+  .mobile-business-notification,
+  .mobile-business-user,
+  .mobile-business-ranking > div {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: center;
+    min-width: 0;
+    padding: 11px;
+    border: 1px solid rgba(59, 100, 135, 0.22);
+    border-radius: 14px;
+    color: #f5f2fb;
+    text-align: left;
+    background: linear-gradient(105deg, rgba(8, 22, 35, 0.97), rgba(3, 15, 25, 0.95));
+  }
+
+  .mobile-business-record {
+    grid-template-columns: 44px minmax(0, 1fr) auto;
+  }
+
+  .mobile-business-record > span:nth-child(2),
+  .mobile-business-product-record > span:nth-child(2),
+  .mobile-business-notification > span:nth-child(2),
+  .mobile-business-user > span:nth-child(2),
+  .mobile-business-ranking > div > span {
+    display: grid;
+    min-width: 0;
+    gap: 2px;
+  }
+
+  .mobile-business-record strong,
+  .mobile-business-product-record strong,
+  .mobile-business-notification strong,
+  .mobile-business-user strong,
+  .mobile-business-ranking strong {
+    min-width: 0;
+    color: #f7f4fb;
+    font-size: 0.82rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mobile-business-record small,
+  .mobile-business-product-record small,
+  .mobile-business-notification small,
+  .mobile-business-user small,
+  .mobile-business-ranking small {
+    color: #9792a1;
+    font-size: 0.68rem;
+    line-height: 1.35;
+  }
+
+  .mobile-business-record-date {
+    grid-column: 2 / -1;
+    color: #888391;
+    font-size: 0.64rem;
+  }
+
+  .mobile-business-avatar,
+  .mobile-business-product-thumb {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    color: #d6b3ff;
+    background: linear-gradient(145deg, rgba(151, 62, 255, 0.36), rgba(37, 87, 155, 0.22));
+    font-size: 0.8rem;
+    font-weight: 800;
+    overflow: hidden;
+  }
+
+  .mobile-business-avatar.large,
+  .mobile-business-product-thumb.large {
+    width: 54px;
+    height: 54px;
+    flex: 0 0 54px;
+  }
+
+  .mobile-business-product-thumb {
+    border-radius: 12px;
+    color: var(--mb-orange);
+    background: rgba(255, 143, 0, 0.1);
+  }
+
+  .mobile-business-product-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .mobile-business-product-thumb .nav-icon {
+    width: 22px;
+    height: 22px;
+  }
+
+  .mobile-business-product-record b,
+  .mobile-business-user b,
+  .mobile-business-ranking em,
+  .mobile-business-notification b {
+    color: #b76aff;
+    font-size: 0.68rem;
+    font-style: normal;
+    white-space: nowrap;
+  }
+
+  .mobile-business-detail-card,
+  .mobile-business-action-card,
+  .mobile-business-form {
+    display: grid;
+    gap: 14px;
+    padding: 15px;
+  }
+
+  .mobile-business-customer-name,
+  .mobile-business-product-hero {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+  }
+
+  .mobile-business-customer-name > div {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .mobile-business-customer-name h3,
+  .mobile-business-customer-name p,
+  .mobile-business-product-hero h3,
+  .mobile-business-product-hero p {
+    margin: 0;
+  }
+
+  .mobile-business-customer-name h3,
+  .mobile-business-product-hero h3 {
+    font-size: 1rem;
+  }
+
+  .mobile-business-customer-name p,
+  .mobile-business-product-hero p {
+    margin-top: 3px;
+    color: #9f9aa9;
+    font-size: 0.72rem;
+  }
+
+  .mobile-business-info-list {
+    display: grid;
+    border: 1px solid rgba(78, 107, 137, 0.18);
+    border-radius: 13px;
+    background: rgba(8, 23, 36, 0.72);
+    overflow: hidden;
+  }
+
+  .mobile-business-info-list > div {
+    display: grid;
+    grid-template-columns: minmax(90px, 0.8fr) minmax(0, 1.2fr);
+    gap: 10px;
+    padding: 10px 12px;
+    border-bottom: 1px solid rgba(91, 105, 132, 0.13);
+  }
+
+  .mobile-business-info-list > div:last-child {
+    border-bottom: 0;
+  }
+
+  .mobile-business-info-list span {
+    color: #9691a0;
+    font-size: 0.7rem;
+  }
+
+  .mobile-business-info-list strong {
+    min-width: 0;
+    color: #eeeaf5;
+    font-size: 0.72rem;
+    text-align: right;
+    overflow-wrap: anywhere;
+  }
+
+  .mobile-business-full-button {
+    width: 100%;
+    min-height: 44px;
+    justify-content: center;
+  }
+
+  .mobile-business-empty {
+    display: grid;
+    justify-items: center;
+    gap: 7px;
+    padding: 24px 16px;
+    border: 1px dashed rgba(157, 95, 240, 0.24);
+    border-radius: 14px;
+    color: #b663ff;
+    text-align: center;
+    background: rgba(29, 17, 53, 0.18);
+  }
+
+  .mobile-business-empty strong {
+    color: #f4f0f8;
+    font-size: 0.86rem;
+  }
+
+  .mobile-business-empty p {
+    max-width: 280px;
+    margin: 0;
+    color: #9893a0;
+    font-size: 0.7rem;
+    line-height: 1.5;
+  }
+
+  .mobile-business-form label {
+    display: grid;
+    gap: 6px;
+    color: #cbc5d2;
+    font-size: 0.76rem;
+  }
+
+  .mobile-business-form input {
+    width: 100%;
+    min-width: 0;
+    min-height: 44px;
+  }
+
+  .mobile-business-form-note {
+    margin: 0;
+    color: #918c9c;
+    font-size: 0.68rem;
+    line-height: 1.5;
+  }
+
+  .mobile-business-inner-title {
+    margin: 5px 0 -2px;
+    color: #f4f1f8;
+    font-size: 0.95rem;
+  }
+
+  .mobile-business-goal-current {
+    display: grid;
+    gap: 4px;
+    padding: 18px;
+    border: 1px solid rgba(156, 72, 255, 0.32);
+    border-radius: 16px;
+    background: linear-gradient(135deg, rgba(112, 35, 205, 0.18), rgba(4, 17, 29, 0.96));
+  }
+
+  .mobile-business-goal-current span {
+    color: #aaa4b2;
+    font-size: 0.74rem;
+  }
+
+  .mobile-business-goal-current strong {
+    color: #c267ff;
+    font-size: 1.35rem;
+  }
+
+  .mobile-business-action-card {
+    justify-items: center;
+    text-align: center;
+  }
+
+  .mobile-business-action-card h3,
+  .mobile-business-action-card p {
+    margin: 0;
+  }
+
+  .mobile-business-action-card h3 {
+    font-size: 1rem;
+  }
+
+  .mobile-business-action-card p {
+    color: #9e99a7;
+    font-size: 0.74rem;
+    line-height: 1.55;
+  }
+
+  .mobile-business-notification {
+    grid-template-columns: 46px minmax(0, 1fr) auto;
+  }
+
+  .mobile-business-user em {
+    color: #b86cff;
+    font-size: 0.66rem;
+    font-style: normal;
+  }
+
+  .mobile-business-ranking > div {
+    grid-template-columns: 28px minmax(0, 1fr) auto;
+  }
+
+  .mobile-business-ranking > div > b {
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 9px;
+    color: #c16cff;
+    background: rgba(150, 67, 255, 0.15);
+  }
+}
+
+@media (max-width: 370px) {
+  .mobile-business-data-grid,
+  .mobile-business-tools-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .mobile-business-tool {
+    min-height: 150px;
+  }
+}
+
 .settings-premium-page {
   gap: 18px;
 }
