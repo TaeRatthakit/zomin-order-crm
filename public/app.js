@@ -1,10 +1,11 @@
 const desktopNavItems = [
   ["dashboard", "/dashboard", "หน้าหลัก", "home"],
+  ["reports", "/reports", "รายงาน", "chart"],
   ["orders", "/orders", "ออเดอร์", "clipboard"],
+  ["opportunities", "/opportunities", "โอกาสทำเงิน", "spark"],
   ["customers", "/customers", "ลูกค้า", "users"],
   ["products", "/products", "สินค้า", "box"],
-  ["opportunities", "/opportunities", "การขาย", "chart"],
-  ["reports", "/reports", "รายงาน", "chart"],
+  ["settingsFinance", "/settings/finance", "การเงิน", "wallet"],
   ["marketing", "/marketing", "การตลาด", "send"],
   ["settings", "/settings", "ตั้งค่า", "settings"]
 ];
@@ -234,6 +235,7 @@ function iconSvg(name) {
     chart: '<path d="M4 19h16"/><path d="M7 15V9"/><path d="M12 15V5"/><path d="M17 15v-3"/>',
     stars: '<path d="m12 3 1.8 4.2L18 9l-4.2 1.8L12 15l-1.8-4.2L6 9l4.2-1.8z"/><path d="m19 16 .9 2.1L22 19l-2.1.9L19 22l-.9-2.1L16 19l2.1-.9z"/><path d="M5 16.5 6 19l2.5 1-2.5 1L5 23l-1-2.5L1.5 19 4 18z"/>',
     briefcase: '<path d="M8 7V5.5A2.5 2.5 0 0 1 10.5 3h3A2.5 2.5 0 0 1 16 5.5V7"/><rect x="3" y="7" width="18" height="13" rx="3"/><path d="M3 12h18"/><path d="M10 12v2"/><path d="M14 12v2"/>',
+    wallet: '<path d="M4 7.5h13.5A2.5 2.5 0 0 1 20 10v8a2 2 0 0 1-2 2H5a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3h11v3.5"/><path d="M16 12h5v4h-5a2 2 0 0 1 0-4Z"/>',
     chat: '<path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/><path d="M8 11h.01"/><path d="M12 11h.01"/><path d="M16 11h.01"/>',
     send: '<path d="M22 2 11 13"/><path d="m22 2-7 20-4-9-9-4z"/>',
     flag: '<path d="M4 21V5"/><path d="M4 5h11l-1.5 4L15 13H4"/>',
@@ -703,6 +705,8 @@ function renderNav() {
     activeGroupMap.customers = "settings";
     activeGroupMap.products = "settings";
     activeGroupMap.aiInsights = "settings";
+  } else {
+    activeGroupMap.settingsFinance = "settingsFinance";
   }
   const activeGroup = activeGroupMap[app.view] || app.view;
   const navItems = isMobileViewport() ? mobileNavItems : desktopNavItems;

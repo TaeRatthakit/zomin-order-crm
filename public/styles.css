@@ -9160,3 +9160,940 @@ small,
     height: 92px;
   }
 }
+
+/* Desktop UI consistency pass.
+   Everything in this layer starts above the mobile breakpoint so the mobile
+   surfaces remain the visual and behavioral source of truth. */
+@media (min-width: 821px) {
+  body.desktop-app-shell:not(.login-view) {
+    background:
+      radial-gradient(circle at 72% 0, rgba(83, 31, 150, 0.12), transparent 28%),
+      radial-gradient(circle at 18% 100%, rgba(6, 86, 112, 0.09), transparent 30%),
+      #020a11;
+    color: #f4f5f8;
+  }
+
+  body.desktop-app-shell:not(.login-view)::before {
+    opacity: 0.14;
+    background-size: 76px 76px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .app-shell {
+    grid-template-columns: 240px minmax(0, 1fr);
+  }
+
+  body.desktop-app-shell:not(.login-view) .sidebar {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    margin: 0;
+    padding: 98px 14px 18px;
+    gap: 0;
+    overflow: hidden;
+    border: 0;
+    border-right: 1px solid rgba(63, 91, 116, 0.28);
+    border-radius: 0;
+    background:
+      radial-gradient(circle at 44% 5%, rgba(91, 25, 151, 0.14), transparent 24%),
+      linear-gradient(180deg, rgba(2, 10, 18, 0.99), rgba(3, 13, 23, 0.99));
+    box-shadow: inset -1px 0 rgba(255, 255, 255, 0.015);
+  }
+
+  body.desktop-app-shell:not(.login-view) .brand {
+    display: none;
+  }
+
+  body.desktop-app-shell:not(.login-view) .nav-list {
+    gap: 4px;
+    margin: 0;
+  }
+
+  body.desktop-app-shell:not(.login-view) .nav-button {
+    min-height: 49px;
+    padding: 7px 13px;
+    gap: 12px;
+    border: 1px solid transparent;
+    border-radius: 11px;
+    color: #d0d4dc;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  body.desktop-app-shell:not(.login-view) .nav-button::before {
+    border-radius: inherit;
+    background: linear-gradient(135deg, rgba(137, 50, 240, 0.17), rgba(7, 43, 61, 0.2));
+  }
+
+  body.desktop-app-shell:not(.login-view) .nav-button .nav-index {
+    width: 30px;
+    height: 30px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+  }
+
+  body.desktop-app-shell:not(.login-view) .nav-button .nav-icon {
+    width: 21px;
+    height: 21px;
+    stroke-width: 1.8;
+  }
+
+  body.desktop-app-shell:not(.login-view) .nav-button > span:last-child {
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0;
+  }
+
+  body.desktop-app-shell:not(.login-view) .nav-button:hover {
+    transform: none;
+    color: #fff;
+    border-color: rgba(115, 67, 168, 0.24);
+    background: rgba(78, 25, 137, 0.14);
+  }
+
+  body.desktop-app-shell:not(.login-view) .nav-button.active {
+    color: #fff;
+    border-color: rgba(146, 52, 255, 0.6);
+    background: linear-gradient(90deg, rgba(83, 26, 156, 0.98), rgba(106, 25, 185, 0.94));
+    box-shadow: inset 0 1px rgba(255, 255, 255, 0.06), 0 8px 22px rgba(64, 14, 126, 0.25);
+  }
+
+  body.desktop-app-shell:not(.login-view) .nav-button.active::after {
+    display: none;
+  }
+
+  body.desktop-app-shell:not(.login-view) .sidebar-footer {
+    gap: 0;
+    margin-top: auto;
+    padding: 14px 0 0;
+  }
+
+  body.desktop-app-shell:not(.login-view) .sidebar-upgrade-card {
+    padding: 14px;
+    gap: 10px;
+    border: 1px solid rgba(73, 94, 126, 0.22);
+    border-radius: 14px;
+    background:
+      radial-gradient(circle at 18% 0, rgba(82, 39, 151, 0.18), transparent 45%),
+      linear-gradient(145deg, rgba(9, 19, 36, 0.96), rgba(4, 13, 24, 0.98));
+    box-shadow: none;
+  }
+
+  body.desktop-app-shell:not(.login-view) .sidebar-upgrade-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .sidebar-upgrade-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 9px;
+    color: #ffd32a;
+    background: rgba(104, 36, 178, 0.28);
+    font-size: 20px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .sidebar-upgrade-copy strong {
+    font-size: 13px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .sidebar-upgrade-copy span {
+    font-size: 10px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .sidebar-upgrade-card .button {
+    min-height: 36px;
+    border-radius: 9px;
+    font-size: 12px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .sidebar-profile-card,
+  body.desktop-app-shell:not(.login-view) .sidebar-theme-switch {
+    display: none;
+  }
+
+  body.desktop-app-shell:not(.login-view) .main-panel {
+    width: 100%;
+    min-width: 0;
+    max-width: calc(100vw - 240px);
+    padding: 18px 24px 32px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .topbar,
+  body.desktop-app-shell:not(.login-view) .content-area {
+    width: 100%;
+    max-width: 1480px;
+    margin-inline: auto;
+  }
+
+  body.desktop-app-shell:not(.login-view) .topbar {
+    min-height: 66px;
+    display: block;
+    margin-bottom: 16px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .topbar-main {
+    width: 100%;
+    display: grid;
+    grid-template-columns: minmax(160px, 1fr) auto minmax(280px, 1fr);
+    align-items: center;
+    gap: 18px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .topbar-side-left {
+    display: block;
+    min-width: 160px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-menu-toggle {
+    display: none;
+  }
+
+  body.desktop-app-shell:not(.login-view) .header-profile {
+    position: fixed;
+    z-index: 55;
+    top: 18px;
+    left: 20px;
+    display: block;
+  }
+
+  body.desktop-app-shell:not(.login-view) .header-profile-trigger {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    max-width: 200px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    text-align: left;
+  }
+
+  body.desktop-app-shell:not(.login-view) .header-profile-avatar {
+    width: 54px;
+    height: 54px;
+    flex: 0 0 54px;
+    overflow: hidden;
+    border: 2px solid rgba(190, 154, 231, 0.54);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  }
+
+  body.desktop-app-shell:not(.login-view) .header-profile-avatar img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+  }
+
+  body.desktop-app-shell:not(.login-view) .header-profile-badge {
+    display: none;
+  }
+
+  body.desktop-app-shell:not(.login-view) .header-profile-copy {
+    min-width: 0;
+    gap: 3px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .header-profile-copy strong {
+    overflow: hidden;
+    color: #f6f5f9;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.15;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  body.desktop-app-shell:not(.login-view) .header-profile-copy span {
+    color: #9da4ad;
+    font-size: 10px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .topbar-brand {
+    position: fixed;
+    z-index: 54;
+    top: 18px;
+    left: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 0;
+    transform: translateX(-50%);
+  }
+
+  body.desktop-app-shell:not(.login-view) .topbar-brand::after {
+    content: "Growup Pilot";
+    color: #f6f5f9;
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    white-space: nowrap;
+  }
+
+  body.desktop-app-shell:not(.login-view) .topbar-logo {
+    width: 50px;
+    height: 50px;
+    filter: drop-shadow(0 0 14px rgba(148, 47, 255, 0.38));
+  }
+
+  body.desktop-app-shell:not(.login-view) .topbar-side-right {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .topbar-icon-row {
+    margin: 0;
+  }
+
+  body.desktop-app-shell:not(.login-view) .power-button {
+    display: none;
+  }
+
+  body.desktop-app-shell:not(.login-view) .notification-button {
+    width: 44px;
+    height: 44px;
+    border: 1px solid rgba(66, 93, 119, 0.34);
+    border-radius: 12px;
+    background: rgba(3, 15, 26, 0.88);
+    color: #d9dce2;
+  }
+
+  body.desktop-app-shell:not(.login-view) .notification-badge {
+    top: -4px;
+    right: -4px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .date-pill {
+    min-width: 190px;
+    min-height: 44px;
+    padding: 0 14px;
+    gap: 10px;
+    border: 1px solid rgba(66, 93, 119, 0.34);
+    border-radius: 12px;
+    background: rgba(3, 15, 26, 0.88);
+  }
+
+  body.desktop-app-shell:not(.login-view) .date-pill-display {
+    flex: 1;
+    color: #eceef2;
+    font-size: 13px;
+    font-weight: 500;
+  }
+
+  body.desktop-app-shell:not(.login-view) .date-pill-icon,
+  body.desktop-app-shell:not(.login-view) .date-pill-chevron {
+    width: 17px;
+    height: 17px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .page-heading {
+    display: none;
+  }
+
+  body.desktop-app-shell:not(.login-view) .content-area,
+  body.desktop-app-shell:not(.login-view) .section,
+  body.desktop-app-shell:not(.login-view) .stack {
+    gap: 16px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .saas-page {
+    min-width: 0;
+  }
+
+  body.desktop-app-shell:not(.login-view) .page-identity,
+  body.desktop-app-shell:not(.login-view) .workspace-hero,
+  body.desktop-app-shell:not(.login-view) .hero-command {
+    min-height: 0;
+    padding: 18px 20px;
+    border-color: rgba(43, 79, 106, 0.38);
+    border-radius: 16px;
+    background:
+      radial-gradient(circle at 12% 0, rgba(89, 28, 165, 0.14), transparent 40%),
+      linear-gradient(145deg, rgba(5, 17, 29, 0.97), rgba(4, 12, 23, 0.98));
+    box-shadow: inset 0 1px rgba(255, 255, 255, 0.025), 0 12px 30px rgba(0, 0, 0, 0.2);
+  }
+
+  body.desktop-app-shell:not(.login-view) .page-identity {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .page-identity-copy {
+    display: grid;
+    gap: 4px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .page-kicker {
+    min-height: 25px;
+    padding: 0 10px;
+    border-radius: 8px;
+    color: #b456ff;
+    background: rgba(103, 29, 174, 0.17);
+    font-size: 9px;
+    letter-spacing: 0.1em;
+  }
+
+  body.desktop-app-shell:not(.login-view) .page-identity h2,
+  body.desktop-app-shell:not(.login-view) .settings-page-hero h2 {
+    color: #f4f4f7;
+    font-size: 23px;
+    line-height: 1.15;
+    letter-spacing: -0.035em;
+  }
+
+  body.desktop-app-shell:not(.login-view) .page-identity p,
+  body.desktop-app-shell:not(.login-view) .settings-page-hero p {
+    color: #a7acb5;
+    font-size: 12px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .panel,
+  body.desktop-app-shell:not(.login-view) .metric-card,
+  body.desktop-app-shell:not(.login-view) .workspace-table-wrap,
+  body.desktop-app-shell:not(.login-view) .opportunity-card,
+  body.desktop-app-shell:not(.login-view) .insight-card,
+  body.desktop-app-shell:not(.login-view) .segment-card,
+  body.desktop-app-shell:not(.login-view) .campaign-card,
+  body.desktop-app-shell:not(.login-view) .notification-card,
+  body.desktop-app-shell:not(.login-view) .product-card,
+  body.desktop-app-shell:not(.login-view) .settings-menu-item,
+  body.desktop-app-shell:not(.login-view) .settings-card {
+    border: 1px solid rgba(43, 79, 106, 0.34);
+    border-radius: 16px;
+    background:
+      radial-gradient(circle at 15% 0, rgba(51, 66, 110, 0.09), transparent 42%),
+      linear-gradient(145deg, rgba(5, 17, 29, 0.97), rgba(3, 13, 23, 0.98));
+    box-shadow: inset 0 1px rgba(255, 255, 255, 0.02), 0 10px 26px rgba(0, 0, 0, 0.18);
+  }
+
+  body.desktop-app-shell:not(.login-view) .panel,
+  body.desktop-app-shell:not(.login-view) .customer-list-card,
+  body.desktop-app-shell:not(.login-view) .order-card,
+  body.desktop-app-shell:not(.login-view) .opportunity-card,
+  body.desktop-app-shell:not(.login-view) .insight-card,
+  body.desktop-app-shell:not(.login-view) .segment-card,
+  body.desktop-app-shell:not(.login-view) .campaign-card,
+  body.desktop-app-shell:not(.login-view) .notification-card,
+  body.desktop-app-shell:not(.login-view) .product-card {
+    padding: 16px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .metric-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .workspace-stat-grid,
+  body.desktop-app-shell:not(.login-view) .workspace-stat-grid.compact {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .metric-card,
+  body.desktop-app-shell:not(.login-view) .metric-card.accent,
+  body.desktop-app-shell:not(.login-view) .metric-card.purple,
+  body.desktop-app-shell:not(.login-view) .metric-card.green,
+  body.desktop-app-shell:not(.login-view) .metric-card.warn {
+    min-height: 100px;
+    padding: 15px;
+    gap: 7px;
+    color: #f4f5f8;
+    background:
+      radial-gradient(circle at 20% 0, rgba(95, 39, 166, 0.16), transparent 50%),
+      linear-gradient(145deg, rgba(7, 18, 31, 0.98), rgba(3, 13, 23, 0.99));
+  }
+
+  body.desktop-app-shell:not(.login-view) .metric-card span {
+    color: #aeb2ba;
+    font-size: 12px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .metric-card strong {
+    color: #f7f7f9;
+    font-size: 24px;
+    line-height: 1.05;
+  }
+
+  body.desktop-app-shell:not(.login-view) input,
+  body.desktop-app-shell:not(.login-view) select,
+  body.desktop-app-shell:not(.login-view) textarea {
+    min-height: 42px;
+    padding: 9px 12px;
+    border: 1px solid rgba(55, 86, 111, 0.45);
+    border-radius: 11px;
+    background: rgba(3, 15, 26, 0.9);
+    color: #f0f1f4;
+    box-shadow: inset 0 1px rgba(255, 255, 255, 0.02);
+  }
+
+  body.desktop-app-shell:not(.login-view) textarea {
+    min-height: 100px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .button,
+  body.desktop-app-shell:not(.login-view) button.button {
+    min-height: 40px;
+    padding: 0 15px;
+    border-radius: 10px;
+    font-size: 13px;
+    box-shadow: none;
+  }
+
+  body.desktop-app-shell:not(.login-view) .button.primary,
+  body.desktop-app-shell:not(.login-view) button.button.primary,
+  body.desktop-app-shell:not(.login-view) .button.secondary,
+  body.desktop-app-shell:not(.login-view) button.button.secondary {
+    border-color: rgba(154, 63, 255, 0.5);
+    background: linear-gradient(135deg, #5b20ae, #37116f);
+    color: #f5efff;
+  }
+
+  body.desktop-app-shell:not(.login-view) .button.ghost,
+  body.desktop-app-shell:not(.login-view) button.button.ghost {
+    border-color: rgba(55, 86, 111, 0.45);
+    background: rgba(4, 17, 28, 0.86);
+    color: #d7d9de;
+  }
+
+  body.desktop-app-shell:not(.login-view) .button.danger,
+  body.desktop-app-shell:not(.login-view) button.button.danger {
+    border-color: rgba(202, 55, 88, 0.34);
+    background: rgba(72, 13, 28, 0.52);
+    color: #ff738a;
+  }
+
+  body.desktop-app-shell:not(.login-view) .compact-action {
+    min-height: 34px;
+    padding: 0 11px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .workspace-table-wrap {
+    padding: 0;
+    overflow: auto;
+  }
+
+  body.desktop-app-shell:not(.login-view) .workspace-table {
+    min-width: 820px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .workspace-table thead th {
+    padding: 12px 14px;
+    background: rgba(3, 14, 24, 0.98);
+    color: #9da5af;
+    border-bottom: 1px solid rgba(49, 80, 106, 0.34);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: none;
+  }
+
+  body.desktop-app-shell:not(.login-view) .workspace-table tbody td {
+    padding: 13px 14px;
+    color: #dfe1e5;
+    background: rgba(5, 17, 28, 0.42);
+    border-bottom: 1px solid rgba(49, 80, 106, 0.22);
+    font-size: 12px;
+    vertical-align: middle;
+  }
+
+  body.desktop-app-shell:not(.login-view) .workspace-table tbody tr:hover td {
+    background: rgba(82, 28, 137, 0.13);
+  }
+
+  body.desktop-app-shell:not(.login-view) .avatar,
+  body.desktop-app-shell:not(.login-view) .product-thumb {
+    border-radius: 12px;
+    background: linear-gradient(145deg, rgba(127, 54, 194, 0.65), rgba(36, 90, 111, 0.72));
+    color: #fff;
+  }
+
+  body.desktop-app-shell:not(.login-view) .badge,
+  body.desktop-app-shell:not(.login-view) .tag {
+    min-height: 26px;
+    padding: 0 9px;
+    border: 1px solid rgba(138, 59, 223, 0.28);
+    background: rgba(91, 25, 153, 0.24);
+    color: #c36cff;
+    font-size: 10px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mini-stat,
+  body.desktop-app-shell:not(.login-view) .order-summary div,
+  body.desktop-app-shell:not(.login-view) .order-grid div,
+  body.desktop-app-shell:not(.login-view) .opportunity-meta,
+  body.desktop-app-shell:not(.login-view) .campaign-meta,
+  body.desktop-app-shell:not(.login-view) .notification-meta {
+    border: 1px solid rgba(46, 78, 103, 0.25);
+    border-radius: 12px;
+    background: rgba(3, 15, 25, 0.72);
+  }
+
+  body.desktop-app-shell:not(.login-view) .empty-state {
+    padding: 24px;
+    border: 1px dashed rgba(63, 94, 119, 0.48);
+    border-radius: 14px;
+    background: rgba(4, 16, 27, 0.72);
+    color: #9299a3;
+  }
+
+  body.desktop-app-shell:not(.login-view) .orders-hero {
+    display: flex;
+    align-items: center;
+  }
+
+  body.desktop-app-shell:not(.login-view) .orders-header-actions,
+  body.desktop-app-shell:not(.login-view) .filters,
+  body.desktop-app-shell:not(.login-view) .products-toolbar {
+    align-items: center;
+  }
+
+  body.desktop-app-shell:not(.login-view) .customers-filters {
+    display: grid;
+    grid-template-columns: minmax(220px, 1.5fr) repeat(3, minmax(150px, 0.8fr)) auto;
+    gap: 10px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .report-grid,
+  body.desktop-app-shell:not(.login-view) .marketing-grid,
+  body.desktop-app-shell:not(.login-view) .two-col,
+  body.desktop-app-shell:not(.login-view) .broadcast-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .opportunity-grid,
+  body.desktop-app-shell:not(.login-view) .product-grid,
+  body.desktop-app-shell:not(.login-view) .campaign-grid,
+  body.desktop-app-shell:not(.login-view) .notification-grid {
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 14px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .opportunity-score {
+    color: #c052ff;
+    font-size: 24px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .bar-row {
+    grid-template-columns: 120px minmax(0, 1fr) 112px;
+    gap: 10px;
+    font-size: 12px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .bar-track,
+  body.desktop-app-shell:not(.login-view) .progress-track {
+    height: 8px;
+    background: rgba(33, 52, 66, 0.72);
+  }
+
+  body.desktop-app-shell:not(.login-view) .bar-fill,
+  body.desktop-app-shell:not(.login-view) .progress-track span {
+    background: linear-gradient(90deg, #6c25c7, #bb4cff);
+  }
+
+  body.desktop-app-shell:not(.login-view) .products-hero-compact {
+    padding: 18px 20px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .products-hero-stats {
+    grid-template-columns: repeat(4, minmax(105px, 1fr)) minmax(140px, 0.9fr);
+    gap: 10px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .products-hero-stats .metric-card,
+  body.desktop-app-shell:not(.login-view) .products-add-button {
+    min-height: 92px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .settings-page-hero {
+    padding: 4px 2px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .settings-menu-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .settings-menu-item {
+    min-height: 94px;
+    grid-template-columns: 48px minmax(0, 1fr) 20px;
+    gap: 13px;
+    padding: 15px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .settings-menu-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 13px;
+    font-size: 20px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .settings-menu-copy {
+    gap: 3px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .settings-menu-copy strong {
+    font-size: 15px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .settings-menu-copy small {
+    font-size: 11px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .settings-menu-chevron {
+    font-size: 24px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .settings-subpage-header {
+    gap: 8px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .settings-subpage-form,
+  body.desktop-app-shell:not(.login-view) .settings-finance-summary,
+  body.desktop-app-shell:not(.login-view) .settings-finance-block {
+    padding: 16px;
+    border-radius: 14px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .settings-finance-equation {
+    display: grid;
+    grid-template-columns: minmax(130px, 1fr) auto minmax(130px, 1fr) auto minmax(130px, 1fr) auto minmax(130px, 1fr);
+    gap: 9px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .settings-finance-equation.ad-adjusted-equation {
+    grid-template-columns: minmax(150px, 1fr) auto minmax(150px, 1fr) auto minmax(150px, 1fr);
+  }
+
+  body.desktop-app-shell:not(.login-view) .settings-finance-pill {
+    min-width: 0;
+    padding: 12px;
+    border-radius: 12px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .settings-finance-operator {
+    font-size: 20px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .settings-cost-row {
+    padding: 10px;
+    border-radius: 12px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .settings-submit-bar {
+    bottom: 10px;
+    padding: 11px 14px;
+    border-radius: 14px;
+    background: rgba(4, 16, 27, 0.94);
+  }
+
+  body.desktop-app-shell:not(.login-view) .dialog form,
+  body.desktop-app-shell:not(.login-view) .dialog > form {
+    border: 1px solid rgba(55, 86, 111, 0.5);
+    border-radius: 18px;
+    background: linear-gradient(145deg, #081725, #04101b);
+  }
+
+  body.desktop-app-shell:not(.login-view) .desktop-dashboard-page,
+  body.desktop-app-shell:not(.login-view) .desktop-dashboard-shell {
+    gap: 14px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .desktop-kpi-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .dashboard-kpi-card {
+    min-height: 166px;
+    padding: 15px;
+    gap: 7px;
+    border-radius: 15px;
+    border-color: rgba(66, 83, 137, 0.42);
+    background:
+      radial-gradient(circle at 20% 0, rgba(104, 37, 177, 0.18), transparent 46%),
+      linear-gradient(145deg, rgba(7, 18, 31, 0.98), rgba(3, 12, 22, 0.99));
+    box-shadow: inset 0 1px rgba(255, 255, 255, 0.02);
+  }
+
+  body.desktop-app-shell:not(.login-view) .dashboard-kpi-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .dashboard-kpi-head > div:first-child {
+    display: block;
+    min-width: 0;
+  }
+
+  body.desktop-app-shell:not(.login-view) .dashboard-kpi-label {
+    min-height: 0;
+    display: block;
+    margin: 0 0 7px;
+    color: #dfe1e6;
+    font-size: 11px;
+    font-weight: 500;
+  }
+
+  body.desktop-app-shell:not(.login-view) .dashboard-kpi-head strong {
+    color: #f6f6f8;
+    font-size: clamp(21px, 1.8vw, 28px);
+    line-height: 1;
+    letter-spacing: -0.04em;
+    white-space: nowrap;
+  }
+
+  body.desktop-app-shell:not(.login-view) .dashboard-icon-shell {
+    width: 42px;
+    height: 42px;
+    flex: 0 0 42px;
+    border-radius: 11px;
+    background: rgba(101, 37, 167, 0.2);
+  }
+
+  body.desktop-app-shell:not(.login-view) .dashboard-kpi-foot {
+    display: flex;
+    align-items: center;
+    flex-direction: row;
+    gap: 5px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .dashboard-kpi-foot .trend,
+  body.desktop-app-shell:not(.login-view) .dashboard-kpi-foot small {
+    font-size: 9px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .dashboard-kpi-chart-wrap {
+    min-height: 38px;
+    margin-top: auto;
+  }
+
+  body.desktop-app-shell:not(.login-view) .dashboard-sparkline {
+    height: 38px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .grow-opportunity-panel {
+    padding: 16px;
+    border: 1px solid rgba(43, 79, 106, 0.38);
+    border-radius: 16px;
+    background:
+      radial-gradient(circle at 16% 0, rgba(81, 32, 147, 0.12), transparent 38%),
+      linear-gradient(145deg, rgba(5, 17, 29, 0.98), rgba(3, 12, 22, 0.99));
+  }
+
+  body.desktop-app-shell:not(.login-view) .grow-opportunity-title {
+    min-height: 48px;
+    margin-bottom: 10px;
+    gap: 10px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .grow-target-icon {
+    width: 36px;
+    height: 36px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .grow-opportunity-title h2 {
+    font-size: 18px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .grow-opportunity-title p {
+    font-size: 11px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .grow-view-all {
+    min-width: 92px;
+    min-height: 38px;
+    border-radius: 9px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .grow-opportunity-head,
+  body.desktop-app-shell:not(.login-view) .grow-opportunity-row {
+    grid-template-columns: 1.25fr 1.35fr 0.65fr 0.72fr 0.8fr;
+    gap: 12px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .grow-opportunity-head {
+    min-height: 40px;
+    padding: 0 12px;
+    border-radius: 9px;
+    font-size: 10px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .grow-opportunity-row {
+    min-height: 62px;
+    padding: 7px 12px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .grow-avatar {
+    width: 38px;
+    height: 38px;
+    flex-basis: 38px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .grow-score {
+    width: 42px;
+    height: 42px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .grow-score::before {
+    width: 36px;
+    height: 36px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .grow-follow-button {
+    min-width: 84px;
+    min-height: 36px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .grow-chat-button {
+    width: 36px;
+    height: 36px;
+  }
+}
+
+@media (min-width: 821px) and (max-width: 1180px) {
+  body.desktop-app-shell:not(.login-view) .app-shell {
+    grid-template-columns: 214px minmax(0, 1fr);
+  }
+
+  body.desktop-app-shell:not(.login-view) .main-panel {
+    max-width: calc(100vw - 214px);
+    padding-inline: 18px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .header-profile-trigger {
+    max-width: 175px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .desktop-kpi-grid,
+  body.desktop-app-shell:not(.login-view) .metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  body.desktop-app-shell:not(.login-view) .products-hero-compact {
+    display: grid;
+  }
+
+  body.desktop-app-shell:not(.login-view) .products-hero-stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  body.desktop-app-shell:not(.login-view) .customers-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  body.desktop-app-shell:not(.login-view) .settings-finance-equation,
+  body.desktop-app-shell:not(.login-view) .settings-finance-equation.ad-adjusted-equation {
+    display: flex;
+  }
+}
