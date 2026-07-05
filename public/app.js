@@ -2198,7 +2198,7 @@ function renderDesktopDashboard(viewModel) {
       <div class="desktop-reference-dashboard-shell">
         <section class="desktop-reference-hero-grid">
           <article class="desktop-reference-growth-banner">
-            <img src="/mobile-home-hero.png?v=20260703-mobile-hero-clean" alt="จัดการธุรกิจให้เติบโต ไปกับ Growup Pilot" loading="eager" fetchpriority="high">
+            <img src="/desktop-dashboard-hero.png?v=20260706-attached" alt="จัดการธุรกิจให้เติบโต ไปกับ Growup Pilot" loading="eager" fetchpriority="high">
           </article>
           <article class="desktop-reference-onboarding">
             <div class="desktop-reference-onboarding-title">

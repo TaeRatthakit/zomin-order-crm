@@ -1,4 +1,4 @@
-const CACHE_NAME = "growup-pilot-pwa-v72";
+const CACHE_NAME = "growup-pilot-pwa-v73";
 const CORE_ASSETS = [
   "/",
   "/index.html",
@@ -8,8 +8,9 @@ const CORE_ASSETS = [
   "/favicon-32x32.png?v=20260701-favicon-restore",
   "/favicon-48x48.png?v=20260701-favicon-restore",
   "/apple-touch-icon.png?v=20260702-ios-enhanced-fullbleed",
-  "/styles.css?v=20260706-dashboard-recreate",
-  "/app.js?v=20260706-initial-loader-v2",
+  "/styles.css?v=20260706-attached-desktop-hero",
+  "/app.js?v=20260706-attached-desktop-hero",
+  "/desktop-dashboard-hero.png?v=20260706-attached",
   "/mobile-home-hero.png",
   "/mobile-home-avatar.png",
   "/import-worker.js",

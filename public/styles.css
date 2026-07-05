@@ -11834,7 +11834,8 @@ small,
   }
 
   body.desktop-dashboard-view:not(.login-view) .desktop-reference-growth-banner img {
-    object-fit: fill;
+    object-fit: contain;
+    object-position: center;
   }
 
   body.desktop-dashboard-view:not(.login-view) .desktop-reference-onboarding {
