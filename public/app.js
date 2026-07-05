@@ -2242,6 +2242,116 @@ function mobileBusinessMenuRow(page, title, description, icon, tone) {
   `;
 }
 
+function mobileSetupWizardState() {
+  const products = normalizeProductRecords();
+  const productCosts = normalizeProductCostEntries(app.data.settings || {});
+  const steps = [
+    {
+      title: "สร้างสินค้า",
+      description: "เพิ่มสินค้าของคุณในระบบ เพื่อจัดการสต๊อกและยอดขาย",
+      icon: "box",
+      page: "products",
+      action: "ไปที่จัดการสินค้า",
+      complete: products.length > 0
+    },
+    {
+      title: "ตั้งต้นทุนสินค้า",
+      checklistTitle: "ตั้งต้นทุน",
+      description: "กำหนดต้นทุนสินค้าเพื่อคำนวณกำไรได้แม่นยำ",
+      icon: "chart",
+      page: "finance",
+      action: "ไปที่ต้นทุนและกำไร",
+      complete: productCosts.some(item => item.enabled && Number(item.costPerJar) > 0)
+    },
+    {
+      title: "สร้างแพ็กขาย",
+      description: "สร้างแพ็กเกจและโปรโมชันสำหรับสินค้าของคุณ",
+      icon: "briefcase",
+      page: "products",
+      action: "ไปที่แพ็กขาย",
+      complete: products.some(product => product.salesPackages.length > 0)
+    },
+    {
+      title: "เชื่อม LINE OA",
+      description: "เตรียม LINE Official Account เพื่อรับออเดอร์อัตโนมัติ",
+      icon: "chat",
+      action: "การเชื่อมต่อจริง Coming Soon",
+      guide: "วิดีโอแนะนำการตั้งค่า LINE OA",
+      complete: false,
+      comingSoon: true
+    },
+    {
+      title: "เพิ่ม BOT เข้ากลุ่ม LINE",
+      checklistTitle: "เพิ่ม BOT เข้ากลุ่ม",
+      description: "เพิ่ม BOT เข้ากลุ่ม LINE ที่ใช้รับออเดอร์",
+      icon: "users",
+      action: "การเพิ่ม BOT จริง Coming Soon",
+      guide: "วิดีโอแนะนำการเพิ่ม BOT เข้ากลุ่ม",
+      complete: false,
+      comingSoon: true
+    },
+    {
+      title: "ทดสอบรับออเดอร์อัตโนมัติ",
+      description: "ทดลองส่งข้อความออเดอร์ เพื่อเตรียมตรวจสอบการนำเข้า",
+      icon: "send",
+      action: "Coming Soon",
+      guide: "ตัวอย่างข้อความออเดอร์",
+      complete: false,
+      comingSoon: true
+    }
+  ];
+  const completeCount = steps.filter(step => step.complete).length;
+  return {
+    steps,
+    completeCount,
+    percent: Math.round((completeCount / steps.length) * 100)
+  };
+}
+
+function mobileSetupStatusIcon(complete) {
+  return complete
+    ? '<span class="mobile-setup-status complete" aria-label="เสร็จแล้ว">✓</span>'
+    : '<span class="mobile-setup-status pending" aria-label="รอตั้งค่า">○</span>';
+}
+
+function renderMobileSetupCard() {
+  const setup = mobileSetupWizardState();
+  return `
+    <article class="mobile-setup-card">
+      <div class="mobile-setup-card-glow" aria-hidden="true">${iconSvg("send")}</div>
+      <div class="mobile-setup-card-heading">
+        <span>เริ่มต้นใช้งาน</span>
+        <h2>Growup Pilot</h2>
+        <p>ตั้งค่าระบบให้พร้อมรับออเดอร์อัตโนมัติ</p>
+      </div>
+      <div class="mobile-setup-summary">
+        <div class="mobile-setup-percent" style="--setup-progress: ${setup.percent * 3.6}deg">
+          <strong>${setup.percent}%</strong>
+          <small>พร้อมใช้งาน</small>
+        </div>
+        <div class="mobile-setup-progress-copy">
+          <span>เสร็จแล้ว ${setup.completeCount} จาก ${setup.steps.length} ขั้นตอน</span>
+          <div class="mobile-setup-progress-track" role="progressbar" aria-label="ความคืบหน้าการตั้งค่า" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${setup.percent}">
+            <i style="width: ${setup.percent}%"></i>
+          </div>
+        </div>
+      </div>
+      <ol class="mobile-setup-checklist">
+        ${setup.steps.map((step, index) => `
+          <li>
+            <span class="mobile-setup-number">${index + 1}</span>
+            <span>${escapeHtml(step.checklistTitle || step.title)}</span>
+            ${mobileSetupStatusIcon(step.complete)}
+          </li>
+        `).join("")}
+      </ol>
+      <button class="mobile-setup-primary" type="button" data-business-page="setupWizard">
+        <span>เริ่มตั้งค่า</span><span aria-hidden="true">›</span>
+      </button>
+    </article>
+  `;
+}
+
 function renderMobileBusinessMain() {
   const customers = app.data.customers || [];
   const orders = app.data.orders || [];
@@ -2252,15 +2362,7 @@ function renderMobileBusinessMain() {
   const todayFinance = profitBreakdownForOrders(orders.filter(order => order.date === todayISO()));
   return `
     <section class="mobile-business-page">
-      <article class="mobile-business-profile-card">
-        <div class="mobile-business-store-mark">${iconSvg("briefcase")}</div>
-        <div class="mobile-business-profile-copy">
-          <div class="mobile-business-name-line"><h2>Growup Pilot</h2><span>ธุรกิจของคุณ</span></div>
-          <p>ประเภทธุรกิจ: ${escapeHtml(app.data.settings?.businessType || "ยังไม่ได้ระบุ")}</p>
-          <p>เริ่มใช้งาน: ${startDate ? formatDate(startDate) : "ยังไม่มีข้อมูล"}</p>
-        </div>
-        <button class="mobile-business-edit" type="button" data-business-page="system">${iconSvg("settings")}<span>แก้ไขข้อมูล</span></button>
-      </article>
+      ${renderMobileSetupCard()}
 
       <section class="mobile-business-section">
         <h2>จัดการข้อมูล</h2>
@@ -2318,6 +2420,62 @@ function renderMobileBusinessMain() {
           <article class="cyan">${mobileBusinessIcon("briefcase")}<span>ยอดขายรวม</span><strong>${money(totalSales)}</strong><small>บาท</small></article>
         </div>
       </section>
+    </section>
+  `;
+}
+
+function renderMobileSetupWizard() {
+  const setup = mobileSetupWizardState();
+  return `
+    <section class="mobile-business-page mobile-business-subpage mobile-setup-wizard-page">
+      <header class="mobile-setup-wizard-header">
+        <button class="mobile-business-back" type="button" data-business-page="main" aria-label="กลับหน้าจัดการธุรกิจ">${iconSvg("arrow")}</button>
+        <div>
+          <span>Setup Wizard</span>
+          <h2>เริ่มต้นใช้งาน</h2>
+          <p>ตั้งค่าระบบให้พร้อมรับออเดอร์อัตโนมัติ</p>
+        </div>
+      </header>
+      <section class="mobile-setup-overview">
+        <div>
+          <span>ความคืบหน้า</span>
+          <strong>${setup.percent}%</strong>
+        </div>
+        <p>เสร็จแล้ว ${setup.completeCount} จาก ${setup.steps.length} ขั้นตอน</p>
+        <div class="mobile-setup-progress-track" role="progressbar" aria-label="ความคืบหน้าการตั้งค่า" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${setup.percent}">
+          <i style="width: ${setup.percent}%"></i>
+        </div>
+      </section>
+      <ol class="mobile-setup-step-list">
+        ${setup.steps.map((step, index) => `
+          <li class="${step.complete ? "complete" : "pending"}">
+            <span class="mobile-setup-step-number">${index + 1}</span>
+            <article class="mobile-setup-step-card">
+              <div class="mobile-setup-step-icon">${iconSvg(step.icon)}</div>
+              <div class="mobile-setup-step-copy">
+                <h3>${escapeHtml(step.title)}</h3>
+                <p>${escapeHtml(step.description)}</p>
+                <span class="mobile-setup-step-badge">${step.complete ? "เสร็จสิ้น" : step.comingSoon ? "Coming Soon" : "รอตั้งค่า"}</span>
+              </div>
+              ${step.page ? `
+                <button type="button" data-business-page="${escapeHtml(step.page)}">${escapeHtml(step.action)}</button>
+              ` : `
+                <button type="button" disabled>${escapeHtml(step.action)}</button>
+              `}
+              ${step.guide ? `
+                <div class="mobile-setup-guide-placeholder" aria-label="${escapeHtml(step.guide)}">
+                  <span>${iconSvg(step.icon)}</span>
+                  <span><strong>${escapeHtml(step.guide)}</strong><small>พื้นที่วิดีโอ / คู่มือ — Coming Soon</small></span>
+                </div>
+              ` : ""}
+            </article>
+          </li>
+        `).join("")}
+      </ol>
+      <aside class="mobile-setup-coming-soon-note">
+        ${iconSvg("stars")}
+        <p><strong>ฟีเจอร์เชื่อมต่อและทดสอบจริงกำลังพัฒนา</strong><span>หน้านี้เป็น UI สำหรับแนะนำขั้นตอนเท่านั้น ยังไม่มีการเชื่อม LINE API</span></p>
+      </aside>
     </section>
   `;
 }
@@ -2848,6 +3006,7 @@ function renderMobileBusinessBackup() {
 function renderMobileBusinessManagement() {
   const renderers = {
     main: renderMobileBusinessMain,
+    setupWizard: renderMobileSetupWizard,
     customers: renderMobileBusinessCustomers,
     customerDetail: renderMobileBusinessCustomerDetail,
     products: renderMobileBusinessProducts,
