@@ -540,10 +540,6 @@ function isMobileViewport() {
   return window.matchMedia("(max-width: 820px)").matches;
 }
 
-function isMobileStartupViewport() {
-  return window.matchMedia("(max-width: 780px)").matches;
-}
-
 function waitForImageElement(image) {
   if (image.complete) return Promise.resolve();
   return new Promise(resolve => {
@@ -558,22 +554,19 @@ function waitForTwoFrames() {
   });
 }
 
-async function finishMobileStartup() {
+async function finishAppStartup() {
   const root = document.documentElement;
-  const loader = document.querySelector("#mobileStartupLoader");
-  if (!isMobileStartupViewport() || !root.classList.contains("mobile-startup-pending") || !loader) return;
+  const loader = document.querySelector("#appStartupLoader");
+  if (!root.classList.contains("app-startup-pending") || !loader) return;
 
-  const imageTasks = [...document.images].map(waitForImageElement);
-  await Promise.allSettled([
-    document.fonts?.ready || Promise.resolve(),
-    ...imageTasks
-  ]);
+  const logo = loader.querySelector("img");
+  if (logo) await waitForImageElement(logo);
   await waitForTwoFrames();
-  await new Promise(resolve => window.setTimeout(resolve, 220));
 
+  root.classList.add("app-startup-revealing");
   loader.classList.add("is-exiting");
-  await new Promise(resolve => window.setTimeout(resolve, 320));
-  root.classList.remove("mobile-startup-pending");
+  await new Promise(resolve => window.setTimeout(resolve, 300));
+  root.classList.remove("app-startup-pending", "app-startup-revealing");
   loader.remove();
 }
 
@@ -7813,7 +7806,7 @@ async function startApp() {
   } catch (error) {
     els.content.innerHTML = `<div class="empty-state">โหลดข้อมูลไม่สำเร็จ: ${escapeHtml(error.message)}</div>`;
   } finally {
-    await finishMobileStartup();
+    await finishAppStartup();
   }
 }
 
