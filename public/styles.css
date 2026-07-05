@@ -11818,3 +11818,347 @@ small,
     min-width: 160px;
   }
 }
+
+/* Desktop Dashboard recreate pass.
+   The reference proportions are applied as one coherent layout system and
+   remain isolated from mobile and every non-dashboard page. */
+@media (min-width: 1280px) {
+  body.desktop-dashboard-view:not(.login-view) .desktop-reference-dashboard-shell {
+    gap: 18px;
+  }
+
+  body.desktop-dashboard-view:not(.login-view) .desktop-reference-hero-grid {
+    height: clamp(260px, 18vw, 292px);
+    grid-template-columns: minmax(0, 3fr) minmax(390px, 2fr);
+    gap: 18px;
+  }
+
+  body.desktop-dashboard-view:not(.login-view) .desktop-reference-growth-banner img {
+    object-fit: fill;
+  }
+
+  body.desktop-dashboard-view:not(.login-view) .desktop-reference-onboarding {
+    padding: 24px 34px 18px 38px;
+  }
+
+  body.desktop-dashboard-view:not(.login-view) .desktop-reference-onboarding-title span {
+    font-size: 25px;
+  }
+
+  body.desktop-dashboard-view:not(.login-view) .desktop-reference-onboarding-title strong {
+    font-size: 29px;
+  }
+
+  body.desktop-dashboard-view:not(.login-view) .desktop-reference-rocket {
+    top: 2px;
+    right: 10px;
+    width: 200px;
+    height: 170px;
+  }
+
+  body.desktop-dashboard-view:not(.login-view) .desktop-reference-onboarding-summary {
+    left: 34px;
+    right: 34px;
+    bottom: 16px;
+    grid-template-columns: 132px minmax(0, 1fr);
+    gap: 26px;
+  }
+
+  body.desktop-dashboard-view:not(.login-view) .desktop-reference-setup-ring {
+    width: 132px;
+    height: 132px;
+  }
+
+  body.desktop-dashboard-view:not(.login-view) .desktop-reference-setup-ring strong {
+    font-size: 31px;
+  }
+
+  body.desktop-dashboard-view:not(.login-view) .desktop-reference-setup-ring small {
+    font-size: 11px;
+  }
+
+  body.desktop-dashboard-view:not(.login-view) .desktop-reference-setup-copy {
+    gap: 14px;
+  }
+
+  body.desktop-dashboard-view:not(.login-view) .desktop-reference-setup-copy > span {
+    font-size: 14px;
+  }
+
+  body.desktop-dashboard-view:not(.login-view) .desktop-reference-setup-track {
+    height: 12px;
+  }
+
+  body.desktop-dashboard-view:not(.login-view) .desktop-reference-setup-copy button {
+    min-height: 48px;
+    border-radius: 10px;
+    font-size: 14px;
+  }
+
+  body.desktop-dashboard-view:not(.login-view) .desktop-reference-kpi-grid {
+    height: clamp(154px, 10vw, 168px);
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  body.desktop-dashboard-view:not(.login-view) .desktop-reference-kpi {
+    min-height: 0;
+    grid-template-columns: 60px minmax(0, 1fr);
+    gap: 14px;
+    padding: 18px 16px;
+    border-radius: 14px;
+  }
+
+  body.desktop-dashboard-view:not(.login-view) .desktop-reference-kpi-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 12px;
+  }
+
+  body.desktop-dashboard-view:not(.login-view) .desktop-reference-kpi-icon .metric-icon-svg {
+    width: 35px;
+    height: 35px;
+  }
+
+  body.desktop-dashboard-view:not(.login-view) .desktop-reference-kpi-copy {
+    gap: 4px;
+  }
+
+  body.desktop-dashboard-view:not(.login-view) .desktop-reference-kpi-copy > span {
+    font-size: 13px;
+  }
+
+  body.desktop-dashboard-view:not(.login-view) .desktop-reference-kpi-copy strong {
+    margin: 4px 0 5px;
+    font-size: clamp(23px, 1.7vw, 29px);
+  }
+
+  body.desktop-dashboard-view:not(.login-view) .desktop-reference-kpi-copy small {
+    font-size: 12px;
+  }
+
+  body.desktop-dashboard-view:not(.login-view) .desktop-reference-kpi-copy em {
+    font-size: 11px;
+  }
+
+  body.desktop-dashboard-view:not(.login-view) .desktop-reference-insight-grid {
+    height: clamp(330px, 21vw, 360px);
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) minmax(0, 1.25fr);
+    gap: 14px;
+  }
+
+  body.desktop-dashboard-view:not(.login-view) .desktop-reference-card {
+    min-height: 0;
+    padding: 17px 18px;
+    border-radius: 15px;
+  }
+
+  body.desktop-dashboard-view:not(.login-view) .desktop-reference-card-head {
+    min-height: 36px;
+  }
+
+  body.desktop-dashboard-view:not(.login-view) .desktop-reference-card-head h2 {
+    font-size: 17px;
+  }
+
+  body.desktop-dashboard-view:not(.login-view) .desktop-reference-card-head h2 small {
+    font-size: 12px;
+  }
+
+  body.desktop-dashboard-view:not(.login-view) .desktop-reference-card-head > button {
+    min-height: 34px;
+    padding-inline: 12px;
+    font-size: 11px;
+  }
+
+  body.desktop-dashboard-view:not(.login-view) .desktop-reference-channel-chart-body {
+    height: calc(100% - 36px);
+    grid-template-columns: 206px minmax(0, 1fr);
+    gap: 16px;
+  }
+
+  body.desktop-dashboard-view:not(.login-view) .desktop-reference-donut {
+    width: 206px;
+    height: 206px;
+  }
+
+  body.desktop-dashboard-view:not(.login-view) .desktop-reference-donut::before {
+    width: 130px;
+    height: 130px;
+  }
+
+  body.desktop-dashboard-view:not(.login-view) .desktop-reference-donut strong {
+    font-size: 22px;
+  }
+
+  body.desktop-dashboard-view:not(.login-view) .desktop-reference-donut small {
+    font-size: 10px;
+  }
+
+  body.desktop-dashboard-view:not(.login-view) .desktop-reference-chart-legend > div {
+    min-height: 44px;
+    grid-template-columns: minmax(0, 1fr) 34px 82px;
+    gap: 6px;
+    font-size: 12px;
+  }
+
+  body.desktop-dashboard-view:not(.login-view) .desktop-reference-chart-legend i {
+    width: 14px;
+    height: 14px;
+    flex-basis: 14px;
+  }
+
+  body.desktop-dashboard-view:not(.login-view) .desktop-reference-chart-legend b,
+  body.desktop-dashboard-view:not(.login-view) .desktop-reference-chart-legend strong {
+    font-size: 11px;
+  }
+
+  body.desktop-dashboard-view:not(.login-view) .desktop-reference-channel-list {
+    margin-top: 8px;
+  }
+
+  body.desktop-dashboard-view:not(.login-view) .desktop-reference-channel-list > div {
+    min-height: 54px;
+  }
+
+  body.desktop-dashboard-view:not(.login-view) .desktop-reference-channel-list > div > span,
+  body.desktop-dashboard-view:not(.login-view) .desktop-reference-channel-list > div > strong {
+    font-size: 13px;
+  }
+
+  body.desktop-dashboard-view:not(.login-view) .desktop-reference-channel-icon {
+    width: 36px;
+    height: 36px;
+    flex-basis: 36px;
+    font-size: 15px;
+  }
+
+  body.desktop-dashboard-view:not(.login-view) .desktop-reference-customer-stats {
+    gap: 12px;
+    margin-top: 9px;
+  }
+
+  body.desktop-dashboard-view:not(.login-view) .desktop-reference-customer-stats > button {
+    min-height: 122px;
+    grid-template-columns: 56px minmax(0, 1fr);
+    gap: 11px;
+    padding: 14px 12px;
+  }
+
+  body.desktop-dashboard-view:not(.login-view) .desktop-reference-customer-stats > button > span:first-child {
+    width: 56px;
+    height: 56px;
+  }
+
+  body.desktop-dashboard-view:not(.login-view) .desktop-reference-customer-stats .nav-icon {
+    width: 32px;
+    height: 32px;
+  }
+
+  body.desktop-dashboard-view:not(.login-view) .desktop-reference-customer-stats small {
+    font-size: 12px;
+  }
+
+  body.desktop-dashboard-view:not(.login-view) .desktop-reference-customer-stats strong {
+    font-size: 26px;
+  }
+
+  body.desktop-dashboard-view:not(.login-view) .desktop-reference-customer-stats em {
+    font-size: 11px;
+  }
+
+  body.desktop-dashboard-view:not(.login-view) .desktop-reference-vip-head {
+    min-height: 48px;
+  }
+
+  body.desktop-dashboard-view:not(.login-view) .desktop-reference-vip-head h3 {
+    font-size: 15px;
+  }
+
+  body.desktop-dashboard-view:not(.login-view) .desktop-reference-vip-head button {
+    font-size: 11px;
+  }
+
+  body.desktop-dashboard-view:not(.login-view) .desktop-reference-vip-grid {
+    gap: 9px;
+  }
+
+  body.desktop-dashboard-view:not(.login-view) .desktop-reference-vip-grid button {
+    min-height: 78px;
+    grid-template-columns: 44px minmax(0, 1fr);
+    gap: 8px;
+    padding: 9px;
+  }
+
+  body.desktop-dashboard-view:not(.login-view) .desktop-reference-vip-grid button > span:first-child {
+    width: 44px;
+    height: 44px;
+    font-size: 23px;
+  }
+
+  body.desktop-dashboard-view:not(.login-view) .desktop-reference-vip-grid small {
+    font-size: 11px;
+  }
+
+  body.desktop-dashboard-view:not(.login-view) .desktop-reference-vip-grid strong {
+    font-size: 13px;
+  }
+
+  body.desktop-dashboard-view:not(.login-view) .desktop-reference-quick-grid {
+    height: clamp(120px, 6.67vw, 128px);
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  body.desktop-dashboard-view:not(.login-view) .desktop-reference-quick-action {
+    height: 100%;
+    min-height: 0;
+    grid-template-columns: 60px minmax(0, 1fr);
+    gap: 12px;
+    padding: 15px 14px;
+    border-radius: 13px;
+  }
+
+  body.desktop-dashboard-view:not(.login-view) .desktop-reference-quick-action > span:last-child {
+    gap: 6px;
+  }
+
+  body.desktop-dashboard-view:not(.login-view) .desktop-reference-quick-action strong {
+    font-size: 13px;
+  }
+
+  body.desktop-dashboard-view:not(.login-view) .desktop-reference-quick-action small {
+    font-size: 10.5px;
+    line-height: 1.45;
+  }
+
+  body.desktop-dashboard-view:not(.login-view) .desktop-reference-quick-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 11px;
+    font-size: 31px;
+  }
+
+  body.desktop-dashboard-view:not(.login-view) .desktop-reference-quick-icon .nav-icon {
+    width: 33px;
+    height: 33px;
+  }
+}
+
+@media (min-width: 1700px) {
+  body.desktop-dashboard-view:not(.login-view) .desktop-reference-quick-action {
+    grid-template-columns: 66px minmax(0, 1fr);
+    padding-inline: 16px;
+  }
+
+  body.desktop-dashboard-view:not(.login-view) .desktop-reference-quick-icon {
+    width: 66px;
+    height: 66px;
+    font-size: 34px;
+  }
+
+  body.desktop-dashboard-view:not(.login-view) .desktop-reference-quick-icon .nav-icon {
+    width: 36px;
+    height: 36px;
+  }
+}
