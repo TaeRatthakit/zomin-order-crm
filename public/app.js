@@ -829,6 +829,7 @@ function updateShell() {
   document.body.classList.toggle("mobile-orders-view", isMobileViewport() && app.view === "orders");
   document.body.classList.toggle("mobile-reports-view", isMobileViewport() && app.view === "reports");
   document.body.classList.toggle("mobile-opportunities-view", isMobileViewport() && app.view === "opportunities");
+  document.body.classList.toggle("desktop-dashboard-view", !isMobileViewport() && app.view === "dashboard");
   if (!els.headerProfile) return;
   if (els.workDateDisplay) {
     const dateValue = els.workDate?.value || app.data?.summary?.selectedDate || todayISO();
@@ -1007,6 +1008,7 @@ function dashboardCardIcon(kind) {
     sales: '<path d="M12 3v18"/><path d="M16.5 7.5c0-1.9-2-3.5-4.5-3.5S7.5 5.6 7.5 7.5 9.5 11 12 11s4.5 1.6 4.5 3.5-2 3.5-4.5 3.5-4.5-1.6-4.5-3.5"/>',
     wallet: '<path d="M4 7.5h13.5A2.5 2.5 0 0 1 20 10v8a2 2 0 0 1-2 2H5a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3h11v3.5"/><path d="M16 12h5v4h-5a2 2 0 0 1 0-4Z"/>',
     bag: '<path d="M5 8h14l1 13H4L5 8Z"/><path d="M9 10V6a3 3 0 0 1 6 0v4"/>',
+    box: '<path d="M21 8.5 12 13 3 8.5"/><path d="M3 8.5 12 3l9 5.5v7L12 21l-9-5.5z"/><path d="M12 13v8"/>',
     database: '<ellipse cx="12" cy="5" rx="7" ry="3"/><path d="M5 5v6c0 1.7 3.1 3 7 3s7-1.3 7-3V5"/><path d="M5 11v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6"/>',
     calendar: '<rect x="3.5" y="5.5" width="17" height="15" rx="3"/><path d="M7 3.5v4"/><path d="M17 3.5v4"/><path d="M3.5 10.5h17"/>',
     orders: '<rect x="3" y="3" width="18" height="18" rx="4"/><path d="M8 7.5h8"/><path d="M8 12h8"/><path d="M8 16.5h5"/>',
@@ -2092,32 +2094,228 @@ function desktopOpportunityTable(rows) {
   `;
 }
 
+function desktopDashboardChannelRows(selectedDate) {
+  const selectedMonth = String(selectedDate || todayISO()).slice(0, 7);
+  const colors = ["#0878ff", "#15d67a", "#ff9f0a", "#8e2cff", "#969dd8"];
+  const orders = (app.data.orders || []).filter(order => String(order.date || "").startsWith(selectedMonth));
+  const map = new Map();
+  for (const order of orders) {
+    const channel = summarizeSalesChannel(displayOrderChannel(order));
+    if (!map.has(channel)) map.set(channel, { name: channel, revenue: 0, count: 0 });
+    const row = map.get(channel);
+    row.revenue += Number(order.amount || 0);
+    row.count += 1;
+  }
+  const sorted = [...map.values()].sort((a, b) => b.revenue - a.revenue);
+  const primary = sorted.slice(0, 4);
+  if (sorted.length > 4) {
+    primary.push(sorted.slice(4).reduce((result, row) => ({
+      name: "อื่นๆ",
+      revenue: result.revenue + row.revenue,
+      count: result.count + row.count
+    }), { name: "อื่นๆ", revenue: 0, count: 0 }));
+  }
+  const total = primary.reduce((sum, row) => sum + row.revenue, 0);
+  return primary.map((row, index) => ({
+    ...row,
+    color: colors[index % colors.length],
+    percent: total ? row.revenue / total * 100 : 0
+  }));
+}
+
+function desktopDashboardDonutGradient(rows) {
+  if (!rows.length) return "#233249 0% 100%";
+  let offset = 0;
+  return rows.map(row => {
+    const start = offset;
+    offset += row.percent;
+    return `${row.color} ${start.toFixed(2)}% ${offset.toFixed(2)}%`;
+  }).join(", ");
+}
+
+function desktopReferenceKpiCard({ label, value, deltaText, tone, icon, hint }) {
+  const trend = String(deltaText).startsWith("-") ? "down" : "up";
+  return `
+    <article class="desktop-reference-kpi tone-${escapeHtml(tone)}">
+      <span class="desktop-reference-kpi-icon" aria-hidden="true">${dashboardCardIcon(icon)}</span>
+      <div class="desktop-reference-kpi-copy">
+        <span>${escapeHtml(label)}</span>
+        <strong>${escapeHtml(value)}</strong>
+        <small class="${trend}">${trend === "down" ? "↓" : "↑"} ${escapeHtml(deltaText.replace(/^[+-]/, ""))}</small>
+        <em>${escapeHtml(hint)}</em>
+      </div>
+    </article>
+  `;
+}
+
+function desktopReferenceChannelIcon(name, index) {
+  const normalized = String(name || "").toLowerCase();
+  const label = normalized.includes("facebook") ? "f"
+    : normalized.includes("line") ? "LINE"
+      : normalized.includes("โทร") ? "☎"
+        : normalized.includes("ติดตาม") ? "◎"
+          : "•";
+  return `<span class="desktop-reference-channel-icon channel-${index + 1}" aria-hidden="true">${label}</span>`;
+}
+
+function desktopReferenceQuickActions() {
+  const actions = [
+    { title: "สร้างออเดอร์", detail: "สร้างออเดอร์ใหม่ได้อย่างรวดเร็ว", icon: "spark", tone: "purple", attribute: "data-open-order" },
+    { title: "จัดการสินค้า", detail: "เพิ่ม แก้ไข และจัดการสินค้าในร้าน", icon: "box", tone: "orange", view: "products" },
+    { title: "รายงาน", detail: "ดูรายงานและสถิติธุรกิจแบบละเอียด", icon: "chart", tone: "blue", view: "reports" },
+    { title: "โอกาสทำเงิน", detail: "ติดตามและจัดการโอกาสการขาย", icon: "spark", tone: "green", view: "opportunities" },
+    { title: "เพิ่มลูกค้า", detail: "เพิ่มลูกค้าใหม่และติดต่ออย่างมีประสิทธิภาพ", icon: "users", tone: "violet", view: "customers" },
+    { title: "การตลาด", detail: "สร้างแคมเปญและโปรโมทธุรกิจ", icon: "send", tone: "pink", view: "marketing" }
+  ];
+  return actions.map(action => `
+    <button class="desktop-reference-quick-action tone-${escapeHtml(action.tone)}" type="button"
+      ${action.view ? `data-view-shortcut="${escapeHtml(action.view)}"` : action.attribute}>
+      <span class="desktop-reference-quick-icon">${iconSvg(action.icon)}</span>
+      <span><strong>${escapeHtml(action.title)}</strong><small>${escapeHtml(action.detail)}</small></span>
+    </button>
+  `).join("");
+}
+
 function renderDesktopDashboard(viewModel) {
-  const { s, estimatedProfitToday, revenueOpportunity } = viewModel;
-  const customers = desktopCustomerOpportunities();
-  const monthlyOrders = Number(s.ordersThisMonth || viewModel.monthToDateOrders.length || 0);
+  const { s, estimatedProfitToday, revenueOpportunity, todaysOrders } = viewModel;
+  const selectedMonth = String(s.selectedDate || todayISO()).slice(0, 7);
+  const channelRows = desktopDashboardChannelRows(s.selectedDate);
+  const monthOrders = (app.data.orders || []).filter(order => String(order.date || "").startsWith(selectedMonth));
+  const monthCustomerIds = new Set(monthOrders.map(order => order.customerId));
+  const monthCustomers = (app.data.customers || []).filter(customer => monthCustomerIds.has(customer.id));
+  const newCustomers = monthCustomers.filter(customer => String(customer.firstPurchaseDate || customer.createdAt || "").startsWith(selectedMonth)).length;
+  const repeatCustomers = monthCustomers.filter(customer => Number(customer.purchaseCount || 0) > 1).length;
+  const vipCounts = {
+    VIP: (app.data.customers || []).filter(customer => customer.vipLevel === "VIP").length,
+    VVIP: (app.data.customers || []).filter(customer => customer.vipLevel === "VVIP").length,
+    "SUPER VIP": (app.data.customers || []).filter(customer => customer.vipLevel === "SUPER VIP").length
+  };
+  const monthlySales = channelRows.reduce((sum, row) => sum + row.revenue, 0);
+  const unitsSoldToday = todaysOrders.reduce((sum, order) => sum + Number(order.jars || 0), 0);
+  const setup = mobileSetupWizardState();
+  const yesterdaySales = Number(s.salesToday || 0) - Number(viewModel.salesDelta.diff || 0);
+  const yesterdayOrders = Number(s.ordersToday || 0) - Number(viewModel.ordersDelta.diff || 0);
+  const yesterdayProfit = Number(estimatedProfitToday || 0) - Number(viewModel.profitDelta.diff || 0);
+  const previousOpportunity = Number(revenueOpportunity || 0) - Number(viewModel.opportunityDelta.diff || 0);
+  const previousUnits = (app.data.orders || [])
+    .filter(order => order.date === addDaysISO(s.selectedDate, -1))
+    .reduce((sum, order) => sum + Number(order.jars || 0), 0);
   els.content.innerHTML = `
-    <section class="section saas-page desktop-dashboard-page">
-      <div class="desktop-dashboard-shell">
-        <section class="desktop-kpi-grid">
-          ${dashboardKpiCard({ label: "ยอดขายวันนี้", value: `${money(s.salesToday)} บาท`, tone: "violet", delta: viewModel.salesDelta, hint: "เทียบกับเมื่อวาน", icon: dashboardCardIcon("wallet"), series: dashboardTrendSeries("salesToday"), area: "sales-today" })}
-          ${dashboardKpiCard({ label: "ยอดขายเดือนนี้", value: `${money(s.salesThisMonth || 0)} บาท`, tone: "violet month", delta: viewModel.salesMonthDelta, hint: "เทียบกับเดือนที่แล้ว", icon: dashboardCardIcon("calendar"), series: dashboardTrendSeries("salesMonth"), area: "sales-month" })}
-          ${dashboardKpiCard({ label: "ออเดอร์วันนี้", value: money(s.ordersToday || 0), tone: "blue", delta: viewModel.ordersDelta, hint: "เทียบกับเมื่อวาน", icon: dashboardCardIcon("bag"), series: dashboardTrendSeries("ordersToday"), area: "orders-today" })}
-          ${dashboardKpiCard({ label: "กำไรวันนี้", value: `${money(estimatedProfitToday)} บาท`, tone: "gold", delta: viewModel.profitDelta, hint: "เทียบกับเมื่อวาน", icon: dashboardCardIcon("database"), series: dashboardTrendSeries("profitToday"), area: "profit-today" })}
-          ${dashboardKpiCard({ label: "โอกาสสร้างยอดขายวันนี้", value: `${money(revenueOpportunity)} บาท`, tone: "pink", delta: viewModel.opportunityDelta, hint: `จาก ${money(customers.length || monthlyOrders)} ลูกค้า`, icon: dashboardCardIcon("target"), series: dashboardTrendSeries("opportunityToday"), area: "opportunity-today" })}
+    <section class="desktop-reference-dashboard" aria-label="แดชบอร์ด Growup Pilot">
+      <div class="desktop-reference-dashboard-shell">
+        <section class="desktop-reference-hero-grid">
+          <article class="desktop-reference-growth-banner">
+            <img src="/mobile-home-hero.png?v=20260703-mobile-hero-clean" alt="จัดการธุรกิจให้เติบโต ไปกับ Growup Pilot" loading="eager" fetchpriority="high">
+          </article>
+          <article class="desktop-reference-onboarding">
+            <div class="desktop-reference-onboarding-title">
+              <span>เริ่มต้นใช้งาน</span>
+              <strong>Growup Pilot</strong>
+            </div>
+            <svg class="desktop-reference-rocket" viewBox="0 0 180 150" aria-hidden="true">
+              <defs>
+                <linearGradient id="rocketBody" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#f6e8ff"/><stop offset=".52" stop-color="#9b54ff"/><stop offset="1" stop-color="#5320bf"/></linearGradient>
+                <linearGradient id="rocketFire" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#ffd446"/><stop offset=".5" stop-color="#ff49d7"/><stop offset="1" stop-color="#7030ff" stop-opacity="0"/></linearGradient>
+              </defs>
+              <path d="M101 91 80 112l-13-13 20-22Z" fill="#5f24ca"/>
+              <path d="M119 72 98 93l13 13 22-21Z" fill="#9e3cff"/>
+              <path d="M84 83c8-39 33-60 68-65-4 35-25 60-65 69Z" fill="url(#rocketBody)" stroke="#d99cff" stroke-width="2"/>
+              <circle cx="122" cy="48" r="13" fill="#321068" stroke="#e3b5ff" stroke-width="3"/>
+              <circle cx="122" cy="48" r="7" fill="#8c41ff"/>
+              <path d="m76 104-26 35 38-24Z" fill="url(#rocketFire)"/>
+              <path d="m64 110-26 25 32-14Z" fill="#9234ff" opacity=".62"/>
+            </svg>
+            <div class="desktop-reference-onboarding-summary">
+              <div class="desktop-reference-setup-ring" style="--setup-progress:${setup.percent * 3.6}deg">
+                <strong>${setup.percent}%</strong>
+                <small>พร้อมใช้งาน</small>
+              </div>
+              <div class="desktop-reference-setup-copy">
+                <span>เสร็จแล้ว ${setup.completeCount} จาก ${setup.steps.length} ขั้นตอน</span>
+                <div class="desktop-reference-setup-track"><i style="width:${setup.percent}%"></i></div>
+                <button type="button" data-view-shortcut="settings">ดูขั้นตอนทั้งหมด <b aria-hidden="true">→</b></button>
+              </div>
+            </div>
+          </article>
         </section>
 
-        <article class="grow-opportunity-panel">
-          <div class="grow-opportunity-title">
-            <span class="grow-target-icon">${dashboardCardIcon("target")}</span>
-            <div>
-              <h2>โอกาสสร้างยอดขายของวันนี้</h2>
-              <p>ลูกค้าที่มีแนวโน้มจะซื้อ สูงที่สุด ${money(customers.length)} รายการ</p>
+        <section class="desktop-reference-kpi-grid">
+          ${desktopReferenceKpiCard({ label: "ยอดขายวันนี้", value: `฿${money(s.salesToday)}`, deltaText: dashboardChangeText(s.salesToday, yesterdaySales), tone: "green", icon: "wallet", hint: "เทียบกับเมื่อวาน" })}
+          ${desktopReferenceKpiCard({ label: "ออเดอร์วันนี้", value: money(s.ordersToday || 0), deltaText: dashboardChangeText(s.ordersToday || 0, yesterdayOrders), tone: "orange", icon: "bag", hint: "เทียบกับเมื่อวาน" })}
+          ${desktopReferenceKpiCard({ label: "กำไรวันนี้", value: `฿${money(estimatedProfitToday)}`, deltaText: dashboardChangeText(estimatedProfitToday, yesterdayProfit), tone: "purple", icon: "database", hint: "เทียบกับเมื่อวาน" })}
+          ${desktopReferenceKpiCard({ label: "ขายได้วันนี้", value: `${money(unitsSoldToday)} ชิ้น`, deltaText: dashboardChangeText(unitsSoldToday, previousUnits), tone: "blue", icon: "box", hint: "เทียบกับเมื่อวาน" })}
+          ${desktopReferenceKpiCard({ label: "โอกาสสร้างยอดขายวันนี้", value: `฿${money(revenueOpportunity)}`, deltaText: dashboardChangeText(revenueOpportunity, previousOpportunity), tone: "pink", icon: "target", hint: `จาก ${money(viewModel.opportunityCount)} ลูกค้า` })}
+        </section>
+
+        <section class="desktop-reference-insight-grid">
+          <article class="desktop-reference-card desktop-reference-channel-chart">
+            <div class="desktop-reference-card-head">
+              <h2>ช่องทางการขาย <small>(เดือนนี้)</small></h2>
+              <button type="button" data-view-shortcut="reports">เดือนนี้⌄</button>
             </div>
-            <button class="grow-view-all" type="button" data-view-shortcut="opportunities">ดูทั้งหมด <span>›</span></button>
-          </div>
-          ${desktopOpportunityTable(customers)}
-        </article>
+            ${channelRows.length ? `
+              <div class="desktop-reference-channel-chart-body">
+                <div class="desktop-reference-donut" style="--donut:${desktopDashboardDonutGradient(channelRows)}">
+                  <div><strong>฿${money(monthlySales)}</strong><small>ยอดขายรวม</small></div>
+                </div>
+                <div class="desktop-reference-chart-legend">
+                  ${channelRows.map(row => `
+                    <div>
+                      <span><i style="background:${row.color}"></i>${escapeHtml(row.name)}</span>
+                      <b>${row.percent.toFixed(0)}%</b>
+                      <strong>฿${money(row.revenue)}</strong>
+                    </div>
+                  `).join("")}
+                </div>
+              </div>
+            ` : `<div class="desktop-reference-empty">ยังไม่มีข้อมูลช่องทางขายในเดือนนี้</div>`}
+          </article>
+
+          <article class="desktop-reference-card desktop-reference-channel-list-card">
+            <div class="desktop-reference-card-head">
+              <h2>ช่องทางขาย <small>(จำนวนออเดอร์ เดือนนี้)</small></h2>
+              <button type="button" data-view-shortcut="reports">เดือนนี้⌄</button>
+            </div>
+            <div class="desktop-reference-channel-list">
+              ${channelRows.map((row, index) => `
+                <div>
+                  <span>${desktopReferenceChannelIcon(row.name, index)}${escapeHtml(row.name)}</span>
+                  <strong>${money(row.count)} ออเดอร์</strong>
+                </div>
+              `).join("") || `<div class="desktop-reference-empty">ยังไม่มีออเดอร์ในเดือนนี้</div>`}
+            </div>
+          </article>
+
+          <article class="desktop-reference-card desktop-reference-customer-card">
+            <div class="desktop-reference-card-head">
+              <h2>ลูกค้า <small>(เดือนนี้)</small></h2>
+              <button type="button" data-view-shortcut="customers">เดือนนี้⌄</button>
+            </div>
+            <div class="desktop-reference-customer-stats">
+              <button type="button" data-view-shortcut="customers">
+                <span class="new">${iconSvg("users")}</span>
+                <span><small>ลูกค้าใหม่</small><strong>${money(newCustomers)} คน</strong><em>↑ ${dashboardChangeText(newCustomers, Math.max(0, newCustomers - 1)).replace(/^[+-]/, "")}</em></span>
+              </button>
+              <button type="button" data-view-shortcut="customers">
+                <span class="repeat">↻</span>
+                <span><small>ลูกค้าเก่ากลับมาซื้อซ้ำ</small><strong>${money(repeatCustomers)} คน</strong><em>↑ ${dashboardChangeText(repeatCustomers, Math.max(0, repeatCustomers - 1)).replace(/^[+-]/, "")}</em></span>
+              </button>
+            </div>
+            <div class="desktop-reference-vip-head">
+              <h3>ลูกค้า VIP</h3>
+              <button type="button" data-view-shortcut="vip">ดูทั้งหมด →</button>
+            </div>
+            <div class="desktop-reference-vip-grid">
+              <button type="button" data-view-shortcut="vip"><span class="vip">♛</span><span><small>VIP</small><strong>${money(vipCounts.VIP)} คน</strong></span></button>
+              <button type="button" data-view-shortcut="vip"><span class="vvip">♛</span><span><small>VVIP</small><strong>${money(vipCounts.VVIP)} คน</strong></span></button>
+              <button type="button" data-view-shortcut="vip"><span class="super">◆</span><span><small>SUPER VIP</small><strong>${money(vipCounts["SUPER VIP"])} คน</strong></span></button>
+            </div>
+          </article>
+        </section>
+
+        <section class="desktop-reference-quick-grid" aria-label="เมนูลัด">
+          ${desktopReferenceQuickActions()}
+        </section>
       </div>
     </section>
   `;
