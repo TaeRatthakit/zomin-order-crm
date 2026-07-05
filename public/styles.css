@@ -706,6 +706,8 @@ html.app-startup-pending .app-startup-loader.is-exiting {
   width: 132px;
   height: 132px;
   object-fit: contain;
+  border-radius: 25%;
+  clip-path: inset(5% round 24%);
   filter:
     drop-shadow(0 0 10px rgba(227, 105, 255, 0.75))
     drop-shadow(0 0 28px rgba(93, 29, 255, 0.48));
