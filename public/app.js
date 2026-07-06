@@ -2198,14 +2198,14 @@ function renderDesktopDashboard(viewModel) {
       <div class="desktop-reference-dashboard-shell">
         <section class="desktop-reference-hero-grid">
           <article class="desktop-reference-growth-banner">
-            <img src="/desktop-dashboard-hero.png?v=20260706-attached" alt="จัดการธุรกิจให้เติบโต ไปกับ Growup Pilot" loading="eager" fetchpriority="high">
+            <img src="/desktop-dashboard-hero.webp?v=20260706-webp-v1" alt="จัดการธุรกิจให้เติบโต ไปกับ Growup Pilot" loading="eager" fetchpriority="high">
           </article>
           <article class="desktop-reference-onboarding">
             <div class="desktop-reference-onboarding-title">
               <span>เริ่มต้นใช้งาน</span>
               <strong>Growup Pilot</strong>
             </div>
-            <img class="desktop-reference-rocket" src="/desktop-onboarding-rocket.png?v=20260706-attached-v2" alt="" aria-hidden="true" loading="eager" decoding="async">
+            <img class="desktop-reference-rocket" src="/desktop-onboarding-rocket.webp?v=20260706-webp-v1" alt="" aria-hidden="true" loading="eager" decoding="async">
             <div class="desktop-reference-onboarding-summary">
               <div class="desktop-reference-setup-ring" style="--setup-progress:${setup.percent * 3.6}deg">
                 <strong>${setup.percent}%</strong>

@@ -51,6 +51,7 @@ const MIME_TYPES = {
   ".xls": "application/vnd.ms-excel",
   ".webmanifest": "application/manifest+json; charset=utf-8",
   ".svg": "image/svg+xml",
+  ".webp": "image/webp",
   ".png": "image/png",
   ".jpg": "image/jpeg",
   ".jpeg": "image/jpeg"
@@ -74,6 +75,9 @@ function staticCacheHeaders(filePath) {
   const ext = path.extname(filePath);
   if (ext === ".html" || path.basename(filePath) === "service-worker.js") {
     return { "Cache-Control": "no-store" };
+  }
+  if (ext === ".webp") {
+    return { "Cache-Control": "public, max-age=31536000, immutable" };
   }
   return { "Cache-Control": "public, max-age=0, must-revalidate" };
 }
