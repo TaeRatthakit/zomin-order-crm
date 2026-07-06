@@ -41,7 +41,7 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=20260701-favicon-restore">
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=20260701-favicon-restore">
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=20260702-ios-enhanced-fullbleed">
-    <link rel="stylesheet" href="/styles.css?v=20260706-attached-onboarding-rocket">
+    <link rel="stylesheet" href="/styles.css?v=20260706-order-quantity-packages">
   </head>
   <body>
     <div id="appStartupLoader" class="app-startup-loader" aria-hidden="true">
@@ -185,7 +185,7 @@
           <label><span class="order-field-label">เบอร์โทร <i>*</i></span><input name="phone" required placeholder="0812345678"></label>
           <label>เบอร์โทรสำรอง<input name="alternatePhone" placeholder="เบอร์โทรสำรอง"></label>
           <label class="span-2"><span class="order-field-label">ที่อยู่จัดส่ง <i>*</i></span><input name="address" placeholder="ที่อยู่จัดส่ง"></label>
-          <label><span class="order-field-label">จำนวนกระปุก <i>*</i></span><input name="jars" type="number" min="1" value="1" required></label>
+          <label><span class="order-field-label">จำนวน <i>*</i></span><input name="jars" type="number" min="1" value="1" required></label>
           <label><span class="order-field-label">ยอดซื้อ <i>*</i></span><input name="amount" type="number" min="0" step="1" required></label>
           <label>ของแถมที่ลูกค้าได้<input name="freeGift" placeholder="เช่น แถม 1 กระปุก, ค่าส่งฟรี"></label>
           <label>สถานะบัตร VIP
@@ -311,7 +311,7 @@
             <div class="product-package-editor-head">
               <div>
                 <strong>แพ็กเกจการขาย</strong>
-                <span>กำหนดจำนวน ราคา และค่าใช้จ่ายแยกตามแพ็กเกจ</span>
+                <span>กำหนดจำนวนจัดส่งและค่าใช้จ่ายแยกตามแพ็กเกจ</span>
               </div>
               <button class="button ghost" type="button" data-add-sales-package>+ เพิ่มแพ็กเกจ</button>
             </div>
@@ -344,9 +344,9 @@
       </form>
     </dialog>
 
-    <script src="/app.js?v=20260706-attached-onboarding-rocket"></script>
+    <script src="/app.js?v=20260706-order-quantity-packages"></script>
     <script>
-      const swUrl = "/service-worker.js?v=20260706-attached-onboarding-rocket";
+      const swUrl = "/service-worker.js?v=20260706-order-quantity-packages";
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", () => {
           navigator.serviceWorker.register(swUrl).then(registration => registration.update()).catch(() => {});

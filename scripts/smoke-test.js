@@ -574,8 +574,28 @@ async function main() {
     || !productClient.text.includes("function fallbackProfitForOrder")
     || !productClient.text.includes("function profitForOrder")
     || !productClient.text.includes("function productCostMoney")
+    || !productClient.text.includes("function applyQuantityMatchedOrderPackage")
+    || !productClient.text.includes("Number(item.totalQuantityShipped || 0) === quantity")
+    || !productClient.text.includes("section.hidden = isMobileViewport() || !products.length")
   ) {
     fail("product image or decimal cost renderer is missing from the client");
+  }
+  const appShell = await request("/");
+  if (
+    appShell.status !== 200
+    || !appShell.text.includes('id="orderPackageSection"')
+    || !appShell.text.includes('name="jars"')
+    || !appShell.text.includes("จำนวน <i>*</i>")
+  ) {
+    fail("order quantity or existing package section is missing from the app shell");
+  }
+  const importWorker = await request("/import-worker.js");
+  if (
+    importWorker.status !== 200
+    || !importWorker.text.includes('key: "jars", label: "จำนวน"')
+    || !importWorker.text.includes('aliases: ["จำนวน", "จำนวนกระปุก"')
+  ) {
+    fail("import quantity label or legacy quantity alias is missing");
   }
   const clientSections = {
     home: productClient.text.slice(

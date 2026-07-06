@@ -4607,7 +4607,7 @@ function renderImport() {
         ` : ""}
         ${job?.lastError ? `<p class="form-error">${escapeHtml(job.lastError)}</p>` : ""}
         <div class="muted">
-          คอลัมน์หลักที่รองรับ: เลขออเดอร์, วันที่ซื้อ, ช่องทางการสั่งซื้อ, Facebook / LINE ลูกค้า, ชื่อลูกค้า, เบอร์โทร, เบอร์โทรสำรอง, ที่อยู่จัดส่ง, จำนวนกระปุก, ยอดซื้อ, ของแถมที่ลูกค้าได้, สถานะบัตร VIP, อาการลูกค้า, ลูกค้ามาจาก และหมายเหตุ
+          คอลัมน์หลักที่รองรับ: เลขออเดอร์, วันที่ซื้อ, ช่องทางการสั่งซื้อ, Facebook / LINE ลูกค้า, ชื่อลูกค้า, เบอร์โทร, เบอร์โทรสำรอง, ที่อยู่จัดส่ง, จำนวน, ยอดซื้อ, ของแถมที่ลูกค้าได้, สถานะบัตร VIP, อาการลูกค้า, ลูกค้ามาจาก และหมายเหตุ
         </div>
       </div>
     </section>
@@ -5693,7 +5693,7 @@ function renderSettingsCustomers() {
             <input id="followupDaysPerUnit" name="daysPerUnit" type="number" min="1" required value="${daysPerUnit}">
             <span>วัน / กระปุก</span>
           </div>
-          <div class="followup-setting-note">ระบบจะคำนวณวันติดตามจากจำนวนกระปุกทั้งหมดที่ลูกค้าได้รับ รวมของแถม</div>
+          <div class="followup-setting-note">ระบบจะคำนวณวันติดตามจากจำนวนทั้งหมดที่ลูกค้าได้รับ รวมของแถม</div>
         </label>
         <div class="panel tight followup-preview-panel">
           <strong>ตัวอย่างการคำนวณ Follow-up</strong>
@@ -5904,7 +5904,7 @@ function followUpSettingsPanel(daysPerUnit) {
         <input id="followupDaysPerUnit" name="daysPerUnit" type="number" min="1" required value="${safeDays}">
         <span>วัน / กระปุก</span>
       </div>
-      <div class="followup-setting-note">ระบบจะคำนวณวันติดตามอัตโนมัติจากจำนวนกระปุกที่ลูกค้าได้รับทั้งหมด (รวมของแถม)</div>
+      <div class="followup-setting-note">ระบบจะคำนวณวันติดตามอัตโนมัติจากจำนวนที่ลูกค้าได้รับทั้งหมด (รวมของแถม)</div>
     </label>
     <div class="panel tight followup-preview-panel">
       <strong>ตารางอ้างอิง</strong>
@@ -6243,6 +6243,7 @@ function packageDraftId(prefix) {
 function renderProductPackageEditor() {
   const list = document.querySelector("#productPackageList");
   if (!list) return;
+  const mobile = isMobileViewport();
   list.innerHTML = app.productPackageDraft.map((item, packageIndex) => `
     <article class="sales-package-card" data-sales-package-id="${escapeHtml(item.id)}">
       <div class="sales-package-card-head">
@@ -6257,10 +6258,12 @@ function renderProductPackageEditor() {
       <div class="sales-package-grid">
         <label>ชื่อแพ็กเกจ<input name="packageName" value="${escapeHtml(item.name)}"></label>
         <label class="inline"><input name="packageEnabled" type="checkbox" ${item.enabled ? "checked" : ""} style="width:auto"> เปิดใช้งาน</label>
-        <label>จำนวนที่ชำระ<input name="packagePaidQuantity" type="number" min="0" step="1" value="${item.paidQuantity}"></label>
-        <label>จำนวนแถม<input name="packageFreeQuantity" type="number" min="0" step="1" value="${item.freeQuantity}"></label>
+        ${mobile ? "" : `
+          <label>จำนวนที่ชำระ<input name="packagePaidQuantity" type="number" min="0" step="1" value="${item.paidQuantity}"></label>
+          <label>จำนวนแถม<input name="packageFreeQuantity" type="number" min="0" step="1" value="${item.freeQuantity}"></label>
+        `}
         <label>จำนวนจัดส่งรวม<input name="packageTotalQuantity" type="number" min="0" step="1" value="${item.totalQuantityShipped}"></label>
-        <label>ราคาขาย<input name="packageSalePrice" type="number" min="0" step="0.01" value="${item.salePrice}"></label>
+        ${mobile ? "" : `<label>ราคาขาย<input name="packageSalePrice" type="number" min="0" step="0.01" value="${item.salePrice}"></label>`}
       </div>
       <div class="package-expense-head">
         <span>ค่าใช้จ่ายของแพ็กเกจนี้</span>
@@ -6281,21 +6284,24 @@ function renderProductPackageEditor() {
 }
 
 function readProductPackageDraft() {
-  return [...document.querySelectorAll("[data-sales-package-id]")].map(card => ({
-    id: card.dataset.salesPackageId,
-    name: card.querySelector("[name='packageName']")?.value.trim() || "แพ็กเกจ",
-    paidQuantity: Math.max(0, Number(card.querySelector("[name='packagePaidQuantity']")?.value || 0)),
-    freeQuantity: Math.max(0, Number(card.querySelector("[name='packageFreeQuantity']")?.value || 0)),
-    totalQuantityShipped: Math.max(0, Number(card.querySelector("[name='packageTotalQuantity']")?.value || 0)),
-    salePrice: Math.max(0, Number(card.querySelector("[name='packageSalePrice']")?.value || 0)),
-    enabled: Boolean(card.querySelector("[name='packageEnabled']")?.checked),
-    expenses: [...card.querySelectorAll("[data-package-expense-id]")].map(row => ({
-      id: row.dataset.packageExpenseId,
-      name: row.querySelector("[name='packageExpenseName']")?.value.trim() || "ค่าใช้จ่าย",
-      amount: Math.max(0, Number(row.querySelector("[name='packageExpenseAmount']")?.value || 0)),
-      enabled: Boolean(row.querySelector("[name='packageExpenseEnabled']")?.checked)
-    }))
-  }));
+  return [...document.querySelectorAll("[data-sales-package-id]")].map(card => {
+    const existing = app.productPackageDraft.find(item => item.id === card.dataset.salesPackageId) || {};
+    return {
+      id: card.dataset.salesPackageId,
+      name: card.querySelector("[name='packageName']")?.value.trim() || "แพ็กเกจ",
+      paidQuantity: Math.max(0, Number(card.querySelector("[name='packagePaidQuantity']")?.value ?? existing.paidQuantity ?? 0)),
+      freeQuantity: Math.max(0, Number(card.querySelector("[name='packageFreeQuantity']")?.value ?? existing.freeQuantity ?? 0)),
+      totalQuantityShipped: Math.max(0, Number(card.querySelector("[name='packageTotalQuantity']")?.value || 0)),
+      salePrice: Math.max(0, Number(card.querySelector("[name='packageSalePrice']")?.value ?? existing.salePrice ?? 0)),
+      enabled: Boolean(card.querySelector("[name='packageEnabled']")?.checked),
+      expenses: [...card.querySelectorAll("[data-package-expense-id]")].map(row => ({
+        id: row.dataset.packageExpenseId,
+        name: row.querySelector("[name='packageExpenseName']")?.value.trim() || "ค่าใช้จ่าย",
+        amount: Math.max(0, Number(row.querySelector("[name='packageExpenseAmount']")?.value || 0)),
+        enabled: Boolean(row.querySelector("[name='packageExpenseEnabled']")?.checked)
+      }))
+    };
+  });
 }
 
 function setProductSaveState(isSaving) {
@@ -6508,10 +6514,14 @@ async function submitOrder(form) {
   const preservedOriginSource = String(form.dataset.originSourceValue || "").trim();
   data.originSource = String(data.originSourceChoice || "").trim() || preservedOriginSource;
   delete data.originSourceChoice;
-  const packageProduct = packageProducts().find(product => product.id === data.productId);
-  const selectedPackage = packageProduct?.salesPackages.find(item => item.id === data.packageId);
-  data.packageName = selectedPackage?.name || "";
-  data.packageExpenses = data.packageId ? readOrderPackageExpenses() : [];
+  if (isMobileViewport()) {
+    applyQuantityMatchedOrderPackage(data);
+  } else {
+    const packageProduct = packageProducts().find(product => product.id === data.productId);
+    const selectedPackage = packageProduct?.salesPackages.find(item => item.id === data.packageId);
+    data.packageName = selectedPackage?.name || "";
+    data.packageExpenses = data.packageId ? readOrderPackageExpenses() : [];
+  }
   const orderId = app.editingOrderId;
   const snapshot = cloneUiState();
   const clientMutationId = `tmp_${Date.now().toString(36)}`;
@@ -6565,6 +6575,25 @@ function packageProducts() {
   return normalizeProductRecords().filter(product => product.salesPackages.length);
 }
 
+function applyQuantityMatchedOrderPackage(data) {
+  const quantity = Number(data.jars || 0);
+  const product = packageProducts().find(item =>
+    normalizeProductName(item.name) === normalizeProductName(data.items)
+  );
+  const matchedPackage = product?.salesPackages.find(item =>
+    item.enabled && Number(item.totalQuantityShipped || 0) === quantity
+  );
+  data.productId = product?.id || "";
+  data.packageId = matchedPackage?.id || "";
+  data.packageName = matchedPackage?.name || "";
+  data.paidQuantity = matchedPackage ? Number(matchedPackage.paidQuantity || 0) : 0;
+  data.freeQuantity = matchedPackage ? Number(matchedPackage.freeQuantity || 0) : 0;
+  data.totalQuantityShipped = matchedPackage ? Number(matchedPackage.totalQuantityShipped || 0) : 0;
+  data.packageExpenses = matchedPackage
+    ? normalizePackageExpenses(matchedPackage.expenses).map(expense => ({ ...expense }))
+    : [];
+}
+
 function renderOrderPackageExpenses(expenses = []) {
   const list = document.querySelector("#orderPackageExpenseList");
   if (!list) return;
@@ -6598,7 +6627,7 @@ function setupOrderPackageFields(order = null) {
   const productSelect = els.orderForm?.elements?.productId;
   if (!section || !productSelect) return;
   const products = packageProducts();
-  section.hidden = !products.length;
+  section.hidden = isMobileViewport() || !products.length;
   productSelect.innerHTML = `<option value="">เลือกสินค้า</option>${products.map(product => `
     <option value="${escapeHtml(product.id)}">${escapeHtml(product.name)}</option>
   `).join("")}`;

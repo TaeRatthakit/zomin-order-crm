@@ -13,7 +13,7 @@ const FIELD_DEFS = [
   { key: "phone", label: "เบอร์โทร", required: true, aliases: ["เบอร์โทร", "phone", "tel", "mobile", "เบอร์", "โทร", "โทรศัพท์", "เบอร์โทรศัพท์"] },
   { key: "alternatePhone", label: "เบอร์โทรสำรอง", required: false, aliases: ["เบอร์โทรสำรอง", "alternate phone", "secondary phone", "เบอร์สำรอง", "โทรสำรอง"] },
   { key: "address", label: "ที่อยู่จัดส่ง", required: false, aliases: ["ที่อยู่จัดส่ง", "address", "ที่อยู่", "shipping address"] },
-  { key: "jars", label: "จำนวนกระปุก", required: false, aliases: ["จำนวนกระปุก", "jars", "jar", "กระปุก", "ซื้อกี่กระปุก", "qty", "quantity"] },
+  { key: "jars", label: "จำนวน", required: false, aliases: ["จำนวน", "จำนวนกระปุก", "jars", "jar", "กระปุก", "ซื้อกี่กระปุก", "qty", "quantity"] },
   { key: "amount", label: "ยอดซื้อ", required: false, aliases: ["ยอดซื้อ", "amount", "total", "ยอด", "ราคา", "ยอดรวม"] },
   { key: "freeGift", label: "ของแถมที่ลูกค้าได้", required: false, aliases: ["ของแถมที่ลูกค้าได้", "free_gift", "free gift", "ของแถม", "แถม"] },
   { key: "vipCardStatus", label: "สถานะบัตร VIP", required: false, aliases: ["สถานะบัตร vip", "vip_card_status", "vip card status", "บัตร vip", "เคยได้บัตรvipแล้วหรือยัง"] },
