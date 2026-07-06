@@ -2205,19 +2205,7 @@ function renderDesktopDashboard(viewModel) {
               <span>เริ่มต้นใช้งาน</span>
               <strong>Growup Pilot</strong>
             </div>
-            <svg class="desktop-reference-rocket" viewBox="0 0 180 150" aria-hidden="true">
-              <defs>
-                <linearGradient id="rocketBody" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#f6e8ff"/><stop offset=".52" stop-color="#9b54ff"/><stop offset="1" stop-color="#5320bf"/></linearGradient>
-                <linearGradient id="rocketFire" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#ffd446"/><stop offset=".5" stop-color="#ff49d7"/><stop offset="1" stop-color="#7030ff" stop-opacity="0"/></linearGradient>
-              </defs>
-              <path d="M101 91 80 112l-13-13 20-22Z" fill="#5f24ca"/>
-              <path d="M119 72 98 93l13 13 22-21Z" fill="#9e3cff"/>
-              <path d="M84 83c8-39 33-60 68-65-4 35-25 60-65 69Z" fill="url(#rocketBody)" stroke="#d99cff" stroke-width="2"/>
-              <circle cx="122" cy="48" r="13" fill="#321068" stroke="#e3b5ff" stroke-width="3"/>
-              <circle cx="122" cy="48" r="7" fill="#8c41ff"/>
-              <path d="m76 104-26 35 38-24Z" fill="url(#rocketFire)"/>
-              <path d="m64 110-26 25 32-14Z" fill="#9234ff" opacity=".62"/>
-            </svg>
+            <img class="desktop-reference-rocket" src="/desktop-onboarding-rocket.png?v=20260706-attached" alt="" aria-hidden="true" loading="eager" decoding="async">
             <div class="desktop-reference-onboarding-summary">
               <div class="desktop-reference-setup-ring" style="--setup-progress:${setup.percent * 3.6}deg">
                 <strong>${setup.percent}%</strong>

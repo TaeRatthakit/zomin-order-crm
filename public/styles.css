@@ -10802,9 +10802,11 @@ small,
     right: 8px;
     width: 176px;
     height: 150px;
-    overflow: visible;
-    filter: drop-shadow(0 14px 17px rgba(89, 22, 184, 0.56));
-    transform: rotate(2deg);
+    display: block;
+    object-fit: contain;
+    object-position: center;
+    filter: none;
+    transform: none;
   }
 
   body.desktop-dashboard-view:not(.login-view) .desktop-reference-onboarding-summary {
