@@ -6514,14 +6514,7 @@ async function submitOrder(form) {
   const preservedOriginSource = String(form.dataset.originSourceValue || "").trim();
   data.originSource = String(data.originSourceChoice || "").trim() || preservedOriginSource;
   delete data.originSourceChoice;
-  if (isMobileViewport()) {
-    applyQuantityMatchedOrderPackage(data);
-  } else {
-    const packageProduct = packageProducts().find(product => product.id === data.productId);
-    const selectedPackage = packageProduct?.salesPackages.find(item => item.id === data.packageId);
-    data.packageName = selectedPackage?.name || "";
-    data.packageExpenses = data.packageId ? readOrderPackageExpenses() : [];
-  }
+  applyQuantityMatchedOrderPackage(data);
   const orderId = app.editingOrderId;
   const snapshot = cloneUiState();
   const clientMutationId = `tmp_${Date.now().toString(36)}`;
@@ -6627,7 +6620,7 @@ function setupOrderPackageFields(order = null) {
   const productSelect = els.orderForm?.elements?.productId;
   if (!section || !productSelect) return;
   const products = packageProducts();
-  section.hidden = isMobileViewport() || !products.length;
+  section.hidden = true;
   productSelect.innerHTML = `<option value="">เลือกสินค้า</option>${products.map(product => `
     <option value="${escapeHtml(product.id)}">${escapeHtml(product.name)}</option>
   `).join("")}`;

@@ -1735,6 +1735,10 @@ th {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+#orderDialog .form-grid {
+  overflow: visible;
+}
+
 .form-grid label,
 .stack label {
   display: grid;
@@ -8691,10 +8695,6 @@ small,
     display: inline;
     color: #ff354c;
     font-style: normal;
-  }
-
-  body.mobile-orders-view #orderDialog label:has([name="items"]) > .order-field-label {
-    padding-inline-start: 30px;
   }
 
   body.mobile-orders-view #orderDialog input,

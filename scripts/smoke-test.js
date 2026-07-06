@@ -575,8 +575,9 @@ async function main() {
     || !productClient.text.includes("function profitForOrder")
     || !productClient.text.includes("function productCostMoney")
     || !productClient.text.includes("function applyQuantityMatchedOrderPackage")
+    || !productClient.text.includes("delete data.originSourceChoice;\n  applyQuantityMatchedOrderPackage(data);")
     || !productClient.text.includes("Number(item.totalQuantityShipped || 0) === quantity")
-    || !productClient.text.includes("section.hidden = isMobileViewport() || !products.length")
+    || !productClient.text.includes("section.hidden = true")
   ) {
     fail("product image or decimal cost renderer is missing from the client");
   }
