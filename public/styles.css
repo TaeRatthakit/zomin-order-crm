@@ -8694,7 +8694,7 @@ small,
   }
 
   body.mobile-orders-view #orderDialog label:has([name="items"]) > .order-field-label {
-    padding-inline-start: 22px;
+    padding-inline-start: 30px;
   }
 
   body.mobile-orders-view #orderDialog input,
