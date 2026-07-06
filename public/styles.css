@@ -8693,6 +8693,10 @@ small,
     font-style: normal;
   }
 
+  body.mobile-orders-view #orderDialog label:has([name="items"]) > .order-field-label {
+    padding-inline-start: 22px;
+  }
+
   body.mobile-orders-view #orderDialog input,
   body.mobile-orders-view #orderDialog select,
   body.mobile-orders-view #orderDialog textarea {
