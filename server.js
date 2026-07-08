@@ -172,6 +172,20 @@ function normalizeImportText(value) {
   return String(value || "").trim().replace(/\s+/g, " ");
 }
 
+function normalizeProductNameForMatching(value) {
+  let textValue = normalizeImportText(value);
+  if (!textValue) return "";
+  const productLabelPattern = /^(?:สินค้า|ชื่อสินค้า|product)\s*[:：-]\s*/i;
+  while (productLabelPattern.test(textValue)) {
+    textValue = normalizeImportText(textValue.replace(productLabelPattern, ""));
+  }
+  return textValue;
+}
+
+function normalizedProductNameKey(value) {
+  return normalizeProductNameForMatching(value).toLocaleLowerCase("th-TH");
+}
+
 function normalizeImportDate(value) {
   const textValue = normalizeImportText(value);
   if (!textValue) return "";
@@ -272,9 +286,10 @@ function hasOrderProfitSnapshot(order = {}) {
 }
 
 function productCostForOrderSnapshot(order = {}, settings = {}) {
-  const productName = String(order.items || "Growup Formula").trim();
+  const productName = normalizeProductNameForMatching(order.items || "Growup Formula");
+  const productNameKey = normalizedProductNameKey(productName);
   const productConfig = normalizeSettingsCostRows(settings.productCosts, "costPerJar")
-    .find(item => item.name === productName);
+    .find(item => normalizedProductNameKey(item.name) === productNameKey);
   if (!productConfig?.enabled) return 0;
   const quantity = order.packageId
     ? Number(order.totalQuantityShipped || order.jars || 0)
@@ -369,7 +384,7 @@ function normalizeProductRecords(products = []) {
     .map((product, index) => ({
       id: String(product?.id || `product_${index + 1}`),
       image: String(product?.image || "").trim(),
-      name: String(product?.name || "").trim(),
+      name: normalizeProductNameForMatching(product?.name || ""),
       sku: String(product?.sku || "").trim(),
       description: String(product?.description || "").trim(),
       salePrice: Math.max(0, Number(product?.salePrice || 0)),
@@ -388,7 +403,7 @@ function normalizeProductRecords(products = []) {
     .filter(product => product.name);
   const unique = new Map();
   for (const product of normalized) {
-    const key = `${String(product.sku || "").trim().toLowerCase()}|${String(product.name || "").trim().toLowerCase()}`;
+    const key = `${String(product.sku || "").trim().toLowerCase()}|${normalizedProductNameKey(product.name)}`;
     const existing = unique.get(key);
     if (!existing || (existing.archived && !product.archived)) unique.set(key, product);
   }
@@ -398,8 +413,17 @@ function normalizeProductRecords(products = []) {
 function normalizedProductIdentity(product = {}) {
   return {
     sku: String(product?.sku || "").trim().toLowerCase(),
-    name: String(product?.name || "").trim().toLowerCase()
+    name: normalizedProductNameKey(product?.name)
   };
+}
+
+function canonicalProductNameForOrder(settings = {}, value) {
+  const normalizedName = normalizeProductNameForMatching(value);
+  const normalizedKey = normalizedProductNameKey(normalizedName);
+  if (!normalizedKey) return "";
+  const existing = normalizeProductRecords(settings.products)
+    .find(product => normalizedProductNameKey(product.name) === normalizedKey);
+  return existing?.name || normalizedName;
 }
 
 function newProductId(products = []) {
@@ -412,8 +436,8 @@ function newProductId(products = []) {
 function productCostIndex(productCosts = [], productId = "", legacyNames = []) {
   const idIndex = productCosts.findIndex(item => String(item?.id || "") === String(productId || ""));
   if (idIndex >= 0) return idIndex;
-  const names = new Set(legacyNames.map(name => String(name || "").trim()).filter(Boolean));
-  return productCosts.findIndex(item => names.has(String(item?.name || "").trim()));
+  const names = new Set(legacyNames.map(normalizedProductNameKey).filter(Boolean));
+  return productCosts.findIndex(item => names.has(normalizedProductNameKey(item?.name)));
 }
 
 function publicSettings(settings = {}) {
@@ -1158,7 +1182,7 @@ function addOrder(db, payload) {
     id: payload.id || uid("o"),
     customerId: customer.id,
     orderNumber: normalizeImportText(payload.orderNumber),
-    items: normalizeImportText(payload.items || payload.product || payload.productName || "Growup"),
+    items: canonicalProductNameForOrder(db.settings || {}, payload.items || payload.product || payload.productName || "Growup"),
     customerName: normalizeImportText(payload.name || customer.name),
     phone,
     address: normalizeImportText(payload.address || customer.address),
@@ -1315,7 +1339,7 @@ function parsePrimaryLineOrderForm(rawText) {
   const phone = normalizePhone(get("เบอร์โทร"));
   if (!phone) return null;
   return {
-    items: normalizeImportText(get("สินค้า")),
+    items: normalizeProductNameForMatching(get("สินค้า")),
     orderNumber: normalizeImportText(get("เลขออเดอร์")),
     name: normalizeImportText(get("ชื่อลูกค้า") || `ลูกค้า ${phone}`),
     phone,
@@ -1416,8 +1440,10 @@ function parseLineOrder(rawText, defaultJarPrice = 750) {
   const promoQuantityLine = lines.find(line => /\d+\s*(?:กระปุก|ปุก|ขวด)?\s*แถม\s*\d+\s*(?:กระปุก|ปุก|ขวด)?/.test(line));
   const note = promoQuantityLine ? promoQuantityLine : "";
   const orderNumber = parseLabel(textValue, ["เลขออเดอร์", "order number", "order_number"]) || "";
+  const productName = parseLabel(textValue, ["สินค้า", "ชื่อสินค้า", "product", "product_name"]) || "";
 
   return {
+    items: normalizeProductNameForMatching(productName),
     orderNumber: normalizeImportText(orderNumber),
     name,
     phone,
@@ -1603,6 +1629,7 @@ async function replyLineMessages(settings, replyToken, messages) {
 function normalizedOrderForStorage(parsed = {}) {
   return {
     ...parsed,
+    items: normalizeProductNameForMatching(parsed.items || parsed.product || parsed.productName || ""),
     name: parsed.name || parsed.customerName || "",
     phone: normalizePhone(parsed.phone || ""),
     amount: Number(parsed.amount || 0),
@@ -1647,7 +1674,7 @@ async function parseOrderWithAI(textValue, settings = {}) {
     if (!raw.trim()) return fallback;
     const parsed = JSON.parse(raw);
     return {
-      items: normalizeImportText(parsed.productName || fallback?.items || ""),
+      items: normalizeProductNameForMatching(parsed.productName || fallback?.items || ""),
       date: normalizeImportDate(parsed.orderDate) || fallback?.date || toDateOnly(),
       orderNumber: normalizeImportText(parsed.orderNumber || ""),
       sourceChannel: normalizeImportText(parsed.salesChannel || fallback?.sourceChannel || "LINE"),
@@ -2295,7 +2322,7 @@ async function handleApi(req, res) {
     }
     Object.assign(order, {
       orderNumber: body.orderNumber !== undefined ? normalizeImportText(body.orderNumber) : order.orderNumber,
-      items: body.items !== undefined ? normalizeImportText(body.items) : order.items,
+      items: body.items !== undefined ? normalizeProductNameForMatching(body.items) : order.items,
       customerName: body.name !== undefined ? String(body.name).trim() : order.customerName,
       phone: body.phone !== undefined ? normalizePhone(body.phone) : order.phone,
       address: body.address !== undefined ? String(body.address).trim() : order.address,
@@ -2539,10 +2566,15 @@ async function handleApi(req, res) {
     });
     const previousProduct = existingIndex >= 0 ? products[existingIndex] : null;
     const now = new Date().toISOString();
+    const preserveExistingName = existingIndex >= 0
+      && !incoming.id
+      && incomingIdentity.name
+      && incomingIdentity.name === normalizedProductIdentity(products[existingIndex]).name;
     const product = existingIndex >= 0
       ? normalizeProductRecords([{
           ...products[existingIndex],
           ...incoming,
+          name: preserveExistingName ? products[existingIndex].name : incoming.name,
           id: products[existingIndex].id,
           archived: false,
           createdAt: products[existingIndex].createdAt || now,

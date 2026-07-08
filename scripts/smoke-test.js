@@ -210,6 +210,82 @@ async function main() {
     fail("new products did not receive separate unique ids");
   }
 
+  const lineOrderText = (productLine, suffix) => [
+    `สินค้า : ${productLine}`,
+    `เลขออเดอร์ : LINE-NORM-${suffix}`,
+    "วันที่ซื้อ : 3/7/2569",
+    "ช่องทางการสั่งซื้อ : ไลน์บริษัท",
+    "Facebook / LINE ลูกค้า : line-normalize-test",
+    "",
+    `ชื่อลูกค้า : คุณ Normalize ${suffix}`,
+    `เบอร์โทร : 082${String(suffix).padStart(7, "0").slice(-7)}`,
+    "เบอร์โทรสำรอง : 0891234567",
+    `ที่อยู่จัดส่ง : 99 Test Road ${suffix}`,
+    "",
+    "จำนวนกระปุก : 1",
+    "ยอดซื้อ : 750 บาท",
+    "",
+    "สถานะบัตร VIP : ยังไม่ได้ส่งบัตร",
+    "อาการลูกค้า : ทดสอบ",
+    "หมายเหตุ : normalize product test"
+  ].join("\n");
+  const lineProductCases = [
+    ["Zomin", "Zomin"],
+    ["สินค้า : Zomin", "Zomin"],
+    ["zomin", "Zomin"],
+    ["   Zomin    ", "Zomin"]
+  ];
+  for (let index = 0; index < lineProductCases.length; index += 1) {
+    const [inputProduct, expectedProduct] = lineProductCases[index];
+    const suffix = `${productSuffix}${index}`;
+    const mock = await request("/api/line/mock", {
+      method: "POST",
+      headers: { cookie, "content-type": "application/json" },
+      body: JSON.stringify({ text: lineOrderText(inputProduct, suffix) })
+    });
+    if (mock.status !== 200) fail(`LINE mock normalization returned ${mock.status}: ${mock.text}`);
+    const rows = JSON.parse(mock.text).rows || [];
+    if (rows[0]?.items !== expectedProduct) {
+      fail(`LINE product normalization failed for "${inputProduct}": got "${rows[0]?.items}"`);
+    }
+  }
+  const zominLabelProduct = await request("/api/products", {
+    method: "POST",
+    headers: { cookie, "content-type": "application/json" },
+    body: JSON.stringify({
+      ...zominProductInput,
+      id: "",
+      name: "สินค้า : zomin",
+      sku: ""
+    })
+  });
+  if (zominLabelProduct.status !== 200) fail(`normalized existing product save returned ${zominLabelProduct.status}: ${zominLabelProduct.text}`);
+  const normalizedExistingProduct = JSON.parse(zominLabelProduct.text).product;
+  if (normalizedExistingProduct.id !== savedZomin.id || normalizedExistingProduct.name !== "Zomin") {
+    fail("normalized product label did not prefer existing Zomin product");
+  }
+  const trulyNewProductName = `สินค้าใหม่ Normalize ${productSuffix}`;
+  const trulyNewProduct = await request("/api/products", {
+    method: "POST",
+    headers: { cookie, "content-type": "application/json" },
+    body: JSON.stringify({
+      ...zominProductInput,
+      id: "",
+      name: trulyNewProductName,
+      sku: "",
+      salesPackages: []
+    })
+  });
+  if (trulyNewProduct.status !== 200) fail(`truly new product save returned ${trulyNewProduct.status}: ${trulyNewProduct.text}`);
+  const savedTrulyNewProduct = JSON.parse(trulyNewProduct.text).product;
+  if (!savedTrulyNewProduct.id || savedTrulyNewProduct.id === savedZomin.id || savedTrulyNewProduct.name !== trulyNewProductName) {
+    fail("truly new product was not created after normalization changes");
+  }
+  const productsAfterProductNormalization = JSON.parse((await request("/api/state", { headers: { cookie } })).text).settings.products;
+  if (productsAfterProductNormalization.some(product => /^สินค้า\s*[:：]/.test(product.name))) {
+    fail("normalized product label created a bad duplicate product");
+  }
+
   const productsAfterCreate = JSON.parse((await request("/api/state", { headers: { cookie } })).text).settings.products;
   const unchangedZomin = productsAfterCreate.find(product => product.id === savedZomin.id);
   const independentAcna = productsAfterCreate.find(product => product.id === savedAcna.id);
