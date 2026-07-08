@@ -1709,19 +1709,8 @@ function renderLogin() {
   els.content.innerHTML = `
     <section class="login-layout">
       <div class="login-desktop-card">
-        <aside class="login-brand-panel">
-          <img class="login-brand-mark" src="/icons/logo.png?v=20260701-growup-logo-transparent" alt="" aria-hidden="true">
-          <div>
-            <p class="eyebrow">Growup Pilot</p>
-            <h2>ผู้ช่วยเจ้าของธุรกิจที่ทำให้ธุรกิจเติบโต</h2>
-            <p>เพิ่มยอดขาย ลดงาน วางแผน วิเคราะห์ธุรกิจ และช่วยตัดสินใจด้วย AI ในที่เดียว</p>
-          </div>
-        </aside>
         <form class="login-card" id="loginForm">
           <img class="login-logo" src="/icons/logo.png?v=20260701-growup-logo-transparent" alt="" aria-hidden="true">
-          <div class="section-title">
-            <h2>Growup Pilot</h2>
-          </div>
           <label>Username
             <input name="username" autocomplete="username" required placeholder="Username">
           </label>
