@@ -12,7 +12,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <link rel="preload" as="image" href="/icons/icon-192.png?v=20260701-favicon-restore" fetchpriority="high">
     <link rel="preload" as="image" href="/mobile-home-avatar.png" fetchpriority="high" media="(max-width: 780px)">
-    <link rel="preload" as="image" href="/icons/logo.png?v=20260704-mobile-header-fast" fetchpriority="high" media="(max-width: 780px)">
+    <link rel="preload" as="image" type="image/png" href="/icons/login-logo-192.png?v=20260708-login-logo-fast-v1" fetchpriority="high">
     <link rel="preload" as="image" href="/mobile-home-hero.png?v=20260703-mobile-hero-clean" fetchpriority="high" media="(max-width: 780px)">
     <script>
       document.documentElement.classList.add("app-startup-pending");
@@ -42,7 +42,7 @@
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=20260701-favicon-restore">
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=20260702-ios-enhanced-fullbleed">
     <link rel="preload" as="image" type="image/webp" href="/desktop-dashboard-hero.webp?v=20260706-webp-v1" fetchpriority="high" media="(min-width: 769px)">
-    <link rel="stylesheet" href="/styles.css?v=20260708-login-logo-center-v3">
+    <link rel="stylesheet" href="/styles.css?v=20260708-login-logo-fast-v1">
   </head>
   <body>
     <div id="appStartupLoader" class="app-startup-loader" aria-hidden="true">
@@ -54,7 +54,7 @@
     <div class="app-shell">
       <aside class="sidebar" aria-label="เมนูหลัก">
         <div class="brand">
-          <img class="brand-mark" src="/icons/logo.png?v=20260701-growup-logo-transparent" alt="" aria-hidden="true">
+          <img class="brand-mark" src="/icons/login-logo-192.png?v=20260708-login-logo-fast-v1" alt="" aria-hidden="true">
           <div class="brand-text">
             <strong>Growup Pilot</strong>
             <span>ผู้ช่วยธุรกิจอัจฉริยะ</span>
@@ -72,7 +72,7 @@
               <div id="headerProfile" class="header-profile" hidden></div>
             </div>
             <div class="topbar-brand" aria-label="Growup Pilot">
-              <img class="topbar-logo" src="/icons/logo.png?v=20260704-mobile-header-fast" alt="Growup Pilot" fetchpriority="high" loading="eager" decoding="sync">
+              <img class="topbar-logo" src="/icons/login-logo-192.png?v=20260708-login-logo-fast-v1" alt="Growup Pilot" fetchpriority="high" loading="eager" decoding="sync" width="192" height="192">
             </div>
             <div class="topbar-side topbar-side-right">
               <div class="topbar-icon-row">
@@ -345,9 +345,9 @@
       </form>
     </dialog>
 
-    <script src="/app.js?v=20260708-login-logo-center-v3"></script>
+    <script src="/app.js?v=20260708-login-logo-fast-v1"></script>
     <script>
-      const swUrl = "/service-worker.js?v=20260708-login-logo-center-v3";
+      const swUrl = "/service-worker.js?v=20260708-login-logo-fast-v1";
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", () => {
           navigator.serviceWorker.register(swUrl).then(registration => registration.update()).catch(() => {});

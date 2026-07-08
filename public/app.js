@@ -1710,7 +1710,7 @@ function renderLogin() {
     <section class="login-layout">
       <div class="login-desktop-card">
         <form class="login-card" id="loginForm">
-          <img class="login-logo" src="/icons/logo.png?v=20260701-growup-logo-transparent" alt="" aria-hidden="true">
+          <img class="login-logo" src="/icons/login-logo-192.png?v=20260708-login-logo-fast-v1" alt="" aria-hidden="true" width="84" height="84" fetchpriority="high" loading="eager" decoding="async">
           <label>Username
             <input name="username" autocomplete="username" required placeholder="Username">
           </label>
