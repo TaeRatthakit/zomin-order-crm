@@ -1816,10 +1816,25 @@ body.login-view.mobile-app-shell .content-area {
 }
 
 .login-card {
-  padding: 34px;
+  padding: 40px 34px 36px;
   display: grid;
-  gap: 18px;
+  gap: 20px;
   align-content: center;
+  justify-items: stretch;
+  width: 100%;
+}
+
+.login-card .login-logo {
+  justify-self: center;
+  margin: 0 0 8px;
+}
+
+.login-card label {
+  width: 100%;
+}
+
+.login-card input,
+.login-card .button {
   width: 100%;
 }
 
@@ -4852,6 +4867,15 @@ small,
 
   body.login-view .login-desktop-card {
     width: min(92vw, 420px);
+  }
+
+  body.login-view .login-card {
+    padding: 34px 24px 30px;
+    gap: 18px;
+  }
+
+  body.login-view .login-card .login-logo {
+    margin-bottom: 6px;
   }
 
   .sidebar {
