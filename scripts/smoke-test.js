@@ -575,11 +575,14 @@ async function main() {
     || !productClient.text.includes("function profitForOrder")
     || !productClient.text.includes("function productCostMoney")
     || !productClient.text.includes("function applyQuantityMatchedOrderPackage")
+    || !productClient.text.includes("function mobileOrderProductParts")
+    || !productClient.text.includes("function mobileOrderProductSummary")
+    || !productClient.text.includes("mobile-order-products")
     || !productClient.text.includes("delete data.originSourceChoice;\n  applyQuantityMatchedOrderPackage(data);")
     || !productClient.text.includes("Number(item.totalQuantityShipped || 0) === quantity")
     || !productClient.text.includes("section.hidden = true")
   ) {
-    fail("product image or decimal cost renderer is missing from the client");
+    fail("product image, mobile order product row, or decimal cost renderer is missing from the client");
   }
   const appShell = await request("/");
   if (

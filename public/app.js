@@ -3280,6 +3280,69 @@ function mobileOrderMoney(value) {
   });
 }
 
+function mobileOrderProductParts(order) {
+  const values = [];
+  const pushValue = value => {
+    if (Array.isArray(value)) {
+      value.forEach(pushValue);
+      return;
+    }
+    if (value && typeof value === "object") {
+      pushValue(value.productName || value.name || value.product || value.item || value.items || value.title);
+      return;
+    }
+    const text = String(value || "").trim();
+    if (!text) return;
+    text
+      .split(/[,،\n]+/)
+      .map(part => part.trim())
+      .filter(Boolean)
+      .forEach(part => values.push(part));
+  };
+  pushValue(order?.items);
+  if (!values.length) {
+    [
+      order?.product,
+      order?.productName,
+      order?.item,
+      order?.name,
+      order?.productTitle,
+      order?.itemName
+    ].forEach(pushValue);
+  }
+  const seen = new Set();
+  const unique = values.filter(name => {
+    const key = normalizeProductName(name).toLocaleLowerCase("th-TH");
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  return unique.length ? unique : ["Unknown Product"];
+}
+
+function mobileOrderProductSummary(order) {
+  const products = normalizeProductRecords();
+  const productByName = new Map(products.map(product => [
+    normalizeProductName(product.name).toLocaleLowerCase("th-TH"),
+    product
+  ]));
+  const names = mobileOrderProductParts(order);
+  return `
+    <span class="mobile-order-products" title="${escapeHtml(names.join(", "))}">
+      ${names.map(name => {
+        const product = productByName.get(normalizeProductName(name).toLocaleLowerCase("th-TH"));
+        const image = normalizeProductImageSource(product?.image || "");
+        return `
+          <span class="mobile-order-product-chip">
+            ${image ? `<span class="mobile-order-product-thumb" aria-hidden="true">${productImageMarkup(image, name, "", product?.id || "")}</span>` : ""}
+            <span class="mobile-order-product-name">${escapeHtml(name)}</span>
+          </span>
+        `;
+      }).join("")}
+    </span>
+  `;
+}
+
 function mobileOrderRows(selectedDate) {
   const q = app.ordersFilterQ.trim().toLowerCase();
   const rows = app.data.orders.filter(order => {
@@ -3287,6 +3350,11 @@ function mobileOrderRows(selectedDate) {
     const textMatch = !q || [
       order.orderNumber,
       order.items,
+      order.product,
+      order.productName,
+      order.item,
+      order.productTitle,
+      order.itemName,
       order.id,
       order.customerName,
       order.phone,
@@ -3403,6 +3471,7 @@ function renderMobileOrders(selectedDate) {
               <span class="mobile-order-customer">
                 <strong>${escapeHtml(customerName)}</strong>
                 <small>${escapeHtml(phone)}</small>
+                ${mobileOrderProductSummary(order)}
               </span>
               <span class="mobile-order-date">
                 <strong>${escapeHtml(mobileOrderDate(order.date))}</strong>
