@@ -421,9 +421,18 @@ function canonicalProductNameForOrder(settings = {}, value) {
   const normalizedName = normalizeProductNameForMatching(value);
   const normalizedKey = normalizedProductNameKey(normalizedName);
   if (!normalizedKey) return "";
-  const existing = normalizeProductRecords(settings.products)
-    .find(product => normalizedProductNameKey(product.name) === normalizedKey);
-  return existing?.name || normalizedName;
+  const products = normalizeProductRecords(settings.products)
+    .map(product => ({
+      ...product,
+      nameKey: normalizedProductNameKey(product.name)
+    }))
+    .filter(product => product.nameKey);
+  const exact = products.find(product => product.nameKey === normalizedKey);
+  if (exact) return exact.name;
+  const containsMatches = products
+    .filter(product => normalizedKey.includes(product.nameKey))
+    .sort((a, b) => b.nameKey.length - a.nameKey.length || a.name.localeCompare(b.name, "th"));
+  return containsMatches[0]?.name || normalizedName;
 }
 
 function newProductId(products = []) {

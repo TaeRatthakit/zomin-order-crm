@@ -233,7 +233,11 @@ async function main() {
     ["Zomin", "Zomin"],
     ["สินค้า : Zomin", "Zomin"],
     ["zomin", "Zomin"],
-    ["   Zomin    ", "Zomin"]
+    ["   Zomin    ", "Zomin"],
+    ["สินค้าZomin", "Zomin"],
+    ["ค้าค้าzomin", "Zomin"],
+    ["สินค้าซื้อ zomin", "Zomin"],
+    ["ข้อความมั่ว zomin", "Zomin"]
   ];
   for (let index = 0; index < lineProductCases.length; index += 1) {
     const [inputProduct, expectedProduct] = lineProductCases[index];
@@ -264,7 +268,43 @@ async function main() {
   if (normalizedExistingProduct.id !== savedZomin.id || normalizedExistingProduct.name !== "Zomin") {
     fail("normalized product label did not prefer existing Zomin product");
   }
+  const zominPlusProductInput = {
+    ...zominProductInput,
+    id: "",
+    name: "Zomin Plus",
+    sku: "",
+    salesPackages: []
+  };
+  const createZominPlusForMatching = await request("/api/products", {
+    method: "POST",
+    headers: { cookie, "content-type": "application/json" },
+    body: JSON.stringify(zominPlusProductInput)
+  });
+  if (createZominPlusForMatching.status !== 200) {
+    fail(`Zomin Plus product creation returned ${createZominPlusForMatching.status}: ${createZominPlusForMatching.text}`);
+  }
+  const longestMatchMock = await request("/api/line/mock", {
+    method: "POST",
+    headers: { cookie, "content-type": "application/json" },
+    body: JSON.stringify({ text: lineOrderText("ข้อความมั่ว zomin plus", `${productSuffix}long`) })
+  });
+  if (longestMatchMock.status !== 200) fail(`longest product match returned ${longestMatchMock.status}: ${longestMatchMock.text}`);
+  const longestRows = JSON.parse(longestMatchMock.text).rows || [];
+  if (longestRows[0]?.items !== "Zomin Plus") {
+    fail(`longest product match did not choose Zomin Plus: got "${longestRows[0]?.items}"`);
+  }
   const trulyNewProductName = `สินค้าใหม่ Normalize ${productSuffix}`;
+  const trulyNewOrderProduct = `ข้อความสินค้าใหม่ ${productSuffix}`;
+  const trulyNewOrderMock = await request("/api/line/mock", {
+    method: "POST",
+    headers: { cookie, "content-type": "application/json" },
+    body: JSON.stringify({ text: lineOrderText(trulyNewOrderProduct, `${productSuffix}new`) })
+  });
+  if (trulyNewOrderMock.status !== 200) fail(`new product order match returned ${trulyNewOrderMock.status}: ${trulyNewOrderMock.text}`);
+  const trulyNewOrderRows = JSON.parse(trulyNewOrderMock.text).rows || [];
+  if (trulyNewOrderRows[0]?.items !== trulyNewOrderProduct) {
+    fail("text without existing product keyword did not remain a new product name");
+  }
   const trulyNewProduct = await request("/api/products", {
     method: "POST",
     headers: { cookie, "content-type": "application/json" },
