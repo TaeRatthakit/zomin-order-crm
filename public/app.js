@@ -666,6 +666,14 @@ async function loadState() {
   render();
 }
 
+function loadStateAfterLogin() {
+  loadState().catch(error => {
+    if (error.status === 401) return;
+    showToast(error.message || "โหลดข้อมูลไม่สำเร็จ");
+    els.content.innerHTML = `<div class="empty-state">โหลดข้อมูลไม่สำเร็จ: ${escapeHtml(error.message || "กรุณาลองใหม่")}</div>`;
+  });
+}
+
 function renderNav() {
   if (app.view === "login") {
     els.nav.innerHTML = "";
@@ -7594,7 +7602,8 @@ document.addEventListener("submit", async event => {
       navigateToView("dashboard");
       showToast("เข้าสู่ระบบแล้ว");
       render();
-      await loadState();
+      loadStateAfterLogin();
+      return;
     }
 
     if (form.id === "orderForm") {
