@@ -1717,13 +1717,21 @@ function renderLogin() {
   els.content.innerHTML = `
     <section class="login-layout">
       <div class="login-desktop-card">
+        <header class="login-page-header" aria-label="Growup Pilot">
+          <img class="login-page-logo" src="/icons/login-logo-192.png?v=20260708-login-logo-fast-v1" alt="" aria-hidden="true" width="84" height="84" fetchpriority="high" loading="eager" decoding="async">
+          <strong>Growup<span>Pilot</span></strong>
+          <p>ระบบจัดการธุรกิจของคุณ ให้เติบโตไปด้วยกัน</p>
+        </header>
         <form class="login-card" id="loginForm">
-          <img class="login-logo" src="/icons/login-logo-192.png?v=20260708-login-logo-fast-v1" alt="" aria-hidden="true" width="84" height="84" fetchpriority="high" loading="eager" decoding="async">
-          <label>Username
-            <input name="username" autocomplete="username" required placeholder="Username">
+          <div class="login-card-heading">
+            <h1>ยินดีต้อนรับ<span>กลับมา</span></h1>
+            <p>เข้าสู่ระบบเพื่อไปต่อกับ Growup Pilot</p>
+          </div>
+          <label>ชื่อผู้ใช้งาน
+            <input name="username" autocomplete="username" required placeholder="กรอกชื่อผู้ใช้งาน">
           </label>
-          <label>Password
-            <input name="password" autocomplete="current-password" type="password" required placeholder="Password">
+          <label>รหัสผ่าน
+            <input name="password" autocomplete="current-password" type="password" required placeholder="กรอกรหัสผ่าน">
           </label>
           <button class="button primary" type="submit">เข้าสู่ระบบ</button>
         </form>

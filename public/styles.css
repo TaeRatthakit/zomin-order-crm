@@ -1783,9 +1783,45 @@ body.login-view.mobile-app-shell .content-area {
 }
 
 .login-desktop-card {
-  width: min(420px, 100%);
+  width: min(430px, 100%);
   display: grid;
+  gap: 28px;
   justify-items: stretch;
+}
+
+.login-page-header {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  text-align: center;
+  color: #fff;
+}
+
+.login-page-logo {
+  width: 84px;
+  height: 84px;
+  object-fit: contain;
+  display: block;
+  filter: drop-shadow(0 0 30px rgba(167, 77, 255, 0.45));
+}
+
+.login-page-header strong {
+  font-size: clamp(30px, 4vw, 40px);
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.login-page-header strong span {
+  color: #9b4dff;
+  text-shadow: 0 0 22px rgba(155, 77, 255, 0.45);
+}
+
+.login-page-header p {
+  margin: 0;
+  color: rgba(226, 232, 240, 0.72);
+  font-size: 15px;
+  line-height: 1.55;
 }
 
 .login-brand-panel,
@@ -1816,7 +1852,7 @@ body.login-view.mobile-app-shell .content-area {
 }
 
 .login-card {
-  padding: 40px 34px 36px;
+  padding: 44px 34px 36px;
   display: grid;
   gap: 20px;
   align-content: center;
@@ -1824,9 +1860,31 @@ body.login-view.mobile-app-shell .content-area {
   width: 100%;
 }
 
-.login-card .login-logo {
-  justify-self: center;
-  margin: 0 0 8px;
+.login-card-heading {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 6px;
+  text-align: center;
+}
+
+.login-card-heading h1 {
+  margin: 0;
+  color: #fff;
+  font-size: clamp(28px, 4vw, 36px);
+  font-weight: 900;
+  line-height: 1.15;
+}
+
+.login-card-heading h1 span {
+  color: #9b4dff;
+  text-shadow: 0 0 20px rgba(155, 77, 255, 0.46);
+}
+
+.login-card-heading p {
+  margin: 0;
+  color: rgba(226, 232, 240, 0.68);
+  font-size: 15px;
+  line-height: 1.55;
 }
 
 .login-card label {
@@ -5174,15 +5232,43 @@ small,
 
   body.login-view .login-desktop-card {
     width: min(92vw, 420px);
+    gap: 20px;
+  }
+
+  body.login-view .login-page-logo {
+    width: 72px;
+    height: 72px;
+  }
+
+  body.login-view .login-page-header {
+    gap: 8px;
+  }
+
+  body.login-view .login-page-header strong {
+    font-size: 28px;
+  }
+
+  body.login-view .login-page-header p {
+    max-width: 280px;
+    font-size: 12px;
   }
 
   body.login-view .login-card {
-    padding: 34px 24px 30px;
-    gap: 18px;
+    padding: 32px 22px 28px;
+    gap: 17px;
   }
 
-  body.login-view .login-card .login-logo {
-    margin-bottom: 6px;
+  body.login-view .login-card-heading {
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+
+  body.login-view .login-card-heading h1 {
+    font-size: 27px;
+  }
+
+  body.login-view .login-card-heading p {
+    font-size: 13px;
   }
 
   .sidebar {
