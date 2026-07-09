@@ -1821,7 +1821,16 @@ function orderCard(order) {
 }
 
 function orderTable(orders) {
-  if (!orders.length) return `<div class="empty-state">ยังไม่มีออเดอร์ในวันที่เลือก</div>`;
+  if (!orders.length) {
+    return `
+      <div class="empty-state orders-empty-state">
+        <span class="orders-empty-icon" aria-hidden="true">${iconSvg("clipboard")}</span>
+        <strong>ไม่พบออเดอร์ในมุมมองนี้</strong>
+        <p>ลองเปลี่ยนวันที่ ค้นหาด้วยคำอื่น หรือเปิดแสดงออเดอร์ทั้งหมด</p>
+        <button class="button primary" type="button" data-open-order>+ เพิ่มออเดอร์</button>
+      </div>
+    `;
+  }
   const sorted = sortOrdersAscending(orders);
   return `
     <div class="workspace-table-wrap mobile-stack-wrap" id="orderList">
@@ -3508,13 +3517,15 @@ function renderOrders() {
   });
   const totalSales = orders.reduce((sum, order) => sum + Number(order.amount || 0), 0);
   const topChannel = channelPerformance()[0]?.name || "ยังไม่มีข้อมูล";
+  const totalUnits = orders.reduce((sum, order) => sum + Number(order.jars || 0), 0);
+  const averageOrderValue = orders.length ? totalSales / orders.length : 0;
   els.content.innerHTML = `
     <section class="section saas-page orders-page">
       <div class="page-identity workspace-hero orders-hero">
         <div class="page-identity-copy">
           <span class="page-kicker">Order Management Workspace</span>
           <h2>${app.ordersShowAll ? "ออเดอร์ทั้งหมด" : `ออเดอร์วันที่ ${formatDate(selectedDate)}`}</h2>
-          <p id="ordersCountText">${app.ordersShowAll ? `แสดง ${money(orders.length)} ออเดอร์จากทุกวัน` : `แสดง ${money(orders.length)} ออเดอร์จากวันที่เลือก`}</p>
+          <p id="ordersCountText">${app.ordersShowAll ? `แสดง ${money(orders.length)} ออเดอร์จากทุกวัน` : `แสดง ${money(orders.length)} ออเดอร์จากวันที่เลือก`} พร้อมค้นหาและจัดการรายการในหน้าเดียว</p>
         </div>
         <div class="orders-header-actions">
           <label class="orders-show-all">
@@ -3536,6 +3547,8 @@ function renderOrders() {
       <div class="workspace-stat-grid">
         ${metric("ยอดขายในมุมมองนี้", `${money(totalSales)} บาท`, "accent")}
         ${metric("จำนวนออเดอร์", `${money(orders.length)} รายการ`)}
+        ${metric("จำนวนที่ขาย", `${money(totalUnits)} กระปุก`, "purple")}
+        ${metric("ยอดเฉลี่ยต่อออเดอร์", `${money(averageOrderValue)} บาท`, "green")}
         ${metric("ช่องทางเด่น", topChannel, "green")}
       </div>
       <div class="panel stack panel-premium">
@@ -3829,41 +3842,23 @@ function renderMobileOpportunities() {
 }
 
 function renderOpportunities() {
-  if (isMobileViewport()) {
-    els.content.innerHTML = renderMobileOpportunities();
-    return;
-  }
+  els.content.innerHTML = renderMobileOpportunities();
+  if (isMobileViewport()) return;
   const cards = opportunityCardsData();
-  els.content.innerHTML = `
-    <section class="section saas-page opportunities-page">
-      <div class="page-identity workspace-hero opportunities-hero">
-        <div class="page-identity-copy">
-          <span class="page-kicker">Revenue Opportunity Engine</span>
-          <h2>โอกาสทำเงินที่ควรลงมือวันนี้</h2>
-          <p>รวมลูกค้าและสินค้าที่มีสัญญาณพร้อมสร้างรายได้เพิ่ม พร้อมปุ่มลัดไปหน้าที่เกี่ยวข้องทันที</p>
-        </div>
-      </div>
-      <div class="opportunity-grid">
-        ${cards.map(card => `
-          <article class="opportunity-card">
-            <div>
-              <span class="tag">${money(card.count)} รายการ</span>
-            </div>
-            <div class="stack">
-              <h3>${escapeHtml(card.title)}</h3>
-              <p class="muted">${escapeHtml(card.description)}</p>
-            </div>
-            <div class="opportunity-score">${money(card.revenue)} บาท</div>
-            <div class="opportunity-meta">
-              <span>Estimated revenue</span>
-              <strong>${money(card.revenue)} บาท</strong>
-            </div>
-            <button class="button primary" type="button" data-view-shortcut="${escapeHtml(card.targetView)}">${escapeHtml(card.action)}</button>
-          </article>
-        `).join("")}
-      </div>
+  const list = els.content.querySelector(".mobile-opportunity-customer-list");
+  if (!list) return;
+  list.insertAdjacentHTML("afterend", `
+    <section class="desktop-opportunity-shortcuts" aria-label="ทางลัดโอกาสทำเงิน">
+      ${cards.map(card => `
+        <button class="desktop-opportunity-shortcut" type="button" data-view-shortcut="${escapeHtml(card.targetView)}">
+          <span class="tag">${money(card.count)} รายการ</span>
+          <strong>${escapeHtml(card.title)}</strong>
+          <small>${escapeHtml(card.description)}</small>
+          <b>${money(card.revenue)} บาท</b>
+        </button>
+      `).join("")}
     </section>
-  `;
+  `);
 }
 
 function renderProducts() {
@@ -5186,10 +5181,28 @@ function renderMobileReports(selectedDate, selectedMonth) {
 function renderReports() {
   const selectedDate = app.reportDate || app.data.summary.selectedDate || todayISO();
   const selectedMonth = app.reportMonth || selectedDate.slice(0, 7);
-  if (isMobileViewport()) {
-    renderMobileReports(selectedDate, selectedMonth);
-    return;
+  renderMobileReports(selectedDate, selectedMonth);
+  if (isMobileViewport()) return;
+  const desktopReportMonthOptions = Array.from(new Set(app.data.orders.map(order => monthKey(order.date)).filter(Boolean))).sort((a, b) => b.localeCompare(a));
+  const shell = els.content.querySelector(".mobile-reports-shell");
+  if (shell) {
+    shell.insertAdjacentHTML("afterbegin", `
+      <div class="desktop-report-controlbar">
+        <label class="date-picker compact card-picker" aria-label="เลือกเดือนรายงาน">
+          <span>เดือนรายงาน</span>
+          <input data-report-month type="month" value="${escapeHtml(selectedMonth)}" list="reportMonthOptions">
+          <datalist id="reportMonthOptions">
+            ${desktopReportMonthOptions.map(month => `<option value="${escapeHtml(month)}"></option>`).join("")}
+          </datalist>
+        </label>
+        <label class="date-picker compact card-picker" aria-label="เลือกวันที่รายงาน">
+          <span>วันที่รายงาน</span>
+          <input data-report-date type="date" value="${escapeHtml(selectedDate)}">
+        </label>
+      </div>
+    `);
   }
+  return;
   const selectedYear = selectedMonth.slice(0, 4);
   const monthly = {};
   const daily = {};
@@ -7270,13 +7283,13 @@ document.addEventListener("click", async event => {
   }
 
   const opportunityFilter = event.target.closest("[data-mobile-opportunity-filter]");
-  if (opportunityFilter && app.view === "opportunities" && isMobileViewport()) {
+  if (opportunityFilter && app.view === "opportunities") {
     app.mobileOpportunityFilter = opportunityFilter.dataset.mobileOpportunityFilter;
     renderOpportunities();
     return;
   }
 
-  if (event.target.closest("[data-mobile-opportunity-sort]") && app.view === "opportunities" && isMobileViewport()) {
+  if (event.target.closest("[data-mobile-opportunity-sort]") && app.view === "opportunities") {
     app.mobileOpportunitySort = app.mobileOpportunitySort === "urgency" ? "value" : "urgency";
     renderOpportunities();
     return;

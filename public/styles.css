@@ -12350,6 +12350,761 @@ small,
   }
 }
 
+@media (min-width: 821px) {
+  body.desktop-app-shell:not(.login-view) .mobile-reports-page,
+  body.desktop-app-shell:not(.login-view) .mobile-opportunities-page,
+  body.desktop-app-shell:not(.login-view) .orders-page {
+    width: 100%;
+    min-width: 0;
+    color: #f4f6fb;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-reports-shell,
+  body.desktop-app-shell:not(.login-view) .mobile-opportunities-page {
+    display: grid;
+    gap: 18px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-reports-shell {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-report-heading,
+  body.desktop-app-shell:not(.login-view) .mobile-report-kpi-grid,
+  body.desktop-app-shell:not(.login-view) .desktop-report-controlbar {
+    grid-column: 1 / -1;
+  }
+
+  body.desktop-app-shell:not(.login-view) .desktop-report-controlbar {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-bottom: -4px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .desktop-report-controlbar .date-picker {
+    display: grid;
+    grid-template-columns: auto minmax(150px, 1fr);
+    align-items: center;
+    gap: 8px;
+    min-height: 42px;
+    padding: 0 12px;
+    border: 1px solid rgba(63, 96, 121, .34);
+    border-radius: 12px;
+    background: rgba(4, 17, 28, .82);
+    color: #cbd5e1;
+    font-size: 12px;
+    font-weight: 800;
+  }
+
+  body.desktop-app-shell:not(.login-view) .desktop-report-controlbar input {
+    min-height: 34px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-report-heading {
+    margin: 2px 2px 0;
+    color: #f5f7fb;
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: 0;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-report-heading small,
+  body.desktop-app-shell:not(.login-view) .mobile-report-card h2 small {
+    color: #8e98a9;
+    font-size: .72em;
+    font-weight: 500;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-report-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-report-kpi,
+  body.desktop-app-shell:not(.login-view) .mobile-report-card,
+  body.desktop-app-shell:not(.login-view) .mobile-opportunity-summary > div,
+  body.desktop-app-shell:not(.login-view) .mobile-opportunity-status-grid button,
+  body.desktop-app-shell:not(.login-view) .mobile-opportunity-customer-card,
+  body.desktop-app-shell:not(.login-view) .orders-page .panel-premium,
+  body.desktop-app-shell:not(.login-view) #orderList {
+    border: 1px solid rgba(44, 92, 127, .34);
+    background:
+      radial-gradient(circle at 15% 0, rgba(22, 96, 135, .12), transparent 42%),
+      linear-gradient(145deg, rgba(4, 18, 31, .97), rgba(3, 12, 22, .98));
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.03), 0 16px 34px rgba(0,0,0,.16);
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-report-kpi {
+    display: grid;
+    min-width: 0;
+    min-height: 132px;
+    gap: 10px;
+    padding: 14px 12px;
+    overflow: hidden;
+    border-radius: 14px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-report-kpi-head {
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr);
+    align-items: center;
+    gap: 8px;
+    color: #dce3ec;
+    font-size: 12px;
+    line-height: 1.25;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-report-kpi-icon {
+    display: grid;
+    width: 34px;
+    height: 34px;
+    place-items: center;
+    border-radius: 11px;
+    background: rgba(139, 92, 246, .14);
+    color: #a78bfa;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-report-kpi-icon .metric-icon-svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-report-kpi > strong {
+    overflow: hidden;
+    color: #fff;
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1.05;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-report-kpi-foot {
+    display: grid;
+    gap: 4px;
+    color: #9aa4b3;
+    font-size: 11px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-report-kpi .report-trend {
+    font-size: 12px;
+    font-weight: 800;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-report-card {
+    min-width: 0;
+    padding: 18px;
+    border-radius: 16px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .channel-report-card {
+    grid-column: span 2;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-report-card h2 {
+    margin: 0 0 16px;
+    color: #f4f6fb;
+    font-size: 18px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-report-channel-layout {
+    display: grid;
+    grid-template-columns: minmax(180px, .55fr) minmax(0, 1fr);
+    gap: 20px;
+    align-items: center;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-report-donut {
+    position: relative;
+    width: min(100%, 210px);
+    aspect-ratio: 1;
+    display: grid;
+    place-items: center;
+    justify-self: center;
+    border-radius: 50%;
+    background: conic-gradient(var(--report-donut));
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-report-donut::after {
+    content: "";
+    position: absolute;
+    inset: 24%;
+    border-radius: 50%;
+    background: #03101a;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-report-donut > div {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    justify-items: center;
+    color: #b8c1ce;
+    font-size: 12px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-report-donut strong {
+    color: #fff;
+    font-size: 22px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-report-channel-legend,
+  body.desktop-app-shell:not(.login-view) .mobile-product-table-body,
+  body.desktop-app-shell:not(.login-view) .mobile-report-order-channel-list {
+    display: grid;
+    gap: 8px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-report-channel-row,
+  body.desktop-app-shell:not(.login-view) .mobile-product-table-head,
+  body.desktop-app-shell:not(.login-view) .mobile-product-table-row {
+    display: grid;
+    align-items: center;
+    gap: 10px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-report-channel-row {
+    grid-template-columns: minmax(0, 1fr) 58px 120px;
+    color: #b9c2cf;
+    font-size: 13px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .report-channel-name {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 8px;
+    overflow: hidden;
+    color: #eef2f7;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  body.desktop-app-shell:not(.login-view) .report-channel-name i {
+    display: grid;
+    width: 26px;
+    height: 26px;
+    flex: 0 0 26px;
+    place-items: center;
+    border-radius: 7px;
+    background: var(--channel-color);
+    color: #fff;
+    font-size: 11px;
+    font-style: normal;
+    font-weight: 800;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-report-customer-grid,
+  body.desktop-app-shell:not(.login-view) .mobile-report-vip-grid,
+  body.desktop-app-shell:not(.login-view) .mobile-opportunity-summary,
+  body.desktop-app-shell:not(.login-view) .mobile-opportunity-status-grid {
+    display: grid;
+    gap: 10px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-report-customer-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-report-customer-stat,
+  body.desktop-app-shell:not(.login-view) .mobile-report-vip-card {
+    display: grid;
+    gap: 8px;
+    min-width: 0;
+    padding: 14px;
+    border: 1px solid rgba(53, 103, 142, .35);
+    border-radius: 14px;
+    background: rgba(3, 16, 28, .72);
+  }
+
+  body.desktop-app-shell:not(.login-view) .customer-stat-icon {
+    display: grid;
+    width: 34px;
+    height: 34px;
+    place-items: center;
+    border-radius: 11px;
+    background: rgba(39, 148, 230, .15);
+    color: #4fb3ff;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-report-customer-stat strong,
+  body.desktop-app-shell:not(.login-view) .mobile-report-vip-grid strong {
+    color: #fff;
+    font-size: 22px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-report-vip-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #f4f6fb;
+    font-weight: 800;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-report-vip-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-product-table-head,
+  body.desktop-app-shell:not(.login-view) .mobile-product-table-row {
+    grid-template-columns: minmax(0, 1.4fr) minmax(100px, .8fr) 70px 80px;
+    padding: 10px 0;
+    border-top: 1px solid rgba(54, 88, 118, .3);
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-product-table-head {
+    padding-top: 0;
+    border-top: 0;
+    color: #94a3b8;
+    font-size: 12px;
+    font-weight: 800;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-report-product {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 9px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-report-product i {
+    display: grid;
+    width: 38px;
+    height: 38px;
+    flex: 0 0 38px;
+    place-items: center;
+    overflow: hidden;
+    border-radius: 9px;
+    background: #dbe4ed;
+    color: #203043;
+    font-style: normal;
+    font-weight: 800;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-report-product img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-report-product b {
+    overflow: hidden;
+    color: #f4f6fb;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-report-order-channel-list > div {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 0;
+    border-top: 1px solid rgba(54, 88, 118, .3);
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-report-empty,
+  body.desktop-app-shell:not(.login-view) .mobile-opportunity-empty {
+    display: grid;
+    min-height: 140px;
+    place-items: center;
+    padding: 22px;
+    border: 1px dashed rgba(86, 119, 148, .35);
+    border-radius: 14px;
+    color: #9ba8b8;
+    text-align: center;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-opportunity-summary {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-opportunity-summary > div {
+    display: grid;
+    grid-template-columns: 46px minmax(0, 1fr);
+    gap: 8px 12px;
+    align-items: center;
+    min-height: 118px;
+    padding: 18px;
+    border-radius: 16px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-opportunity-summary-icon,
+  body.desktop-app-shell:not(.login-view) .mobile-opportunity-status-icon {
+    display: grid;
+    place-items: center;
+    color: #a855f7;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-opportunity-summary-icon .nav-icon,
+  body.desktop-app-shell:not(.login-view) .mobile-opportunity-summary-icon .metric-icon-svg {
+    width: 34px;
+    height: 34px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-opportunity-summary strong {
+    grid-column: 1 / -1;
+    color: #fff;
+    font-size: 30px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-opportunity-status-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-opportunity-status-grid button {
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr);
+    gap: 7px 10px;
+    min-height: 96px;
+    padding: 16px;
+    border-radius: 14px;
+    color: #e7ecf4;
+    text-align: left;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-opportunity-status-grid strong {
+    grid-column: 1 / -1;
+    color: #fff;
+    font-size: 24px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-opportunity-search-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 110px 46px;
+    gap: 10px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-opportunity-search-row label,
+  body.desktop-app-shell:not(.login-view) .orders-search-input {
+    min-width: 0;
+    border: 1px solid rgba(63, 96, 121, .34);
+    border-radius: 12px;
+    background: rgba(4, 17, 28, .82);
+    color: #e8edf4;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-opportunity-search-row label {
+    display: grid;
+    grid-template-columns: 32px minmax(0, 1fr);
+    align-items: center;
+    height: 46px;
+    padding: 0 12px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-opportunity-search-row input {
+    width: 100%;
+    height: 42px;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    color: #f4f6fb;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-opportunity-search-button,
+  body.desktop-app-shell:not(.login-view) .mobile-opportunity-sort-button {
+    height: 46px;
+    border-radius: 12px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-opportunity-search-button {
+    border: 1px solid rgba(150, 49, 255, .68);
+    background: linear-gradient(135deg, #5720aa, #35136f);
+    color: #f3ecff;
+    font-weight: 800;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-opportunity-sort-button {
+    border: 1px solid rgba(64, 94, 119, .38);
+    background: rgba(4, 16, 27, .84);
+    color: #d7d8dd;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-opportunity-filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-opportunity-filter-row button {
+    min-height: 38px;
+    padding: 0 14px;
+    border: 1px solid rgba(57, 85, 108, .42);
+    border-radius: 999px;
+    background: rgba(3, 15, 25, .8);
+    color: #c6cbd4;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-opportunity-filter-row button.active {
+    border-color: rgba(151, 53, 255, .78);
+    background: linear-gradient(135deg, #51209d, #32116d);
+    color: #f2eaff;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-opportunity-list-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: #b64eff;
+    font-weight: 800;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-opportunity-customer-list {
+    display: grid;
+    gap: 10px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-opportunity-customer-card {
+    overflow: hidden;
+    border-radius: 16px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-opportunity-customer-main {
+    display: grid;
+    grid-template-columns: 50px minmax(0, 1.45fr) minmax(120px, .7fr) minmax(130px, .7fr) 32px;
+    gap: 12px;
+    align-items: center;
+    padding: 14px 16px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-opportunity-avatar {
+    display: grid;
+    width: 50px;
+    height: 50px;
+    place-items: center;
+    border-radius: 50%;
+    background: linear-gradient(145deg, #9f56dc, #315d76);
+    color: #fff;
+    font-weight: 800;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-opportunity-identity,
+  body.desktop-app-shell:not(.login-view) .mobile-opportunity-due,
+  body.desktop-app-shell:not(.login-view) .mobile-opportunity-value {
+    display: grid;
+    min-width: 0;
+    gap: 4px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-opportunity-identity strong,
+  body.desktop-app-shell:not(.login-view) .mobile-opportunity-identity span,
+  body.desktop-app-shell:not(.login-view) .mobile-opportunity-identity small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-opportunity-identity strong {
+    color: #f4f6fb;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-opportunity-identity span,
+  body.desktop-app-shell:not(.login-view) .mobile-opportunity-identity small,
+  body.desktop-app-shell:not(.login-view) .mobile-opportunity-due span,
+  body.desktop-app-shell:not(.login-view) .mobile-opportunity-due small,
+  body.desktop-app-shell:not(.login-view) .mobile-opportunity-value span {
+    color: #aab4c2;
+    font-size: 12px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-opportunity-due,
+  body.desktop-app-shell:not(.login-view) .mobile-opportunity-value {
+    text-align: center;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-opportunity-due strong {
+    color: #b948ff;
+    font-size: 22px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-opportunity-due .overdue {
+    color: #ff5364;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-opportunity-value strong {
+    color: #ffb11f;
+    font-size: 20px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-opportunity-actions {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 9px;
+    padding: 0 16px 14px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-opportunity-actions a,
+  body.desktop-app-shell:not(.login-view) .mobile-opportunity-actions button {
+    display: flex;
+    min-height: 40px;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    border: 1px solid rgba(52, 103, 88, .45);
+    border-radius: 10px;
+    background: rgba(3, 17, 25, .74);
+    color: #63df39;
+    text-decoration: none;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-opportunity-actions .save {
+    border-color: rgba(38, 125, 184, .48);
+    color: #4baaff;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-opportunity-actions .reschedule {
+    border-color: rgba(139, 49, 207, .52);
+    color: #bd4dff;
+  }
+
+  body.desktop-app-shell:not(.login-view) .desktop-opportunity-shortcuts {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    margin-top: 2px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .desktop-opportunity-shortcut {
+    display: grid;
+    gap: 8px;
+    min-width: 0;
+    min-height: 150px;
+    padding: 16px;
+    border: 1px solid rgba(113, 67, 168, .34);
+    border-radius: 16px;
+    background:
+      radial-gradient(circle at 12% 0, rgba(137, 70, 230, .16), transparent 42%),
+      linear-gradient(145deg, rgba(16, 16, 39, .96), rgba(3, 14, 24, .98));
+    color: #f4f6fb;
+    text-align: left;
+  }
+
+  body.desktop-app-shell:not(.login-view) .desktop-opportunity-shortcut strong,
+  body.desktop-app-shell:not(.login-view) .desktop-opportunity-shortcut small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  body.desktop-app-shell:not(.login-view) .desktop-opportunity-shortcut strong {
+    color: #fff;
+    font-size: 16px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .desktop-opportunity-shortcut small {
+    min-height: 38px;
+    color: #aab4c2;
+    line-height: 1.45;
+  }
+
+  body.desktop-app-shell:not(.login-view) .desktop-opportunity-shortcut b {
+    align-self: end;
+    color: #ffb11f;
+    font-size: 18px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .orders-page .workspace-stat-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  body.desktop-app-shell:not(.login-view) .orders-show-all {
+    display: grid;
+    grid-template-columns: 42px auto;
+    align-items: center;
+    gap: 9px;
+    min-height: 42px;
+    color: #cbd5e1;
+    font-size: 12px;
+    font-weight: 800;
+  }
+
+  body.desktop-app-shell:not(.login-view) .orders-show-all input {
+    appearance: none;
+    width: 42px;
+    height: 24px;
+    min-height: 24px;
+    margin: 0;
+    padding: 0;
+    border: 1px solid rgba(103, 124, 148, .4);
+    border-radius: 999px;
+    background: rgba(3, 16, 27, .86);
+    box-shadow: inset 0 1px 3px rgba(0,0,0,.24);
+    cursor: pointer;
+  }
+
+  body.desktop-app-shell:not(.login-view) .orders-show-all input::before {
+    content: "";
+    display: block;
+    width: 18px;
+    height: 18px;
+    margin: 2px;
+    border-radius: 50%;
+    background: #718096;
+    transition: transform .18s ease, background .18s ease;
+  }
+
+  body.desktop-app-shell:not(.login-view) .orders-show-all input:checked {
+    border-color: rgba(151, 53, 255, .72);
+    background: rgba(81, 32, 157, .78);
+  }
+
+  body.desktop-app-shell:not(.login-view) .orders-show-all input:checked::before {
+    transform: translateX(18px);
+    background: #f3e8ff;
+  }
+
+  body.desktop-app-shell:not(.login-view) .orders-search-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 110px;
+    gap: 10px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .orders-search-input {
+    min-height: 44px;
+  }
+
+  body.desktop-app-shell:not(.login-view) #orderList {
+    overflow: hidden;
+  }
+
+  body.desktop-app-shell:not(.login-view) #orderList .workspace-table th {
+    background: rgba(3, 15, 25, .72);
+    color: #aab4c2;
+    font-size: 12px;
+  }
+
+  body.desktop-app-shell:not(.login-view) #orderList .workspace-table td {
+    border-color: rgba(54, 88, 118, .3);
+  }
+
+  body.desktop-app-shell:not(.login-view) .orders-empty-state {
+    display: grid;
+    justify-items: center;
+    gap: 8px;
+    color: #aab4c2;
+    background: rgba(4, 18, 31, .72);
+  }
+
+  body.desktop-app-shell:not(.login-view) .orders-empty-state strong {
+    color: #f4f6fb;
+    font-size: 18px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .orders-empty-icon {
+    display: grid;
+    width: 46px;
+    height: 46px;
+    place-items: center;
+    border-radius: 14px;
+    background: rgba(139, 92, 246, .14);
+    color: #a78bfa;
+  }
+}
+
 @media (min-width: 821px) and (max-width: 1180px) {
   body.desktop-app-shell:not(.login-view) .app-shell,
   body.desktop-dashboard-view:not(.login-view) .app-shell {
