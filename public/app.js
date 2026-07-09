@@ -108,6 +108,8 @@ const app = {
   productPackageDraft: [],
   deletingOrderId: "",
   deletingCustomerId: "",
+  editingUserId: "",
+  deletingUserId: "",
   profileDraftImage: "",
   profileSaving: false,
   mobileBusinessPage: "main",
@@ -160,7 +162,19 @@ const adminViews = new Set([
 ]);
 
 function isAdmin() {
-  return app.currentUser?.role === "Admin";
+  return ["Owner", "Admin"].includes(app.currentUser?.role);
+}
+
+function isOwner() {
+  return app.currentUser?.role === "Owner";
+}
+
+function canManageUser(targetUser = null, nextRole = "") {
+  if (isOwner()) return true;
+  if (!isAdmin()) return false;
+  if (targetUser?.role === "Owner") return false;
+  if (nextRole === "Owner") return false;
+  return true;
 }
 
 function canExportData() {
@@ -269,6 +283,9 @@ const els = {
   mobileDeleteOrderNumber: document.querySelector("#mobileDeleteOrderNumber"),
   deleteCustomerDialog: document.querySelector("#deleteCustomerDialog"),
   deleteCustomerForm: document.querySelector("#deleteCustomerForm"),
+  deleteUserDialog: document.querySelector("#deleteUserDialog"),
+  deleteUserForm: document.querySelector("#deleteUserForm"),
+  deleteUserName: document.querySelector("#deleteUserName"),
   logoutDialog: document.querySelector("#logoutDialog"),
   logoutForm: document.querySelector("#logoutForm"),
   profileDialog: document.querySelector("#profileDialog"),
@@ -3103,16 +3120,31 @@ function renderMobileBusinessSecurity() {
 
 function renderMobileBusinessRoles() {
   const users = app.data.users || [];
+  const editingUser = app.editingUserId && app.editingUserId !== "__new"
+    ? users.find(user => user.id === app.editingUserId)
+    : null;
+  if (app.mobileBusinessPage === "userEditor") {
+    return `
+      <section class="mobile-business-page mobile-business-subpage">
+        <header class="mobile-business-subhead">
+          <button class="mobile-business-back" type="button" data-user-editor-back aria-label="กลับรายชื่อผู้ใช้งาน">${iconSvg("arrow")}</button>
+          <div><h2>${app.editingUserId === "__new" ? "เพิ่มผู้ใช้งาน" : "แก้ไขผู้ใช้งาน"}</h2><p>ข้อมูลสำหรับเข้าสู่ระบบ</p></div>
+        </header>
+        ${userEditorMarkup(editingUser, { mobile: true })}
+      </section>
+    `;
+  }
   return `
     <section class="mobile-business-page mobile-business-subpage">
       ${mobileBusinessHeader("การจัดการสิทธิ์ / ผู้ใช้งาน", "ผู้ใช้งานและสิทธิ์ที่มีอยู่ในระบบ", "users")}
+      <button class="button primary mobile-business-full-button" type="button" data-add-user>${iconSvg("users")} เพิ่มผู้ใช้งาน</button>
       <div class="mobile-business-user-list">
         ${users.map(user => `
-          <article class="mobile-business-user">
+          <button class="mobile-business-user" type="button" data-mobile-edit-user="${escapeHtml(user.id)}">
             <span class="mobile-business-avatar">${escapeHtml(initials(user.name))}</span>
-            <span><strong>${escapeHtml(user.name)}</strong><small>${escapeHtml(user.username || user.phone || "ไม่มีข้อมูลติดต่อ")}</small><em>${escapeHtml(user.role || "ยังไม่ได้ระบุ")}</em></span>
-            <b>${user.active === false ? "ปิด" : "ใช้งาน"}</b>
-          </article>
+            <span><strong>${escapeHtml(user.name)}</strong><small>${escapeHtml(user.username || "ไม่มีชื่อเข้าใช้งาน")}</small><em>${escapeHtml(userRoleLabel(user.role))}</em></span>
+            <b>${userStatusLabel(user)}</b>
+          </button>
         `).join("") || mobileBusinessEmpty("ยังไม่มีผู้ใช้งาน", "ไม่พบข้อมูลผู้ใช้จากระบบ")}
       </div>
     </section>
@@ -3201,7 +3233,9 @@ function renderMobileBusinessManagement() {
     advertising: renderMobileBusinessAdvertising,
     marketingPerformance: renderMobileBusinessMarketingPerformance,
     security: renderMobileBusinessSecurity,
+    users: renderMobileBusinessRoles,
     roles: renderMobileBusinessRoles,
+    userEditor: renderMobileBusinessRoles,
     goals: renderMobileBusinessGoals,
     analytics: renderMobileBusinessAnalytics,
     import: renderMobileBusinessImport,
@@ -5555,47 +5589,94 @@ function settingsSubpageShell(kicker, title, description, inner) {
   `;
 }
 
-function renderTeamManagementPanels() {
+function userRoleLabel(role) {
+  if (role === "Owner") return "Owner";
+  if (role === "Admin") return "Admin";
+  return "Staff";
+}
+
+function userStatusLabel(user) {
+  return user.active === false ? "ปิด" : "ใช้งาน";
+}
+
+function roleOptions(selectedRole = "Staff", targetUser = null) {
+  return ["Owner", "Admin", "Staff"].map(role => {
+    const disabled = !canManageUser(targetUser, role);
+    return `<option value="${role}" ${selectedRole === role ? "selected" : ""} ${disabled ? "disabled" : ""}>${role}</option>`;
+  }).join("");
+}
+
+function userEditorMarkup(user = null, { mobile = false } = {}) {
+  const isNew = !user?.id;
+  const targetUser = user || null;
+  const canDelete = !isNew && canManageUser(targetUser) && !(app.currentUser?.id === user.id && user.role === "Owner");
+  const formClass = mobile ? "mobile-business-form mobile-user-form" : "panel stack panel-premium user-editor-panel";
   return `
-    <div class="two-col settings-users-grid">
+    <form class="${formClass}" id="teamForm" data-user-form="${isNew ? "new" : escapeHtml(user.id)}">
+      ${!mobile ? `
+        <div class="section-title">
+          <h2>${isNew ? "เพิ่มผู้ใช้งาน" : "แก้ไขผู้ใช้งาน"}</h2>
+          <p>บันทึกข้อมูลเข้าสู่ระบบจริงและคงอยู่หลังรีเฟรช</p>
+        </div>
+      ` : ""}
+      <input type="hidden" name="id" value="${escapeHtml(user?.id || "")}">
+      <label>ชื่อผู้ใช้งาน<input name="name" required value="${escapeHtml(user?.name || "")}" placeholder="กรอกชื่อผู้ใช้งาน"></label>
+      <label>ชื่อเข้าใช้งาน<input name="username" required value="${escapeHtml(user?.username || "")}" placeholder="กรอกชื่อเข้าใช้งาน" autocomplete="username"></label>
+      <label>รหัสเข้าใช้งาน<input name="password" type="password" ${isNew ? "required" : ""} placeholder="${isNew ? "กรอกรหัสเข้าใช้งาน" : "เว้นว่างไว้ถ้าไม่เปลี่ยน"}" autocomplete="new-password"></label>
+      <label>บทบาท
+        <select name="role" required>
+          ${roleOptions(userRoleLabel(user?.role || "Staff"), targetUser)}
+        </select>
+      </label>
+      <div class="${mobile ? "mobile-user-actions" : "settings-submit-bar"}">
+        ${!mobile ? `<button class="button ghost" type="button" data-cancel-user-edit>ยกเลิก</button>` : ""}
+        ${canDelete ? `<button class="button danger" type="button" data-delete-user="${escapeHtml(user.id)}">ลบผู้ใช้งาน</button>` : ""}
+        <button class="button primary" type="submit">${isNew ? "เพิ่มผู้ใช้งาน" : "บันทึก"}</button>
+      </div>
+    </form>
+  `;
+}
+
+function renderTeamManagementPanels() {
+  const editingUser = app.editingUserId && app.editingUserId !== "__new"
+    ? (app.data.users || []).find(user => user.id === app.editingUserId)
+    : null;
+  const showEditor = app.editingUserId === "__new" || editingUser;
+  return `
+    <div class="settings-users-layout">
       <div class="panel stack panel-premium">
         <div class="section-title">
-          <h2>รายชื่อผู้ใช้งาน</h2>
-          <p>ดูสถานะและสิทธิ์ของผู้ใช้งานทั้งหมดในระบบ</p>
+          <div>
+            <h2>รายชื่อผู้ใช้งาน</h2>
+            <p>กดแถวเพื่อเปิดรายละเอียดและแก้ไขสิทธิ์</p>
+          </div>
+          <button class="button primary" type="button" data-add-user>${iconSvg("users")} เพิ่มผู้ใช้งาน</button>
         </div>
         <div class="table-wrap mobile-stack-wrap">
-          <table class="mobile-stack-table">
-            <thead><tr><th>ชื่อ</th><th>สิทธิ์</th><th>เบอร์โทร</th><th>สถานะ</th></tr></thead>
+          <table class="mobile-stack-table user-management-table">
+            <thead><tr><th>ชื่อผู้ใช้งาน</th><th>ชื่อเข้าใช้งาน</th><th>บทบาท</th><th>สถานะ</th><th>จัดการ</th></tr></thead>
             <tbody>
               ${app.data.users.map(user => `
-                <tr>
-                  <td data-label="ชื่อ"><strong>${escapeHtml(user.name)}</strong></td>
-                  <td data-label="สิทธิ์">${badge(user.role)}</td>
-                  <td data-label="เบอร์โทร">${escapeHtml(user.phone || "-")}</td>
+                <tr data-user-row="${escapeHtml(user.id)}" tabindex="0">
+                  <td data-label="ชื่อผู้ใช้งาน"><span class="user-row-name"><span class="mobile-business-avatar">${escapeHtml(initials(user.name))}</span><strong>${escapeHtml(user.name)}</strong></span></td>
+                  <td data-label="ชื่อเข้าใช้งาน">${escapeHtml(user.username || "-")}</td>
+                  <td data-label="บทบาท">${badge(userRoleLabel(user.role))}</td>
                   <td data-label="สถานะ">${user.active ? "เปิดใช้งาน" : "ปิดใช้งาน"}</td>
+                  <td data-label="จัดการ"><button class="button ghost compact-action" type="button" data-edit-user="${escapeHtml(user.id)}">${iconSvg("settings")}</button></td>
                 </tr>
               `).join("")}
             </tbody>
           </table>
         </div>
       </div>
-      <form class="panel stack panel-premium" id="teamForm">
-        <div class="section-title">
-          <h2>เพิ่มทีมงาน</h2>
-          <p>สร้างผู้ใช้งานพร้อม Username / Password สำหรับเข้าสู่ระบบ</p>
-        </div>
-        <label>ชื่อ<input name="name" required></label>
-        <label>Username<input name="username" required placeholder="เช่น sale01"></label>
-        <label>Password<input name="password" required placeholder="ตั้งรหัสผ่าน"></label>
-        <label>เบอร์โทร<input name="phone"></label>
-        <label>สิทธิ์
-          <select name="role">
-            <option>Staff</option>
-            <option>Admin</option>
-          </select>
-        </label>
-        <button class="button primary" type="submit">บันทึกผู้ใช้งาน</button>
-      </form>
+      ${showEditor ? userEditorMarkup(editingUser) : `
+        <article class="panel stack panel-premium user-editor-panel user-editor-empty">
+          <div class="section-title">
+            <h2>เลือกผู้ใช้งาน</h2>
+            <p>กดรายชื่อด้านซ้ายหรือเพิ่มผู้ใช้งานใหม่</p>
+          </div>
+        </article>
+      `}
     </div>
   `;
 }
@@ -6660,6 +6741,22 @@ function openDeleteCustomerDialog(customerId) {
   els.deleteCustomerDialog.showModal();
 }
 
+function openDeleteUserDialog(userId) {
+  const user = (app.data.users || []).find(item => item.id === userId);
+  if (!user) return;
+  if (!canManageUser(user)) {
+    showToast("ไม่มีสิทธิ์ลบผู้ใช้งานนี้");
+    return;
+  }
+  if (app.currentUser?.id === user.id && user.role === "Owner") {
+    showToast("ไม่สามารถลบ Owner ที่กำลังใช้งานอยู่ได้");
+    return;
+  }
+  app.deletingUserId = userId;
+  if (els.deleteUserName) els.deleteUserName.textContent = user.name || user.username || "-";
+  els.deleteUserDialog.showModal();
+}
+
 function packageProducts() {
   return normalizeProductRecords().filter(product => product.salesPackages.length);
 }
@@ -7068,6 +7165,52 @@ document.addEventListener("click", async event => {
     return;
   }
 
+  const addUserButton = event.target.closest("[data-add-user]");
+  if (addUserButton) {
+    app.editingUserId = "__new";
+    if (isMobileViewport()) app.mobileBusinessPage = "userEditor";
+    render();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    return;
+  }
+
+  const editUserButton = event.target.closest("[data-edit-user], [data-mobile-edit-user]");
+  if (editUserButton) {
+    app.editingUserId = editUserButton.dataset.editUser || editUserButton.dataset.mobileEditUser || "";
+    if (isMobileViewport()) app.mobileBusinessPage = "userEditor";
+    render();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    return;
+  }
+
+  const userRow = event.target.closest("[data-user-row]");
+  if (userRow && !event.target.closest("button")) {
+    app.editingUserId = userRow.dataset.userRow;
+    render();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    return;
+  }
+
+  if (event.target.closest("[data-cancel-user-edit]")) {
+    app.editingUserId = "";
+    render();
+    return;
+  }
+
+  if (event.target.closest("[data-user-editor-back]")) {
+    app.editingUserId = "";
+    app.mobileBusinessPage = "roles";
+    renderSettings();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    return;
+  }
+
+  const deleteUserButton = event.target.closest("[data-delete-user]");
+  if (deleteUserButton) {
+    openDeleteUserDialog(deleteUserButton.dataset.deleteUser);
+    return;
+  }
+
   const editAdCostButton = event.target.closest("[data-edit-ad-cost]");
   if (editAdCostButton) {
     app.editingAdCostId = editAdCostButton.dataset.editAdCost;
@@ -7373,6 +7516,11 @@ document.addEventListener("click", async event => {
   if (event.target.closest("[data-close-delete-customer]")) {
     app.deletingCustomerId = "";
     els.deleteCustomerDialog.close();
+  }
+
+  if (event.target.closest("[data-close-delete-user]")) {
+    app.deletingUserId = "";
+    els.deleteUserDialog.close();
   }
 
   if (event.target.closest("[data-close-customer]")) els.customerDialog.close();
@@ -7686,6 +7834,18 @@ document.addEventListener("submit", async event => {
       await loadState();
     }
 
+    if (form.id === "deleteUserForm" && app.deletingUserId) {
+      await api(`/api/team/${encodeURIComponent(app.deletingUserId)}`, {
+        method: "DELETE"
+      });
+      app.deletingUserId = "";
+      app.editingUserId = "";
+      els.deleteUserDialog.close();
+      if (isMobileViewport()) app.mobileBusinessPage = "roles";
+      showToast("ลบผู้ใช้งานแล้ว");
+      await loadState();
+    }
+
     if (form.id === "logoutForm") {
       try {
         await api("/api/logout", { method: "POST" });
@@ -7701,11 +7861,15 @@ document.addEventListener("submit", async event => {
 
     if (form.id === "teamForm") {
       const data = Object.fromEntries(new FormData(form).entries());
-      await api("/api/team", {
-        method: "POST",
+      const id = String(data.id || "").trim();
+      delete data.id;
+      await api(id ? `/api/team/${encodeURIComponent(id)}` : "/api/team", {
+        method: id ? "PUT" : "POST",
         body: JSON.stringify(data)
       });
-      showToast("เพิ่มทีมงานแล้ว");
+      app.editingUserId = "";
+      if (isMobileViewport()) app.mobileBusinessPage = "roles";
+      showToast(id ? "บันทึกผู้ใช้งานแล้ว" : "เพิ่มผู้ใช้งานแล้ว");
       await loadState();
     }
 

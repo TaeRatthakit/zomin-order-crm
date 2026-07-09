@@ -7,6 +7,7 @@ const {
   readDb,
   findUserForLogin,
   writeDb,
+  deleteUser,
   deleteOrder,
   deleteCustomer,
   getImportJob,
@@ -694,11 +695,24 @@ function requireUser(req, res) {
 function requireAdmin(req, res) {
   const user = requireUser(req, res);
   if (!user) return null;
-  if (user.role !== "Admin") {
-    json(res, 403, { ok: false, error: "ต้องใช้สิทธิ์ Admin" });
+  if (!["Owner", "Admin"].includes(user.role)) {
+    json(res, 403, { ok: false, error: "ต้องใช้สิทธิ์ Owner หรือ Admin" });
     return null;
   }
   return user;
+}
+
+function normalizeUserRole(role) {
+  return ["Owner", "Admin", "Staff"].includes(role) ? role : "Staff";
+}
+
+function canManageUser(currentUser, targetUser = null, nextRole = "") {
+  if (!currentUser) return false;
+  if (currentUser.role === "Owner") return true;
+  if (currentUser.role !== "Admin") return false;
+  if (targetUser?.role === "Owner") return false;
+  if (nextRole === "Owner") return false;
+  return true;
 }
 
 function csvEscape(value) {
@@ -2213,7 +2227,7 @@ async function handleApi(req, res) {
     return json(res, 200, {
       ...enriched,
       settings: publicSettings(enriched.settings),
-      users: currentUser.role === "Admin" ? enriched.users.map(publicUser) : [currentUser],
+      users: ["Owner", "Admin"].includes(currentUser.role) ? enriched.users.map(publicUser) : [currentUser],
       currentUser,
       summary: buildSummary(enriched, date)
     });
@@ -2800,17 +2814,28 @@ async function handleApi(req, res) {
   if (req.method === "POST" && url.pathname === "/api/team") {
     if (!requireAdmin(req, res)) return;
     const body = await readBody(req);
-    const password = String(body.password || body.pin || "staff123").trim() || "staff123";
+    const role = normalizeUserRole(body.role);
+    if (!canManageUser(currentUser, null, role)) {
+      return json(res, 403, { ok: false, error: "Admin ไม่สามารถสร้างหรือกำหนด Owner ได้" });
+    }
+    const password = String(body.password || body.pin || "").trim();
+    const username = String(body.username || "").trim();
+    const name = String(body.name || body.displayName || "").trim();
+    if (!name) return json(res, 400, { ok: false, error: "กรุณาใส่ชื่อผู้ใช้งาน" });
+    if (!username) return json(res, 400, { ok: false, error: "กรุณาใส่ชื่อเข้าใช้งาน" });
+    if (!password) return json(res, 400, { ok: false, error: "กรุณาตั้งรหัสผ่าน" });
+    if ((db.users || []).some(item => String(item.username || "").trim() === username)) {
+      return json(res, 409, { ok: false, error: "ชื่อเข้าใช้งานนี้ถูกใช้แล้ว" });
+    }
     const user = {
       id: uid("u"),
-      name: String(body.name || "").trim(),
-      username: String(body.username || body.phone || uid("staff")).trim(),
-      role: body.role === "Admin" ? "Admin" : "Staff",
-      phone: normalizePhone(body.phone || ""),
+      name,
+      username,
+      role,
+      phone: "",
       passwordHash: hashPassword(password),
       active: body.active !== false
     };
-    if (!user.name) return json(res, 400, { ok: false, error: "กรุณาใส่ชื่อทีมงาน" });
     db.users.push(user);
     await writeDb(db);
     return json(res, 200, { ok: true, user: publicUser(user) });
@@ -2822,10 +2847,25 @@ async function handleApi(req, res) {
     const body = await readBody(req);
     const user = db.users.find(item => item.id === id);
     if (!user) return json(res, 404, { ok: false, error: "ไม่พบผู้ใช้" });
-    if (body.username !== undefined) user.username = String(body.username).trim();
-    if (body.name !== undefined) user.name = String(body.name).trim();
-    if (body.phone !== undefined) user.phone = normalizePhone(body.phone);
-    if (body.role !== undefined) user.role = body.role === "Admin" ? "Admin" : "Staff";
+    const nextRole = body.role !== undefined ? normalizeUserRole(body.role) : user.role;
+    if (!canManageUser(currentUser, user, nextRole)) {
+      return json(res, 403, { ok: false, error: "Admin ไม่สามารถแก้ไขหรือลดสิทธิ์ Owner ได้" });
+    }
+    if (body.username !== undefined) {
+      const username = String(body.username).trim();
+      if (!username) return json(res, 400, { ok: false, error: "กรุณาใส่ชื่อเข้าใช้งาน" });
+      if (db.users.some(item => item.id !== id && String(item.username || "").trim() === username)) {
+        return json(res, 409, { ok: false, error: "ชื่อเข้าใช้งานนี้ถูกใช้แล้ว" });
+      }
+      user.username = username;
+    }
+    if (body.name !== undefined || body.displayName !== undefined) {
+      const name = String(body.name ?? body.displayName ?? "").trim();
+      if (!name) return json(res, 400, { ok: false, error: "กรุณาใส่ชื่อผู้ใช้งาน" });
+      user.name = name;
+    }
+    user.phone = "";
+    user.role = nextRole;
     if (body.active !== undefined) user.active = Boolean(body.active);
     if (body.password) {
       user.passwordHash = hashPassword(body.password);
@@ -2834,6 +2874,23 @@ async function handleApi(req, res) {
     }
     await writeDb(db);
     return json(res, 200, { ok: true, user: publicUser(user) });
+  }
+
+  if (req.method === "DELETE" && url.pathname.startsWith("/api/team/")) {
+    if (!requireAdmin(req, res)) return;
+    const id = url.pathname.split("/").pop();
+    const user = db.users.find(item => item.id === id);
+    if (!user) return json(res, 404, { ok: false, error: "ไม่พบผู้ใช้" });
+    if (!canManageUser(currentUser, user)) {
+      return json(res, 403, { ok: false, error: "Admin ไม่สามารถลบ Owner ได้" });
+    }
+    if (currentUser.id === id && currentUser.role === "Owner") {
+      return json(res, 409, { ok: false, error: "ไม่สามารถลบ Owner ที่กำลังใช้งานอยู่ได้" });
+    }
+    db.users = db.users.filter(item => item.id !== id);
+    if (typeof deleteUser === "function") await deleteUser(id);
+    else await writeDb(db);
+    return json(res, 200, { ok: true, deletedUserId: id });
   }
 
   if (req.method === "GET" && url.pathname.startsWith("/api/export/")) {

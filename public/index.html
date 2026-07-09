@@ -254,6 +254,23 @@
       </form>
     </dialog>
 
+    <dialog id="deleteUserDialog" class="dialog">
+      <form id="deleteUserForm" method="dialog">
+        <div class="dialog-header">
+          <div>
+            <p class="eyebrow">Delete User</p>
+            <h2>ยืนยันการลบผู้ใช้งาน</h2>
+          </div>
+          <button class="icon-button" type="button" data-close-delete-user aria-label="ปิด">×</button>
+        </div>
+        <p class="dialog-note">คุณต้องการลบผู้ใช้งาน <strong id="deleteUserName">-</strong> ใช่หรือไม่?</p>
+        <div class="dialog-actions">
+          <button class="button ghost" type="button" data-close-delete-user>ยกเลิก</button>
+          <button class="button danger" type="submit">ลบผู้ใช้งาน</button>
+        </div>
+      </form>
+    </dialog>
+
     <dialog id="logoutDialog" class="dialog">
       <form id="logoutForm" method="dialog">
         <button class="logout-modal-close" type="button" data-close-logout aria-label="ปิด">
