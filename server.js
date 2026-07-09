@@ -5,6 +5,7 @@ const crypto = require("crypto");
 require("./lib/env").loadEnv();
 const {
   readDb,
+  findUserForLogin,
   writeDb,
   deleteOrder,
   deleteCustomer,
@@ -2074,20 +2075,30 @@ async function handleApi(req, res) {
   }
 
   if (req.method === "POST" && url.pathname === "/api/login") {
-    const db = await readDb();
     const body = await readBody(req);
     const username = String(body.username || body.userId || "").trim();
     const password = String(body.password || body.pin || "");
-    const user = db.users.find(item =>
-      item.active !== false &&
-      (item.username === username || item.id === username)
-    );
+    const user = typeof findUserForLogin === "function"
+      ? await findUserForLogin(username)
+      : (await readDb()).users.find(item =>
+        item.active !== false &&
+        (item.username === username || item.id === username)
+      );
     if (!user) return json(res, 401, { ok: false, error: "ไม่พบผู้ใช้งาน" });
     const upgraded = ensurePasswordHash(user, password);
     if (!verifyPassword(password, user.passwordHash)) {
       return json(res, 401, { ok: false, error: "Username หรือ Password ไม่ถูกต้อง" });
     }
-    if (upgraded) await writeDb(db);
+    if (upgraded) {
+      const db = await readDb();
+      const storedUser = db.users.find(item => item.id === user.id);
+      if (storedUser) {
+        storedUser.passwordHash = user.passwordHash;
+        delete storedUser.password;
+        delete storedUser.pin;
+        await writeDb(db);
+      }
+    }
     const session = createSession(user);
     return json(res, 200, { ok: true, user: publicUser(user) }, {
       "Set-Cookie": sessionCookie(session.token, session.expiresAt)

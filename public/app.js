@@ -6406,9 +6406,28 @@ function renderProductDetail(product) {
 }
 
 function render(options = {}) {
-  if (!app.data && app.view !== "login") return;
   const mobile = isMobileViewport();
   app.layoutMode = mobile ? "mobile" : "desktop";
+  if (!app.data && app.view !== "login") {
+    if (!mobile) renderNav();
+    updateShell();
+    els.pageTitle.textContent = titleFor(app.view);
+    if (els.pageSubtitle) els.pageSubtitle.textContent = "";
+    document.title = `${titleFor(app.view)} | Growup Pilot`;
+    renderSubpageNav();
+    els.content.innerHTML = `
+      <section class="app-loading-state" aria-live="polite">
+        <span class="app-loading-spinner" aria-hidden="true"></span>
+        <strong>กำลังโหลดข้อมูลธุรกิจ</strong>
+        <span>เตรียมแดชบอร์ดของคุณสักครู่</span>
+      </section>
+    `;
+    if (mobile) {
+      els.content.dataset.renderedView = app.view;
+      if (!options.deferMobileNavSync) renderNav();
+    }
+    return;
+  }
   if (!mobile) renderNav();
   updateShell();
   els.pageTitle.textContent = !mobile && app.view === "dashboard"
@@ -7574,6 +7593,7 @@ document.addEventListener("submit", async event => {
       app.view = "dashboard";
       navigateToView("dashboard");
       showToast("เข้าสู่ระบบแล้ว");
+      render();
       await loadState();
     }
 
