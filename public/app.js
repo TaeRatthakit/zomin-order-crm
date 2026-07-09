@@ -60,6 +60,7 @@ const app = {
   importPollTimer: null,
   summaryRefreshTimer: null,
   mobileAnalyticsIndex: null,
+  desktopAnalyticsIndex: null,
   currentUser: null,
   data: null,
   lineDebugRows: [],
@@ -635,6 +636,8 @@ async function loadState() {
   const selectedDate = els.workDate?.value || todayISO();
   try {
     app.data = await api(`/api/state?date=${encodeURIComponent(selectedDate)}`);
+    app.desktopAnalyticsIndex = null;
+    app.mobileAnalyticsIndex = null;
     if (app.data.currentUser) {
       app.currentUser = mergeCachedMobileProfile(app.data.currentUser);
       app.data.currentUser = app.currentUser;
@@ -4024,9 +4027,59 @@ function mobileAnalyticsIndex() {
   return app.mobileAnalyticsIndex;
 }
 
+function desktopAnalyticsIndex() {
+  const orders = app.data?.orders || [];
+  const customers = app.data?.customers || [];
+  const cached = app.desktopAnalyticsIndex;
+  if (cached?.orders === orders && cached?.customers === customers) return cached;
+  const ordersByDate = new Map();
+  const ordersByMonth = new Map();
+  for (const order of orders) {
+    const date = String(order.date || "");
+    const month = monthKey(date);
+    if (!ordersByDate.has(date)) ordersByDate.set(date, []);
+    if (!ordersByMonth.has(month)) ordersByMonth.set(month, []);
+    ordersByDate.get(date).push(order);
+    ordersByMonth.get(month).push(order);
+  }
+  const customerCounts = {
+    newCustomers: 0,
+    vip: 0,
+    vvip: 0,
+    superVip: 0,
+    atRisk: 0,
+    lost: 0
+  };
+  for (const customer of customers) {
+    if (customer.status === "NEW") customerCounts.newCustomers += 1;
+    if (customer.vipLevel === "VIP") customerCounts.vip += 1;
+    if (customer.vipLevel === "VVIP") customerCounts.vvip += 1;
+    if (customer.vipLevel === "SUPER VIP") customerCounts.superVip += 1;
+    if (customer.status === "AT RISK") customerCounts.atRisk += 1;
+    if (customer.status === "LOST") customerCounts.lost += 1;
+  }
+  app.desktopAnalyticsIndex = { orders, customers, ordersByDate, ordersByMonth, customerCounts };
+  return app.desktopAnalyticsIndex;
+}
+
+function refreshDesktopDateSensitiveCustomers(selectedDate) {
+  if (!app.data?.customers) return;
+  for (const customer of app.data.customers) {
+    const overdueDays = customer.followUpDate ? diffDaysISO(customer.followUpDate, selectedDate) : 0;
+    let status = Number(customer.purchaseCount || 0) <= 1 ? "NEW" : "NORMAL";
+    if (customer.vipLevel && customer.vipLevel !== "NORMAL") status = customer.vipLevel;
+    if (overdueDays > 90) status = "LOST";
+    else if (overdueDays > 30) status = "AT RISK";
+    customer.overdueDays = overdueDays;
+    customer.status = status;
+  }
+  app.desktopAnalyticsIndex = null;
+}
+
 function buildLocalSummary(selectedDate = els.workDate.value || todayISO()) {
   const summaryDate = selectedDate || todayISO();
-  const index = isMobileViewport() ? mobileAnalyticsIndex() : null;
+  const index = isMobileViewport() ? mobileAnalyticsIndex() : desktopAnalyticsIndex();
+  const customerCounts = index?.customerCounts || {};
   const todayOrders = index?.ordersByDate.get(summaryDate) || app.data.orders.filter(order => order.date === summaryDate);
   const monthOrders = index?.ordersByMonth.get(monthKey(summaryDate)) || app.data.orders.filter(order => monthKey(order.date) === monthKey(summaryDate));
   const dueCustomers = app.data.customers.filter(customer => customer.followUpDate && customer.followUpDate <= summaryDate);
@@ -4040,12 +4093,12 @@ function buildLocalSummary(selectedDate = els.workDate.value || todayISO()) {
     jarsThisMonth: monthOrders.reduce((sum, order) => sum + Number(order.jars || 0), 0),
     orderCount: app.data.orders.length,
     customerCount: app.data.customers.length,
-    newCustomers: app.data.customers.filter(customer => customer.status === "NEW").length,
-    vip: app.data.customers.filter(customer => customer.vipLevel === "VIP").length,
-    vvip: app.data.customers.filter(customer => customer.vipLevel === "VVIP").length,
-    superVip: app.data.customers.filter(customer => customer.vipLevel === "SUPER VIP").length,
-    atRisk: app.data.customers.filter(customer => customer.status === "AT RISK").length,
-    lost: app.data.customers.filter(customer => customer.status === "LOST").length,
+    newCustomers: customerCounts.newCustomers ?? app.data.customers.filter(customer => customer.status === "NEW").length,
+    vip: customerCounts.vip ?? app.data.customers.filter(customer => customer.vipLevel === "VIP").length,
+    vvip: customerCounts.vvip ?? app.data.customers.filter(customer => customer.vipLevel === "VVIP").length,
+    superVip: customerCounts.superVip ?? app.data.customers.filter(customer => customer.vipLevel === "SUPER VIP").length,
+    atRisk: customerCounts.atRisk ?? app.data.customers.filter(customer => customer.status === "AT RISK").length,
+    lost: customerCounts.lost ?? app.data.customers.filter(customer => customer.status === "LOST").length,
     dueToday: dueCustomers.length,
     dueByPriority: {
       "SUPER VIP": dueCustomers.filter(customer => customer.vipLevel === "SUPER VIP").length,
@@ -4105,6 +4158,21 @@ function patchMobileDateView() {
   syncDomTree(liveContent.firstElementChild, detachedContent.firstElementChild);
 }
 
+function renderDesktopDateView() {
+  const renderer = {
+    dashboard: renderDashboard,
+    reports: renderReports,
+    orders: renderOrders,
+    customers: renderSearch,
+    opportunities: renderOpportunities,
+    notifications: renderNotifications,
+    vip: renderVip,
+    risk: renderRisk,
+    settingsFinance: renderSettingsFinance
+  }[app.view];
+  if (renderer) renderer();
+}
+
 function queueSummaryRefresh() {
   clearTimeout(app.summaryRefreshTimer);
   app.summaryRefreshTimer = setTimeout(() => {
@@ -4123,6 +4191,7 @@ function upsertArrayItem(items, item) {
 function applyOrderMutation(mutation) {
   if (!mutation || !app.data) return;
   app.mobileAnalyticsIndex = null;
+  app.desktopAnalyticsIndex = null;
   if (mutation.settings) app.data.settings = mutation.settings;
   const deletedOrderId = mutation.deletedOrderId || "";
   if (deletedOrderId) {
@@ -7617,6 +7686,24 @@ document.addEventListener("change", async event => {
       console.info("[Mobile date] Data calculation time", `${calculationTime.toFixed(2)} ms`);
       console.info("[Mobile date] DOM update time", `${domUpdateTime.toFixed(2)} ms`);
       console.info("[Mobile date] Total render time", `${totalTime.toFixed(2)} ms`);
+      return;
+    }
+    if (app.data) {
+      const startedAt = performance.now();
+      const selectedDate = event.target.value || todayISO();
+      console.info("[Desktop date] Date change start", { view: app.view, selectedDate });
+      const calculationStartedAt = performance.now();
+      refreshDesktopDateSensitiveCustomers(selectedDate);
+      app.data.summary = buildLocalSummary(selectedDate);
+      const calculationTime = performance.now() - calculationStartedAt;
+      if (els.workDateDisplay) els.workDateDisplay.textContent = formatDatePill(selectedDate);
+      const domStartedAt = performance.now();
+      renderDesktopDateView();
+      const domUpdateTime = performance.now() - domStartedAt;
+      const totalTime = performance.now() - startedAt;
+      console.info("[Desktop date] Data calculation time", `${calculationTime.toFixed(2)} ms`);
+      console.info("[Desktop date] DOM update time", `${domUpdateTime.toFixed(2)} ms`);
+      console.info("[Desktop date] Total render time", `${totalTime.toFixed(2)} ms`);
       return;
     }
     await loadState();
