@@ -1,8 +1,8 @@
 const mainNavItems = [
   ["dashboard", "/dashboard", "หน้าหลัก", "home"],
-  ["customers", "/customers", "ลูกค้า", "users"],
+  ["reports", "/reports", "รายงาน", "chart"],
   ["orders", "/orders", "ออเดอร์", "clipboard"],
-  ["products", "/products", "สินค้า", "box"],
+  ["opportunities", "/opportunities", "โอกาสทำเงิน", "spark"],
   ["settings", "/settings", "จัดการธุรกิจ", "briefcase"]
 ];
 
