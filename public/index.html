@@ -42,7 +42,7 @@
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=20260701-favicon-restore">
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=20260702-ios-enhanced-fullbleed">
     <link rel="preload" as="image" type="image/webp" href="/desktop-dashboard-hero.webp?v=20260706-webp-v1" fetchpriority="high" media="(min-width: 769px)">
-    <link rel="stylesheet" href="/styles.css?v=20260708-login-logo-fast-v1">
+    <link rel="stylesheet" href="/styles.css?v=20260709-logout-modal-v1">
   </head>
   <body>
     <div id="appStartupLoader" class="app-startup-loader" aria-hidden="true">
@@ -256,13 +256,34 @@
 
     <dialog id="logoutDialog" class="dialog">
       <form id="logoutForm" method="dialog">
-        <div class="dialog-header">
-          <h2>ยืนยันออกจากระบบ?</h2>
-          <button class="icon-button" type="button" data-close-logout aria-label="ปิด">×</button>
+        <button class="logout-modal-close" type="button" data-close-logout aria-label="ปิด">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M18 6 6 18"></path>
+            <path d="m6 6 12 12"></path>
+          </svg>
+        </button>
+        <div class="logout-modal-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24">
+            <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
+            <path d="M10 17l5-5-5-5"></path>
+            <path d="M15 12H3"></path>
+          </svg>
         </div>
-        <div class="dialog-actions">
-          <button class="button ghost" type="button" data-close-logout>ยกเลิก</button>
-          <button class="button danger" type="submit">ออกจากระบบ</button>
+        <div class="logout-modal-copy">
+          <h2>ยืนยันออกจากระบบ?</h2>
+          <p>คุณต้องการออกจากระบบบัญชีนี้ใช่ไหม</p>
+        </div>
+        <div class="logout-modal-divider" aria-hidden="true"></div>
+        <div class="logout-modal-actions">
+          <button class="logout-modal-button logout-modal-cancel" type="button" data-close-logout>ยกเลิก</button>
+          <button class="logout-modal-button logout-modal-confirm" type="submit">
+            <span>ออกจากระบบ</span>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
+              <path d="M10 17l5-5-5-5"></path>
+              <path d="M15 12H3"></path>
+            </svg>
+          </button>
         </div>
       </form>
     </dialog>
