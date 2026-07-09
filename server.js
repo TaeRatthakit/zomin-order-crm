@@ -436,6 +436,70 @@ function canonicalProductNameForOrder(settings = {}, value) {
   return containsMatches[0]?.name || normalizedName;
 }
 
+function orderInventoryQuantity(order = {}) {
+  const shipped = Number(order.totalQuantityShipped || 0);
+  if (Number.isFinite(shipped) && shipped > 0) return shipped;
+  const jars = Number(order.jars ?? order.quantity ?? 0);
+  return Number.isFinite(jars) ? Math.max(0, jars) : 0;
+}
+
+function findInventoryProductIndex(products = [], order = {}) {
+  const productId = String(order.productId || order.product_id || "").trim();
+  if (productId) {
+    const idIndex = products.findIndex(product => String(product.id || "") === productId);
+    if (idIndex >= 0) return idIndex;
+  }
+  const orderNameKey = normalizedProductNameKey(order.items || order.product || order.productName || "");
+  if (!orderNameKey) return -1;
+  return products.findIndex(product => normalizedProductNameKey(product.name) === orderNameKey);
+}
+
+function adjustInventoryForOrderChange(db, previousOrder = null, nextOrder = null) {
+  const products = normalizeProductRecords(db.settings?.products);
+  if (!products.length) return null;
+
+  const adjustments = new Map();
+  const addAdjustment = (order, direction) => {
+    if (!order) return;
+    const index = findInventoryProductIndex(products, order);
+    if (index < 0) return;
+    const quantity = orderInventoryQuantity(order);
+    if (quantity <= 0) return;
+    adjustments.set(index, (adjustments.get(index) || 0) + (direction * quantity));
+  };
+
+  addAdjustment(previousOrder, 1);
+  addAdjustment(nextOrder, -1);
+  if (!adjustments.size) return null;
+
+  for (const [index, delta] of adjustments.entries()) {
+    const product = products[index];
+    const currentStock = Number(product.stockQuantity || 0);
+    const nextStock = currentStock + delta;
+    if (nextStock < 0) {
+      const requested = -delta;
+      const error = new Error(`สินค้า ${product.name} คงเหลือ ${currentStock} ชิ้น ไม่พอสำหรับออเดอร์ ${requested} ชิ้น`);
+      error.code = "INSUFFICIENT_STOCK";
+      error.product = product;
+      error.availableStock = currentStock;
+      error.requestedQuantity = requested;
+      throw error;
+    }
+  }
+
+  const now = new Date().toISOString();
+  for (const [index, delta] of adjustments.entries()) {
+    const product = products[index];
+    products[index] = {
+      ...product,
+      stockQuantity: Math.max(0, Number(product.stockQuantity || 0) + delta),
+      updatedAt: now
+    };
+  }
+  db.settings = { ...(db.settings || {}), products };
+  return products;
+}
+
 function newProductId(products = []) {
   const existingIds = new Set(products.map(product => String(product?.id || "")));
   let id = uid("product");
@@ -1109,6 +1173,7 @@ function orderMutationPayload(db, { orderId = "", deletedOrderId = "", previousC
     deletedCustomerIds,
     customers,
     tags: db.tags || [],
+    settings: publicSettings(db.settings || {}),
     clientMutationId: ""
   };
 }
@@ -1774,6 +1839,7 @@ async function handleLineWebhookEvents(db, settings, events) {
     }
     try {
       const order = addOrder(db, normalized);
+      adjustInventoryForOrderChange(db, null, order);
       parsedOrders.push(order);
       persistedOrders.push({
         id: order.id,
@@ -2313,9 +2379,19 @@ async function handleApi(req, res) {
     let order;
     try {
       order = addOrder(db, body);
+      adjustInventoryForOrderChange(db, null, order);
     } catch (error) {
       if (error.code === "ORDER_DUPLICATE") {
         return json(res, 409, { ok: false, error: "ออเดอร์นี้มีอยู่แล้ว" });
+      }
+      if (error.code === "INSUFFICIENT_STOCK") {
+        return json(res, 409, {
+          ok: false,
+          error: error.message,
+          product: error.product,
+          availableStock: error.availableStock,
+          requestedQuantity: error.requestedQuantity
+        });
       }
       throw error;
     }
@@ -2324,7 +2400,7 @@ async function handleApi(req, res) {
       selectedDate: body.selectedDate || toDateOnly()
     });
     mutation.clientMutationId = String(body.clientMutationId || "");
-    if (typeof persistOrderMutation === "function") await persistOrderMutation(mutation);
+    if (typeof persistOrderMutation === "function") await persistOrderMutation(mutation, db.settings);
     else await writeDb(db);
     return json(res, 200, { ok: true, mutation });
   }
@@ -2334,6 +2410,7 @@ async function handleApi(req, res) {
     const body = await readBody(req);
     const order = db.orders.find(item => item.id === id);
     if (!order) return json(res, 404, { ok: false, error: "ไม่พบออเดอร์" });
+    const previousOrder = { ...order };
     const previousCustomerIds = [order.customerId];
     const customer = db.customers.find(item => item.id === order.customerId);
     if (customer && body.tags !== undefined) {
@@ -2370,13 +2447,28 @@ async function handleApi(req, res) {
       note: body.note ?? order.note
     });
     applyOrderProfitSnapshot(order, db.settings || {}, "edited");
+    try {
+      adjustInventoryForOrderChange(db, previousOrder, order);
+    } catch (error) {
+      Object.assign(order, previousOrder);
+      if (error.code === "INSUFFICIENT_STOCK") {
+        return json(res, 409, {
+          ok: false,
+          error: error.message,
+          product: error.product,
+          availableStock: error.availableStock,
+          requestedQuantity: error.requestedQuantity
+        });
+      }
+      throw error;
+    }
     const mutation = orderMutationPayload(db, {
       orderId: order.id,
       previousCustomerIds,
       selectedDate: body.selectedDate || toDateOnly()
     });
     mutation.clientMutationId = String(body.clientMutationId || "");
-    if (typeof persistOrderMutation === "function") await persistOrderMutation(mutation);
+    if (typeof persistOrderMutation === "function") await persistOrderMutation(mutation, db.settings);
     else await writeDb(db);
     return json(res, 200, { ok: true, mutation });
   }
@@ -2386,12 +2478,13 @@ async function handleApi(req, res) {
     const orderIndex = db.orders.findIndex(item => item.id === id);
     if (orderIndex === -1) return json(res, 404, { ok: false, error: "ไม่พบออเดอร์" });
     const [deletedOrder] = db.orders.splice(orderIndex, 1);
+    adjustInventoryForOrderChange(db, deletedOrder, null);
     const mutation = orderMutationPayload(db, {
       deletedOrderId: id,
       previousCustomerIds: deletedOrder?.customerId ? [deletedOrder.customerId] : [],
       selectedDate: url.searchParams.get("date") || toDateOnly()
     });
-    if (typeof persistOrderMutation === "function") await persistOrderMutation(mutation);
+    if (typeof persistOrderMutation === "function") await persistOrderMutation(mutation, db.settings);
     else await writeDb(db);
     return json(res, 200, { ok: true, mutation });
   }
@@ -2408,7 +2501,9 @@ async function handleApi(req, res) {
       for (const parsed of parsedRows) {
         if (parsed?.phone) {
           try {
-            imported.push(addOrder(db, parsed));
+            const order = addOrder(db, parsed);
+            adjustInventoryForOrderChange(db, null, order);
+            imported.push(order);
           } catch (error) {
             if (error.code !== "ORDER_DUPLICATE") throw error;
             duplicates += 1;
@@ -2421,7 +2516,9 @@ async function handleApi(req, res) {
       for (const row of prepared.rows) {
         if (!row.duplicate) {
           try {
-            imported.push(addOrder(db, row));
+            const order = addOrder(db, row);
+            adjustInventoryForOrderChange(db, null, order);
+            imported.push(order);
           } catch (error) {
             if (error.code !== "ORDER_DUPLICATE") throw error;
             duplicates += 1;
@@ -2511,7 +2608,12 @@ async function handleApi(req, res) {
       raw_text: rawText
     });
     const parsed = parseLineOrder(rawText, db.settings.defaultJarPrice);
-    const parsedOrders = parsed?.phone ? [addOrder(db, parsed)] : [];
+    const parsedOrders = [];
+    if (parsed?.phone) {
+      const order = addOrder(db, parsed);
+      adjustInventoryForOrderChange(db, null, order);
+      parsedOrders.push(order);
+    }
     await writeDb(db);
     return json(res, 200, { ok: true, parsedOrders: parsedOrders.length, rows: parsedOrders });
   }

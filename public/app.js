@@ -4142,6 +4142,7 @@ function upsertArrayItem(items, item) {
 function applyOrderMutation(mutation) {
   if (!mutation || !app.data) return;
   app.mobileAnalyticsIndex = null;
+  if (mutation.settings) app.data.settings = mutation.settings;
   const deletedOrderId = mutation.deletedOrderId || "";
   if (deletedOrderId) {
     app.data.orders = app.data.orders.filter(order => order.id !== deletedOrderId);
@@ -4204,7 +4205,8 @@ function cloneUiState() {
     orders: app.data.orders,
     customers: app.data.customers,
     summary: app.data.summary,
-    tags: app.data.tags
+    tags: app.data.tags,
+    settings: app.data.settings
   }));
 }
 
@@ -4213,6 +4215,7 @@ function restoreUiState(snapshot) {
   app.data.customers = snapshot.customers || [];
   app.data.summary = snapshot.summary || app.data.summary;
   app.data.tags = snapshot.tags || [];
+  app.data.settings = snapshot.settings || app.data.settings;
   render();
 }
 
