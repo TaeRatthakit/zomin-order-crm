@@ -1,20 +1,8 @@
-const desktopNavItems = [
+const mainNavItems = [
   ["dashboard", "/dashboard", "หน้าหลัก", "home"],
-  ["reports", "/reports", "รายงาน", "chart"],
-  ["orders", "/orders", "ออเดอร์", "clipboard"],
-  ["opportunities", "/opportunities", "โอกาสทำเงิน", "spark"],
   ["customers", "/customers", "ลูกค้า", "users"],
-  ["products", "/products", "สินค้า", "box"],
-  ["settingsFinance", "/settings/finance", "การเงิน", "wallet"],
-  ["marketing", "/marketing", "การตลาด", "send"],
-  ["settings", "/settings", "ตั้งค่า", "settings"]
-];
-
-const mobileNavItems = [
-  ["dashboard", "/dashboard", "หน้าหลัก", "home"],
-  ["reports", "/reports", "รายงาน", "chart"],
   ["orders", "/orders", "ออเดอร์", "clipboard"],
-  ["opportunities", "/opportunities", "โอกาสทำเงิน", "spark"],
+  ["products", "/products", "สินค้า", "box"],
   ["settings", "/settings", "จัดการธุรกิจ", "briefcase"]
 ];
 
@@ -537,7 +525,7 @@ function titleFor(view) {
     tags: "อาการลูกค้า",
     import: "เพิ่มข้อมูลเก่า",
     team: "จัดการทีมงาน",
-    settings: "ตั้งค่า",
+    settings: "จัดการธุรกิจ",
     settingsStore: "ข้อมูลร้านค้า",
     settingsFinance: "การเงิน",
     settingsCustomers: "ลูกค้า",
@@ -719,16 +707,8 @@ function renderNav() {
     settingsLine: "settings",
     lineDebug: "settings"
   };
-  if (isMobileViewport()) {
-    activeGroupMap.customers = "settings";
-    activeGroupMap.products = "settings";
-    activeGroupMap.aiInsights = "settings";
-  } else {
-    activeGroupMap.settingsFinance = "settingsFinance";
-  }
   const activeGroup = activeGroupMap[app.view] || app.view;
-  const navItems = isMobileViewport() ? mobileNavItems : desktopNavItems;
-  els.nav.innerHTML = navItems
+  els.nav.innerHTML = mainNavItems
     .map(([id, path, label, icon]) => `
       <button class="nav-button ${activeGroup === id ? "active" : ""}" data-view="${id}" data-path="${path}" aria-label="${escapeHtml(label)}">
         <span class="nav-index">${iconSvg(icon)}</span>
@@ -3245,35 +3225,7 @@ function renderMobileBusinessManagement() {
 }
 
 function renderSettings() {
-  if (isMobileViewport()) {
-    renderMobileBusinessManagement();
-    return;
-  }
-  els.content.innerHTML = `
-    <section class="section saas-page settings-page settings-premium-page business-management-page">
-      <div class="stack settings-workspace settings-menu-workspace">
-        <div class="settings-page-hero">
-          <div class="page-identity-copy">
-            <span class="page-kicker">จัดการธุรกิจ</span>
-            <h2>${isMobileViewport() ? "ศูนย์รวมเมนูธุรกิจ" : "ตั้งค่าและเมนูธุรกิจ"}</h2>
-            <p>${isMobileViewport() ? "รวมเมนูที่เหลือสำหรับหน้ามือถือไว้ในแท็บเดียว เพื่อให้ใช้งานเร็วและเป็นระเบียบ" : "รวมเมนูตั้งค่า สินค้า ลูกค้า และข้อมูลเชิงลึกจาก AI ไว้ในหน้าเดียวสำหรับการจัดการธุรกิจ"}</p>
-          </div>
-        </div>
-        <div class="settings-menu-list business-management-list">
-          ${businessManagementItems.map((item, index) => `
-            <button class="panel settings-menu-item business-management-item" type="button" data-view-shortcut="${escapeHtml(item.view)}" aria-label="${escapeHtml(item.title)}">
-              <span class="settings-menu-icon" aria-hidden="true">${item.icon}</span>
-              <span class="settings-menu-copy">
-                <strong>${index + 1}. ${escapeHtml(item.title)}</strong>
-                <small>${escapeHtml(item.description)}</small>
-              </span>
-              <span class="settings-menu-chevron" aria-hidden="true">›</span>
-            </button>
-          `).join("")}
-        </div>
-      </div>
-    </section>
-  `;
+  renderMobileBusinessManagement();
 }
 
 function addDaysISO(dateValue, amount) {
@@ -7131,7 +7083,7 @@ document.addEventListener("click", async event => {
   const navButton = event.target.closest("[data-view]");
   if (navButton) {
     const nextView = navButton.dataset.view;
-    if (nextView === "settings" && isMobileViewport()) app.mobileBusinessPage = "main";
+    if (nextView === "settings") app.mobileBusinessPage = "main";
     if (isMobileViewport()) await setMobileNavView(nextView);
     else setView(nextView);
     document.body.classList.remove("sidebar-open");
@@ -7139,7 +7091,7 @@ document.addEventListener("click", async event => {
   }
 
   const businessPageButton = event.target.closest("[data-business-page]");
-  if (businessPageButton && app.view === "settings" && isMobileViewport()) {
+  if (businessPageButton && app.view === "settings") {
     app.mobileBusinessPage = businessPageButton.dataset.businessPage || "main";
     renderSettings();
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -7147,7 +7099,7 @@ document.addEventListener("click", async event => {
   }
 
   const businessCustomerButton = event.target.closest("[data-business-customer]");
-  if (businessCustomerButton && app.view === "settings" && isMobileViewport()) {
+  if (businessCustomerButton && app.view === "settings") {
     app.mobileBusinessCustomerId = businessCustomerButton.dataset.businessCustomer;
     app.mobileBusinessPage = "customerDetail";
     renderSettings();
@@ -7156,7 +7108,7 @@ document.addEventListener("click", async event => {
   }
 
   const businessProductButton = event.target.closest("[data-business-product]");
-  if (businessProductButton && app.view === "settings" && isMobileViewport()) {
+  if (businessProductButton && app.view === "settings") {
     app.mobileBusinessProductId = businessProductButton.dataset.businessProduct;
     app.mobileBusinessProductReturnPage = app.mobileBusinessPage === "finance" ? "finance" : "products";
     app.mobileBusinessPage = "productDetail";
@@ -7168,7 +7120,7 @@ document.addEventListener("click", async event => {
   const addUserButton = event.target.closest("[data-add-user]");
   if (addUserButton) {
     app.editingUserId = "__new";
-    if (isMobileViewport()) app.mobileBusinessPage = "userEditor";
+    if (app.view === "settings") app.mobileBusinessPage = "userEditor";
     render();
     window.scrollTo({ top: 0, behavior: "smooth" });
     return;
@@ -7177,7 +7129,7 @@ document.addEventListener("click", async event => {
   const editUserButton = event.target.closest("[data-edit-user], [data-mobile-edit-user]");
   if (editUserButton) {
     app.editingUserId = editUserButton.dataset.editUser || editUserButton.dataset.mobileEditUser || "";
-    if (isMobileViewport()) app.mobileBusinessPage = "userEditor";
+    if (app.view === "settings") app.mobileBusinessPage = "userEditor";
     render();
     window.scrollTo({ top: 0, behavior: "smooth" });
     return;
