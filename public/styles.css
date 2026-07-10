@@ -8164,6 +8164,12 @@ small,
   gap: 10px;
 }
 
+.user-editor-panel button[type="submit"],
+.mobile-user-form button[type="submit"] {
+  min-width: 132px;
+  white-space: nowrap;
+}
+
 .user-editor-section {
   display: grid;
   gap: 12px;

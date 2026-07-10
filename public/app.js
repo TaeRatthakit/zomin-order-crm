@@ -101,6 +101,7 @@ const app = {
   deletingCustomerId: "",
   editingUserId: "",
   deletingUserId: "",
+  teamSavePending: false,
   profileDraftImage: "",
   profileSaving: false,
   settingsSavePending: false,
@@ -5949,6 +5950,29 @@ function applySavedUser(user) {
   }
 }
 
+function patchVisibleUserRow(user) {
+  if (!user?.id) return;
+  const row = document.querySelector(`[data-user-row="${CSS.escape(user.id)}"]`);
+  if (!row) return;
+  const cells = row.querySelectorAll("td");
+  const name = user.name || user.username || "-";
+  const nameCell = row.querySelector(".user-row-name strong") || row.querySelector("strong");
+  if (nameCell) nameCell.textContent = name;
+  if (cells[1]) cells[1].textContent = user.username || "-";
+  if (cells[2]) cells[2].innerHTML = badge(userRoleLabel(user.role));
+  if (cells[3]) cells[3].textContent = user.active ? "เปิดใช้งาน" : "ปิดใช้งาน";
+}
+
+function setTeamSaveState(form, state = "idle") {
+  const button = form?.querySelector?.('button[type="submit"]');
+  if (!button) return;
+  button.dataset.saveState = state;
+  button.disabled = state === "saving";
+  if (state === "saving") button.textContent = "กำลังบันทึก...";
+  else if (state === "saved") button.textContent = "บันทึกแล้ว ✓";
+  else button.textContent = "บันทึก";
+}
+
 function roleOptions(selectedRole = "Staff", targetUser = null) {
   return ["Owner", "Admin", "Staff"].map(role => {
     const wouldDowngradeLastOwner = targetUser?.role === "Owner" && role !== "Owner" && isLastActiveOwner(targetUser);
@@ -8134,9 +8158,16 @@ document.addEventListener("input", event => {
   if (event.target?.name === "displayName" && event.target.form?.id === "profileForm") {
     setProfileSaveState(false);
   }
+
+  if (elementId(event.target?.form) === "teamForm") {
+    setTeamSaveState(event.target.form, "idle");
+  }
 });
 
 document.addEventListener("change", event => {
+  if (elementId(event.target?.form) === "teamForm") {
+    setTeamSaveState(event.target.form, "idle");
+  }
   if (event.target === els.orderForm.elements.originSourceChoice) syncOriginSourceFields();
   if (event.target === els.orderForm.elements.productId) {
     const product = selectedOrderPackageProduct();
@@ -8420,18 +8451,38 @@ document.addEventListener("submit", async event => {
     }
 
     if (currentFormId === "teamForm") {
+      if (app.teamSavePending) return;
+      app.teamSavePending = true;
+      setTeamSaveState(form, "saving");
       const data = Object.fromEntries(new FormData(form).entries());
       const id = String(data.id || "").trim();
       delete data.id;
-      const payload = await api(id ? `/api/team/${encodeURIComponent(id)}` : "/api/team", {
-        method: id ? "PUT" : "POST",
-        body: JSON.stringify(data)
-      });
-      applySavedUser(payload.user);
-      app.editingUserId = "";
-      if (isMobileViewport()) app.mobileBusinessPage = "roles";
-      showToast(id ? "บันทึกผู้ใช้งานแล้ว" : "เพิ่มผู้ใช้งานแล้ว");
-      render();
+      try {
+        const payload = await api(id ? `/api/team/${encodeURIComponent(id)}` : "/api/team", {
+          method: id ? "PUT" : "POST",
+          body: JSON.stringify(data)
+        });
+        applySavedUser(payload.user);
+        patchVisibleUserRow(payload.user);
+        showToast("บันทึกข้อมูลผู้ใช้งานเรียบร้อยแล้ว");
+        setTeamSaveState(form, "saved");
+        window.setTimeout(() => {
+          if (!form.isConnected) return;
+          if (!id) {
+            app.editingUserId = "";
+            if (isMobileViewport()) app.mobileBusinessPage = "roles";
+            render();
+          } else if (form.querySelector('button[type="submit"]')?.dataset.saveState === "saved") {
+            setTeamSaveState(form, "idle");
+          }
+        }, 2000);
+      } catch (error) {
+        setTeamSaveState(form, "idle");
+        showToast(error.message || "บันทึกผู้ใช้งานไม่สำเร็จ");
+        return;
+      } finally {
+        app.teamSavePending = false;
+      }
     }
 
     if (currentFormId === "tagsForm") {
