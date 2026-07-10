@@ -8,10 +8,10 @@ Zomin Order CRM V3 has been upgraded from local-only demo toward production-read
 
 Latest production update:
 
-- Commit: `db636d6 Improve additional expenses mobile UX`
+- Commit: `31a9e08 Optimize finance settings save`
 - Production branch: `main`
 - Production site: `https://www.growuppilot.com`
-- Scope: Finance → Cost/Profit → Additional Expenses mobile UX and save feedback
+- Scope: Finance → Cost/Profit partial settings save optimization
 
 Backup already exists:
 
@@ -66,6 +66,13 @@ Backup already exists:
   - Helper card explains that additional expenses apply to every enabled product
   - Percentage helper example shows 2% of 1,000 THB = 20 THB
   - Save button now shows `Saving...`, disables while saving, then shows `✓ Saved`
+- Optimized Finance → Cost/Profit save performance:
+  - Added `PUT /api/settings/finance`
+  - Finance page now sends only `productCosts` and `additionalCosts`
+  - Supabase persists only the changed settings rows instead of full database state
+  - Finance save response is minimal and no longer returns full public settings
+  - Finance save no longer reloads the full app state after persistence
+  - Added timing headers for DB read/write measurement
 
 ## Main Pages To Verify
 
@@ -134,6 +141,18 @@ Passed:
   - Production data save was verified with a temporary expense and restored
   - Production state was checked afterward; only the existing real `ค่าcod` expense remained
   - Production calculation check confirmed 2% on 1,000 THB = 20 THB expense
+- Finance save optimization benchmark and verification:
+  - Before production: `/api/settings` request 487 bytes, response 8,537,811 bytes, duration 20,598 ms
+  - Before local: `/api/settings` request 267 bytes, response 1,763 bytes, duration 9 ms; follow-up `/api/state` response 279,909 bytes, duration 20 ms
+  - After local mobile: `/api/settings/finance` request 274-384 bytes, response 297-407 bytes, duration 11-15 ms, DB read 0 ms, DB write 3-4 ms
+  - After local desktop product cost save: request 277 bytes, response 300 bytes, duration 24 ms, DB read 0 ms, DB write 3 ms
+  - After production mobile: request 275-396 bytes, response 298-419 bytes, duration 1,115-1,248 ms, DB read 0 ms, DB write 777-896 ms
+  - After production desktop product cost save: request 278 bytes, response 301 bytes, duration 1,148 ms, DB read 0 ms, DB write 831 ms
+  - Production restore request: request 158 bytes, response 202 bytes, duration 654 ms, DB read 0 ms, DB write 345 ms
+  - Mobile add, edit, enable/disable, and delete additional expense persisted and refreshed correctly
+  - Desktop product cost save persisted and was restored correctly
+  - Unrelated settings were compared before/after and remained unchanged
+  - Final production state confirmed no temporary test expenses remained
 
 Not run:
 
