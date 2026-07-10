@@ -821,7 +821,7 @@ function syncMobileHeaderProfile() {
         ${avatarMarkup(name, avatar)}
         <div class="header-profile-copy">
           <strong>${escapeHtml(name)}</strong>
-          <span>${escapeHtml(userRoleLabel(app.currentUser.role))}</span>
+          <span>${escapeHtml(profileRoleLabel(app.currentUser.role))}</span>
         </div>
       </button>
     `;
@@ -836,7 +836,7 @@ function syncMobileHeaderProfile() {
     const nameElement = existing.querySelector(".header-profile-copy strong");
     if (nameElement) nameElement.textContent = name;
     const roleElement = existing.querySelector(".header-profile-copy span");
-    if (roleElement) roleElement.textContent = userRoleLabel(app.currentUser.role);
+    if (roleElement) roleElement.textContent = profileRoleLabel(app.currentUser.role);
   }
   markAvatarLoaded(els.headerProfile.querySelector(".profile-avatar-image"));
 }
@@ -882,7 +882,7 @@ function updateShell() {
         ${avatarMarkup(app.currentUser.name, currentUserAvatar())}
         <div class="header-profile-copy">
           <strong>${escapeHtml(app.currentUser.name)}</strong>
-          <span>${escapeHtml(userRoleLabel(app.currentUser.role))}</span>
+          <span>${escapeHtml(profileRoleLabel(app.currentUser.role))}</span>
         </div>
       </button>
     `;
@@ -905,7 +905,7 @@ function updateShell() {
         <div class="sidebar-profile-avatar" aria-hidden="true">${escapeHtml(initials(app.currentUser.name || "GP"))}</div>
         <div class="sidebar-profile-copy">
           <strong>${escapeHtml(app.currentUser.name)}</strong>
-          <span>${escapeHtml(userRoleLabel(app.currentUser.role))}</span>
+          <span>${escapeHtml(profileRoleLabel(app.currentUser.role))}</span>
         </div>
         <button class="sidebar-profile-action" type="button" data-logout aria-label="ออกจากระบบ">›</button>
       </article>
@@ -5919,6 +5919,12 @@ function userRoleLabel(role) {
   if (role === "Owner") return "Owner";
   if (role === "Admin") return "Admin";
   return "Staff";
+}
+
+function profileRoleLabel(role) {
+  if (role === "Owner") return "เจ้าของร้าน";
+  if (role === "Admin") return "Admin";
+  return "ทีมงาน";
 }
 
 function userStatusLabel(user) {
