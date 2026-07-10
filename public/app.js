@@ -5935,6 +5935,20 @@ function userStatusLabel(user) {
   return user.active === false ? "ปิด" : "ใช้งาน";
 }
 
+function applySavedUser(user) {
+  if (!user?.id || !app.data) return;
+  app.data.users = app.data.users || [];
+  const index = app.data.users.findIndex(item => item.id === user.id);
+  if (index === -1) app.data.users.push(user);
+  else app.data.users[index] = { ...app.data.users[index], ...user };
+  if (app.currentUser?.id === user.id) {
+    app.currentUser = mergeCachedMobileProfile({ ...app.currentUser, ...user });
+    app.data.currentUser = app.currentUser;
+    app.data.users[index === -1 ? app.data.users.length - 1 : index] = app.currentUser;
+    cacheMobileProfile(app.currentUser);
+  }
+}
+
 function roleOptions(selectedRole = "Staff", targetUser = null) {
   return ["Owner", "Admin", "Staff"].map(role => {
     const wouldDowngradeLastOwner = targetUser?.role === "Owner" && role !== "Owner" && isLastActiveOwner(targetUser);
@@ -8409,13 +8423,15 @@ document.addEventListener("submit", async event => {
       const data = Object.fromEntries(new FormData(form).entries());
       const id = String(data.id || "").trim();
       delete data.id;
-      await api(id ? `/api/team/${encodeURIComponent(id)}` : "/api/team", {
+      const payload = await api(id ? `/api/team/${encodeURIComponent(id)}` : "/api/team", {
         method: id ? "PUT" : "POST",
         body: JSON.stringify(data)
       });
+      applySavedUser(payload.user);
       app.editingUserId = "";
       if (isMobileViewport()) app.mobileBusinessPage = "roles";
       showToast(id ? "บันทึกผู้ใช้งานแล้ว" : "เพิ่มผู้ใช้งานแล้ว");
+      render();
       await loadState();
     }
 
