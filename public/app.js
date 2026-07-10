@@ -6508,10 +6508,63 @@ function updateProductImagePreview(imageUrl = "", productName = "") {
   if (!els.productImagePreview) return;
   const label = initials(productName || "สินค้า");
   if (String(imageUrl || "").trim()) {
-  els.productImagePreview.innerHTML = productImageMarkup(imageUrl, productName || "สินค้า");
+    els.productImagePreview.innerHTML = productImageMarkup(imageUrl, productName || "สินค้า");
     return;
   }
   els.productImagePreview.textContent = label;
+}
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = event => resolve(String(event.target?.result || ""));
+    reader.onerror = () => reject(reader.error || new Error("อ่านไฟล์รูปไม่สำเร็จ"));
+    reader.readAsDataURL(file);
+  });
+}
+
+function loadImageElement(src) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("เปิดไฟล์รูปไม่สำเร็จ"));
+    image.src = src;
+  });
+}
+
+function canvasToBlob(canvas, type, quality) {
+  return new Promise(resolve => {
+    if (!canvas.toBlob) return resolve(null);
+    canvas.toBlob(blob => resolve(blob), type, quality);
+  });
+}
+
+async function compressProductImageFile(file) {
+  if (!file?.type?.startsWith("image/") || file.type === "image/svg+xml") {
+    return readFileAsDataUrl(file);
+  }
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    const image = await loadImageElement(objectUrl);
+    const maxSide = 1200;
+    const scale = Math.min(1, maxSide / Math.max(image.naturalWidth || image.width, image.naturalHeight || image.height));
+    const width = Math.max(1, Math.round((image.naturalWidth || image.width) * scale));
+    const height = Math.max(1, Math.round((image.naturalHeight || image.height) * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d", { alpha: true });
+    if (!ctx) return readFileAsDataUrl(file);
+    ctx.drawImage(image, 0, 0, width, height);
+    const preferredType = "image/webp";
+    let blob = await canvasToBlob(canvas, preferredType, 0.86);
+    if (!blob) blob = await canvasToBlob(canvas, "image/jpeg", 0.88);
+    if (!blob) return readFileAsDataUrl(file);
+    if (blob.size >= file.size && file.size < 350_000) return readFileAsDataUrl(file);
+    return readFileAsDataUrl(blob);
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
 }
 
 function packageDraftId(prefix) {
@@ -7908,15 +7961,16 @@ document.addEventListener("change", async event => {
   if (event.target === els.productImageFileInput) {
     const file = event.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = loadEvent => {
-      const result = String(loadEvent.target?.result || "");
+    try {
+      const result = await compressProductImageFile(file);
       if (!result) return;
       app.productDraftImage = result;
       if (els.productForm.elements.image) els.productForm.elements.image.value = "";
       updateProductImagePreview(result, els.productForm.elements.name?.value || "");
-    };
-    reader.readAsDataURL(file);
+    } catch (error) {
+      console.error(error);
+      showToast("อ่านไฟล์รูปไม่สำเร็จ", "error");
+    }
   }
 
   if (event.target?.id === "profileImageInput") {

@@ -22,7 +22,10 @@ const {
   persistOrderProfitSnapshots,
   persistUserProfile,
   persistSettingsPatch,
-  readSettingsPatch
+  readSettingsPatch,
+  uploadProductImageObject,
+  productImagePublicBaseUrl,
+  verifyPublicProductImageUrl
 } = require("./lib/db");
 const {
   hashPassword,
@@ -412,6 +415,94 @@ function normalizeProductRecords(products = []) {
     if (!existing || (existing.archived && !product.archived)) unique.set(key, product);
   }
   return [...unique.values()];
+}
+
+function isHttpImageUrl(value = "") {
+  return /^https?:\/\//i.test(String(value || "").trim());
+}
+
+function parseProductImageDataUrl(value = "") {
+  const image = String(value || "").trim();
+  const match = image.match(/^data:(image\/[a-z0-9.+-]+);base64,([a-z0-9+/=\s]+)$/i);
+  if (!match) return null;
+  const mimeType = match[1].toLowerCase();
+  const bytes = Buffer.from(match[2].replace(/\s/g, ""), "base64");
+  if (!bytes.length) return null;
+  return { mimeType, bytes };
+}
+
+function productImageExtension(mimeType = "") {
+  if (mimeType === "image/jpeg" || mimeType === "image/jpg") return "jpg";
+  if (mimeType === "image/png") return "png";
+  if (mimeType === "image/gif") return "gif";
+  if (mimeType === "image/webp") return "webp";
+  if (mimeType === "image/svg+xml") return "svg";
+  return "bin";
+}
+
+function storageSafeSegment(value = "") {
+  return String(value || "")
+    .trim()
+    .replace(/[^a-zA-Z0-9_-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80) || "product";
+}
+
+function productImageStoragePlan(product = {}) {
+  const parsed = parseProductImageDataUrl(product.image);
+  if (!parsed) return null;
+  const hash = crypto.createHash("sha256").update(parsed.bytes).digest("hex");
+  const extension = productImageExtension(parsed.mimeType);
+  const productId = storageSafeSegment(product.id || hash.slice(0, 16));
+  return {
+    productId: product.id,
+    productName: product.name,
+    sku: product.sku,
+    mimeType: parsed.mimeType,
+    bytes: parsed.bytes,
+    byteLength: parsed.bytes.length,
+    hash,
+    objectPath: `products/${productId}/${hash}.${extension}`
+  };
+}
+
+function productImageMigrationSummary(products = []) {
+  const storageBaseUrl = typeof productImagePublicBaseUrl === "function" ? productImagePublicBaseUrl() : "";
+  return normalizeProductRecords(products).map(product => {
+    const dataPlan = productImageStoragePlan(product);
+    if (dataPlan) {
+      return {
+        id: product.id,
+        name: product.name,
+        sku: product.sku,
+        action: "migrate",
+        bytes: dataPlan.byteLength,
+        mimeType: dataPlan.mimeType,
+        objectPath: dataPlan.objectPath
+      };
+    }
+    const image = String(product.image || "").trim();
+    const storageUrl = storageBaseUrl && image.startsWith(storageBaseUrl);
+    return {
+      id: product.id,
+      name: product.name,
+      sku: product.sku,
+      action: "skip",
+      reason: image ? (isHttpImageUrl(image) ? (storageUrl ? "already-storage-url" : "external-url") : "unsupported-image-format") : "no-image",
+      bytes: image.length
+    };
+  });
+}
+
+async function storeProductImageForSave(productId, image = "") {
+  const plan = productImageStoragePlan({ id: productId, image });
+  if (!plan || typeof uploadProductImageObject !== "function") return String(image || "").trim();
+  const url = await uploadProductImageObject(plan.objectPath, plan.bytes, plan.mimeType);
+  if (typeof verifyPublicProductImageUrl === "function") {
+    const verified = await verifyPublicProductImageUrl(url);
+    if (!verified) throw new Error("Uploaded product image is not publicly accessible");
+  }
+  return url;
 }
 
 function normalizedProductIdentity(product = {}) {
@@ -2261,6 +2352,143 @@ async function handleApi(req, res) {
     });
   }
 
+  if (req.method === "GET" && url.pathname === "/api/products/image-storage/dry-run") {
+    if (!requireAdmin(req, res)) return;
+    const startedAt = Date.now();
+    const settings = await readProductSettingsForSave();
+    const products = normalizeProductRecords(settings.products);
+    const items = productImageMigrationSummary(products);
+    return json(res, 200, {
+      ok: true,
+      storageConfigured: typeof uploadProductImageObject === "function",
+      productCount: products.length,
+      migrateCount: items.filter(item => item.action === "migrate").length,
+      skippedCount: items.filter(item => item.action === "skip").length,
+      totalBase64Bytes: items
+        .filter(item => item.action === "migrate")
+        .reduce((sum, item) => sum + Number(item.bytes || 0), 0),
+      items,
+      elapsedMs: Date.now() - startedAt
+    });
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/products/image-storage/migrate") {
+    if (!requireAdmin(req, res)) return;
+    if (typeof uploadProductImageObject !== "function" || typeof verifyPublicProductImageUrl !== "function") {
+      return json(res, 501, { ok: false, error: "Product image storage is not configured for this database provider." });
+    }
+    const readStartedAt = Date.now();
+    const settings = await readProductSettingsForSave();
+    const readMs = Date.now() - readStartedAt;
+    const products = normalizeProductRecords(settings.products);
+    const nextProducts = products.map(product => ({ ...product }));
+    const migrated = [];
+    const skipped = productImageMigrationSummary(products).filter(item => item.action === "skip");
+    const uploadStartedAt = Date.now();
+    try {
+      for (let index = 0; index < nextProducts.length; index += 1) {
+        const product = nextProducts[index];
+        const plan = productImageStoragePlan(product);
+        if (!plan) continue;
+        const url = await uploadProductImageObject(plan.objectPath, plan.bytes, plan.mimeType);
+        const verified = await verifyPublicProductImageUrl(url);
+        if (!verified) throw new Error(`Product image verification failed for ${product.id}`);
+        nextProducts[index] = { ...product, image: url, updatedAt: product.updatedAt || new Date().toISOString() };
+        migrated.push({
+          id: product.id,
+          name: product.name,
+          sku: product.sku,
+          bytes: plan.byteLength,
+          mimeType: plan.mimeType,
+          objectPath: plan.objectPath,
+          url
+        });
+      }
+    } catch (error) {
+      return json(res, 500, {
+        ok: false,
+        error: error.message || "Product image migration failed",
+        migratedButNotPersistedCount: migrated.length,
+        persisted: false
+      });
+    }
+    const uploadMs = Date.now() - uploadStartedAt;
+    const persistStartedAt = Date.now();
+    if (migrated.length) await persistSettingsPatch({ products: nextProducts });
+    const persistMs = Date.now() - persistStartedAt;
+    return json(res, 200, {
+      ok: true,
+      productCount: products.length,
+      migratedCount: migrated.length,
+      skippedCount: skipped.length,
+      failedCount: 0,
+      migrated,
+      skipped,
+      timings: { readMs, uploadMs, persistMs }
+    }, {
+      "Server-Timing": `dbread;dur=${readMs}, imageupload;dur=${uploadMs}, dbwrite;dur=${persistMs}`,
+      "X-Settings-Db-Read-Ms": String(readMs),
+      "X-Product-Image-Upload-Ms": String(uploadMs),
+      "X-Settings-Db-Write-Ms": String(persistMs)
+    });
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/products/image-storage/verify") {
+    if (!requireAdmin(req, res)) return;
+    const settings = await readProductSettingsForSave();
+    const products = normalizeProductRecords(settings.products);
+    const storageBaseUrl = typeof productImagePublicBaseUrl === "function" ? productImagePublicBaseUrl() : "";
+    const verified = [];
+    const failed = [];
+    const skipped = [];
+    for (const product of products) {
+      const image = String(product.image || "").trim();
+      if (!image) {
+        skipped.push({ id: product.id, name: product.name, reason: "no-image" });
+      } else if (parseProductImageDataUrl(image)) {
+        skipped.push({ id: product.id, name: product.name, reason: "base64-not-migrated" });
+      } else if (storageBaseUrl && image.startsWith(storageBaseUrl) && typeof verifyPublicProductImageUrl === "function") {
+        const ok = await verifyPublicProductImageUrl(image);
+        (ok ? verified : failed).push({ id: product.id, name: product.name, url: image });
+      } else {
+        skipped.push({ id: product.id, name: product.name, reason: isHttpImageUrl(image) ? "external-url" : "unsupported-image-format" });
+      }
+    }
+    return json(res, failed.length ? 409 : 200, {
+      ok: failed.length === 0,
+      productCount: products.length,
+      verifiedCount: verified.length,
+      skippedCount: skipped.length,
+      failedCount: failed.length,
+      verified,
+      skipped,
+      failed
+    });
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/products/image-storage/rollback") {
+    if (!requireAdmin(req, res)) return;
+    const body = await readBody(req);
+    if (body.confirm !== "ROLLBACK_PRODUCT_IMAGES" || !Array.isArray(body.products)) {
+      return json(res, 400, { ok: false, error: "Rollback requires confirm=ROLLBACK_PRODUCT_IMAGES and products backup." });
+    }
+    const patch = { products: normalizeProductRecords(body.products) };
+    if (Array.isArray(body.productCosts)) {
+      patch.productCosts = normalizeSettingsCostRows(body.productCosts, "costPerJar");
+    }
+    const persistStartedAt = Date.now();
+    await persistSettingsPatch(patch);
+    const persistMs = Date.now() - persistStartedAt;
+    return json(res, 200, {
+      ok: true,
+      restoredProductCount: patch.products.length,
+      restoredProductCostCount: patch.productCosts?.length || 0,
+      persistMs
+    }, {
+      "X-Settings-Db-Write-Ms": String(persistMs)
+    });
+  }
+
   if (req.method === "POST" && url.pathname === "/api/products") {
     if (!requireAdmin(req, res)) return;
     const body = await readBody(req);
@@ -2303,6 +2531,9 @@ async function handleApi(req, res) {
           createdAt: incoming.createdAt || now,
           updatedAt: now
         };
+    const imageStartedAt = Date.now();
+    product.image = await storeProductImageForSave(product.id, product.image);
+    const imageMs = Date.now() - imageStartedAt;
     if (existingIndex >= 0) products[existingIndex] = product;
     else products.push(product);
     const productCosts = normalizeSettingsCostRows(settings.productCosts, "costPerJar");
@@ -2323,8 +2554,9 @@ async function handleApi(req, res) {
     await persistSettingsPatch(patch);
     const persistMs = Date.now() - persistStartedAt;
     return json(res, 200, { ok: true, product, settings: productSettingsPayload(patch) }, {
-      "Server-Timing": `dbread;dur=${readMs}, dbwrite;dur=${persistMs}`,
+      "Server-Timing": `dbread;dur=${readMs}, image;dur=${imageMs}, dbwrite;dur=${persistMs}`,
       "X-Settings-Db-Read-Ms": String(readMs),
+      "X-Product-Image-Upload-Ms": String(imageMs),
       "X-Settings-Db-Write-Ms": String(persistMs)
     });
   }
@@ -2348,6 +2580,9 @@ async function handleApi(req, res) {
       createdAt: previous.createdAt,
       updatedAt: new Date().toISOString()
     }])[0];
+    const imageStartedAt = Date.now();
+    next.image = await storeProductImageForSave(next.id, next.image);
+    const imageMs = Date.now() - imageStartedAt;
     products[index] = next;
     const productCosts = normalizeSettingsCostRows(settings.productCosts, "costPerJar");
     const costIndex = productCostIndex(productCosts, productId, [previous.name, next.name]);
@@ -2364,8 +2599,9 @@ async function handleApi(req, res) {
     await persistSettingsPatch(patch);
     const persistMs = Date.now() - persistStartedAt;
     return json(res, 200, { ok: true, product: next, settings: productSettingsPayload(patch) }, {
-      "Server-Timing": `dbread;dur=${readMs}, dbwrite;dur=${persistMs}`,
+      "Server-Timing": `dbread;dur=${readMs}, image;dur=${imageMs}, dbwrite;dur=${persistMs}`,
       "X-Settings-Db-Read-Ms": String(readMs),
+      "X-Product-Image-Upload-Ms": String(imageMs),
       "X-Settings-Db-Write-Ms": String(persistMs)
     });
   }
