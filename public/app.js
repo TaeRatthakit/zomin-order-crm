@@ -102,6 +102,7 @@ const app = {
   deletingUserId: "",
   profileDraftImage: "",
   profileSaving: false,
+  settingsSavePending: false,
   mobileBusinessPage: "main",
   mobileBusinessCustomerId: "",
   mobileBusinessProductId: "",
@@ -1195,6 +1196,13 @@ function additionalCostTypeLabel(type) {
     per_item: "ต่อชิ้น",
     percent_sales: "% ของยอดขาย"
   }[type] || "คงที่ต่อออเดอร์";
+}
+
+function additionalCostMethodSummary(item = {}) {
+  const amount = Number(item.amount || 0);
+  if (item.type === "percent_sales") return `${marketingNumber(amount)}% ของยอดขาย`;
+  if (item.type === "per_item") return `${money(amount)} บาทต่อชิ้น`;
+  return `${money(amount)} บาทต่อออเดอร์`;
 }
 
 function additionalCostBreakdownForOrders(orders = [], settings = app.data?.settings || {}) {
@@ -2884,11 +2892,16 @@ function renderMobileBusinessFinance() {
 
         <div class="mobile-finance-section-head">
           <div><h3>ค่าใช้จ่ายเพิ่มเติม</h3><p>เลือกวิธีคิดต่อออเดอร์ ต่อชิ้น หรือเปอร์เซ็นต์ยอดขาย</p></div>
-          <button class="button primary compact-action" type="button" data-add-additional-cost>เพิ่มค่าใช้จ่าย</button>
+          <button class="button primary compact-action mobile-finance-add-expense" type="button" data-add-additional-cost>+ Add</button>
+        </div>
+        <div class="mobile-finance-helper-card">
+          <strong>ค่าใช้จ่ายเพิ่มเติมใช้กับสินค้าทุกตัวที่เปิดใช้งาน</strong>
+          <span>เช่น ค่าแพ็กสินค้า ค่าแรง ค่าอุปกรณ์ ค่าธรรมเนียม หรือค่าใช้จ่ายอื่น ๆ ที่เกี่ยวข้องกับสินค้า</span>
+          <small>ตัวอย่าง: ตั้งค่า 2% → สินค้าที่ขาย 1,000 บาท จะเพิ่มค่าใช้จ่าย 20 บาท</small>
         </div>
         <div class="settings-cost-list mobile-finance-expense-list" id="additionalCostList">${settingsAdditionalCostRows(settings)}</div>
-        <div class="mobile-finance-formula-note">กำไรก่อนโฆษณา = ยอดขาย - ต้นทุนสินค้า - ค่าใช้จ่ายเดิม · กำไรหลังโฆษณา = กำไรก่อนโฆษณา - ค่าโฆษณา</div>
-        <button class="button primary mobile-business-full-button" type="submit">บันทึกต้นทุนและค่าใช้จ่าย</button>
+        <div class="mobile-finance-formula-note">กำไรก่อนโฆษณา = ยอดขาย - ต้นทุนสินค้า - ค่าใช้จ่ายเพิ่มเติม · กำไรหลังโฆษณา = กำไรก่อนโฆษณา - ค่าโฆษณา</div>
+        <button class="button primary mobile-business-full-button settings-save-button" type="submit" data-settings-save>บันทึกต้นทุนและค่าใช้จ่าย</button>
       </form>
     </section>
   `;
@@ -4333,30 +4346,42 @@ function makeMessage(customer) {
 
 function createAdditionalCostRow(item = {}) {
   const id = String(item.id || `ac_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`);
+  const draft = {
+    name: item.name || "ค่าใช้จ่ายเพิ่มเติม",
+    amount: Number(item.amount || 0),
+    type: item.type || "fixed_per_order",
+    enabled: item.enabled === false ? false : true
+  };
   return `
     <div class="settings-cost-row is-editing" data-additional-cost-row data-id="${escapeHtml(id)}">
       <div class="settings-cost-grip" aria-hidden="true">⋮⋮</div>
-      <label class="settings-cost-field">
-        <span>ชื่อรายการ</span>
-        <input name="additionalCostName" value="${escapeHtml(item.name || "")}" placeholder="เช่น ค่าโฆษณา">
-      </label>
-      <label class="settings-cost-field">
-        <span>จำนวนเงิน (บาท)</span>
-        <input name="additionalCostAmount" type="number" min="0" step="0.01" value="${Number(item.amount || 0)}">
-      </label>
-      <label class="settings-cost-field">
-        <span>วิธีคิด</span>
-        <select name="additionalCostType">
-          ${[
-            ["fixed_per_order", "คงที่ต่อออเดอร์"],
-            ["per_item", "ต่อชิ้น"],
-            ["percent_sales", "% ของยอดขาย"]
-          ].map(([value, label]) => `<option value="${value}" ${(item.type || "fixed_per_order") === value ? "selected" : ""}>${label}</option>`).join("")}
-        </select>
-      </label>
+      <div class="settings-cost-summary">
+        <strong>${escapeHtml(draft.name)}</strong>
+        <span>${escapeHtml(additionalCostMethodSummary(draft))}</span>
+      </div>
+      <div class="settings-cost-fields">
+        <label class="settings-cost-field">
+          <span>ชื่อรายการ</span>
+          <input name="additionalCostName" value="${escapeHtml(item.name || "")}" placeholder="เช่น ค่าบรรจุภัณฑ์">
+        </label>
+        <label class="settings-cost-field">
+          <span>จำนวนเงิน (บาท)</span>
+          <input name="additionalCostAmount" type="number" min="0" step="0.01" value="${Number(item.amount || 0)}">
+        </label>
+        <label class="settings-cost-field">
+          <span>วิธีคิด</span>
+          <select name="additionalCostType">
+            ${[
+              ["fixed_per_order", "คงที่ต่อออเดอร์"],
+              ["per_item", "ต่อชิ้น"],
+              ["percent_sales", "% ของยอดขาย"]
+            ].map(([value, label]) => `<option value="${value}" ${draft.type === value ? "selected" : ""}>${label}</option>`).join("")}
+          </select>
+        </label>
+      </div>
       <label class="settings-switch compact">
         <span>เปิดใช้งาน</span>
-        <input name="additionalCostEnabled" type="checkbox" ${item.enabled === false ? "" : "checked"}>
+        <input name="additionalCostEnabled" type="checkbox" ${draft.enabled ? "checked" : ""}>
         <span class="settings-switch-ui"></span>
       </label>
       <div class="settings-cost-actions">
@@ -4379,6 +4404,33 @@ function toggleCostRowEditing(row, editable) {
   });
   const editButton = row.querySelector("[data-edit-additional-cost], [data-edit-product-cost]");
   if (editButton) editButton.textContent = editable ? "บันทึก" : "แก้ไข";
+  if (!editable && row.matches("[data-additional-cost-row]")) updateAdditionalCostRowSummary(row);
+}
+
+function updateAdditionalCostRowSummary(row) {
+  const summary = row?.querySelector(".settings-cost-summary");
+  if (!summary) return;
+  const item = {
+    name: row.querySelector("[name='additionalCostName']")?.value.trim() || "ค่าใช้จ่ายเพิ่มเติม",
+    amount: Number(row.querySelector("[name='additionalCostAmount']")?.value || 0),
+    type: row.querySelector("[name='additionalCostType']")?.value || "fixed_per_order"
+  };
+  summary.querySelector("strong").textContent = item.name;
+  summary.querySelector("span").textContent = additionalCostMethodSummary(item);
+}
+
+function setSettingsSaveState(state = "idle", button = document.querySelector("[data-settings-save]")) {
+  if (!button) return;
+  button.classList.toggle("is-saving", state === "saving");
+  button.classList.toggle("is-saved", state === "saved");
+  button.disabled = state === "saving";
+  if (state === "saving") {
+    button.innerHTML = `<span class="button-spinner" aria-hidden="true"></span>Saving...`;
+  } else if (state === "saved") {
+    button.textContent = "✓ Saved";
+  } else {
+    button.textContent = "บันทึกต้นทุนและค่าใช้จ่าย";
+  }
 }
 
 function refreshAdditionalCostsSummary() {
@@ -5744,27 +5796,33 @@ function settingsAdditionalCostRows(settings) {
   return normalizeAdditionalCostEntries(settings).map(item => `
     <div class="settings-cost-row" data-additional-cost-row data-id="${escapeHtml(item.id)}">
       <div class="settings-cost-grip" aria-hidden="true">⋮⋮</div>
-      <label class="settings-cost-field">
-        <span>ชื่อรายการ</span>
-        <input name="additionalCostName" value="${escapeHtml(item.name)}" readonly>
-      </label>
-      <label class="settings-cost-field">
-        <span>จำนวนเงิน (บาท)</span>
-        <input name="additionalCostAmount" type="number" min="0" step="0.01" value="${Number(item.amount || 0)}" readonly>
-      </label>
-      <label class="settings-cost-field">
-        <span>วิธีคิด</span>
-        <select name="additionalCostType" disabled>
-          ${[
-            ["fixed_per_order", "คงที่ต่อออเดอร์"],
-            ["per_item", "ต่อชิ้น"],
-            ["percent_sales", "% ของยอดขาย"]
-          ].map(([value, label]) => `<option value="${value}" ${item.type === value ? "selected" : ""}>${label}</option>`).join("")}
-        </select>
-      </label>
+      <div class="settings-cost-summary">
+        <strong>${escapeHtml(item.name)}</strong>
+        <span>${escapeHtml(additionalCostMethodSummary(item))}</span>
+      </div>
+      <div class="settings-cost-fields">
+        <label class="settings-cost-field">
+          <span>ชื่อรายการ</span>
+          <input name="additionalCostName" value="${escapeHtml(item.name)}" readonly>
+        </label>
+        <label class="settings-cost-field">
+          <span>จำนวนเงิน (บาท)</span>
+          <input name="additionalCostAmount" type="number" min="0" step="0.01" value="${Number(item.amount || 0)}" readonly>
+        </label>
+        <label class="settings-cost-field">
+          <span>วิธีคิด</span>
+          <select name="additionalCostType" disabled>
+            ${[
+              ["fixed_per_order", "คงที่ต่อออเดอร์"],
+              ["per_item", "ต่อชิ้น"],
+              ["percent_sales", "% ของยอดขาย"]
+            ].map(([value, label]) => `<option value="${value}" ${item.type === value ? "selected" : ""}>${label}</option>`).join("")}
+          </select>
+        </label>
+      </div>
       <label class="settings-switch compact">
         <span>เปิดใช้งาน</span>
-        <input name="additionalCostEnabled" type="checkbox" ${item.enabled ? "checked" : ""} disabled>
+        <input name="additionalCostEnabled" type="checkbox" ${item.enabled ? "checked" : ""}>
         <span class="settings-switch-ui"></span>
       </label>
       <div class="settings-cost-actions">
@@ -5848,7 +5906,12 @@ function renderSettingsFinance() {
               <h3>ต้นทุนเพิ่มเติม</h3>
               <p>เพิ่มรายการค่าใช้จ่ายได้ไม่จำกัด และระบบจะรวมเฉพาะรายการที่เปิดใช้งาน</p>
             </div>
-            <button class="button primary compact-action" type="button" data-add-additional-cost>+ เพิ่มต้นทุน</button>
+            <button class="button primary compact-action finance-add-expense" type="button" data-add-additional-cost>+ Add</button>
+          </div>
+          <div class="settings-expense-helper-card">
+            <strong>ค่าใช้จ่ายเพิ่มเติมใช้กับสินค้าทุกตัวที่เปิดใช้งาน</strong>
+            <span>เช่น ค่าแพ็กสินค้า ค่าแรง ค่าอุปกรณ์ ค่าธรรมเนียม หรือค่าใช้จ่ายอื่น ๆ ที่เกี่ยวข้องกับสินค้า</span>
+            <small>ตัวอย่าง: ตั้งค่า 2% → สินค้าที่ขาย 1,000 บาท จะเพิ่มค่าใช้จ่าย 20 บาท</small>
           </div>
           <div class="settings-cost-list" id="additionalCostList">${settingsAdditionalCostRows(settings)}</div>
           <div class="settings-total-row">
@@ -5858,7 +5921,7 @@ function renderSettingsFinance() {
         </div>
         <div class="settings-submit-bar">
           <button class="button ghost" type="button" data-reset-settings>ยกเลิก</button>
-          <button class="button primary" type="submit">บันทึกการตั้งค่า</button>
+          <button class="button primary settings-save-button" type="submit" data-settings-save>บันทึกต้นทุนและค่าใช้จ่าย</button>
         </div>
       </form>
     `
@@ -7661,7 +7724,8 @@ document.addEventListener("input", event => {
     `).join("");
   }
 
-  if (event.target?.matches?.("[name='additionalCostAmount'], [name='additionalCostEnabled'], [name='additionalCostType']")) {
+  if (event.target?.matches?.("[name='additionalCostName'], [name='additionalCostAmount'], [name='additionalCostEnabled'], [name='additionalCostType']")) {
+    updateAdditionalCostRowSummary(event.target.closest("[data-additional-cost-row]"));
     refreshAdditionalCostsSummary();
   }
 
@@ -7694,7 +7758,10 @@ document.addEventListener("change", event => {
     updateOrderPackageOptions();
   }
   if (event.target === els.orderForm.elements.packageId) applySelectedOrderPackage();
-  if (event.target?.matches?.("[name='additionalCostType'], [name='additionalCostEnabled']")) refreshAdditionalCostsSummary();
+  if (event.target?.matches?.("[name='additionalCostType'], [name='additionalCostEnabled']")) {
+    updateAdditionalCostRowSummary(event.target.closest("[data-additional-cost-row]"));
+    refreshAdditionalCostsSummary();
+  }
 });
 
 document.addEventListener("keydown", event => {
@@ -8022,6 +8089,12 @@ document.addEventListener("submit", async event => {
     }
 
     if (form.id === "settingsForm") {
+      const settingsSaveButton = form.querySelector("[data-settings-save]");
+      if (settingsSaveButton) {
+        if (app.settingsSavePending) return;
+        app.settingsSavePending = true;
+        setSettingsSaveState("saving", settingsSaveButton);
+      }
       const data = Object.fromEntries(new FormData(form).entries());
       if (form.elements.lineWebhookEnabled) data.lineWebhookEnabled = form.elements.lineWebhookEnabled.checked;
       if (form.elements.staffCanExport) data.staffCanExport = form.elements.staffCanExport.checked;
@@ -8047,7 +8120,12 @@ document.addEventListener("submit", async event => {
         method: "PUT",
         body: JSON.stringify(data)
       });
+      if (settingsSaveButton) {
+        setSettingsSaveState("saved", settingsSaveButton);
+        await new Promise(resolve => setTimeout(resolve, 1200));
+      }
       showToast("บันทึกการตั้งค่าแล้ว");
+      app.settingsSavePending = false;
       await loadState();
     }
 
@@ -8148,6 +8226,8 @@ document.addEventListener("submit", async event => {
     }
 
   } catch (error) {
+    app.settingsSavePending = false;
+    setSettingsSaveState("idle");
     setProfileSaveState(false);
     showToast(error.message);
     return;

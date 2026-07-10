@@ -6668,7 +6668,7 @@ small,
 
   .mobile-finance-section-head {
     display: flex;
-    align-items: end;
+    align-items: center;
     justify-content: space-between;
     gap: 10px;
     margin-top: 4px;
@@ -6766,9 +6766,84 @@ small,
   }
 
   .mobile-finance-expense-list .settings-cost-row {
+    display: grid;
+    grid-template-columns: 18px minmax(0, 1fr) auto;
+    gap: 9px;
+    align-items: center;
+    padding: 11px;
     border-color: rgba(255, 148, 27, 0.22);
     border-radius: 14px;
     background: linear-gradient(145deg, rgba(31, 22, 12, 0.72), rgba(5, 17, 27, 0.96));
+  }
+
+  .mobile-finance-expense-list .settings-cost-summary {
+    gap: 2px;
+  }
+
+  .mobile-finance-expense-list .settings-cost-summary strong {
+    font-size: 0.82rem;
+  }
+
+  .mobile-finance-expense-list .settings-cost-summary span {
+    color: #bdb5c8;
+    font-size: 0.68rem;
+  }
+
+  .mobile-finance-expense-list .settings-switch {
+    min-width: auto;
+  }
+
+  .mobile-finance-expense-list .settings-switch > span:first-child {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+
+  .mobile-finance-expense-list .settings-switch-ui {
+    width: 44px;
+    height: 26px;
+  }
+
+  .mobile-finance-expense-list .settings-switch-ui::after {
+    width: 18px;
+    height: 18px;
+  }
+
+  .mobile-finance-expense-list .settings-switch input:checked + .settings-switch-ui::after {
+    transform: translateX(18px);
+  }
+
+  .mobile-finance-expense-list .settings-cost-fields,
+  .mobile-finance-expense-list .settings-cost-actions {
+    grid-column: 1 / -1;
+  }
+
+  .mobile-finance-expense-list .settings-cost-fields {
+    min-width: 0;
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .mobile-finance-expense-list .settings-cost-row.is-editing .settings-cost-fields {
+    display: grid;
+  }
+
+  .mobile-finance-expense-list .settings-cost-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .mobile-finance-expense-list .settings-cost-actions .button {
+    min-height: 40px;
+  }
+
+  .mobile-finance-add-expense {
+    min-height: 38px;
+    padding: 0 13px;
+    border-radius: 10px;
   }
 
   .mobile-finance-expense-list select,
@@ -7476,6 +7551,10 @@ small,
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
+.settings-cost-row[data-additional-cost-row] {
+  align-items: center;
+}
+
 .settings-cost-row.is-editing {
   border-color: rgba(198, 155, 255, 0.34);
   box-shadow: 0 0 0 1px rgba(198, 155, 255, 0.16), 0 0 28px rgba(141, 64, 255, 0.08);
@@ -7491,6 +7570,38 @@ small,
 .settings-cost-field {
   min-width: 0;
   flex: 1 1 0;
+}
+
+.settings-cost-summary {
+  display: grid;
+  min-width: 0;
+  flex: 1 1 220px;
+  gap: 4px;
+}
+
+.settings-cost-summary strong {
+  color: #f8f4ff;
+  font-size: 0.95rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-cost-summary span {
+  color: #b9a8d4;
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.settings-cost-fields {
+  display: none;
+  flex: 2 1 420px;
+  min-width: min(420px, 100%);
+  gap: 10px;
+}
+
+.settings-cost-row.is-editing .settings-cost-fields {
+  display: flex;
 }
 
 .settings-cost-field span {
@@ -7568,6 +7679,71 @@ small,
 .settings-total-row strong {
   color: #c783ff;
   font-size: 1.2rem;
+}
+
+.settings-expense-helper-card,
+.mobile-finance-helper-card {
+  display: grid;
+  gap: 7px;
+  padding: 13px 14px;
+  border: 1px solid rgba(178, 92, 255, 0.34);
+  border-radius: 14px;
+  background:
+    radial-gradient(circle at 0 0, rgba(149, 75, 255, 0.16), transparent 42%),
+    linear-gradient(145deg, rgba(25, 18, 43, 0.76), rgba(6, 18, 31, 0.88));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 0 22px rgba(137, 55, 255, 0.08);
+}
+
+.settings-expense-helper-card strong,
+.mobile-finance-helper-card strong {
+  color: #f7f2ff;
+  font-size: 0.86rem;
+}
+
+.settings-expense-helper-card span,
+.settings-expense-helper-card small,
+.mobile-finance-helper-card span,
+.mobile-finance-helper-card small {
+  color: #c9c0d6;
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.settings-expense-helper-card small,
+.mobile-finance-helper-card small {
+  color: #f0dcff;
+  font-weight: 700;
+}
+
+.finance-add-expense,
+.mobile-finance-add-expense {
+  min-width: auto;
+  white-space: nowrap;
+}
+
+.button-spinner {
+  width: 17px;
+  height: 17px;
+  border: 2px solid rgba(255, 255, 255, 0.34);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.75s linear infinite;
+}
+
+.settings-save-button.is-saving {
+  opacity: 0.82;
+  cursor: wait;
+}
+
+.settings-save-button.is-saved,
+.settings-save-button.is-saved:hover {
+  border-color: rgba(66, 230, 112, 0.48);
+  background: linear-gradient(135deg, rgba(8, 119, 43, 0.98), rgba(11, 82, 38, 0.98));
+  color: #dbffe7;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 .settings-action-grid {
