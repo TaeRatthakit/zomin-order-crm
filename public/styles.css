@@ -10375,7 +10375,7 @@ small,
   body.desktop-app-shell:not(.login-view) .topbar-main {
     width: 100%;
     display: grid;
-    grid-template-columns: minmax(160px, 1fr) auto minmax(280px, 1fr);
+    grid-template-columns: minmax(280px, 1fr) auto minmax(280px, 1fr);
     align-items: center;
     gap: 18px;
   }
@@ -10452,7 +10452,13 @@ small,
   }
 
   body.desktop-app-shell:not(.login-view) .topbar-brand {
-    display: none;
+    grid-column: 2;
+    position: static;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    transform: none;
   }
 
   body.desktop-app-shell:not(.login-view) .topbar-brand::after {
@@ -12225,7 +12231,7 @@ small,
 
   body.desktop-app-shell:not(.login-view) .topbar-main {
     min-height: 64px;
-    grid-template-columns: minmax(180px, 1fr) auto minmax(330px, 1fr);
+    grid-template-columns: minmax(330px, 1fr) auto minmax(330px, 1fr);
   }
 
   body.desktop-app-shell:not(.login-view) .header-profile {
@@ -12263,7 +12269,7 @@ small,
   }
 
   body.desktop-app-shell:not(.login-view) .topbar-brand {
-    top: 24px;
+    grid-column: 2;
   }
 
   body.desktop-app-shell:not(.login-view) .topbar-brand::after {
