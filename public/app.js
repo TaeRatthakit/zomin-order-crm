@@ -93,6 +93,7 @@ const app = {
   editingProductId: "",
   productSavePending: false,
   productDraftImage: "",
+  productOriginalImage: "",
   productImageDebugKeys: new Set(),
   productPackageDraft: [],
   productExpandedPackageId: "",
@@ -6465,6 +6466,7 @@ function openProductDialog(product = null) {
   app.editingProductId = product?.id || "";
   app.productSavePending = false;
   app.productDraftImage = normalizeProductImageSource(product?.image);
+  app.productOriginalImage = app.productDraftImage;
   app.productPackageDraft = normalizeSalesPackages(product?.salesPackages);
   app.productExpandedPackageId = "";
   els.productForm.reset();
@@ -7708,6 +7710,7 @@ document.addEventListener("click", async event => {
   if (event.target.closest("[data-close-product]")) {
     app.editingProductId = "";
     app.productDraftImage = "";
+    app.productOriginalImage = "";
     app.productPackageDraft = [];
     app.productExpandedPackageId = "";
     app.productSavePending = false;
@@ -7977,7 +7980,8 @@ document.addEventListener("submit", async event => {
       setProductSaveState(true);
       const data = Object.fromEntries(new FormData(form).entries());
       delete data.imageFile;
-      data.image = app.productDraftImage;
+      if (app.productDraftImage !== app.productOriginalImage) data.image = app.productDraftImage;
+      else delete data.image;
       data.salesPackages = readProductPackageDraft();
       data.followUpEnabled = form.elements.followUpEnabled.checked;
       const editingProduct = productRowsData().find(item => item.id === app.editingProductId);
@@ -7992,6 +7996,7 @@ document.addEventListener("submit", async event => {
         applyProductSavePayload(payload);
         app.editingProductId = "";
         app.productDraftImage = "";
+        app.productOriginalImage = "";
         app.productPackageDraft = [];
         app.productExpandedPackageId = "";
         if (els.productImageFileInput) els.productImageFileInput.value = "";
