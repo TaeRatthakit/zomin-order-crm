@@ -95,6 +95,7 @@ const app = {
   productDraftImage: "",
   productImageDebugKeys: new Set(),
   productPackageDraft: [],
+  productExpandedPackageId: "",
   deletingOrderId: "",
   deletingCustomerId: "",
   editingUserId: "",
@@ -6384,6 +6385,7 @@ function openProductDialog(product = null) {
   app.productSavePending = false;
   app.productDraftImage = normalizeProductImageSource(product?.image);
   app.productPackageDraft = normalizeSalesPackages(product?.salesPackages);
+  app.productExpandedPackageId = "";
   els.productForm.reset();
   els.productDialogTitle.textContent = product ? "แก้ไขสินค้า" : "เพิ่มสินค้า";
   if (product) {
@@ -6415,6 +6417,7 @@ function openProductDialog(product = null) {
   setProductSaveState(false);
   updateProductImagePreview(app.productDraftImage, product?.name || "");
   renderProductPackageEditor();
+  document.body.classList.add("modal-scroll-locked");
   els.productDialog.showModal();
 }
 
@@ -6435,63 +6438,89 @@ function packageDraftId(prefix) {
 function renderProductPackageEditor() {
   const list = document.querySelector("#productPackageList");
   if (!list) return;
-  const mobile = isMobileViewport();
-  list.innerHTML = app.productPackageDraft.map((item, packageIndex) => `
-    <article class="sales-package-card" data-sales-package-id="${escapeHtml(item.id)}">
-      <div class="sales-package-card-head">
-        <strong>${escapeHtml(item.name || `แพ็กเกจ ${packageIndex + 1}`)}</strong>
-        <div class="table-actions">
-          <button class="button ghost compact-action" type="button" data-move-sales-package="-1" aria-label="เลื่อนขึ้น">↑</button>
-          <button class="button ghost compact-action" type="button" data-move-sales-package="1" aria-label="เลื่อนลง">↓</button>
-          <button class="button ghost compact-action" type="button" data-duplicate-sales-package>ทำซ้ำ</button>
-          <button class="button danger compact-action" type="button" data-delete-sales-package>ลบ</button>
-        </div>
-      </div>
-      <div class="sales-package-grid">
-        <label>ชื่อแพ็กเกจ<input name="packageName" value="${escapeHtml(item.name)}"></label>
-        <label class="inline"><input name="packageEnabled" type="checkbox" ${item.enabled ? "checked" : ""} style="width:auto"> เปิดใช้งาน</label>
-        ${mobile ? "" : `
-          <label>จำนวนที่ชำระ<input name="packagePaidQuantity" type="number" min="0" step="1" value="${item.paidQuantity}"></label>
-          <label>จำนวนแถม<input name="packageFreeQuantity" type="number" min="0" step="1" value="${item.freeQuantity}"></label>
-        `}
-        <label>จำนวนจัดส่งรวม<input name="packageTotalQuantity" type="number" min="0" step="1" value="${item.totalQuantityShipped}"></label>
-        ${mobile ? "" : `<label>ราคาขาย<input name="packageSalePrice" type="number" min="0" step="0.01" value="${item.salePrice}"></label>`}
-      </div>
-      <div class="package-expense-head">
-        <span>ค่าใช้จ่ายของแพ็กเกจนี้</span>
-        <button class="button ghost compact-action" type="button" data-add-package-expense>+ เพิ่มค่าใช้จ่าย</button>
-      </div>
-      <div class="package-expense-list">
-        ${item.expenses.map(expense => `
-          <div class="package-expense-row" data-package-expense-id="${escapeHtml(expense.id)}">
-            <label>ชื่อ<input name="packageExpenseName" value="${escapeHtml(expense.name)}" placeholder="เช่น ค่ากล่อง"></label>
-            <label>จำนวนเงิน<input name="packageExpenseAmount" type="number" min="0" step="0.01" value="${expense.amount}"></label>
-            <label class="inline"><input name="packageExpenseEnabled" type="checkbox" ${expense.enabled ? "checked" : ""} style="width:auto"> ใช้</label>
-            <button class="button danger compact-action" type="button" data-delete-package-expense>ลบ</button>
+  list.innerHTML = app.productPackageDraft.map((item, packageIndex) => {
+    const isOpen = app.productExpandedPackageId === item.id;
+    const activeLabel = item.enabled ? "เปิดขาย" : "ปิดอยู่";
+    const expenseCount = Array.isArray(item.expenses) ? item.expenses.length : 0;
+    return `
+      <article class="sales-package-card ${isOpen ? "is-open" : ""}" data-sales-package-id="${escapeHtml(item.id)}">
+        <button class="sales-package-summary" type="button" data-toggle-sales-package aria-expanded="${isOpen ? "true" : "false"}">
+          <span class="sales-package-summary-main">
+            <i>${iconSvg("box")}</i>
+            <strong>${escapeHtml(item.name || `แพ็กเกจ ${packageIndex + 1}`)}</strong>
+            <small class="${item.enabled ? "is-active" : "is-paused"}">${activeLabel}</small>
+          </span>
+          <span class="sales-package-summary-metrics">
+            <b>รวม ${money(item.totalQuantityShipped)} ชิ้น</b>
+            <b>ราคา ${money(item.salePrice)} บาท</b>
+            <b>ค่าใช้จ่าย ${money(expenseCount)} รายการ</b>
+            <em aria-hidden="true">${isOpen ? "⌃" : "⌄"}</em>
+          </span>
+        </button>
+        ${isOpen ? `
+          <div class="sales-package-edit-panel">
+            <div class="sales-package-card-head">
+              <span>แก้ไขแพ็กเกจ</span>
+              <div class="table-actions">
+                <button class="button ghost compact-action" type="button" data-move-sales-package="-1" aria-label="เลื่อนขึ้น">↑</button>
+                <button class="button ghost compact-action" type="button" data-move-sales-package="1" aria-label="เลื่อนลง">↓</button>
+                <button class="button ghost compact-action" type="button" data-duplicate-sales-package>ทำซ้ำ</button>
+                <button class="button danger compact-action" type="button" data-delete-sales-package>ลบ</button>
+              </div>
+            </div>
+            <div class="sales-package-grid">
+              <label>ชื่อแพ็กเกจ<input name="packageName" value="${escapeHtml(item.name)}"></label>
+              <label class="inline package-toggle"><input name="packageEnabled" type="checkbox" ${item.enabled ? "checked" : ""} style="width:auto"> เปิดใช้งาน</label>
+              <label>จำนวนที่ชำระ<input name="packagePaidQuantity" type="number" min="0" step="1" value="${item.paidQuantity}"></label>
+              <label>จำนวนแถม<input name="packageFreeQuantity" type="number" min="0" step="1" value="${item.freeQuantity}"></label>
+              <label>จำนวนจัดส่งรวม<input name="packageTotalQuantity" type="number" min="0" step="1" value="${item.totalQuantityShipped}"></label>
+              <label>ราคาขาย<input name="packageSalePrice" type="number" min="0" step="0.01" value="${item.salePrice}"></label>
+            </div>
+            <div class="package-expense-head">
+              <span>ค่าใช้จ่ายของแพ็กเกจนี้</span>
+              <button class="button ghost compact-action" type="button" data-add-package-expense>+ เพิ่มค่าใช้จ่าย</button>
+            </div>
+            <div class="package-expense-list">
+              ${item.expenses.map(expense => `
+                <div class="package-expense-row" data-package-expense-id="${escapeHtml(expense.id)}">
+                  <label>ชื่อ<input name="packageExpenseName" value="${escapeHtml(expense.name)}" placeholder="เช่น ค่ากล่อง"></label>
+                  <label>จำนวนเงิน<input name="packageExpenseAmount" type="number" min="0" step="0.01" value="${expense.amount}"></label>
+                  <label class="inline"><input name="packageExpenseEnabled" type="checkbox" ${expense.enabled ? "checked" : ""} style="width:auto"> ใช้</label>
+                  <button class="button danger compact-action" type="button" data-delete-package-expense>ลบ</button>
+                </div>
+              `).join("") || `<div class="package-expense-empty">ยังไม่มีค่าใช้จ่ายในแพ็กเกจนี้</div>`}
+            </div>
           </div>
-        `).join("")}
-      </div>
-    </article>
-  `).join("") || `<div class="empty-state">ยังไม่มีแพ็กเกจ กด “+ เพิ่มแพ็กเกจ” เพื่อเริ่มต้น</div>`;
+        ` : ""}
+      </article>
+    `;
+  }).join("") || `<div class="empty-state">ยังไม่มีแพ็กเกจ กด “+ เพิ่มแพ็กเกจ” เพื่อเริ่มต้น</div>`;
 }
 
 function readProductPackageDraft() {
   return [...document.querySelectorAll("[data-sales-package-id]")].map(card => {
     const existing = app.productPackageDraft.find(item => item.id === card.dataset.salesPackageId) || {};
+    const nameField = card.querySelector("[name='packageName']");
+    const paidField = card.querySelector("[name='packagePaidQuantity']");
+    const freeField = card.querySelector("[name='packageFreeQuantity']");
+    const totalField = card.querySelector("[name='packageTotalQuantity']");
+    const salePriceField = card.querySelector("[name='packageSalePrice']");
+    const enabledField = card.querySelector("[name='packageEnabled']");
+    const expenseRows = [...card.querySelectorAll("[data-package-expense-id]")];
     return {
       id: card.dataset.salesPackageId,
-      name: card.querySelector("[name='packageName']")?.value.trim() || "แพ็กเกจ",
-      paidQuantity: Math.max(0, Number(card.querySelector("[name='packagePaidQuantity']")?.value ?? existing.paidQuantity ?? 0)),
-      freeQuantity: Math.max(0, Number(card.querySelector("[name='packageFreeQuantity']")?.value ?? existing.freeQuantity ?? 0)),
-      totalQuantityShipped: Math.max(0, Number(card.querySelector("[name='packageTotalQuantity']")?.value || 0)),
-      salePrice: Math.max(0, Number(card.querySelector("[name='packageSalePrice']")?.value ?? existing.salePrice ?? 0)),
-      enabled: Boolean(card.querySelector("[name='packageEnabled']")?.checked),
-      expenses: [...card.querySelectorAll("[data-package-expense-id]")].map(row => ({
+      name: nameField?.value.trim() || existing.name || "แพ็กเกจ",
+      paidQuantity: Math.max(0, Number(paidField?.value ?? existing.paidQuantity ?? 0)),
+      freeQuantity: Math.max(0, Number(freeField?.value ?? existing.freeQuantity ?? 0)),
+      totalQuantityShipped: Math.max(0, Number(totalField?.value ?? existing.totalQuantityShipped ?? 0)),
+      salePrice: Math.max(0, Number(salePriceField?.value ?? existing.salePrice ?? 0)),
+      enabled: enabledField ? Boolean(enabledField.checked) : existing.enabled !== false,
+      expenses: expenseRows.length ? expenseRows.map(row => ({
         id: row.dataset.packageExpenseId,
         name: row.querySelector("[name='packageExpenseName']")?.value.trim() || "ค่าใช้จ่าย",
         amount: Math.max(0, Number(row.querySelector("[name='packageExpenseAmount']")?.value || 0)),
         enabled: Boolean(row.querySelector("[name='packageExpenseEnabled']")?.checked)
-      }))
+      })) : (existing.expenses || [])
     };
   });
 }
@@ -7000,6 +7029,10 @@ async function previewCsvImport() {
   renderImport();
 }
 
+els.productDialog?.addEventListener("close", () => {
+  document.body.classList.remove("modal-scroll-locked");
+});
+
 document.addEventListener("click", async event => {
   if (event.target.closest("#mobileMenuToggle")) {
     document.body.classList.toggle("sidebar-open");
@@ -7055,8 +7088,9 @@ document.addEventListener("click", async event => {
 
   if (event.target.closest("[data-add-sales-package]")) {
     app.productPackageDraft = readProductPackageDraft();
+    const packageId = packageDraftId("package");
     app.productPackageDraft.push({
-      id: packageDraftId("package"),
+      id: packageId,
       name: `แพ็กเกจ ${app.productPackageDraft.length + 1}`,
       paidQuantity: 1,
       freeQuantity: 0,
@@ -7065,22 +7099,33 @@ document.addEventListener("click", async event => {
       enabled: true,
       expenses: []
     });
+    app.productExpandedPackageId = packageId;
     renderProductPackageEditor();
     return;
   }
 
   const packageCard = event.target.closest("[data-sales-package-id]");
+  if (packageCard && event.target.closest("[data-toggle-sales-package]")) {
+    app.productPackageDraft = readProductPackageDraft();
+    const packageId = packageCard.dataset.salesPackageId;
+    app.productExpandedPackageId = app.productExpandedPackageId === packageId ? "" : packageId;
+    renderProductPackageEditor();
+    return;
+  }
+
   if (packageCard && event.target.closest("[data-duplicate-sales-package]")) {
     app.productPackageDraft = readProductPackageDraft();
     const index = app.productPackageDraft.findIndex(item => item.id === packageCard.dataset.salesPackageId);
     if (index >= 0) {
       const original = app.productPackageDraft[index];
+      const packageId = packageDraftId("package");
       app.productPackageDraft.splice(index + 1, 0, {
         ...original,
-        id: packageDraftId("package"),
+        id: packageId,
         name: `${original.name} สำเนา`,
         expenses: original.expenses.map(expense => ({ ...expense, id: packageDraftId("expense") }))
       });
+      app.productExpandedPackageId = packageId;
       renderProductPackageEditor();
     }
     return;
@@ -7089,6 +7134,7 @@ document.addEventListener("click", async event => {
   if (packageCard && event.target.closest("[data-delete-sales-package]")) {
     app.productPackageDraft = readProductPackageDraft()
       .filter(item => item.id !== packageCard.dataset.salesPackageId);
+    if (app.productExpandedPackageId === packageCard.dataset.salesPackageId) app.productExpandedPackageId = "";
     renderProductPackageEditor();
     return;
   }
@@ -7101,6 +7147,7 @@ document.addEventListener("click", async event => {
     if (index >= 0 && nextIndex >= 0 && nextIndex < app.productPackageDraft.length) {
       const [item] = app.productPackageDraft.splice(index, 1);
       app.productPackageDraft.splice(nextIndex, 0, item);
+      app.productExpandedPackageId = item.id;
       renderProductPackageEditor();
     }
     return;
@@ -7111,6 +7158,7 @@ document.addEventListener("click", async event => {
     const item = app.productPackageDraft.find(entry => entry.id === packageCard.dataset.salesPackageId);
     if (item) {
       item.expenses.push({ id: packageDraftId("expense"), name: "", amount: 0, enabled: true });
+      app.productExpandedPackageId = item.id;
       renderProductPackageEditor();
     }
     return;
@@ -7563,6 +7611,7 @@ document.addEventListener("click", async event => {
     app.editingProductId = "";
     app.productDraftImage = "";
     app.productPackageDraft = [];
+    app.productExpandedPackageId = "";
     app.productSavePending = false;
     setProductSaveState(false);
     els.productDialog.close();
@@ -7841,6 +7890,7 @@ document.addEventListener("submit", async event => {
         app.editingProductId = "";
         app.productDraftImage = "";
         app.productPackageDraft = [];
+        app.productExpandedPackageId = "";
         if (els.productImageFileInput) els.productImageFileInput.value = "";
         els.productDialog.close();
         showToast("บันทึกสินค้าแล้ว");

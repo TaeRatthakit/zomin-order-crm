@@ -305,8 +305,8 @@
       </form>
     </dialog>
 
-    <dialog id="productDialog" class="dialog">
-      <form id="productForm" method="dialog">
+    <dialog id="productDialog" class="dialog product-dialog">
+      <form id="productForm" class="product-modal-form" method="dialog">
         <div class="dialog-header">
           <div>
             <p class="eyebrow">สินค้า</p>
@@ -314,39 +314,45 @@
           </div>
           <button class="icon-button" type="button" data-close-product aria-label="ปิด">×</button>
         </div>
-        <div class="form-grid">
-          <div class="span-2 product-image-editor">
-            <div class="product-image-preview-wrap">
-              <div id="productImagePreview" class="product-thumb large product-image-preview">GP</div>
-              <div class="product-image-editor-copy">
-                <strong>รูปสินค้า</strong>
-                <span>อัปโหลดรูปสินค้าจากเครื่องได้ทันที</span>
+        <div class="product-modal-content">
+          <section class="product-basic-section">
+            <div class="product-basic-head">
+              <div class="product-image-editor">
+                <div class="product-image-preview-wrap">
+                  <div id="productImagePreview" class="product-thumb large product-image-preview">GP</div>
+                  <div class="product-image-editor-copy">
+                    <strong>รูปสินค้า</strong>
+                    <span>อัปโหลดรูปสินค้าจากเครื่องได้ทันที</span>
+                  </div>
+                </div>
+                <div class="product-image-editor-actions">
+                  <input id="productImageFileInput" name="imageFile" type="file" accept="image/*" hidden>
+                  <button class="button ghost" type="button" data-pick-product-image>อัปโหลดรูป</button>
+                  <button class="button ghost product-image-url-control" type="button" data-focus-product-image>ใช้ลิงก์รูป</button>
+                  <button class="button ghost" type="button" data-clear-product-image>ลบรูป</button>
+                </div>
+                <label class="product-image-url-control">ลิงก์รูปภาพ<input name="image" placeholder="https://..." data-product-image-input></label>
               </div>
             </div>
-            <div class="product-image-editor-actions">
-              <input id="productImageFileInput" name="imageFile" type="file" accept="image/*" hidden>
-              <button class="button ghost" type="button" data-pick-product-image>อัปโหลดรูป</button>
-              <button class="button ghost product-image-url-control" type="button" data-focus-product-image>ใช้ลิงก์รูป</button>
-              <button class="button ghost" type="button" data-clear-product-image>ลบรูป</button>
+            <div class="form-grid product-basic-grid">
+              <label>ชื่อสินค้า<input name="name" required></label>
+              <label>SKU<input name="sku" required></label>
+              <label>ราคาขาย<input name="salePrice" type="number" min="0" step="0.01" required></label>
+              <label>ต้นทุนต่อชิ้น<input name="costPerItem" type="number" min="0" step="0.01" required></label>
+              <label>จำนวนสต๊อก<input name="stockQuantity" type="number" min="0" step="1" required></label>
+              <label>แจ้งเตือนสต๊อกต่ำ<input name="lowStockAlert" type="number" min="0" step="1" required></label>
+              <label>สถานะ
+                <select name="status">
+                  <option>พร้อมขาย</option>
+                  <option>ใกล้หมด</option>
+                  <option>เหลือน้อย</option>
+                  <option>ปิดการขาย</option>
+                </select>
+              </label>
+              <label class="span-2">รายละเอียดสินค้า<textarea name="description" placeholder="รายละเอียดสินค้า"></textarea></label>
             </div>
-            <label class="product-image-url-control">ลิงก์รูปภาพ<input name="image" placeholder="https://..." data-product-image-input></label>
-          </div>
-          <label>ชื่อสินค้า<input name="name" required></label>
-          <label>SKU<input name="sku" required></label>
-          <label>ราคาขาย<input name="salePrice" type="number" min="0" step="0.01" required></label>
-          <label>ต้นทุนต่อชิ้น<input name="costPerItem" type="number" min="0" step="0.01" required></label>
-          <label>จำนวนสต๊อก<input name="stockQuantity" type="number" min="0" step="1" required></label>
-          <label>แจ้งเตือนสต๊อกต่ำ<input name="lowStockAlert" type="number" min="0" step="1" required></label>
-          <label>สถานะ
-            <select name="status">
-              <option>พร้อมขาย</option>
-              <option>ใกล้หมด</option>
-              <option>เหลือน้อย</option>
-              <option>ปิดการขาย</option>
-            </select>
-          </label>
-          <label class="span-2">รายละเอียดสินค้า<textarea name="description" placeholder="รายละเอียดสินค้า"></textarea></label>
-          <section class="span-2 product-package-editor">
+          </section>
+          <section class="product-package-editor">
             <div class="product-package-editor-head">
               <div>
                 <strong>แพ็กเกจการขาย</strong>
@@ -356,14 +362,16 @@
             </div>
             <div id="productPackageList" class="product-package-list"></div>
           </section>
-          <label class="inline">
-            <input name="followUpEnabled" type="checkbox" checked style="width:auto">
-            เปิดใช้งานติดตามลูกค้า
-          </label>
-          <label>ติดตามหลังผ่านไปกี่วัน<input name="followUpDays" type="number" min="1" step="1" value="15"></label>
-          <label class="span-2">กติกาการติดตาม<input name="followUpRule" value="1 ชิ้น = 15 วัน"></label>
+          <section class="product-followup-editor form-grid">
+            <label class="inline">
+              <input name="followUpEnabled" type="checkbox" checked style="width:auto">
+              เปิดใช้งานติดตามลูกค้า
+            </label>
+            <label>ติดตามหลังผ่านไปกี่วัน<input name="followUpDays" type="number" min="1" step="1" value="15"></label>
+            <label class="span-2">กติกาการติดตาม<input name="followUpRule" value="1 ชิ้น = 15 วัน"></label>
+          </section>
         </div>
-        <div class="dialog-actions">
+        <div class="dialog-actions product-modal-actions">
           <button class="button ghost" type="button" data-close-product>ยกเลิก</button>
           <button class="button primary" type="submit" id="productSubmitButton">บันทึกสินค้า</button>
         </div>
