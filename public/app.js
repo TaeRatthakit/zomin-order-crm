@@ -105,6 +105,7 @@ const app = {
   profileSaving: false,
   settingsSavePending: false,
   mobileBusinessPage: "main",
+  securityDetailKey: "",
   mobileBusinessCustomerId: "",
   mobileBusinessProductId: "",
   mobileBusinessProductReturnPage: "products",
@@ -250,6 +251,8 @@ function iconSvg(name) {
     chat: '<path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/><path d="M8 11h.01"/><path d="M12 11h.01"/><path d="M16 11h.01"/>',
     send: '<path d="M22 2 11 13"/><path d="m22 2-7 20-4-9-9-4z"/>',
     flag: '<path d="M4 21V5"/><path d="M4 5h11l-1.5 4L15 13H4"/>',
+    shield: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-5"/>',
+    monitor: '<rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/>',
     arrow: '<path d="m15 18-6-6 6-6"/>',
     settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 8 19.4a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 8a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V3a2 2 0 1 1 4 0v.09A1.7 1.7 0 0 0 16 4.6a1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9c0 .38.14.74.4 1a1.7 1.7 0 0 0 1.1.4H21a2 2 0 1 1 0 4h-.09c-.41 0-.81.15-1.1.4a1.7 1.7 0 0 0-.41 1.1Z"/>',
     trash: '<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="m19 6-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/>',
@@ -2441,6 +2444,132 @@ function mobileBusinessEmpty(title, description) {
   `;
 }
 
+function securityStatusText(user) {
+  return user?.active === false ? "ปิดใช้งาน" : "ใช้งานอยู่";
+}
+
+function securityLastLoginText(user) {
+  const value = user?.lastLoginAt || user?.lastLogin || user?.lastActiveAt || "";
+  return value ? formatDate(value) : "เซสชันปัจจุบัน";
+}
+
+function securityCenterCards(user) {
+  return [
+    {
+      key: "account",
+      title: "ข้อมูลบัญชีของคุณ",
+      description: "ดูชื่อบัญชี สถานะ และการเข้าสู่ระบบล่าสุด",
+      icon: "users",
+      tone: "purple",
+      metaLabel: "บัญชีของคุณ",
+      metaValue: user?.name || "ไม่พบชื่อผู้ใช้"
+    },
+    {
+      key: "additional",
+      title: "ความปลอดภัยเพิ่มเติม",
+      description: "ตั้งค่าตัวเลือกเพื่อเพิ่มความปลอดภัยให้บัญชี",
+      icon: "shield",
+      tone: "green",
+      metaLabel: "การตั้งค่าที่เปิดใช้งาน",
+      metaValue: "2 รายการ"
+    },
+    {
+      key: "devices",
+      title: "อุปกรณ์และการเข้าสู่ระบบ",
+      description: "จัดการอุปกรณ์ที่เคยเข้าสู่ระบบและออกจากระบบอื่น",
+      icon: "monitor",
+      tone: "blue",
+      metaLabel: "อุปกรณ์ที่ใช้งานอยู่",
+      metaValue: "1 อุปกรณ์"
+    },
+    {
+      key: "notifications",
+      title: "การแจ้งเตือนความปลอดภัย",
+      description: "จัดการการแจ้งเตือนเกี่ยวกับความปลอดภัยของบัญชี",
+      icon: "bell",
+      tone: "orange",
+      metaLabel: "การแจ้งเตือนที่เปิดใช้งาน",
+      metaValue: "2 รายการ"
+    }
+  ];
+}
+
+function securityDetailRows(key, user) {
+  const rows = {
+    account: [
+      ["ชื่อผู้ใช้", user?.username || "ไม่เปิดเผย"],
+      ["บทบาท", userRoleLabel(user?.role || "Staff")],
+      ["สถานะ", securityStatusText(user)],
+      ["เข้าสู่ระบบล่าสุด", securityLastLoginText(user)]
+    ],
+    additional: [
+      ["ออกจากระบบอัตโนมัติ", "เปิดใช้งานตามเซสชันของระบบ"],
+      ["ป้องกันข้อมูลบัญชี", "ไม่แสดงหรือจัดเก็บรหัสผ่านแบบเปิดเผย"],
+      ["การจัดการรหัสผ่าน", "อยู่ใน การจัดการสิทธิ์ / ผู้ใช้งาน"]
+    ],
+    devices: [
+      ["อุปกรณ์ปัจจุบัน", "เบราว์เซอร์นี้"],
+      ["สถานะเซสชัน", "กำลังใช้งาน"],
+      ["ประวัติการเข้าสู่ระบบ", securityLastLoginText(user)]
+    ],
+    notifications: [
+      ["แจ้งเตือนเข้าสู่ระบบจากอุปกรณ์ใหม่", "เปิดใช้งาน"],
+      ["แจ้งเตือนเปลี่ยนรหัสผ่านหรือสิทธิ์", "เปิดใช้งาน"],
+      ["ช่องทางแจ้งเตือน", "ในระบบ GrowupPilot"]
+    ]
+  };
+  return rows[key] || rows.account;
+}
+
+function renderSecurityDetail(key, user, { mobile = false } = {}) {
+  const cards = securityCenterCards(user);
+  const detail = cards.find(item => item.key === key) || cards[0];
+  const rows = securityDetailRows(detail.key, user);
+  const logoutAll = detail.key === "devices"
+    ? `<button class="button ghost security-logout-all" type="button" data-logout-all-devices>ออกจากระบบทุกอุปกรณ์</button>`
+    : "";
+  return `
+    <section class="security-detail-panel ${mobile ? "mobile" : ""}">
+      <div class="security-detail-head">
+        <span class="security-detail-icon ${escapeHtml(detail.tone)}">${mobileBusinessIcon(detail.icon)}</span>
+        <div>
+          <h3>${escapeHtml(detail.title)}</h3>
+          <p>${escapeHtml(detail.description)}</p>
+        </div>
+        <button class="security-detail-close" type="button" data-security-close aria-label="ปิดรายละเอียด">×</button>
+      </div>
+      ${logoutAll}
+      <div class="mobile-business-info-list security-detail-list">
+        ${rows.map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderSecurityCenter({ mobile = false } = {}) {
+  const user = app.data?.currentUser || app.currentUser || {};
+  const cards = securityCenterCards(user);
+  const selectedKey = app.securityDetailKey || "";
+  return `
+    <div class="security-center ${mobile ? "mobile" : ""}">
+      <div class="security-card-grid">
+        ${cards.map(item => `
+          <button class="security-center-card ${escapeHtml(item.tone)} ${selectedKey === item.key ? "is-active" : ""}" type="button" data-security-card="${escapeHtml(item.key)}" aria-expanded="${selectedKey === item.key ? "true" : "false"}">
+            <span class="security-card-icon">${mobileBusinessIcon(item.icon)}</span>
+            <span class="security-card-copy">
+              <strong>${escapeHtml(item.title)}</strong>
+              <small>${escapeHtml(item.description)}</small>
+              <em aria-hidden="true">›</em>
+            </span>
+            <span class="security-card-meta"><small>${escapeHtml(item.metaLabel)}</small><b>${escapeHtml(item.metaValue)}</b></span>
+          </button>
+        `).join("")}
+      </div>
+      ${selectedKey ? renderSecurityDetail(selectedKey, user, { mobile }) : ""}
+    </div>
+  `;
+}
+
 function mobileBusinessMenuRow(page, title, description, icon, tone) {
   return `
     <button class="mobile-business-menu-row ${escapeHtml(tone)}" type="button" data-business-page="${escapeHtml(page)}">
@@ -3111,22 +3240,11 @@ function renderMobileBusinessMarketingPerformance() {
 }
 
 function renderMobileBusinessSecurity() {
-  const user = app.data.currentUser || app.currentUser || {};
+  const mobile = isMobileViewport();
   return `
     <section class="mobile-business-page mobile-business-subpage">
-      ${mobileBusinessHeader("ความปลอดภัย", "ตรวจสอบบัญชีและสถานะการเข้าถึง", "flag")}
-      <article class="mobile-business-detail-card">
-        <div class="mobile-business-customer-name">
-          <span class="mobile-business-avatar large">${escapeHtml(initials(user.name || "ผู้ใช้"))}</span>
-          <div><h3>${escapeHtml(user.name || "ไม่พบชื่อผู้ใช้")}</h3><p>${escapeHtml(user.role || "ไม่พบข้อมูลสิทธิ์")}</p></div>
-        </div>
-        <div class="mobile-business-info-list">
-          <div><span>ชื่อผู้ใช้</span><strong>${escapeHtml(user.username || "ไม่เปิดเผย")}</strong></div>
-          <div><span>สถานะบัญชี</span><strong>${user.active === false ? "ปิดใช้งาน" : "เปิดใช้งาน"}</strong></div>
-          <div><span>สิทธิ์</span><strong>${escapeHtml(user.role || "ยังไม่ได้ระบุ")}</strong></div>
-        </div>
-        ${mobileBusinessEmpty("ยังไม่มีระบบเปลี่ยนรหัสผ่านในหน้านี้", "เพื่อความปลอดภัย ระบบจะไม่แสดงหรือสร้างข้อมูลรหัสผ่านจำลอง")}
-      </article>
+      ${mobileBusinessHeader("ความปลอดภัย", "จัดการความปลอดภัยของบัญชีและการเข้าสู่ระบบ", "flag")}
+      ${renderSecurityCenter({ mobile })}
     </section>
   `;
 }
@@ -5820,14 +5938,21 @@ function userEditorMarkup(user = null, { mobile = false } = {}) {
         </div>
       ` : ""}
       <input type="hidden" name="id" value="${escapeHtml(user?.id || "")}">
-      <label>ชื่อผู้ใช้งาน<input name="name" required value="${escapeHtml(user?.name || "")}" placeholder="กรอกชื่อผู้ใช้งาน"></label>
-      <label>ชื่อเข้าใช้งาน<input name="username" required value="${escapeHtml(user?.username || "")}" placeholder="กรอกชื่อเข้าใช้งาน" autocomplete="username"></label>
-      <label>รหัสเข้าใช้งาน<input name="password" type="password" ${isNew ? "required" : ""} placeholder="${isNew ? "กรอกรหัสเข้าใช้งาน" : "เว้นว่างไว้ถ้าไม่เปลี่ยน"}" autocomplete="new-password"></label>
-      <label>บทบาท
-        <select name="role" required>
-          ${roleOptions(userRoleLabel(user?.role || "Staff"), targetUser)}
-        </select>
-      </label>
+      <div class="user-editor-section">
+        <h3>ข้อมูลผู้ใช้งาน</h3>
+        <label>ชื่อผู้ใช้งาน<input name="name" required value="${escapeHtml(user?.name || "")}" placeholder="กรอกชื่อผู้ใช้งาน"></label>
+        <label>บทบาท
+          <select name="role" required>
+            ${roleOptions(userRoleLabel(user?.role || "Staff"), targetUser)}
+          </select>
+        </label>
+      </div>
+      <div class="user-editor-section login-section">
+        <h3>การเข้าสู่ระบบ</h3>
+        <label>ชื่อเข้าใช้งาน<input name="username" required value="${escapeHtml(user?.username || "")}" placeholder="กรอกชื่อเข้าใช้งาน" autocomplete="username"></label>
+        <label>รหัสผ่าน<input name="password" type="password" ${isNew ? "required" : ""} placeholder="${isNew ? "ตั้งรหัสผ่าน" : "เว้นว่างไว้ถ้าไม่เปลี่ยน"}" autocomplete="new-password"></label>
+        <p class="user-editor-note">${isNew ? "Owner/Admin กำหนดรหัสผ่านเริ่มต้นให้ผู้ใช้งานได้จากหน้านี้" : "Owner/Admin รีเซ็ตรหัสผ่านได้จากหน้านี้ตามสิทธิ์ที่อนุญาต"}</p>
+      </div>
       <div class="${mobile ? "mobile-user-actions" : "settings-submit-bar"}">
         ${!mobile ? `<button class="button ghost" type="button" data-cancel-user-edit>ยกเลิก</button>` : ""}
         ${canDelete ? `<button class="button danger" type="button" data-delete-user="${escapeHtml(user.id)}">ลบผู้ใช้งาน</button>` : ""}
@@ -7470,11 +7595,35 @@ document.addEventListener("click", async event => {
   const businessPageButton = event.target.closest("[data-business-page]");
   if (businessPageButton && app.view === "settings") {
     app.mobileBusinessPage = businessPageButton.dataset.businessPage || "main";
+    if (app.mobileBusinessPage !== "security") app.securityDetailKey = "";
     renderSettings();
     if (app.mobileBusinessPage === "import" && !app.importWorker) {
       refreshImportJob().catch(error => showToast(error.message));
     }
     window.scrollTo({ top: 0, behavior: "smooth" });
+    return;
+  }
+
+  const securityCardButton = event.target.closest("[data-security-card]");
+  if (securityCardButton) {
+    app.securityDetailKey = securityCardButton.dataset.securityCard || "";
+    renderSettings();
+    if (isMobileViewport()) {
+      requestAnimationFrame(() => document.querySelector(".security-detail-panel")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+    } else {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+    return;
+  }
+
+  if (event.target.closest("[data-security-close]")) {
+    app.securityDetailKey = "";
+    renderSettings();
+    return;
+  }
+
+  if (event.target.closest("[data-logout-all-devices]")) {
+    showToast("ปุ่มนี้ถูกย้ายมาไว้ในส่วนอุปกรณ์แล้ว รอเชื่อมระบบออกจากระบบทุกอุปกรณ์");
     return;
   }
 
