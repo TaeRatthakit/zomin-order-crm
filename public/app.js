@@ -687,13 +687,66 @@ function renderSubpageNav() {
   `;
 }
 
-function showToast(message) {
-  els.toast.textContent = message;
+function toastStatusFor(message, status = "") {
+  const explicitStatus = String(status || "").toLowerCase();
+  if (["success", "loading", "update", "error"].includes(explicitStatus)) return explicitStatus;
+  const text = String(message || "").toLowerCase();
+  if (/ไม่สำเร็จ|ไม่ถูกต้อง|ผิดพลาด|error|ไม่มีสิทธิ์|ไม่สามารถ|ไม่พบ|กรุณา|หมดอายุ|not found|failed/.test(text)) return "error";
+  if (/กำลัง|โหลด|นำเข้า/.test(text)) return "loading";
+  if (/แก้ไข|อัปเดต|update|เปิดใช้|ปิดใช้|ลบ|เก็บถาวร|rollback|คัดลอก/.test(text)) return "update";
+  return "success";
+}
+
+function toastTitleFor(status) {
+  return {
+    success: "สำเร็จ",
+    loading: "กำลังดำเนินการ",
+    update: "อัปเดตแล้ว",
+    error: "เกิดข้อผิดพลาด"
+  }[status] || "สำเร็จ";
+}
+
+function toastIconFor(status) {
+  return {
+    success: "✓",
+    loading: "⏳",
+    update: "✎",
+    error: "!"
+  }[status] || "✓";
+}
+
+function hideToast() {
+  if (!els.toast || els.toast.hidden) return;
+  els.toast.classList.remove("is-visible");
+  els.toast.classList.add("is-hiding");
+  window.clearTimeout(showToast.timer);
+  window.clearTimeout(showToast.hideTimer);
+  showToast.hideTimer = window.setTimeout(() => {
+    els.toast.hidden = true;
+    els.toast.classList.remove("is-hiding");
+  }, 260);
+}
+
+function showToast(message, status = "") {
+  const detail = String(message || "");
+  const tone = toastStatusFor(detail, status);
+  els.toast.className = `toast toast-${tone}`;
+  els.toast.setAttribute("role", tone === "error" ? "alert" : "status");
+  els.toast.setAttribute("aria-live", tone === "error" ? "assertive" : "polite");
+  els.toast.innerHTML = `
+    <span class="toast-icon" aria-hidden="true">${toastIconFor(tone)}</span>
+    <span class="toast-copy">
+      <strong>${escapeHtml(toastTitleFor(tone))}</strong>
+      <small>${escapeHtml(detail)}</small>
+    </span>
+    <button class="toast-close" type="button" aria-label="ปิดการแจ้งเตือน">×</button>
+  `;
   els.toast.hidden = false;
   window.clearTimeout(showToast.timer);
-  showToast.timer = window.setTimeout(() => {
-    els.toast.hidden = true;
-  }, 2600);
+  window.clearTimeout(showToast.hideTimer);
+  requestAnimationFrame(() => els.toast.classList.add("is-visible"));
+  els.toast.querySelector(".toast-close")?.addEventListener("click", hideToast, { once: true });
+  showToast.timer = window.setTimeout(hideToast, tone === "loading" ? 4000 : 3200);
 }
 
 async function api(path, options = {}) {
