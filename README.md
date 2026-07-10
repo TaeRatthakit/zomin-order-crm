@@ -29,7 +29,7 @@ Routes หลัก:
 ## บัญชีเริ่มต้น
 
 ```text
-Admin: admin / admin123
+Owner: admin / admin123
 Staff: staff / staff123
 ```
 
@@ -67,12 +67,12 @@ SESSION_SECRET=...
 
 ## Production Preparation
 
-- มี signed cookie auth แบบ httpOnly และ role guard สำหรับ Admin / Staff
+- มี signed cookie auth แบบ httpOnly และ role guard สำหรับ Owner / Admin / Staff
 - รหัสผ่านใน `data/db.json` เก็บเป็น `passwordHash`
 - มี Supabase schema ที่ `supabase/schema.sql`
 - มี seed script `npm run seed`
 - มี migration script `npm run migrate:supabase`
-- มี export CSV และ JSON backup สำหรับ Admin
+- มี export CSV และ JSON backup สำหรับ Owner/Admin
 - มี mock webhook test ในหน้า Settings
 
 ## Import ข้อมูลเก่า

@@ -56,7 +56,7 @@ async function main() {
       id: "u_admin",
       username,
       name: process.env.ADMIN_NAME || "Growup Admin",
-      role: "Admin",
+      role: "Owner",
       phone: process.env.ADMIN_PHONE || "",
       active: true
     };
@@ -65,7 +65,7 @@ async function main() {
 
   user.username = username;
   user.name = process.env.ADMIN_NAME || user.name || "Growup Admin";
-  user.role = "Admin";
+  user.role = "Owner";
   user.phone = process.env.ADMIN_PHONE || user.phone || "";
   user.active = true;
   if (password) user.passwordHash = hashPassword(password);
@@ -73,8 +73,8 @@ async function main() {
   delete user.pin;
 
   await writeDb(db);
-  console.log(`Admin seed completed using ${provider} provider.`);
-  console.log(`Admin username: ${username}`);
+  console.log(`Owner seed completed using ${provider} provider.`);
+  console.log(`Owner username: ${username}`);
 }
 
 main().catch(error => {

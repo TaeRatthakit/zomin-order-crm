@@ -18,7 +18,7 @@ create table if not exists public.users (
   username text not null unique,
   password_hash text not null,
   name text not null,
-  role text not null check (role in ('Admin', 'Staff')),
+  role text not null check (role in ('Owner', 'Admin', 'Staff')),
   phone text default '',
   is_active boolean not null default true,
   created_at timestamptz not null default now(),

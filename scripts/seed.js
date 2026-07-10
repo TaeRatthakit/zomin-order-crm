@@ -52,7 +52,7 @@ const db = {
       username: "admin",
       passwordHash: hashPassword("admin123"),
       name: "แอดมินโซมิน",
-      role: "Admin",
+      role: "Owner",
       phone: "0810000000",
       active: true
     },
@@ -128,7 +128,7 @@ const db = {
 Promise.resolve(writeDb(db))
   .then(() => {
     console.log(`Seeded Growup Pilot data using ${provider} provider.`);
-    console.log("Demo login: admin / admin123, staff / staff123");
+    console.log("Demo login: owner admin / admin123, staff / staff123");
   })
   .catch(error => {
     console.error(error.message);

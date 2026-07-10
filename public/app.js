@@ -170,6 +170,14 @@ function canManageUser(targetUser = null, nextRole = "") {
   return true;
 }
 
+function activeOwnerCount() {
+  return (app.data?.users || []).filter(user => user.role === "Owner" && user.active !== false).length;
+}
+
+function isLastActiveOwner(user) {
+  return user?.role === "Owner" && user.active !== false && activeOwnerCount() <= 1;
+}
+
 function canExportData() {
   return isAdmin() || Boolean(app.data?.settings?.staffCanExport);
 }
@@ -813,7 +821,7 @@ function syncMobileHeaderProfile() {
         ${avatarMarkup(name, avatar)}
         <div class="header-profile-copy">
           <strong>${escapeHtml(name)}</strong>
-          <span>${escapeHtml(app.currentUser.role === "Admin" ? "เจ้าของร้าน" : "ทีมงาน")}</span>
+          <span>${escapeHtml(userRoleLabel(app.currentUser.role))}</span>
         </div>
       </button>
     `;
@@ -828,7 +836,7 @@ function syncMobileHeaderProfile() {
     const nameElement = existing.querySelector(".header-profile-copy strong");
     if (nameElement) nameElement.textContent = name;
     const roleElement = existing.querySelector(".header-profile-copy span");
-    if (roleElement) roleElement.textContent = app.currentUser.role === "Admin" ? "เจ้าของร้าน" : "ทีมงาน";
+    if (roleElement) roleElement.textContent = userRoleLabel(app.currentUser.role);
   }
   markAvatarLoaded(els.headerProfile.querySelector(".profile-avatar-image"));
 }
@@ -874,7 +882,7 @@ function updateShell() {
         ${avatarMarkup(app.currentUser.name, currentUserAvatar())}
         <div class="header-profile-copy">
           <strong>${escapeHtml(app.currentUser.name)}</strong>
-          <span>${escapeHtml(app.currentUser.role === "Admin" ? "เจ้าของร้าน" : "ทีมงาน")}</span>
+          <span>${escapeHtml(userRoleLabel(app.currentUser.role))}</span>
         </div>
       </button>
     `;
@@ -897,7 +905,7 @@ function updateShell() {
         <div class="sidebar-profile-avatar" aria-hidden="true">${escapeHtml(initials(app.currentUser.name || "GP"))}</div>
         <div class="sidebar-profile-copy">
           <strong>${escapeHtml(app.currentUser.name)}</strong>
-          <span>${escapeHtml(app.currentUser.role === "Admin" ? "เจ้าของธุรกิจ" : "ทีมงาน")}</span>
+          <span>${escapeHtml(userRoleLabel(app.currentUser.role))}</span>
         </div>
         <button class="sidebar-profile-action" type="button" data-logout aria-label="ออกจากระบบ">›</button>
       </article>
@@ -5820,14 +5828,14 @@ function renderTeam() {
         <div class="page-identity-copy">
           <span class="page-kicker">Team Administration</span>
           <h2>สิทธิ์ผู้ใช้และการเข้าถึงระบบ</h2>
-          <p>Admin ดูทุกอย่างและแก้ไขได้, Staff ค้นหา เพิ่มข้อมูล ดู Follow-up และโทรลูกค้า</p>
+          <p>Owner มีสิทธิ์สูงสุด, Admin ดูแลทีมระดับผู้จัดการ, Staff ใช้งานเฉพาะงานที่ได้รับอนุญาต</p>
         </div>
       </div>
       <div class="two-col">
         <div class="panel stack panel-premium">
           <div class="section-title">
             <h2>สิทธิ์ผู้ใช้</h2>
-            <p>Admin ดูทุกอย่างและแก้ไขได้, Staff ค้นหา เพิ่มข้อมูล ดู Follow-up และโทรลูกค้า</p>
+            <p>Owner มีสิทธิ์สูงสุด, Admin ดูแลทีมระดับผู้จัดการ, Staff ใช้งานเฉพาะงานที่ได้รับอนุญาต</p>
           </div>
           <div class="table-wrap mobile-stack-wrap">
             <table class="mobile-stack-table">
@@ -5919,7 +5927,8 @@ function userStatusLabel(user) {
 
 function roleOptions(selectedRole = "Staff", targetUser = null) {
   return ["Owner", "Admin", "Staff"].map(role => {
-    const disabled = !canManageUser(targetUser, role);
+    const wouldDowngradeLastOwner = targetUser?.role === "Owner" && role !== "Owner" && isLastActiveOwner(targetUser);
+    const disabled = !canManageUser(targetUser, role) || wouldDowngradeLastOwner;
     return `<option value="${role}" ${selectedRole === role ? "selected" : ""} ${disabled ? "disabled" : ""}>${role}</option>`;
   }).join("");
 }
@@ -5927,7 +5936,7 @@ function roleOptions(selectedRole = "Staff", targetUser = null) {
 function userEditorMarkup(user = null, { mobile = false } = {}) {
   const isNew = !user?.id;
   const targetUser = user || null;
-  const canDelete = !isNew && canManageUser(targetUser) && !(app.currentUser?.id === user.id && user.role === "Owner");
+  const canDelete = !isNew && canManageUser(targetUser) && !isLastActiveOwner(user) && !(app.currentUser?.id === user.id && user.role === "Owner");
   const formClass = mobile ? "mobile-business-form mobile-user-form" : "panel stack panel-premium user-editor-panel";
   return `
     <form class="${formClass}" id="teamForm" data-user-form="${isNew ? "new" : escapeHtml(user.id)}">
@@ -7026,7 +7035,7 @@ function handleViewportResize() {
 
 function setView(view) {
   if (!canAccessView(view)) {
-    showToast("เมนูนี้ต้องใช้สิทธิ์ Admin");
+    showToast("เมนูนี้ต้องใช้สิทธิ์ Owner/Admin");
     return;
   }
   app.mobileOrderMenuId = "";
@@ -7039,7 +7048,7 @@ function setView(view) {
 
 async function setMobileNavView(view) {
   if (!canAccessView(view)) {
-    showToast("เมนูนี้ต้องใช้สิทธิ์ Admin");
+    showToast("เมนูนี้ต้องใช้สิทธิ์ Owner/Admin");
     return;
   }
 
@@ -7098,7 +7107,7 @@ function syncViewFromLocation() {
   if (!canAccessView(nextView)) {
     app.view = "settings";
     navigateToView("settings", true);
-    showToast("เมนูนี้ต้องใช้สิทธิ์ Admin");
+    showToast("เมนูนี้ต้องใช้สิทธิ์ Owner/Admin");
     render();
     return;
   }
@@ -7185,6 +7194,10 @@ function openDeleteUserDialog(userId) {
   }
   if (app.currentUser?.id === user.id && user.role === "Owner") {
     showToast("ไม่สามารถลบ Owner ที่กำลังใช้งานอยู่ได้");
+    return;
+  }
+  if (isLastActiveOwner(user)) {
+    showToast("ไม่สามารถลบ Owner คนสุดท้ายได้");
     return;
   }
   app.deletingUserId = userId;

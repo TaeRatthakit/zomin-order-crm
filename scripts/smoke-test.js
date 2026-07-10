@@ -106,9 +106,65 @@ async function main() {
   const adminState = await request("/api/state", { headers: { cookie } });
   if (adminState.status !== 200) fail(`admin state returned ${adminState.status}: ${adminState.text}`);
   const parsedAdminState = JSON.parse(adminState.text);
-  if (!parsedAdminState.currentUser || parsedAdminState.currentUser.role !== "Admin") {
-    fail("state did not return Admin session");
+  if (!parsedAdminState.currentUser || parsedAdminState.currentUser.role !== "Owner") {
+    fail("state did not return Owner session");
   }
+  const ownerUser = parsedAdminState.currentUser;
+
+  const downgradeLastOwner = await request(`/api/team/${encodeURIComponent(ownerUser.id)}`, {
+    method: "PUT",
+    headers: { cookie, "content-type": "application/json" },
+    body: JSON.stringify({ role: "Admin" })
+  });
+  if (downgradeLastOwner.status !== 409) fail(`last Owner downgrade returned ${downgradeLastOwner.status}: ${downgradeLastOwner.text}`);
+
+  const disableLastOwner = await request(`/api/team/${encodeURIComponent(ownerUser.id)}`, {
+    method: "PUT",
+    headers: { cookie, "content-type": "application/json" },
+    body: JSON.stringify({ active: false })
+  });
+  if (disableLastOwner.status !== 409) fail(`last Owner disable returned ${disableLastOwner.status}: ${disableLastOwner.text}`);
+
+  const deleteLastOwner = await request(`/api/team/${encodeURIComponent(ownerUser.id)}`, {
+    method: "DELETE",
+    headers: { cookie }
+  });
+  if (deleteLastOwner.status !== 409) fail(`last Owner delete returned ${deleteLastOwner.status}: ${deleteLastOwner.text}`);
+
+  const managerUsername = `manager_${crypto.randomBytes(3).toString("hex")}`;
+  const managerPassword = "manager123";
+  const createManager = await request("/api/team", {
+    method: "POST",
+    headers: { cookie, "content-type": "application/json" },
+    body: JSON.stringify({
+      name: "Smoke Manager",
+      username: managerUsername,
+      password: managerPassword,
+      role: "Admin"
+    })
+  });
+  if (createManager.status !== 200) fail(`creating Admin manager returned ${createManager.status}: ${createManager.text}`);
+
+  const managerLogin = await request("/api/login", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ username: managerUsername, password: managerPassword })
+  });
+  if (managerLogin.status !== 200) fail(`manager login returned ${managerLogin.status}: ${managerLogin.text}`);
+  const managerCookie = header(managerLogin.headers, "set-cookie");
+
+  const adminEditsOwner = await request(`/api/team/${encodeURIComponent(ownerUser.id)}`, {
+    method: "PUT",
+    headers: { cookie: managerCookie, "content-type": "application/json" },
+    body: JSON.stringify({ role: "Admin" })
+  });
+  if (adminEditsOwner.status !== 403) fail(`Admin editing Owner returned ${adminEditsOwner.status}: ${adminEditsOwner.text}`);
+
+  const adminDeletesOwner = await request(`/api/team/${encodeURIComponent(ownerUser.id)}`, {
+    method: "DELETE",
+    headers: { cookie: managerCookie }
+  });
+  if (adminDeletesOwner.status !== 403) fail(`Admin deleting Owner returned ${adminDeletesOwner.status}: ${adminDeletesOwner.text}`);
 
   const financeSettings = await request("/api/settings", {
     method: "PUT",

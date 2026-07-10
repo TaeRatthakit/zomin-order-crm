@@ -824,6 +824,21 @@ function normalizeUserRole(role) {
   return ["Owner", "Admin", "Staff"].includes(role) ? role : "Staff";
 }
 
+function activeOwnerCount(users = []) {
+  return users.filter(user => user.role === "Owner" && user.active !== false).length;
+}
+
+function isLastActiveOwner(users = [], user) {
+  return user?.role === "Owner" && user.active !== false && activeOwnerCount(users) <= 1;
+}
+
+function currentUserFromDb(sessionUser, db) {
+  if (!sessionUser) return null;
+  const storedUser = (db.users || []).find(user => user.id === sessionUser.id);
+  if (!storedUser || storedUser.active === false) return null;
+  return publicUser(storedUser);
+}
+
 function canManageUser(currentUser, targetUser = null, nextRole = "") {
   if (!currentUser) return false;
   if (currentUser.role === "Owner") return true;
@@ -2609,8 +2624,13 @@ async function handleApi(req, res) {
   const dbReadStartedAt = Date.now();
   const db = await readDb();
   const dbReadMs = Date.now() - dbReadStartedAt;
-  const currentUser = isLineWebhook ? null : requireUser(req, res);
-  if (!isLineWebhook && !currentUser) return;
+  const sessionUser = isLineWebhook ? null : requireUser(req, res);
+  if (!isLineWebhook && !sessionUser) return;
+  const currentUser = isLineWebhook ? null : currentUserFromDb(sessionUser, db);
+  if (!isLineWebhook && !currentUser) {
+    destroySession(req);
+    return json(res, 401, { ok: false, error: "เซสชันหมดอายุหรือผู้ใช้งานถูกปิดใช้งาน" }, { "Set-Cookie": clearSessionCookie() });
+  }
 
   if (req.method === "GET" && url.pathname === "/api/state") {
     const date = url.searchParams.get("date") || toDateOnly();
@@ -3282,6 +3302,12 @@ async function handleApi(req, res) {
     if (!canManageUser(currentUser, user, nextRole)) {
       return json(res, 403, { ok: false, error: "Admin ไม่สามารถแก้ไขหรือลดสิทธิ์ Owner ได้" });
     }
+    if (user.role === "Owner" && nextRole !== "Owner" && isLastActiveOwner(db.users, user)) {
+      return json(res, 409, { ok: false, error: "ต้องมี Owner อย่างน้อย 1 บัญชีเสมอ" });
+    }
+    if (user.role === "Owner" && user.active !== false && body.active === false && isLastActiveOwner(db.users, user)) {
+      return json(res, 409, { ok: false, error: "ไม่สามารถปิดใช้งาน Owner คนสุดท้ายได้" });
+    }
     if (body.username !== undefined) {
       const username = String(body.username).trim();
       if (!username) return json(res, 400, { ok: false, error: "กรุณาใส่ชื่อเข้าใช้งาน" });
@@ -3315,6 +3341,9 @@ async function handleApi(req, res) {
     if (!canManageUser(currentUser, user)) {
       return json(res, 403, { ok: false, error: "Admin ไม่สามารถลบ Owner ได้" });
     }
+    if (isLastActiveOwner(db.users, user)) {
+      return json(res, 409, { ok: false, error: "ไม่สามารถลบ Owner คนสุดท้ายได้" });
+    }
     if (currentUser.id === id && currentUser.role === "Owner") {
       return json(res, 409, { ok: false, error: "ไม่สามารถลบ Owner ที่กำลังใช้งานอยู่ได้" });
     }
@@ -3325,8 +3354,8 @@ async function handleApi(req, res) {
   }
 
   if (req.method === "GET" && url.pathname.startsWith("/api/export/")) {
-    if (!(currentUser.role === "Admin" || db.settings.staffCanExport)) {
-      return json(res, 403, { ok: false, error: "ต้องใช้สิทธิ์ Admin หรือเปิด Staff Export" });
+    if (!(["Owner", "Admin"].includes(currentUser.role) || db.settings.staffCanExport)) {
+      return json(res, 403, { ok: false, error: "ต้องใช้สิทธิ์ Owner/Admin หรือเปิด Staff Export" });
     }
     const date = url.searchParams.get("date") || toDateOnly();
     const enriched = enrichDb(db, date);

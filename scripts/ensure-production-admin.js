@@ -10,7 +10,7 @@ async function main() {
 
   console.log(`Provider: ${provider}`);
   console.log(`Users found: ${users.length}`);
-  console.log(`Admin found: ${existing ? "yes" : "no"}`);
+  console.log(`Owner admin account found: ${existing ? "yes" : "no"}`);
 
   if (!existing && !password) {
     throw new Error("ADMIN_PASSWORD is required to create the production admin user.");
@@ -20,14 +20,14 @@ async function main() {
     id: "u_admin",
     username,
     name: process.env.ADMIN_NAME || "Growup Admin",
-    role: "Admin",
+    role: "Owner",
     phone: process.env.ADMIN_PHONE || "",
     active: true
   };
 
   admin.username = username;
   admin.name = process.env.ADMIN_NAME || admin.name || "Growup Admin";
-  admin.role = "Admin";
+  admin.role = "Owner";
   admin.phone = process.env.ADMIN_PHONE || admin.phone || "";
   admin.active = true;
   if (password) admin.passwordHash = hashPassword(password);
@@ -37,7 +37,7 @@ async function main() {
   if (!existing) users.push(admin);
   db.users = users;
   await writeDb(db);
-  console.log(`Production admin ready: ${username}`);
+  console.log(`Production owner account ready: ${username}`);
 }
 
 main().catch(error => {
