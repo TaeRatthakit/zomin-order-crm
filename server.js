@@ -6,6 +6,7 @@ require("./lib/env").loadEnv();
 const {
   readDb,
   findUserForLogin,
+  readUserById,
   writeDb,
   deleteUser,
   deleteOrder,
@@ -810,9 +811,33 @@ function requireUser(req, res) {
   return user;
 }
 
-function requireAdmin(req, res) {
-  const user = requireUser(req, res);
-  if (!user) return null;
+function sessionExpiredResponse(req, res) {
+  destroySession(req);
+  return json(res, 401, { ok: false, error: "เซสชันหมดอายุหรือผู้ใช้งานถูกปิดใช้งาน" }, {
+    "Set-Cookie": clearSessionCookie()
+  });
+}
+
+async function freshSessionUser(req, db = null) {
+  const sessionUser = getCurrentUser(req);
+  if (!sessionUser) return null;
+  if (!db && typeof readUserById === "function") {
+    const storedUser = await readUserById(sessionUser.id);
+    if (!storedUser || storedUser.active === false) return null;
+    return publicUser(storedUser);
+  }
+  const sourceDb = db || await readDb();
+  return currentUserFromDb(sessionUser, sourceDb);
+}
+
+async function requireAdmin(req, res, db = null) {
+  const sessionUser = requireUser(req, res);
+  if (!sessionUser) return null;
+  const user = await freshSessionUser(req, db);
+  if (!user) {
+    sessionExpiredResponse(req, res);
+    return null;
+  }
   if (!["Owner", "Admin"].includes(user.role)) {
     json(res, 403, { ok: false, error: "ต้องใช้สิทธิ์ Owner หรือ Admin" });
     return null;
@@ -901,8 +926,13 @@ function importCleanupView(preview) {
 }
 
 async function handleImportJobsApi(req, res, url) {
-  const currentUser = requireUser(req, res);
-  if (!currentUser) return true;
+  const sessionUser = requireUser(req, res);
+  if (!sessionUser) return true;
+  const currentUser = await freshSessionUser(req);
+  if (!currentUser) {
+    sessionExpiredResponse(req, res);
+    return true;
+  }
   const parts = url.pathname.split("/").filter(Boolean);
 
   if (req.method === "GET" && url.pathname === "/api/import-jobs/active") {
@@ -912,7 +942,7 @@ async function handleImportJobsApi(req, res, url) {
   }
 
   if (req.method === "GET" && url.pathname === "/api/import-jobs/latest-cleanup-preview") {
-    if (!requireAdmin(req, res)) return true;
+    if (!await requireAdmin(req, res)) return true;
     const preview = await previewLatestImportCleanup(url.searchParams.get("type") || "orders");
     if (!preview) return json(res, 404, { ok: false, error: "ไม่พบงานนำเข้าล่าสุด" });
     return json(res, 200, { ok: true, preview: importCleanupView(preview) });
@@ -984,7 +1014,7 @@ async function handleImportJobsApi(req, res, url) {
   }
 
   if (req.method === "POST" && parts[3] === "cleanup") {
-    if (!requireAdmin(req, res)) return true;
+    if (!await requireAdmin(req, res)) return true;
     try {
       const result = await cleanupImportJob(jobId);
       if (!result) return json(res, 404, { ok: false, error: "ไม่พบงานนำเข้า" });
@@ -2278,8 +2308,14 @@ async function handleApi(req, res) {
   }
 
   if (req.method === "GET" && url.pathname === "/api/session") {
-    const user = getCurrentUser(req);
-    return json(res, 200, { ok: true, user });
+    const session = getSession(req);
+    if (!session?.user) return json(res, 200, { ok: true, user: null });
+    const user = await freshSessionUser(req);
+    if (!user) return sessionExpiredResponse(req, res);
+    const nextSession = createSession(user);
+    return json(res, 200, { ok: true, user }, {
+      "Set-Cookie": sessionCookie(nextSession.token, nextSession.expiresAt)
+    });
   }
 
   if (req.method === "POST" && url.pathname === "/api/logout") {
@@ -2336,7 +2372,7 @@ async function handleApi(req, res) {
   }
 
   if (req.method === "PUT" && url.pathname === "/api/settings/finance") {
-    if (!requireAdmin(req, res)) return;
+    if (!await requireAdmin(req, res)) return;
     const body = await readBody(req);
     const patch = {};
     if (body.productCosts !== undefined) {
@@ -2368,7 +2404,7 @@ async function handleApi(req, res) {
   }
 
   if (req.method === "GET" && url.pathname === "/api/products/image-storage/dry-run") {
-    if (!requireAdmin(req, res)) return;
+    if (!await requireAdmin(req, res)) return;
     const startedAt = Date.now();
     const settings = await readProductSettingsForSave();
     const products = normalizeProductRecords(settings.products);
@@ -2388,7 +2424,7 @@ async function handleApi(req, res) {
   }
 
   if (req.method === "POST" && url.pathname === "/api/products/image-storage/migrate") {
-    if (!requireAdmin(req, res)) return;
+    if (!await requireAdmin(req, res)) return;
     if (typeof uploadProductImageObject !== "function" || typeof verifyPublicProductImageUrl !== "function") {
       return json(res, 501, { ok: false, error: "Product image storage is not configured for this database provider." });
     }
@@ -2449,7 +2485,7 @@ async function handleApi(req, res) {
   }
 
   if (req.method === "GET" && url.pathname === "/api/products/image-storage/verify") {
-    if (!requireAdmin(req, res)) return;
+    if (!await requireAdmin(req, res)) return;
     const settings = await readProductSettingsForSave();
     const products = normalizeProductRecords(settings.products);
     const storageBaseUrl = typeof productImagePublicBaseUrl === "function" ? productImagePublicBaseUrl() : "";
@@ -2482,7 +2518,7 @@ async function handleApi(req, res) {
   }
 
   if (req.method === "POST" && url.pathname === "/api/products/image-storage/rollback") {
-    if (!requireAdmin(req, res)) return;
+    if (!await requireAdmin(req, res)) return;
     const body = await readBody(req);
     if (body.confirm !== "ROLLBACK_PRODUCT_IMAGES" || !Array.isArray(body.products)) {
       return json(res, 400, { ok: false, error: "Rollback requires confirm=ROLLBACK_PRODUCT_IMAGES and products backup." });
@@ -2505,7 +2541,7 @@ async function handleApi(req, res) {
   }
 
   if (req.method === "POST" && url.pathname === "/api/products") {
-    if (!requireAdmin(req, res)) return;
+    if (!await requireAdmin(req, res)) return;
     const body = await readBody(req);
     const readStartedAt = Date.now();
     const settings = await readProductSettingsForSave();
@@ -2577,7 +2613,7 @@ async function handleApi(req, res) {
   }
 
   if (req.method === "PUT" && /^\/api\/products\/[^/]+$/.test(url.pathname)) {
-    if (!requireAdmin(req, res)) return;
+    if (!await requireAdmin(req, res)) return;
     const productId = decodeURIComponent(url.pathname.split("/").pop() || "");
     const body = await readBody(req);
     const readStartedAt = Date.now();
@@ -2773,7 +2809,7 @@ async function handleApi(req, res) {
   }
 
   if (req.method === "GET" && url.pathname === "/api/line-debug") {
-    if (!requireAdmin(req, res)) return;
+    if (!await requireAdmin(req, res, db)) return;
     const limit = Math.max(1, Math.min(100, Number(url.searchParams.get("limit") || 50)));
     const rows = (db.lineMessages || [])
       .map(lineDebugFromMessage)
@@ -3036,7 +3072,7 @@ async function handleApi(req, res) {
   }
 
   if (req.method === "POST" && url.pathname === "/api/line/mock") {
-    if (!requireAdmin(req, res)) return;
+    if (!await requireAdmin(req, res, db)) return;
     const body = await readBody(req);
     const rawText = String(body.text || body.content || "คุณทดสอบ โทร 0891234567 2 กระปุก รวม 1500 บาท #ทดสอบ");
     db.lineMessages = db.lineMessages || [];
@@ -3059,7 +3095,7 @@ async function handleApi(req, res) {
   }
 
   if (req.method === "PUT" && url.pathname === "/api/settings") {
-    if (!requireAdmin(req, res)) return;
+    if (!await requireAdmin(req, res, db)) return;
     const body = await readBody(req);
     db.settings = {
       ...db.settings,
@@ -3114,7 +3150,7 @@ async function handleApi(req, res) {
   }
 
   if (req.method === "POST" && url.pathname === "/api/products") {
-    if (!requireAdmin(req, res)) return;
+    if (!await requireAdmin(req, res, db)) return;
     const body = await readBody(req);
     const incoming = normalizeProductRecords([body])[0];
     if (!incoming?.name) return json(res, 400, { ok: false, error: "กรุณาระบุชื่อสินค้า" });
@@ -3184,7 +3220,7 @@ async function handleApi(req, res) {
   }
 
   if (req.method === "PUT" && /^\/api\/products\/[^/]+$/.test(url.pathname)) {
-    if (!requireAdmin(req, res)) return;
+    if (!await requireAdmin(req, res, db)) return;
     const productId = decodeURIComponent(url.pathname.split("/").pop() || "");
     const body = await readBody(req);
     const products = normalizeProductRecords(db.settings.products);
@@ -3227,7 +3263,7 @@ async function handleApi(req, res) {
   }
 
   if (req.method === "POST" && /^\/api\/products\/[^/]+\/archive$/.test(url.pathname)) {
-    if (!requireAdmin(req, res)) return;
+    if (!await requireAdmin(req, res, db)) return;
     const parts = url.pathname.split("/");
     const productId = decodeURIComponent(parts[parts.length - 2] || "");
     const products = normalizeProductRecords(db.settings.products);
@@ -3245,7 +3281,7 @@ async function handleApi(req, res) {
   }
 
   if (req.method === "PUT" && url.pathname === "/api/followup-rules") {
-    if (!requireAdmin(req, res)) return;
+    if (!await requireAdmin(req, res, db)) return;
     const body = await readBody(req);
     const daysPerUnit = Math.max(1, Number(body.daysPerUnit || db.settings.followUpDaysPerUnit || 15));
     db.settings = {
@@ -3263,7 +3299,7 @@ async function handleApi(req, res) {
   }
 
   if (req.method === "POST" && url.pathname === "/api/team") {
-    if (!requireAdmin(req, res)) return;
+    if (!await requireAdmin(req, res, db)) return;
     const body = await readBody(req);
     const role = normalizeUserRole(body.role);
     if (!canManageUser(currentUser, null, role)) {
@@ -3293,7 +3329,7 @@ async function handleApi(req, res) {
   }
 
   if (req.method === "PUT" && url.pathname.startsWith("/api/team/")) {
-    if (!requireAdmin(req, res)) return;
+    if (!await requireAdmin(req, res, db)) return;
     const id = url.pathname.split("/").pop();
     const body = await readBody(req);
     const user = db.users.find(item => item.id === id);
@@ -3334,7 +3370,7 @@ async function handleApi(req, res) {
   }
 
   if (req.method === "DELETE" && url.pathname.startsWith("/api/team/")) {
-    if (!requireAdmin(req, res)) return;
+    if (!await requireAdmin(req, res, db)) return;
     const id = url.pathname.split("/").pop();
     const user = db.users.find(item => item.id === id);
     if (!user) return json(res, 404, { ok: false, error: "ไม่พบผู้ใช้" });
@@ -3442,7 +3478,7 @@ async function handleApi(req, res) {
   }
 
   if (req.method === "GET" && url.pathname === "/api/backup") {
-    if (!requireAdmin(req, res)) return;
+    if (!await requireAdmin(req, res, db)) return;
     res.writeHead(200, {
       "Content-Type": "application/json; charset=utf-8",
       "Content-Disposition": "attachment; filename=\"zomin-backup.json\"",

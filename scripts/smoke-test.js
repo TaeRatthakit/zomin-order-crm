@@ -110,6 +110,36 @@ async function main() {
     fail("state did not return Owner session");
   }
   const ownerUser = parsedAdminState.currentUser;
+  const originalOwnerName = ownerUser.name;
+  const originalOwnerAvatar = ownerUser.avatar || "";
+  const profileSyncName = `Smoke Owner ${crypto.randomBytes(3).toString("hex")}`;
+  const profileSyncAvatar = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
+  const profileUpdate = await request("/api/profile", {
+    method: "PUT",
+    headers: { cookie, "content-type": "application/json" },
+    body: JSON.stringify({ displayName: profileSyncName, avatar: profileSyncAvatar })
+  });
+  if (profileUpdate.status !== 200) fail(`profile update returned ${profileUpdate.status}: ${profileUpdate.text}`);
+  const staleCookieSession = await request("/api/session", { headers: { cookie } });
+  if (staleCookieSession.status !== 200) fail(`fresh session from stale cookie returned ${staleCookieSession.status}: ${staleCookieSession.text}`);
+  const staleCookieUser = JSON.parse(staleCookieSession.text).user;
+  if (staleCookieUser?.name !== profileSyncName || staleCookieUser?.avatar !== profileSyncAvatar) {
+    fail("session endpoint did not refresh profile from the database");
+  }
+  const stateAfterProfile = JSON.parse((await request("/api/state", { headers: { cookie } })).text);
+  if (
+    stateAfterProfile.currentUser?.name !== profileSyncName
+    || stateAfterProfile.currentUser?.avatar !== profileSyncAvatar
+    || !stateAfterProfile.users.find(user => user.id === ownerUser.id && user.name === profileSyncName && user.avatar === profileSyncAvatar)
+  ) {
+    fail("state endpoint did not synchronize current user and users profile fields");
+  }
+  const profileRestore = await request("/api/profile", {
+    method: "PUT",
+    headers: { cookie, "content-type": "application/json" },
+    body: JSON.stringify({ displayName: originalOwnerName, avatar: originalOwnerAvatar })
+  });
+  if (profileRestore.status !== 200) fail(`profile restore returned ${profileRestore.status}: ${profileRestore.text}`);
 
   const downgradeLastOwner = await request(`/api/team/${encodeURIComponent(ownerUser.id)}`, {
     method: "PUT",
@@ -144,6 +174,7 @@ async function main() {
     })
   });
   if (createManager.status !== 200) fail(`creating Admin manager returned ${createManager.status}: ${createManager.text}`);
+  const createdManager = JSON.parse(createManager.text).user;
 
   const managerLogin = await request("/api/login", {
     method: "POST",
@@ -165,6 +196,26 @@ async function main() {
     headers: { cookie: managerCookie }
   });
   if (adminDeletesOwner.status !== 403) fail(`Admin deleting Owner returned ${adminDeletesOwner.status}: ${adminDeletesOwner.text}`);
+
+  const downgradeManager = await request(`/api/team/${encodeURIComponent(createdManager.id)}`, {
+    method: "PUT",
+    headers: { cookie, "content-type": "application/json" },
+    body: JSON.stringify({ role: "Staff" })
+  });
+  if (downgradeManager.status !== 200) fail(`downgrading manager returned ${downgradeManager.status}: ${downgradeManager.text}`);
+  const staleManagerSession = await request("/api/session", { headers: { cookie: managerCookie } });
+  if (staleManagerSession.status !== 200) fail(`manager fresh session returned ${staleManagerSession.status}: ${staleManagerSession.text}`);
+  if (JSON.parse(staleManagerSession.text).user?.role !== "Staff") {
+    fail("session endpoint did not refresh a changed role from the database");
+  }
+  const staleManagerSettingsWrite = await request("/api/settings", {
+    method: "PUT",
+    headers: { cookie: managerCookie, "content-type": "application/json" },
+    body: JSON.stringify({ businessName: "Stale Manager Should Not Save" })
+  });
+  if (staleManagerSettingsWrite.status !== 403) {
+    fail(`stale Admin cookie was allowed to save settings after downgrade: ${staleManagerSettingsWrite.status}`);
+  }
 
   const financeSettings = await request("/api/settings", {
     method: "PUT",

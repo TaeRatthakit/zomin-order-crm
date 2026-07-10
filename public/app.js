@@ -116,39 +116,27 @@ const app = {
   marketingMonth: "",
   businessManagementScrollRestore: null,
   businessManagementScrollRestoreToken: 0,
-  mobileNavigationSequence: 0
+  mobileNavigationSequence: 0,
+  stateRequestSequence: 0,
+  stateRefreshInFlight: false,
+  lastStateLoadedAt: 0,
+  currentUserRefreshInFlight: false
 };
 
 function readCachedMobileProfile() {
-  try {
-    return JSON.parse(localStorage.getItem(MOBILE_PROFILE_CACHE_KEY) || "null");
-  } catch {
-    return null;
-  }
+  return null;
 }
 
 function cacheMobileProfile(user) {
-  if (!isMobileViewport() || !user?.id) return;
   try {
-    localStorage.setItem(MOBILE_PROFILE_CACHE_KEY, JSON.stringify({
-      id: user.id,
-      name: user.name || "",
-      avatar: user.avatar || ""
-    }));
+    localStorage.removeItem(MOBILE_PROFILE_CACHE_KEY);
   } catch {
     // The server remains authoritative if browser storage is unavailable or full.
   }
 }
 
 function mergeCachedMobileProfile(user) {
-  if (!isMobileViewport() || !user?.id) return user;
-  const cached = readCachedMobileProfile();
-  if (!cached || cached.id !== user.id) return user;
-  return {
-    ...user,
-    name: user.name || cached.name || "",
-    avatar: user.avatar || cached.avatar || ""
-  };
+  return user;
 }
 
 const adminViews = new Set([
@@ -389,7 +377,7 @@ async function restoreSession() {
       headers: { "Content-Type": "application/json" }
     });
     const payload = await res.json();
-    app.currentUser = payload.user?.id ? mergeCachedMobileProfile(payload.user) : null;
+    app.currentUser = payload.user?.id ? payload.user : null;
     cacheMobileProfile(app.currentUser);
   } catch {
     app.currentUser = null;
@@ -779,12 +767,16 @@ function elementId(element) {
 
 async function loadState() {
   const selectedDate = els.workDate?.value || todayISO();
+  const sequence = ++app.stateRequestSequence;
   try {
-    app.data = await api(`/api/state?date=${encodeURIComponent(selectedDate)}`);
+    const payload = await api(`/api/state?date=${encodeURIComponent(selectedDate)}`);
+    if (sequence !== app.stateRequestSequence) return;
+    app.data = payload;
+    app.lastStateLoadedAt = Date.now();
     app.desktopAnalyticsIndex = null;
     app.mobileAnalyticsIndex = null;
     if (app.data.currentUser) {
-      app.currentUser = mergeCachedMobileProfile(app.data.currentUser);
+      app.currentUser = app.data.currentUser;
       app.data.currentUser = app.currentUser;
       cacheMobileProfile(app.currentUser);
     }
@@ -819,6 +811,82 @@ async function loadState() {
     app.importCleanup = null;
   }
   render();
+}
+
+function invalidateStateRequests() {
+  app.stateRequestSequence += 1;
+}
+
+async function refreshSharedState({ force = false } = {}) {
+  if (!app.currentUser || app.view === "login" || app.stateRefreshInFlight) return;
+  if (app.profileSaving || app.orderSavePending || app.productSavePending || app.settingsSavePending || app.teamSavePending) return;
+  if (!force && app.lastStateLoadedAt && Date.now() - app.lastStateLoadedAt < 5000) return;
+  app.stateRefreshInFlight = true;
+  try {
+    await loadState();
+  } catch (error) {
+    if (error.status !== 401) console.warn("[state-sync]", error.message || error);
+  } finally {
+    app.stateRefreshInFlight = false;
+  }
+}
+
+function userSyncSignature(user = {}) {
+  return JSON.stringify({
+    id: user.id || "",
+    username: user.username || "",
+    name: user.name || "",
+    avatar: user.avatar || "",
+    role: user.role || "",
+    active: user.active !== false
+  });
+}
+
+async function refreshCurrentUser() {
+  if (!app.currentUser || app.view === "login" || app.currentUserRefreshInFlight || app.profileSaving || app.teamSavePending) return;
+  if (document.visibilityState && document.visibilityState !== "visible") return;
+  app.currentUserRefreshInFlight = true;
+  try {
+    const previousSignature = userSyncSignature(app.currentUser);
+    const payload = await api("/api/session");
+    if (!payload.user?.id) {
+      clearSession();
+      clearBusinessManagementScrollRestore();
+      app.mobileBusinessPage = "main";
+      app.view = "login";
+      navigateToView("login", true);
+      render();
+      return;
+    }
+    const nextUser = payload.user;
+    if (userSyncSignature(nextUser) === previousSignature) return;
+    invalidateStateRequests();
+    app.currentUser = nextUser;
+    if (app.data) {
+      app.data.currentUser = nextUser;
+      app.data.users = (app.data.users || []).map(user => user.id === nextUser.id ? { ...user, ...nextUser } : user);
+      if (!app.data.users.some(user => user.id === nextUser.id)) app.data.users.push(nextUser);
+    }
+    cacheMobileProfile(nextUser);
+    if (!canAccessView(app.view)) {
+      app.view = "settings";
+      navigateToView("settings", true);
+    }
+    render();
+  } catch (error) {
+    if (error.status === 401) {
+      clearSession();
+      clearBusinessManagementScrollRestore();
+      app.mobileBusinessPage = "main";
+      app.view = "login";
+      navigateToView("login", true);
+      render();
+    } else {
+      console.warn("[user-sync]", error.message || error);
+    }
+  } finally {
+    app.currentUserRefreshInFlight = false;
+  }
 }
 
 function loadStateAfterLogin() {
@@ -874,10 +942,6 @@ function sidebarNotificationCount() {
 }
 
 function currentUserAvatar() {
-  if (isMobileViewport()) {
-    const cached = readCachedMobileProfile();
-    if (cached?.id === app.currentUser?.id && cached.avatar) return String(cached.avatar).trim();
-  }
   return String(app.currentUser?.avatar || "/mobile-home-avatar.png").trim();
 }
 
@@ -6081,7 +6145,8 @@ function applySavedUser(user) {
   if (index === -1) app.data.users.push(user);
   else app.data.users[index] = { ...app.data.users[index], ...user };
   if (app.currentUser?.id === user.id) {
-    app.currentUser = mergeCachedMobileProfile({ ...app.currentUser, ...user });
+    invalidateStateRequests();
+    app.currentUser = { ...app.currentUser, ...user };
     app.data.currentUser = app.currentUser;
     app.data.users[index === -1 ? app.data.users.length - 1 : index] = app.currentUser;
     cacheMobileProfile(app.currentUser);
@@ -7230,6 +7295,7 @@ function setView(view) {
   clearTimeout(app.importPollTimer);
   navigateToView(view);
   render();
+  refreshSharedState().catch(error => console.warn("[state-sync]", error.message || error));
   if (view === "import" && !app.importWorker) refreshImportJob().catch(error => showToast(error.message));
 }
 
@@ -7260,6 +7326,7 @@ async function setMobileNavView(view) {
     if (sequence !== app.mobileNavigationSequence || app.view !== view) return;
     renderNav();
     activeNavSyncedAt = performance.now();
+    refreshSharedState().catch(error => console.warn("[state-sync]", error.message || error));
     console.debug("[mobile-nav]", {
       clickedTab: view,
       previousPage,
@@ -7317,6 +7384,7 @@ function syncViewFromLocation(event = null) {
   }
   app.view = nextView;
   render();
+  refreshSharedState().catch(error => console.warn("[state-sync]", error.message || error));
   if (nextView === "settings" && previousBusinessPage !== "main" && app.mobileBusinessPage === "main") {
     restoreBusinessManagementScrollWhenReady();
   }
@@ -8630,6 +8698,7 @@ document.addEventListener("submit", async event => {
           method: id ? "PUT" : "POST",
           body: JSON.stringify(data)
         });
+        invalidateStateRequests();
         applySavedUser(payload.user);
         patchVisibleUserRow(payload.user);
         showToast("บันทึกข้อมูลผู้ใช้งานเรียบร้อยแล้ว");
@@ -8834,10 +8903,11 @@ document.addEventListener("submit", async event => {
           method: "PUT",
           body: JSON.stringify({ displayName, avatar })
         });
-        app.currentUser = mergeCachedMobileProfile({
+        invalidateStateRequests();
+        app.currentUser = {
           ...payload.user,
           avatar: payload.user?.avatar || avatar
-        });
+        };
         if (app.data) {
           app.data.currentUser = app.currentUser;
           const userIndex = (app.data.users || []).findIndex(user => user.id === app.currentUser.id);
@@ -8866,6 +8936,23 @@ document.addEventListener("submit", async event => {
 window.addEventListener("hashchange", syncViewFromLocation);
 window.addEventListener("popstate", syncViewFromLocation);
 window.addEventListener("resize", handleViewportResize);
+window.addEventListener("focus", () => {
+  refreshCurrentUser().catch(error => console.warn("[user-sync]", error.message || error));
+  refreshSharedState({ force: true }).catch(error => console.warn("[state-sync]", error.message || error));
+});
+window.addEventListener("pageshow", event => {
+  refreshCurrentUser().catch(error => console.warn("[user-sync]", error.message || error));
+  refreshSharedState({ force: Boolean(event.persisted) }).catch(error => console.warn("[state-sync]", error.message || error));
+});
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") {
+    refreshCurrentUser().catch(error => console.warn("[user-sync]", error.message || error));
+    refreshSharedState({ force: true }).catch(error => console.warn("[state-sync]", error.message || error));
+  }
+});
+window.setInterval(() => {
+  refreshCurrentUser().catch(error => console.warn("[user-sync]", error.message || error));
+}, 5000);
 
 // Add-order entry point is now rendered only inside the Orders page.
 if (els.workDate) els.workDate.value = todayISO();
