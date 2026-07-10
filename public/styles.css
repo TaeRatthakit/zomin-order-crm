@@ -10452,25 +10452,11 @@ small,
   }
 
   body.desktop-app-shell:not(.login-view) .topbar-brand {
-    position: fixed;
-    z-index: 54;
-    top: 18px;
-    left: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    padding: 0;
-    transform: translateX(-50%);
+    display: none;
   }
 
   body.desktop-app-shell:not(.login-view) .topbar-brand::after {
-    content: "Growup Pilot";
-    color: #f6f5f9;
-    font-size: 20px;
-    font-weight: 700;
-    letter-spacing: -0.03em;
-    white-space: nowrap;
+    content: none;
   }
 
   body.desktop-app-shell:not(.login-view) .topbar-logo {
