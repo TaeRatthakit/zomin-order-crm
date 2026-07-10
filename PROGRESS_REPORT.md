@@ -8,10 +8,10 @@ Zomin Order CRM V3 has been upgraded from local-only demo toward production-read
 
 Latest production update:
 
-- Commit: `31a9e08 Optimize finance settings save`
+- Commit: `e63fbe2 Avoid resending unchanged product images`
 - Production branch: `main`
 - Production site: `https://www.growuppilot.com`
-- Scope: Finance → Cost/Profit partial settings save optimization
+- Scope: Product Add/Edit save performance investigation and safe partial optimization
 
 Backup already exists:
 
@@ -73,6 +73,15 @@ Backup already exists:
   - Finance save response is minimal and no longer returns full public settings
   - Finance save no longer reloads the full app state after persistence
   - Added timing headers for DB read/write measurement
+- Investigated and optimized Product Add/Edit save performance:
+  - Product save no longer reloads full `/api/state` after persistence
+  - Product save response now returns only `products` and `productCosts`
+  - Product save reads only settings keys needed for product persistence where supported
+  - Product save persists only `products` and `productCosts` settings rows instead of full database state
+  - Frontend updates local state from the save response and re-renders without a full state reload
+  - Unchanged product images are no longer resent from the browser in the save payload
+  - Added DB read/write timing headers for product save measurement
+  - Root cause found: production `settings.products` is about 7.6 MB because product images are stored as base64 inside the products JSON setting; further large gains require moving/compressing images or changing product storage shape
 
 ## Main Pages To Verify
 
@@ -153,6 +162,15 @@ Passed:
   - Desktop product cost save persisted and was restored correctly
   - Unrelated settings were compared before/after and remained unchanged
   - Final production state confirmed no temporary test expenses remained
+- Product save performance benchmark and verification:
+  - Before production full state reload: `/api/state` after save measured 7,866-8,080 ms and 10,714,059 bytes
+  - Local baseline before optimization: product save 5 ms, response 2,692 bytes; follow-up `/api/state` 9 ms and 280,355 bytes
+  - After local product save path optimization: product save 7-9 ms, response 1,112 bytes, DB read 1-2 ms, DB write 4 ms
+  - Local click benchmark after optimization: Save click to modal closed 632-639 ms, one `/api/products` request, no `/api/state` request after save
+  - Production after removing full state reload and using partial settings persistence: Save click to modal closed 17,411-18,300 ms, DB read 4,121-5,193 ms, DB write 8,272-9,616 ms
+  - Production after avoiding unchanged image resend: Save click to modal closed 13,218 ms on first save, DB read 3,149 ms, DB write 6,692 ms; restore run was 17,863 ms with DB write 10,709 ms
+  - Production product save was verified in a real Chrome Owner/Admin session on `https://www.growuppilot.com`; temporary description marker was restored afterward
+  - Final production marker cleanup confirmed no `perf-check` marker remained
 
 Not run:
 
