@@ -1109,6 +1109,29 @@ function vipLevel(totalSpent, settings = {}) {
   return "NORMAL";
 }
 
+function normalizedVipThresholds(body = {}, settings = {}) {
+  const current = settings.vipThresholds || {};
+  const thresholds = {
+    vip: Number(body.vipThreshold ?? body.vip ?? current.vip ?? 5000),
+    vvip: Number(body.vvipThreshold ?? body.vvip ?? current.vvip ?? 10000),
+    superVip: Number(body.superVipThreshold ?? body.superVip ?? current.superVip ?? 20000)
+  };
+  if (
+    !Number.isFinite(thresholds.vip) ||
+    !Number.isFinite(thresholds.vvip) ||
+    !Number.isFinite(thresholds.superVip) ||
+    thresholds.vip < 0 ||
+    thresholds.vvip < 0 ||
+    thresholds.superVip < 0
+  ) {
+    return { ok: false, error: "กรุณากรอกยอดขั้นต่ำ VIP ให้ถูกต้อง" };
+  }
+  if (!(thresholds.vip < thresholds.vvip && thresholds.vvip < thresholds.superVip)) {
+    return { ok: false, error: "ยอดขั้นต่ำต้องเรียงเป็น VIP < VVIP < SUPER VIP" };
+  }
+  return { ok: true, thresholds };
+}
+
 function followUpDaysPerUnit(settings = {}, rules = []) {
   const configured = Number(settings.followUpDaysPerUnit);
   if (configured > 0) return configured;
@@ -3095,17 +3118,27 @@ async function handleApi(req, res) {
   }
 
   if (req.method === "PUT" && url.pathname === "/api/settings") {
-    if (!await requireAdmin(req, res, db)) return;
+    const currentUser = await requireAdmin(req, res, db);
+    if (!currentUser) return;
     const body = await readBody(req);
+    const hasVipThresholdPatch = [
+      "vipThreshold",
+      "vvipThreshold",
+      "superVipThreshold",
+      "vip",
+      "vvip",
+      "superVip"
+    ].some(key => Object.prototype.hasOwnProperty.call(body, key));
+    if (hasVipThresholdPatch && currentUser.role !== "Owner") {
+      return json(res, 403, { ok: false, error: "เฉพาะ Owner เท่านั้นที่แก้ไข VIP Level Settings ได้" });
+    }
+    const vipThresholdResult = normalizedVipThresholds(body, db.settings || {});
+    if (!vipThresholdResult.ok) return json(res, 400, { ok: false, error: vipThresholdResult.error });
     db.settings = {
       ...db.settings,
       businessName: String(body.businessName ?? db.settings.businessName),
       defaultJarPrice: Number(body.defaultJarPrice || db.settings.defaultJarPrice || 750),
-      vipThresholds: {
-        vip: Number(body.vipThreshold ?? body.vip ?? db.settings.vipThresholds?.vip ?? 5000),
-        vvip: Number(body.vvipThreshold ?? body.vvip ?? db.settings.vipThresholds?.vvip ?? 10000),
-        superVip: Number(body.superVipThreshold ?? body.superVip ?? db.settings.vipThresholds?.superVip ?? 20000)
-      },
+      vipThresholds: vipThresholdResult.thresholds,
       messageTemplates: {
         normal: String(body.normalTemplate ?? db.settings.messageTemplates?.normal ?? ""),
         vip: String(body.vipTemplate ?? db.settings.messageTemplates?.vip ?? "")

@@ -70,6 +70,8 @@ const app = {
   layoutMode: "",
   ordersShowAll: false,
   customersShowAll: false,
+  customerGroupFilter: "all",
+  customerSearchDraft: "",
   ordersFilterQ: "",
   ordersFilterDraft: "",
   mobileOrdersDateOnly: true,
@@ -2017,6 +2019,63 @@ function customerTable(customers, emptyText = "ไม่พบข้อมูล
   `;
 }
 
+function customerGroupDefinitions(customers = app.data?.customers || []) {
+  const count = predicate => customers.filter(predicate).length;
+  return [
+    { id: "all", label: "ทั้งหมด", title: "ลูกค้าทั้งหมด", icon: "users", tone: "all", count: customers.length },
+    { id: "new", label: "ลูกค้าใหม่", title: "ลูกค้าใหม่", icon: "users", tone: "new", count: count(customer => Number(customer.purchaseCount || 0) <= 1) },
+    { id: "repeat", label: "ลูกค้าประจำ", title: "ลูกค้าประจำ", icon: "users", tone: "repeat", count: count(customer => Number(customer.purchaseCount || 0) > 1) },
+    { id: "vip", label: "VIP", title: "VIP", icon: "stars", tone: "vip", count: count(customer => customer.vipLevel === "VIP") },
+    { id: "vvip", label: "VVIP", title: "VVIP", icon: "spark", tone: "vvip", count: count(customer => customer.vipLevel === "VVIP") },
+    { id: "superVip", label: "SUPER VIP", title: "SUPER VIP", icon: "spark", tone: "super-vip", count: count(customer => customer.vipLevel === "SUPER VIP") }
+  ];
+}
+
+function customerGroupMatch(customer, groupId = app.customerGroupFilter) {
+  if (groupId === "new") return Number(customer.purchaseCount || 0) <= 1;
+  if (groupId === "repeat") return Number(customer.purchaseCount || 0) > 1;
+  if (groupId === "vip") return customer.vipLevel === "VIP";
+  if (groupId === "vvip") return customer.vipLevel === "VVIP";
+  if (groupId === "superVip") return customer.vipLevel === "SUPER VIP";
+  return true;
+}
+
+function activeCustomerGroup() {
+  const groups = customerGroupDefinitions();
+  return groups.find(group => group.id === app.customerGroupFilter) || groups[0];
+}
+
+function customerSearchMatches(customer, q) {
+  if (!q) return true;
+  return [
+    customer.name,
+    customer.phone,
+    customer.alternatePhone,
+    ...(customer.orders || []).flatMap(order => [order.customerName, order.phone, order.alternatePhone])
+  ].join(" ").toLowerCase().includes(q);
+}
+
+function customerSummaryCard(group, activeId) {
+  const isActive = group.id === activeId;
+  return `
+    <button class="customer-summary-card ${escapeHtml(group.tone)} ${isActive ? "is-active" : ""}" type="button" data-customer-group-filter="${escapeHtml(group.id)}" aria-pressed="${isActive}">
+      <span class="customer-summary-icon" aria-hidden="true">${iconSvg(group.icon)}</span>
+      <span class="customer-summary-copy">
+        <span>${escapeHtml(group.label)}</span>
+        <strong>${money(group.count)}</strong>
+        <small>คน</small>
+      </span>
+    </button>
+  `;
+}
+
+function validateVipThresholdValues({ vip, vvip, superVip }) {
+  const values = [vip, vvip, superVip].map(Number);
+  if (values.some(value => !Number.isFinite(value) || value < 0)) return "กรุณากรอกยอดขั้นต่ำ VIP ให้ถูกต้อง";
+  if (!(values[0] < values[1] && values[1] < values[2])) return "ยอดขั้นต่ำต้องเรียงเป็น VIP < VVIP < SUPER VIP";
+  return "";
+}
+
 function orderCard(order) {
   return `
     <tr data-order-id="${escapeHtml(order.id)}">
@@ -3918,82 +3977,71 @@ function renderOrders() {
 
 function applyCustomerFilters() {
   const q = app.filters.q.trim().toLowerCase();
-  const selectedDate = app.data.summary?.selectedDate || els.workDate.value || todayISO();
   return app.data.customers.filter(customer => {
-    const dateMatch = app.customersShowAll || (customer.orders || []).some(order => order.date === selectedDate);
-    const textMatch = !q || [
-      customer.name,
-      customer.phone,
-      customer.alternatePhone,
-      customer.address,
-      customer.originSource,
-      customer.socialName,
-      ...(customer.tags || []),
-      ...(customer.orders || []).flatMap(order => [
-        order.orderNumber,
-        order.items,
-        order.customerName,
-        order.phone,
-        order.alternatePhone,
-        order.socialName,
-        order.originSource,
-        order.tags,
-        order.note
-      ])
-    ].join(" ").toLowerCase().includes(q);
+    const textMatch = customerSearchMatches(customer, q);
     const tagMatch = !app.filters.tag || (customer.tags || []).includes(app.filters.tag);
-    const statusMatch = !app.filters.status || customer.status === app.filters.status;
-    const vipMatch = !app.filters.vip || customer.vipLevel === app.filters.vip;
-    return dateMatch && textMatch && tagMatch && statusMatch && vipMatch;
+    const groupMatch = customerGroupMatch(customer);
+    return textMatch && tagMatch && groupMatch;
   });
 }
 
 function renderSearch() {
-  const selectedDate = app.data.summary?.selectedDate || els.workDate.value || todayISO();
+  if (!app.customerSearchDraft) app.customerSearchDraft = app.filters.q || "";
+  if (!customerGroupDefinitions().some(group => group.id === app.customerGroupFilter)) app.customerGroupFilter = "all";
   const customers = sortByPriority(applyCustomerFilters());
+  const allCustomers = app.data.customers || [];
+  const activeGroup = activeCustomerGroup();
+  const thresholds = app.data.settings?.vipThresholds || {};
+  const ownerSettings = isOwner() ? `
+    <form class="customer-vip-settings-panel" id="customerVipSettingsForm">
+      <div class="customer-vip-settings-head">
+        <span class="customer-vip-settings-icon" aria-hidden="true">${iconSvg("settings")}</span>
+        <div>
+          <h3>VIP Level Settings</h3>
+          <p>แก้ยอดซื้อสะสมขั้นต่ำ แล้วระบบจะคำนวณระดับลูกค้าใหม่หลังบันทึก</p>
+        </div>
+      </div>
+      <div class="customer-vip-settings-grid">
+        <label>VIP minimum total spending
+          <input name="vipThreshold" type="number" min="0" required value="${Number(thresholds.vip ?? 5000)}">
+        </label>
+        <label>VVIP minimum total spending
+          <input name="vvipThreshold" type="number" min="0" required value="${Number(thresholds.vvip ?? 10000)}">
+        </label>
+        <label>SUPER VIP minimum total spending
+          <input name="superVipThreshold" type="number" min="0" required value="${Number(thresholds.superVip ?? 20000)}">
+        </label>
+        <button class="button primary customer-vip-settings-save" type="submit">บันทึก</button>
+      </div>
+    </form>
+  ` : "";
   els.content.innerHTML = `
     <section class="section saas-page customers-page">
       <div class="page-identity workspace-hero customers-hero">
         <div class="page-identity-copy">
           <span class="page-kicker">Customer Intelligence</span>
-          <h2>${app.customersShowAll ? "ลูกค้าทั้งหมด" : `ลูกค้าที่สั่งซื้อวันที่ ${formatDate(selectedDate)}`}</h2>
-          <p>${app.customersShowAll ? "ค้นหาลูกค้า ดูยอดซื้อรวม ครั้งที่ซื้อ และสถานะ VIP ได้ครบ" : "แสดงเฉพาะลูกค้าที่มีออเดอร์ในวันที่เลือก"}</p>
+          <h2>จัดการลูกค้า</h2>
+          <p>ค้นหา แบ่งกลุ่ม และปรับระดับ VIP จากยอดซื้อสะสม</p>
         </div>
-        <div class="workspace-stat-grid compact">
-          ${metric("ลูกค้าในมุมมองนี้", `${money(customers.length)} ราย`)}
-          ${metric("VIP", `${money(customers.filter(customer => customer.vipLevel !== "NORMAL").length)} ราย`, "purple")}
-          ${metric("ยอดรวม", `${money(customers.reduce((sum, customer) => sum + Number(customer.totalSpent || 0), 0))} บาท`, "green")}
+        <div class="customer-summary-grid" aria-label="ตัวกรองกลุ่มลูกค้า">
+          ${customerGroupDefinitions(allCustomers).map(group => customerSummaryCard(group, app.customerGroupFilter)).join("")}
         </div>
       </div>
-      <div class="panel stack panel-premium">
-        <div class="section-title section-title-actions">
+      <div class="customer-management-toolbar">
+        <div class="customer-list-heading">
           <div>
-            <h2>ค้นหาและจัดกลุ่มลูกค้า</h2>
-            <p>มุมมองแบบ workspace สำหรับทีมขายและทีมดูแลลูกค้า</p>
-          </div>
-          <div class="orders-header-actions">
-            <label class="orders-show-all">
-              <input type="checkbox" data-customers-show-all ${app.customersShowAll ? "checked" : ""}>
-              <span>แสดงทั้งหมด</span>
-            </label>
+            <h3 id="customerListTitle">${escapeHtml(activeGroup.title)}</h3>
+            <p id="customerListCount">แสดง ${money(customers.length)} จาก ${money(allCustomers.length)} คน${app.filters.q ? ` • ค้นหา "${escapeHtml(app.filters.q)}"` : ""}${app.filters.tag ? ` • ${escapeHtml(app.filters.tag)}` : ""}</p>
           </div>
         </div>
-        <div class="filters customers-filters">
-          <input data-filter="q" placeholder="ค้นหาชื่อ เบอร์ อาการลูกค้า" value="${escapeHtml(app.filters.q)}">
-          <select data-filter="tag">
-            <option value="">ทุกอาการลูกค้า</option>
-            ${app.data.tags.map(tag => `<option value="${escapeHtml(tag)}" ${app.filters.tag === tag ? "selected" : ""}>${escapeHtml(tag)}</option>`).join("")}
-          </select>
-          <select data-filter="status">
-            <option value="">ทุกสถานะ</option>
-            ${["NEW", "NORMAL", "VIP", "VVIP", "SUPER VIP", "AT RISK", "LOST"].map(status => `<option ${app.filters.status === status ? "selected" : ""}>${status}</option>`).join("")}
-          </select>
-          <select data-filter="vip">
-            <option value="">ทุก VIP Level</option>
-            ${["NORMAL", "VIP", "VVIP", "SUPER VIP"].map(level => `<option ${app.filters.vip === level ? "selected" : ""}>${level}</option>`).join("")}
-          </select>
-          <button class="button ghost" data-reset-filters>ล้างตัวกรอง</button>
+        <div class="customer-search-row">
+          <input class="customer-search-input" data-customer-search-input placeholder="ค้นหาชื่อลูกค้า, เบอร์โทร" value="${escapeHtml(app.customerSearchDraft)}">
+          <button class="button primary customer-search-button" type="button" data-customer-search>
+            <span class="customer-search-icon" aria-hidden="true">${dashboardCardIcon("search")}</span>
+            <span>ค้นหา</span>
+          </button>
         </div>
+        ${ownerSettings}
       </div>
       <div id="searchResults">${customerTable(customers)}</div>
     </section>
@@ -4343,6 +4391,10 @@ function renderMarketing() {
 }
 
 function updateSearchResults() {
+  if (app.view === "customers") {
+    renderSearch();
+    return;
+  }
   const results = document.querySelector("#searchResults");
   if (!results) return;
   const customers = sortByPriority(applyCustomerFilters());
@@ -8167,7 +8219,24 @@ document.addEventListener("click", async event => {
   const tagFilter = event.target.closest("[data-tag-filter]");
   if (tagFilter) {
     app.filters = { q: "", tag: tagFilter.dataset.tagFilter, status: "", vip: "" };
+    app.customerGroupFilter = "all";
+    app.customerSearchDraft = "";
     setView("customers");
+  }
+
+  const customerGroupFilter = event.target.closest("[data-customer-group-filter]");
+  if (customerGroupFilter) {
+    app.customerGroupFilter = customerGroupFilter.dataset.customerGroupFilter || "all";
+    renderSearch();
+    return;
+  }
+
+  if (event.target.closest("[data-customer-search]")) {
+    const searchInput = document.querySelector("[data-customer-search-input]");
+    app.customerSearchDraft = searchInput?.value ?? app.customerSearchDraft;
+    app.filters.q = app.customerSearchDraft.trim();
+    renderSearch();
+    return;
   }
 
   const followupModeButton = event.target.closest("[data-followup-mode]");
@@ -8281,6 +8350,8 @@ document.addEventListener("click", async event => {
 
   if (event.target.closest("[data-reset-filters]")) {
     app.filters = { q: "", tag: "", status: "", vip: "" };
+    app.customerGroupFilter = "all";
+    app.customerSearchDraft = "";
     renderSearch();
   }
 
@@ -8392,6 +8463,11 @@ document.addEventListener("input", event => {
     app.ordersFilterDraft = orderFilter.value;
   }
 
+  const customerSearchInput = event.target.closest("[data-customer-search-input]");
+  if (customerSearchInput) {
+    app.customerSearchDraft = customerSearchInput.value;
+  }
+
   const opportunitySearch = event.target.closest("[data-mobile-opportunity-search] input[name='q']");
   if (opportunitySearch) {
     app.mobileOpportunitySearchDraft = opportunitySearch.value;
@@ -8463,6 +8539,12 @@ document.addEventListener("keydown", event => {
     app.ordersFilterDraft = event.target.value;
     app.ordersFilterQ = event.target.value;
     renderOrders();
+  }
+  if (event.target?.matches?.("[data-customer-search-input]")) {
+    event.preventDefault();
+    app.customerSearchDraft = event.target.value;
+    app.filters.q = app.customerSearchDraft.trim();
+    renderSearch();
   }
 });
 
@@ -8876,6 +8958,29 @@ document.addEventListener("submit", async event => {
         body: JSON.stringify(data)
       });
       showToast("บันทึกตั้งค่า VIP แล้ว");
+      await loadState();
+    }
+
+    if (currentFormId === "customerVipSettingsForm") {
+      if (!isOwner()) {
+        showToast("เฉพาะ Owner เท่านั้นที่แก้ไข VIP Level Settings ได้", "error");
+        return;
+      }
+      const data = Object.fromEntries(new FormData(form).entries());
+      const error = validateVipThresholdValues({
+        vip: data.vipThreshold,
+        vvip: data.vvipThreshold,
+        superVip: data.superVipThreshold
+      });
+      if (error) {
+        showToast(error, "error");
+        return;
+      }
+      await api("/api/settings", {
+        method: "PUT",
+        body: JSON.stringify(data)
+      });
+      showToast("บันทึก VIP Level Settings แล้ว");
       await loadState();
     }
 
