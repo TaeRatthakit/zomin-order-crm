@@ -3265,9 +3265,9 @@ function renderMobileBusinessRoles() {
   if (app.mobileBusinessPage === "userEditor") {
     return `
       <section class="mobile-business-page mobile-business-subpage">
-        <header class="mobile-business-subhead">
+        <header class="mobile-business-subhead mobile-user-editor-subhead">
           <button class="mobile-business-back" type="button" data-user-editor-back aria-label="กลับรายชื่อผู้ใช้งาน">${iconSvg("arrow")}</button>
-          <div><h2>${app.editingUserId === "__new" ? "เพิ่มผู้ใช้งาน" : "แก้ไขผู้ใช้งาน"}</h2><p>ข้อมูลสำหรับเข้าสู่ระบบ</p></div>
+          <div><h2>${app.editingUserId === "__new" ? "เพิ่มผู้ใช้งาน" : "แก้ไขผู้ใช้งาน"}</h2><p>ข้อมูลสำหรับเข้าใช้ระบบ</p></div>
         </header>
         ${userEditorMarkup(editingUser, { mobile: true })}
       </section>

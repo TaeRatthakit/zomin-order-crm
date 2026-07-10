@@ -7012,6 +7012,21 @@ small,
     line-height: 1.35;
   }
 
+  .mobile-user-editor-subhead {
+    grid-template-columns: 38px minmax(0, 1fr);
+  }
+
+  .mobile-user-editor-subhead > div {
+    min-width: 0;
+  }
+
+  .mobile-user-editor-subhead h2,
+  .mobile-user-editor-subhead p {
+    word-break: normal;
+    overflow-wrap: normal;
+    hyphens: manual;
+  }
+
   .mobile-business-back {
     display: grid;
     place-items: center;
