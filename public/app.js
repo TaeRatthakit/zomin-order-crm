@@ -8432,7 +8432,6 @@ document.addEventListener("submit", async event => {
       if (isMobileViewport()) app.mobileBusinessPage = "roles";
       showToast(id ? "บันทึกผู้ใช้งานแล้ว" : "เพิ่มผู้ใช้งานแล้ว");
       render();
-      await loadState();
     }
 
     if (currentFormId === "tagsForm") {
