@@ -6188,7 +6188,7 @@ function userEditorMarkup(user = null, { mobile = false } = {}) {
   const isNew = !user?.id;
   const targetUser = user || null;
   const canDelete = !isNew && canManageUser(targetUser) && !isLastActiveOwner(user) && !(app.currentUser?.id === user.id && user.role === "Owner");
-  const formClass = mobile ? "mobile-business-form mobile-user-form" : "panel stack panel-premium user-editor-panel";
+  const formClass = mobile ? "mobile-business-form mobile-user-form grow-modal-panel" : "panel stack panel-premium user-editor-panel grow-modal-panel";
   return `
     <form class="${formClass}" id="teamForm" data-user-form="${isNew ? "new" : escapeHtml(user.id)}">
       ${!mobile ? `
@@ -6198,7 +6198,7 @@ function userEditorMarkup(user = null, { mobile = false } = {}) {
         </div>
       ` : ""}
       <input type="hidden" name="id" value="${escapeHtml(user?.id || "")}">
-      <div class="user-editor-section">
+      <div class="user-editor-section grow-modal-section">
         <h3>ข้อมูลผู้ใช้งาน</h3>
         <label>ชื่อผู้ใช้งาน<input name="name" required value="${escapeHtml(user?.name || "")}" placeholder="กรอกชื่อผู้ใช้งาน"></label>
         <label>บทบาท
@@ -6207,7 +6207,7 @@ function userEditorMarkup(user = null, { mobile = false } = {}) {
           </select>
         </label>
       </div>
-      <div class="user-editor-section login-section">
+      <div class="user-editor-section login-section grow-modal-section">
         <h3>การเข้าสู่ระบบ</h3>
         <label>ชื่อเข้าใช้งาน<input name="username" required value="${escapeHtml(user?.username || "")}" placeholder="กรอกชื่อเข้าใช้งาน" autocomplete="username"></label>
         <label>รหัสผ่าน<input name="password" type="password" ${isNew ? "required" : ""} placeholder="${isNew ? "ตั้งรหัสผ่าน" : "เว้นว่างไว้ถ้าไม่เปลี่ยน"}" autocomplete="new-password"></label>
@@ -6855,8 +6855,8 @@ function renderCustomerDetail(customer) {
         <button class="button danger" type="button" data-delete-customer="${escapeHtml(customer.id)}">ลบลูกค้า</button>
       ` : ""}
     </div>
-    <div class="detail-grid">
-      <div class="panel stack detail-card">
+    <div class="detail-grid grow-modal-section-grid">
+      <div class="panel stack detail-card grow-modal-section">
         <div class="mini-stats">
           <div class="mini-stat"><span>ซื้อทั้งหมด</span><strong>${customer.purchaseCount} ครั้ง</strong></div>
           <div class="mini-stat"><span>รวม</span><strong>${customer.totalJars} กระปุก</strong></div>
@@ -6871,7 +6871,7 @@ function renderCustomerDetail(customer) {
         </div>
         <div class="info-card"><span>เบอร์</span><strong>${escapeHtml(customer.phone)}</strong></div>
         <div class="info-card"><span>ที่อยู่จัดส่ง</span><strong>${escapeHtml(customer.address || "-")}</strong></div>
-        <form class="stack" id="customerEditForm">
+        <form class="stack grow-modal-section nested-form" id="customerEditForm">
           <input type="hidden" name="customerId" value="${customer.id}">
           <label>อาการลูกค้า
             <input name="tags" value="${escapeHtml((customer.tags || []).join(", "))}">
@@ -6881,7 +6881,7 @@ function renderCustomerDetail(customer) {
           </label>
           <button class="button secondary" type="submit">บันทึกอาการลูกค้า / หมายเหตุ</button>
         </form>
-        <form class="stack" id="contactForm">
+        <form class="stack grow-modal-section nested-form" id="contactForm">
           <input type="hidden" name="customerId" value="${customer.id}">
           <div class="contact-form-section">
             <h3>บันทึกการติดต่อ</h3>
@@ -6909,7 +6909,7 @@ function renderCustomerDetail(customer) {
           <button class="button primary" type="submit">บันทึกการติดต่อ</button>
         </form>
       </div>
-      <div class="panel stack detail-card">
+      <div class="panel stack detail-card grow-modal-section">
         <h3>ประวัติออเดอร์</h3>
         <div class="timeline">
           ${customer.orders.slice().reverse().map(order => `

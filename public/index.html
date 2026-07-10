@@ -106,29 +106,31 @@
       </main>
     </div>
 
-    <dialog id="customerDialog" class="dialog customer-drawer">
-      <form method="dialog">
-        <div class="dialog-header">
-          <div>
-            <p class="eyebrow">Customer Profile</p>
+    <dialog id="customerDialog" class="dialog customer-drawer grow-modal grow-modal-large">
+      <form class="grow-modal-shell" method="dialog">
+        <div class="dialog-header grow-modal-header">
+          <span class="grow-modal-icon" aria-hidden="true">C</span>
+          <div class="grow-modal-titleblock">
             <h2 id="dialogCustomerName">ลูกค้า</h2>
+            <p class="eyebrow">ข้อมูลลูกค้า ประวัติ และการติดตาม</p>
           </div>
           <button class="icon-button" type="button" data-close-customer aria-label="ปิด">×</button>
         </div>
-        <div id="customerDetail"></div>
+        <div id="customerDetail" class="grow-modal-body"></div>
       </form>
     </dialog>
 
-    <dialog id="profileDialog" class="dialog">
-      <form id="profileForm" method="dialog">
-        <div class="dialog-header">
-          <div>
-            <p class="eyebrow">Profile Settings</p>
+    <dialog id="profileDialog" class="dialog grow-modal grow-modal-small">
+      <form id="profileForm" class="grow-modal-shell" method="dialog">
+        <div class="dialog-header grow-modal-header">
+          <span class="grow-modal-icon" aria-hidden="true">P</span>
+          <div class="grow-modal-titleblock">
             <h2>แก้ไขโปรไฟล์</h2>
+            <p class="eyebrow">อัปเดตรูปและชื่อที่แสดงในระบบ</p>
           </div>
           <button class="icon-button" type="button" data-close-profile aria-label="ปิด">×</button>
         </div>
-        <div class="form-grid">
+        <div class="form-grid grow-modal-body">
           <div class="profile-form-avatar">
             <div id="profileAvatarPreview" class="header-profile-avatar" aria-hidden="true">
               <span class="header-profile-avatar-core">GP</span>
@@ -139,23 +141,24 @@
           </div>
           <label class="span-2"><span class="order-field-label">ชื่อที่แสดง</span><input name="displayName" maxlength="60" required></label>
         </div>
-        <div class="dialog-actions">
+        <div class="dialog-actions grow-modal-footer">
           <button class="button ghost" type="button" data-close-profile>ยกเลิก</button>
           <button class="button primary" id="profileSubmitButton" type="submit">บันทึกโปรไฟล์</button>
         </div>
       </form>
     </dialog>
 
-    <dialog id="orderDialog" class="dialog">
-      <form id="orderForm" method="dialog">
-        <div class="dialog-header">
-          <div>
-            <p class="eyebrow">Order</p>
+    <dialog id="orderDialog" class="dialog grow-modal grow-modal-large">
+      <form id="orderForm" class="grow-modal-shell" method="dialog">
+        <div class="dialog-header grow-modal-header">
+          <span class="grow-modal-icon" aria-hidden="true">O</span>
+          <div class="grow-modal-titleblock">
             <h2 id="orderDialogTitle">เพิ่มออเดอร์</h2>
+            <p class="eyebrow">ข้อมูลสินค้า ลูกค้า การจัดส่ง และยอดซื้อ</p>
           </div>
           <button class="icon-button" type="button" data-close-order aria-label="ปิด">×</button>
         </div>
-        <div class="form-grid">
+        <div class="form-grid grow-modal-body">
           <label><span class="order-field-label">สินค้า <i>*</i></span><input name="items" placeholder="เช่น Zomin"></label>
           <section class="span-2 order-package-section" id="orderPackageSection" hidden>
             <div class="sales-package-grid">
@@ -207,72 +210,81 @@
           </label>
           <label class="span-2">หมายเหตุ<textarea name="note" placeholder="หมายเหตุเกี่ยวกับออเดอร์"></textarea></label>
         </div>
-        <div class="dialog-actions">
+        <div class="dialog-actions grow-modal-footer">
           <button class="button ghost" value="cancel" type="button" data-close-order>ยกเลิก</button>
           <button class="button primary" id="orderSubmitButton" type="submit">บันทึกออเดอร์</button>
         </div>
       </form>
     </dialog>
 
-    <dialog id="deleteOrderDialog" class="dialog">
-      <form id="deleteOrderForm" method="dialog">
-        <div class="dialog-header desktop-delete-order-copy">
-          <div>
-            <p class="eyebrow">Delete Order</p>
+    <dialog id="deleteOrderDialog" class="dialog grow-modal grow-modal-small grow-modal-danger">
+      <form id="deleteOrderForm" class="grow-modal-shell" method="dialog">
+        <div class="dialog-header grow-modal-header desktop-delete-order-copy">
+          <span class="grow-modal-icon" aria-hidden="true">!</span>
+          <div class="grow-modal-titleblock">
             <h2>ลบออเดอร์นี้?</h2>
+            <p class="eyebrow">ยืนยันก่อนลบข้อมูลออเดอร์</p>
           </div>
           <button class="icon-button" type="button" data-close-delete-order aria-label="ปิด">×</button>
         </div>
-        <p class="dialog-note desktop-delete-order-copy">การลบจะมีผลเฉพาะออเดอร์ที่เลือก และจะไม่กระทบข้อมูลลูกค้า</p>
+        <div class="grow-modal-body">
+          <p class="dialog-note desktop-delete-order-copy">การลบจะมีผลเฉพาะออเดอร์ที่เลือก และจะไม่กระทบข้อมูลลูกค้า</p>
+        </div>
         <div class="mobile-delete-order-copy">
           <span class="mobile-sheet-handle" aria-hidden="true"></span>
           <svg class="mobile-delete-warning" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.7 2.2 18a2 2 0 0 0 1.7 3h16.2a2 2 0 0 0 1.7-3L13.7 3.7a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
           <h2>ยืนยันการลบออเดอร์</h2>
           <p>คุณต้องการลบออเดอร์ <strong id="mobileDeleteOrderNumber">-</strong> ใช่หรือไม่?</p>
         </div>
-        <div class="dialog-actions">
+        <div class="dialog-actions grow-modal-footer">
           <button class="button ghost" type="button" data-close-delete-order>ยกเลิก</button>
           <button class="button danger" type="submit">ลบออเดอร์</button>
         </div>
       </form>
     </dialog>
 
-    <dialog id="deleteCustomerDialog" class="dialog">
-      <form id="deleteCustomerForm" method="dialog">
-        <div class="dialog-header">
-          <div>
-            <p class="eyebrow">Delete Customer</p>
+    <dialog id="deleteCustomerDialog" class="dialog grow-modal grow-modal-small grow-modal-danger">
+      <form id="deleteCustomerForm" class="grow-modal-shell" method="dialog">
+        <div class="dialog-header grow-modal-header">
+          <span class="grow-modal-icon" aria-hidden="true">!</span>
+          <div class="grow-modal-titleblock">
             <h2>ลบลูกค้ารายนี้?</h2>
+            <p class="eyebrow">ตรวจสอบเงื่อนไขก่อนลบลูกค้า</p>
           </div>
           <button class="icon-button" type="button" data-close-delete-customer aria-label="ปิด">×</button>
         </div>
-        <p class="dialog-note">ลบได้เฉพาะลูกค้าที่ไม่มีออเดอร์เท่านั้น</p>
-        <div class="dialog-actions">
+        <div class="grow-modal-body">
+          <p class="dialog-note">ลบได้เฉพาะลูกค้าที่ไม่มีออเดอร์เท่านั้น</p>
+        </div>
+        <div class="dialog-actions grow-modal-footer">
           <button class="button ghost" type="button" data-close-delete-customer>ยกเลิก</button>
           <button class="button danger" type="submit">ลบลูกค้า</button>
         </div>
       </form>
     </dialog>
 
-    <dialog id="deleteUserDialog" class="dialog">
-      <form id="deleteUserForm" method="dialog">
-        <div class="dialog-header">
-          <div>
-            <p class="eyebrow">Delete User</p>
+    <dialog id="deleteUserDialog" class="dialog grow-modal grow-modal-small grow-modal-danger">
+      <form id="deleteUserForm" class="grow-modal-shell" method="dialog">
+        <div class="dialog-header grow-modal-header">
+          <span class="grow-modal-icon" aria-hidden="true">!</span>
+          <div class="grow-modal-titleblock">
             <h2>ยืนยันการลบผู้ใช้งาน</h2>
+            <p class="eyebrow">การลบผู้ใช้งานจะมีผลกับสิทธิ์การเข้าใช้</p>
           </div>
           <button class="icon-button" type="button" data-close-delete-user aria-label="ปิด">×</button>
         </div>
-        <p class="dialog-note">คุณต้องการลบผู้ใช้งาน <strong id="deleteUserName">-</strong> ใช่หรือไม่?</p>
-        <div class="dialog-actions">
+        <div class="grow-modal-body">
+          <p class="dialog-note">คุณต้องการลบผู้ใช้งาน <strong id="deleteUserName">-</strong> ใช่หรือไม่?</p>
+        </div>
+        <div class="dialog-actions grow-modal-footer">
           <button class="button ghost" type="button" data-close-delete-user>ยกเลิก</button>
           <button class="button danger" type="submit">ลบผู้ใช้งาน</button>
         </div>
       </form>
     </dialog>
 
-    <dialog id="logoutDialog" class="dialog">
-      <form id="logoutForm" method="dialog">
+    <dialog id="logoutDialog" class="dialog grow-modal grow-modal-small grow-modal-danger">
+      <form id="logoutForm" class="grow-modal-shell" method="dialog">
         <button class="logout-modal-close" type="button" data-close-logout aria-label="ปิด">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M18 6 6 18"></path>
@@ -305,16 +317,17 @@
       </form>
     </dialog>
 
-    <dialog id="productDialog" class="dialog product-dialog">
-      <form id="productForm" class="product-modal-form" method="dialog">
-        <div class="dialog-header">
-          <div>
-            <p class="eyebrow">สินค้า</p>
+    <dialog id="productDialog" class="dialog product-dialog grow-modal grow-modal-large">
+      <form id="productForm" class="product-modal-form grow-modal-shell" method="dialog">
+        <div class="dialog-header grow-modal-header">
+          <span class="grow-modal-icon" aria-hidden="true">P</span>
+          <div class="grow-modal-titleblock">
             <h2 id="productDialogTitle">เพิ่มสินค้า</h2>
+            <p class="eyebrow">จัดการข้อมูลสินค้า รูปภาพ และแพ็กเกจ</p>
           </div>
           <button class="icon-button" type="button" data-close-product aria-label="ปิด">×</button>
         </div>
-        <div class="product-modal-content">
+        <div class="product-modal-content grow-modal-body">
           <section class="product-basic-section">
             <div class="product-basic-head">
               <div class="product-image-editor">
@@ -371,23 +384,24 @@
             <label class="span-2">กติกาการติดตาม<input name="followUpRule" value="1 ชิ้น = 15 วัน"></label>
           </section>
         </div>
-        <div class="dialog-actions product-modal-actions">
+        <div class="dialog-actions product-modal-actions grow-modal-footer">
           <button class="button ghost" type="button" data-close-product>ยกเลิก</button>
           <button class="button primary" type="submit" id="productSubmitButton">บันทึกสินค้า</button>
         </div>
       </form>
     </dialog>
 
-    <dialog id="productDetailDialog" class="dialog customer-drawer">
-      <form method="dialog">
-        <div class="dialog-header">
-          <div>
-            <p class="eyebrow">รายละเอียดสินค้า</p>
+    <dialog id="productDetailDialog" class="dialog customer-drawer grow-modal grow-modal-medium">
+      <form class="grow-modal-shell" method="dialog">
+        <div class="dialog-header grow-modal-header">
+          <span class="grow-modal-icon" aria-hidden="true">I</span>
+          <div class="grow-modal-titleblock">
             <h2 id="productDetailTitle">สินค้า</h2>
+            <p class="eyebrow">รายละเอียดสินค้าและประวัติการขาย</p>
           </div>
           <button class="icon-button" type="button" data-close-product-detail aria-label="ปิด">×</button>
         </div>
-        <div id="productDetail"></div>
+        <div id="productDetail" class="grow-modal-body"></div>
       </form>
     </dialog>
 
