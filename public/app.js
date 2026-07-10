@@ -2736,7 +2736,7 @@ function renderMobileBusinessProducts() {
     <section class="mobile-business-page mobile-business-subpage">
       ${mobileBusinessHeader("จัดการสินค้า", "เพิ่ม แก้ไข และจัดการสินค้า", "box")}
       <button class="button primary mobile-business-full-button" type="button" data-add-product>${iconSvg("box")} เพิ่มสินค้า</button>
-      <div class="mobile-business-kpis three">
+      <div class="mobile-business-kpis three mobile-business-product-kpis">
         <article class="purple"><span>สินค้าทั้งหมด</span><strong>${money(products.length)}</strong><small>รายการ</small></article>
         <article class="blue"><span>พร้อมขาย</span><strong>${money(ready)}</strong><small>รายการ</small></article>
         <article class="orange"><span>สต๊อกต่ำ</span><strong>${money(low)}</strong><small>รายการ</small></article>

@@ -6319,6 +6319,37 @@ small,
     grid-column: 1 / -1;
   }
 
+  .mobile-business-product-kpis {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .mobile-business-kpis.three.mobile-business-product-kpis article:first-child {
+    grid-column: auto;
+  }
+
+  .mobile-business-product-kpis article {
+    min-height: 92px;
+    padding: 9px 4px;
+    border-radius: 12px;
+    gap: 2px;
+  }
+
+  .mobile-business-product-kpis span {
+    font-size: 0.62rem;
+    line-height: 1.25;
+  }
+
+  .mobile-business-product-kpis strong {
+    font-size: 1.08rem;
+    line-height: 1.05;
+  }
+
+  .mobile-business-product-kpis small {
+    font-size: 0.6rem;
+    line-height: 1.2;
+  }
+
   .mobile-business-record-list,
   .mobile-business-notification-list,
   .mobile-business-user-list,
