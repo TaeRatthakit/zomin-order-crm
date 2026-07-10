@@ -1,10 +1,17 @@
 # Zomin Order CRM Progress Report
 
-Updated: 2026-06-20
+Updated: 2026-07-10
 
 ## Current Status
 
 Zomin Order CRM V3 has been upgraded from local-only demo toward production-ready Phase 1.
+
+Latest production update:
+
+- Commit: `db636d6 Improve additional expenses mobile UX`
+- Production branch: `main`
+- Production site: `https://www.growuppilot.com`
+- Scope: Finance → Cost/Profit → Additional Expenses mobile UX and save feedback
 
 Backup already exists:
 
@@ -51,6 +58,14 @@ Backup already exists:
   - signature verification with LINE Channel Secret
   - `/api/line/mock` for testing from Settings
   - Settings page has LINE Channel ID, Secret, Access Token, webhook copy, mock test
+- Improved Finance → Cost/Profit → Additional Expenses UX:
+  - Mobile expense cards are compact by default
+  - Edit fields expand only while editing
+  - Enabled toggle remains visible on the compact card
+  - Large add button changed to a smaller `+ Add` action
+  - Helper card explains that additional expenses apply to every enabled product
+  - Percentage helper example shows 2% of 1,000 THB = 20 THB
+  - Save button now shows `Saving...`, disables while saving, then shows `✓ Saved`
 
 ## Main Pages To Verify
 
@@ -65,6 +80,7 @@ Backup already exists:
 - Settings
 - Team management
 - Export / Backup
+- Finance → Cost/Profit → Additional Expenses on mobile and desktop
 
 ## Test Results
 
@@ -73,6 +89,7 @@ Latest local test used a temporary JSON database copy at `/tmp/zomin-test-db.jso
 Passed:
 
 - `npm run build`
+- `npm test`
 - Syntax check for server, frontend JS, auth, DB adapters, scripts
 - `GET /api/session` before login
 - `GET /api/state` blocked with 401 before login
@@ -100,10 +117,27 @@ Passed:
 - Staff blocked from Settings with 403
 - Staff blocked from export while `staffCanExport=false`
 - Logout returned success
+- Local Playwright visual/interaction verification:
+  - Mobile Finance loaded the additional expenses section
+  - Helper card appeared with the percentage example
+  - Compact cards hid edit fields by default
+  - `+ Add` created an editable row
+  - Save feedback showed `Saving...` then `✓ Saved`
+  - Temporary test expense saved through `/api/settings` and was restored away
+  - Direct calculation check: 2% on 1,000 THB produced 20 THB expense and 980 THB profit before ads
+- Production verification on `https://www.growuppilot.com`:
+  - Production JS/CSS contained the deployed Additional Expenses UX changes
+  - Mobile Finance matched the compact card behavior
+  - Desktop Finance still loaded in `desktop-app-shell`
+  - Desktop helper card and formula summary were present
+  - Save feedback showed `Saving...` then `✓ Saved` on production
+  - Production data save was verified with a temporary expense and restored
+  - Production state was checked afterward; only the existing real `ค่าcod` expense remained
+  - Production calculation check confirmed 2% on 1,000 THB = 20 THB expense
 
 Not run:
 
-- Full visual browser automation was not run because Playwright is not installed in this dependency-free project. UI syntax/static routes and API workflows were verified.
+- No current unverified blocker for the latest Additional Expenses UX work.
 
 ## External Setup Still Required
 
@@ -123,3 +157,4 @@ Not run:
 - Password hashing uses Node built-in `scrypt` to keep the project dependency-free. It is production-grade for this app shape; bcrypt can be swapped in later if the project adds dependencies.
 - The LINE webhook stores incoming messages and parses order text, but Phase 1 does not send reply messages back to LINE.
 - Supabase service role key must stay server-side only.
+- `data/db.json` currently has unrelated local modifications in the worktree and was intentionally not included in the Additional Expenses UX commit.
