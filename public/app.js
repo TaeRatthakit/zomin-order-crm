@@ -5949,7 +5949,7 @@ function userEditorMarkup(user = null, { mobile = false } = {}) {
       ${!mobile ? `
         <div class="section-title">
           <h2>${isNew ? "เพิ่มผู้ใช้งาน" : "แก้ไขผู้ใช้งาน"}</h2>
-          <p>บันทึกข้อมูลเข้าสู่ระบบจริงและคงอยู่หลังรีเฟรช</p>
+          <p>ข้อมูลสำหรับเข้าใช้ระบบ</p>
         </div>
       ` : ""}
       <input type="hidden" name="id" value="${escapeHtml(user?.id || "")}">

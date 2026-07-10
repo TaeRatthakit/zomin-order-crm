@@ -8134,6 +8134,22 @@ small,
   padding: 24px;
 }
 
+.user-editor-panel .section-title {
+  display: grid;
+  justify-content: stretch;
+  gap: 4px;
+  min-width: 0;
+}
+
+.user-editor-panel .section-title h2,
+.user-editor-panel .section-title p {
+  min-width: 0;
+  margin: 0;
+  word-break: normal;
+  overflow-wrap: normal;
+  hyphens: manual;
+}
+
 .user-editor-empty {
   min-height: 220px;
   justify-content: center;
