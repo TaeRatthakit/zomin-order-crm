@@ -21,7 +21,8 @@ const {
   persistOrderMutation,
   persistOrderProfitSnapshots,
   persistUserProfile,
-  persistSettingsPatch
+  persistSettingsPatch,
+  readSettingsPatch
 } = require("./lib/db");
 const {
   hashPassword,
@@ -553,6 +554,17 @@ function productSettingsPayload(settings = {}) {
   return {
     products: normalizeProductRecords(settings.products),
     productCosts: normalizeSettingsCostRows(settings.productCosts, "costPerJar")
+  };
+}
+
+async function readProductSettingsForSave() {
+  if (typeof readSettingsPatch === "function") {
+    return readSettingsPatch(["products", "productCosts"]);
+  }
+  const db = await readDb();
+  return {
+    products: db.settings?.products,
+    productCosts: db.settings?.productCosts
   };
 }
 
@@ -2245,6 +2257,115 @@ async function handleApi(req, res) {
     }, {
       "Server-Timing": `dbread;dur=0, dbwrite;dur=${persistMs}`,
       "X-Settings-Db-Read-Ms": "0",
+      "X-Settings-Db-Write-Ms": String(persistMs)
+    });
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/products") {
+    if (!requireAdmin(req, res)) return;
+    const body = await readBody(req);
+    const readStartedAt = Date.now();
+    const settings = await readProductSettingsForSave();
+    const readMs = Date.now() - readStartedAt;
+    const incoming = normalizeProductRecords([body])[0];
+    if (!incoming?.name) return json(res, 400, { ok: false, error: "กรุณาระบุชื่อสินค้า" });
+    incoming.id = body.id ? String(body.id) : "";
+    const products = normalizeProductRecords(settings.products);
+    const incomingIdentity = normalizedProductIdentity(incoming);
+    const existingIndex = products.findIndex(item => {
+      const identity = normalizedProductIdentity(item);
+      return (
+        (incoming.id && item.id === incoming.id) ||
+        (incomingIdentity.sku && incomingIdentity.sku === identity.sku) ||
+        (incomingIdentity.name && incomingIdentity.name === identity.name)
+      );
+    });
+    const previousProduct = existingIndex >= 0 ? products[existingIndex] : null;
+    const now = new Date().toISOString();
+    const preserveExistingName = existingIndex >= 0
+      && !incoming.id
+      && incomingIdentity.name
+      && incomingIdentity.name === normalizedProductIdentity(products[existingIndex]).name;
+    const product = existingIndex >= 0
+      ? normalizeProductRecords([{
+          ...products[existingIndex],
+          ...incoming,
+          name: preserveExistingName ? products[existingIndex].name : incoming.name,
+          id: products[existingIndex].id,
+          archived: false,
+          createdAt: products[existingIndex].createdAt || now,
+          updatedAt: now
+        }])[0]
+      : {
+          ...incoming,
+          id: incoming.id || newProductId(products),
+          archived: false,
+          createdAt: incoming.createdAt || now,
+          updatedAt: now
+        };
+    if (existingIndex >= 0) products[existingIndex] = product;
+    else products.push(product);
+    const productCosts = normalizeSettingsCostRows(settings.productCosts, "costPerJar");
+    const existingCostIndex = productCostIndex(productCosts, product.id, [
+      previousProduct?.name,
+      product.name
+    ]);
+    const costRow = {
+      id: product.id,
+      name: product.name,
+      costPerJar: product.costPerItem,
+      enabled: true
+    };
+    if (existingCostIndex === -1) productCosts.push(costRow);
+    else productCosts[existingCostIndex] = costRow;
+    const patch = { products, productCosts };
+    const persistStartedAt = Date.now();
+    await persistSettingsPatch(patch);
+    const persistMs = Date.now() - persistStartedAt;
+    return json(res, 200, { ok: true, product, settings: productSettingsPayload(patch) }, {
+      "Server-Timing": `dbread;dur=${readMs}, dbwrite;dur=${persistMs}`,
+      "X-Settings-Db-Read-Ms": String(readMs),
+      "X-Settings-Db-Write-Ms": String(persistMs)
+    });
+  }
+
+  if (req.method === "PUT" && /^\/api\/products\/[^/]+$/.test(url.pathname)) {
+    if (!requireAdmin(req, res)) return;
+    const productId = decodeURIComponent(url.pathname.split("/").pop() || "");
+    const body = await readBody(req);
+    const readStartedAt = Date.now();
+    const settings = await readProductSettingsForSave();
+    const readMs = Date.now() - readStartedAt;
+    const products = normalizeProductRecords(settings.products);
+    const index = products.findIndex(item => item.id === productId);
+    if (index === -1) return json(res, 404, { ok: false, error: "ไม่พบสินค้า" });
+    const previous = products[index];
+    const next = normalizeProductRecords([{
+      ...previous,
+      ...body,
+      id: productId,
+      archived: previous.archived,
+      createdAt: previous.createdAt,
+      updatedAt: new Date().toISOString()
+    }])[0];
+    products[index] = next;
+    const productCosts = normalizeSettingsCostRows(settings.productCosts, "costPerJar");
+    const costIndex = productCostIndex(productCosts, productId, [previous.name, next.name]);
+    const costRow = {
+      id: productId,
+      name: next.name,
+      costPerJar: next.costPerItem,
+      enabled: !next.archived
+    };
+    if (costIndex === -1) productCosts.push(costRow);
+    else productCosts[costIndex] = costRow;
+    const patch = { products, productCosts };
+    const persistStartedAt = Date.now();
+    await persistSettingsPatch(patch);
+    const persistMs = Date.now() - persistStartedAt;
+    return json(res, 200, { ok: true, product: next, settings: productSettingsPayload(patch) }, {
+      "Server-Timing": `dbread;dur=${readMs}, dbwrite;dur=${persistMs}`,
+      "X-Settings-Db-Read-Ms": String(readMs),
       "X-Settings-Db-Write-Ms": String(persistMs)
     });
   }
