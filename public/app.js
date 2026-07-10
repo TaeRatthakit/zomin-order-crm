@@ -114,6 +114,8 @@ const app = {
   editingAdPlatformId: "",
   marketingDate: "",
   marketingMonth: "",
+  businessManagementScrollRestore: null,
+  businessManagementScrollRestoreToken: 0,
   mobileNavigationSequence: 0
 };
 
@@ -237,6 +239,72 @@ function navigateToView(view, replace = false) {
   if (location.pathname !== path || location.hash) {
     history[replace ? "replaceState" : "pushState"]({}, "", path);
   }
+}
+
+function setBusinessManagementHistoryScrollRestoration(value) {
+  if ("scrollRestoration" in history) history.scrollRestoration = value;
+}
+
+function clearBusinessManagementScrollRestore(options = {}) {
+  app.businessManagementScrollRestore = null;
+  app.businessManagementScrollRestoreToken += 1;
+  if (options.deferHistoryScrollRestoration) {
+    window.setTimeout(() => {
+      if (!app.businessManagementScrollRestore) setBusinessManagementHistoryScrollRestoration("auto");
+    }, 800);
+  } else {
+    setBusinessManagementHistoryScrollRestoration("auto");
+  }
+}
+
+function saveBusinessManagementScrollPosition() {
+  if (app.view !== "settings" || app.mobileBusinessPage !== "main") return;
+  setBusinessManagementHistoryScrollRestoration("manual");
+  app.businessManagementScrollRestore = {
+    top: Math.max(0, Math.round(window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0))
+  };
+}
+
+function restoreBusinessManagementScrollWhenReady() {
+  const restore = app.businessManagementScrollRestore;
+  if (!restore || app.view !== "settings" || app.mobileBusinessPage !== "main") return;
+  const token = ++app.businessManagementScrollRestoreToken;
+  const targetTop = Math.max(0, Number(restore.top || 0));
+  let attempts = 0;
+  let lastScrollHeight = 0;
+  let stableFrames = 0;
+
+  const step = () => {
+    if (token !== app.businessManagementScrollRestoreToken || app.view !== "settings" || app.mobileBusinessPage !== "main") return;
+    const scrollHeight = Math.max(document.documentElement.scrollHeight, document.body.scrollHeight);
+    const maxScrollTop = Math.max(0, scrollHeight - window.innerHeight);
+    stableFrames = scrollHeight === lastScrollHeight ? stableFrames + 1 : 0;
+    lastScrollHeight = scrollHeight;
+    attempts += 1;
+
+    if (maxScrollTop < targetTop && stableFrames < 2 && attempts < 12) {
+      requestAnimationFrame(step);
+      return;
+    }
+
+    const previousBehavior = document.documentElement.style.scrollBehavior;
+    document.documentElement.style.scrollBehavior = "auto";
+    window.scrollTo(0, Math.min(targetTop, maxScrollTop));
+    document.documentElement.style.scrollBehavior = previousBehavior;
+    clearBusinessManagementScrollRestore({ deferHistoryScrollRestoration: true });
+  };
+
+  requestAnimationFrame(step);
+}
+
+function pushBusinessManagementHistory(page, replace = false) {
+  if (app.view !== "settings") return;
+  const state = {
+    ...(history.state || {}),
+    businessManagementPage: page
+  };
+  if (page === "main") delete state.businessManagementPage;
+  history[replace ? "replaceState" : "pushState"](state, "", viewToRoute.settings || "/settings");
 }
 
 function iconSvg(name) {
@@ -670,6 +738,8 @@ async function loadState() {
   } catch (error) {
     if (error.status === 401) {
       clearSession();
+      clearBusinessManagementScrollRestore();
+      app.mobileBusinessPage = "main";
       app.view = "login";
       navigateToView("login", true);
       render();
@@ -3385,6 +3455,21 @@ function renderMobileBusinessManagement() {
 
 function renderSettings() {
   renderMobileBusinessManagement();
+}
+
+function setBusinessManagementPage(page, options = {}) {
+  const nextPage = page || "main";
+  const previousPage = app.mobileBusinessPage || "main";
+  if (previousPage === "main" && nextPage !== "main") saveBusinessManagementScrollPosition();
+  const shouldRestoreScroll = previousPage !== "main" && nextPage === "main";
+  app.mobileBusinessPage = nextPage;
+  if (nextPage !== "security") app.securityDetailKey = "";
+  renderSettings();
+  if (!options.fromHistory) pushBusinessManagementHistory(nextPage, Boolean(options.replaceHistory));
+  if (nextPage === "import" && !app.importWorker) {
+    refreshImportJob().catch(error => showToast(error.message));
+  }
+  if (shouldRestoreScroll) restoreBusinessManagementScrollWhenReady();
 }
 
 function addDaysISO(dateValue, amount) {
@@ -7086,6 +7171,7 @@ function setView(view) {
     showToast("เมนูนี้ต้องใช้สิทธิ์ Owner/Admin");
     return;
   }
+  if (view !== "settings") clearBusinessManagementScrollRestore();
   app.mobileOrderMenuId = "";
   app.view = view;
   clearTimeout(app.importPollTimer);
@@ -7099,6 +7185,7 @@ async function setMobileNavView(view) {
     showToast("เมนูนี้ต้องใช้สิทธิ์ Owner/Admin");
     return;
   }
+  if (view !== "settings") clearBusinessManagementScrollRestore();
 
   const sequence = ++app.mobileNavigationSequence;
   const previousPage = app.view;
@@ -7138,29 +7225,48 @@ async function setMobileNavView(view) {
   }
 }
 
-function syncViewFromLocation() {
+function syncViewFromLocation(event = null) {
   const nextView = routeFromLocation();
+  const previousBusinessPage = app.mobileBusinessPage || "main";
   if (!app.currentUser && nextView !== "login") {
+    clearBusinessManagementScrollRestore();
+    app.mobileBusinessPage = "main";
     app.view = "login";
     navigateToView("login", true);
     render();
     return;
   }
   if (app.currentUser && nextView === "login") {
+    clearBusinessManagementScrollRestore();
+    app.mobileBusinessPage = "main";
     app.view = "dashboard";
     navigateToView("dashboard", true);
     render();
     return;
   }
   if (!canAccessView(nextView)) {
+    clearBusinessManagementScrollRestore();
+    app.mobileBusinessPage = "main";
     app.view = "settings";
     navigateToView("settings", true);
     showToast("เมนูนี้ต้องใช้สิทธิ์ Owner/Admin");
     render();
     return;
   }
+  if (nextView === "settings" && event?.type === "popstate") {
+    const nextBusinessPage = event.state?.businessManagementPage || "main";
+    if (previousBusinessPage === "main" && nextBusinessPage !== "main") saveBusinessManagementScrollPosition();
+    app.mobileBusinessPage = nextBusinessPage;
+    if (nextBusinessPage !== "security") app.securityDetailKey = "";
+  } else if (nextView !== "settings") {
+    clearBusinessManagementScrollRestore();
+    app.mobileBusinessPage = "main";
+  }
   app.view = nextView;
   render();
+  if (nextView === "settings" && previousBusinessPage !== "main" && app.mobileBusinessPage === "main") {
+    restoreBusinessManagementScrollWhenReady();
+  }
 }
 
 function setOrderSaveState(isSaving) {
@@ -7646,6 +7752,7 @@ document.addEventListener("click", async event => {
   const navButton = event.target.closest("[data-view]");
   if (navButton) {
     const nextView = navButton.dataset.view;
+    if (nextView !== "settings") clearBusinessManagementScrollRestore();
     if (nextView === "settings") app.mobileBusinessPage = "main";
     if (isMobileViewport()) await setMobileNavView(nextView);
     else setView(nextView);
@@ -7655,13 +7762,14 @@ document.addEventListener("click", async event => {
 
   const businessPageButton = event.target.closest("[data-business-page]");
   if (businessPageButton && app.view === "settings") {
-    app.mobileBusinessPage = businessPageButton.dataset.businessPage || "main";
-    if (app.mobileBusinessPage !== "security") app.securityDetailKey = "";
-    renderSettings();
-    if (app.mobileBusinessPage === "import" && !app.importWorker) {
-      refreshImportJob().catch(error => showToast(error.message));
+    const nextPage = businessPageButton.dataset.businessPage || "main";
+    const statePage = history.state?.businessManagementPage || "main";
+    if (nextPage === "main" && statePage !== "main") {
+      history.back();
+      return;
     }
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    setBusinessManagementPage(nextPage);
+    if (nextPage !== "main") window.scrollTo({ top: 0, behavior: "smooth" });
     return;
   }
 
@@ -7691,8 +7799,7 @@ document.addEventListener("click", async event => {
   const businessCustomerButton = event.target.closest("[data-business-customer]");
   if (businessCustomerButton && app.view === "settings") {
     app.mobileBusinessCustomerId = businessCustomerButton.dataset.businessCustomer;
-    app.mobileBusinessPage = "customerDetail";
-    renderSettings();
+    setBusinessManagementPage("customerDetail");
     window.scrollTo({ top: 0, behavior: "smooth" });
     return;
   }
@@ -7701,8 +7808,7 @@ document.addEventListener("click", async event => {
   if (businessProductButton && app.view === "settings") {
     app.mobileBusinessProductId = businessProductButton.dataset.businessProduct;
     app.mobileBusinessProductReturnPage = app.mobileBusinessPage === "finance" ? "finance" : "products";
-    app.mobileBusinessPage = "productDetail";
-    renderSettings();
+    setBusinessManagementPage("productDetail");
     window.scrollTo({ top: 0, behavior: "smooth" });
     return;
   }
@@ -7710,8 +7816,11 @@ document.addEventListener("click", async event => {
   const addUserButton = event.target.closest("[data-add-user]");
   if (addUserButton) {
     app.editingUserId = "__new";
-    if (app.view === "settings") app.mobileBusinessPage = "userEditor";
-    render();
+    if (app.view === "settings") {
+      setBusinessManagementPage("userEditor");
+    } else {
+      render();
+    }
     window.scrollTo({ top: 0, behavior: "smooth" });
     return;
   }
@@ -7719,8 +7828,11 @@ document.addEventListener("click", async event => {
   const editUserButton = event.target.closest("[data-edit-user], [data-mobile-edit-user]");
   if (editUserButton) {
     app.editingUserId = editUserButton.dataset.editUser || editUserButton.dataset.mobileEditUser || "";
-    if (app.view === "settings") app.mobileBusinessPage = "userEditor";
-    render();
+    if (app.view === "settings") {
+      setBusinessManagementPage("userEditor");
+    } else {
+      render();
+    }
     window.scrollTo({ top: 0, behavior: "smooth" });
     return;
   }
@@ -7741,8 +7853,7 @@ document.addEventListener("click", async event => {
 
   if (event.target.closest("[data-user-editor-back]")) {
     app.editingUserId = "";
-    app.mobileBusinessPage = "roles";
-    renderSettings();
+    setBusinessManagementPage("roles");
     window.scrollTo({ top: 0, behavior: "smooth" });
     return;
   }
@@ -8344,6 +8455,8 @@ document.addEventListener("submit", async event => {
         body: JSON.stringify(data)
       });
       saveSession(payload.user);
+      clearBusinessManagementScrollRestore();
+      app.mobileBusinessPage = "main";
       app.view = "dashboard";
       navigateToView("dashboard");
       showToast("เข้าสู่ระบบแล้ว");
@@ -8445,6 +8558,8 @@ document.addEventListener("submit", async event => {
       }
       els.logoutDialog.close();
       clearSession();
+      clearBusinessManagementScrollRestore();
+      app.mobileBusinessPage = "main";
       app.view = "login";
       navigateToView("login");
       render();
@@ -8705,6 +8820,8 @@ if (els.workDate) els.workDate.value = todayISO();
 async function init() {
   await restoreSession();
   if (!app.currentUser) {
+    clearBusinessManagementScrollRestore();
+    app.mobileBusinessPage = "main";
     app.view = "login";
     navigateToView("login", true);
     render();
