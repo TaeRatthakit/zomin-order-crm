@@ -651,6 +651,10 @@ async function api(path, options = {}) {
   return payload;
 }
 
+function elementId(element) {
+  return element?.getAttribute?.("id") || "";
+}
+
 async function loadState() {
   const selectedDate = els.workDate?.value || todayISO();
   try {
@@ -8278,6 +8282,7 @@ document.addEventListener("change", async event => {
 document.addEventListener("submit", async event => {
   event.preventDefault();
   const form = event.target;
+  const currentFormId = elementId(form);
 
   try {
     if (form.matches("[data-mobile-opportunity-search]")) {
@@ -8287,7 +8292,7 @@ document.addEventListener("submit", async event => {
       return;
     }
 
-    if (form.id === "loginForm") {
+    if (currentFormId === "loginForm") {
       const data = Object.fromEntries(new FormData(form).entries());
       const payload = await api("/api/login", {
         method: "POST",
@@ -8302,11 +8307,11 @@ document.addEventListener("submit", async event => {
       return;
     }
 
-    if (form.id === "orderForm") {
+    if (currentFormId === "orderForm") {
       await submitOrder(form);
     }
 
-    if (form.id === "productForm") {
+    if (currentFormId === "productForm") {
       if (app.productSavePending) return;
       setProductSaveState(true);
       const data = Object.fromEntries(new FormData(form).entries());
@@ -8339,7 +8344,7 @@ document.addEventListener("submit", async event => {
       }
     }
 
-    if (form.id === "deleteOrderForm" && app.deletingOrderId) {
+    if (currentFormId === "deleteOrderForm" && app.deletingOrderId) {
       const snapshot = cloneUiState();
       const deletingOrder = app.data.orders.find(order => order.id === app.deletingOrderId);
       const optimisticMutation = {
@@ -8364,7 +8369,7 @@ document.addEventListener("submit", async event => {
       }
     }
 
-    if (form.id === "deleteCustomerForm" && app.deletingCustomerId) {
+    if (currentFormId === "deleteCustomerForm" && app.deletingCustomerId) {
       await api(`/api/customers/${encodeURIComponent(app.deletingCustomerId)}`, {
         method: "DELETE"
       });
@@ -8375,7 +8380,7 @@ document.addEventListener("submit", async event => {
       await loadState();
     }
 
-    if (form.id === "deleteUserForm" && app.deletingUserId) {
+    if (currentFormId === "deleteUserForm" && app.deletingUserId) {
       await api(`/api/team/${encodeURIComponent(app.deletingUserId)}`, {
         method: "DELETE"
       });
@@ -8387,7 +8392,7 @@ document.addEventListener("submit", async event => {
       await loadState();
     }
 
-    if (form.id === "logoutForm") {
+    if (currentFormId === "logoutForm") {
       try {
         await api("/api/logout", { method: "POST" });
       } catch {
@@ -8400,7 +8405,7 @@ document.addEventListener("submit", async event => {
       render();
     }
 
-    if (form.id === "teamForm") {
+    if (currentFormId === "teamForm") {
       const data = Object.fromEntries(new FormData(form).entries());
       const id = String(data.id || "").trim();
       delete data.id;
@@ -8414,7 +8419,7 @@ document.addEventListener("submit", async event => {
       await loadState();
     }
 
-    if (form.id === "tagsForm") {
+    if (currentFormId === "tagsForm") {
       const data = Object.fromEntries(new FormData(form).entries());
       await api("/api/tags", {
         method: "POST",
@@ -8425,7 +8430,7 @@ document.addEventListener("submit", async event => {
       await loadState();
     }
 
-    if (form.id === "adCostForm") {
+    if (currentFormId === "adCostForm") {
       const data = Object.fromEntries(new FormData(form).entries());
       const product = productRowsData().find(item => item.id === data.productId);
       const platform = normalizeAdPlatforms().find(item => item.id === data.platformId);
@@ -8445,7 +8450,7 @@ document.addEventListener("submit", async event => {
       return;
     }
 
-    if (form.id === "adPlatformForm") {
+    if (currentFormId === "adPlatformForm") {
       const data = Object.fromEntries(new FormData(form).entries());
       data.enabled = form.elements.enabled.checked;
       const id = String(data.id || "");
@@ -8460,7 +8465,7 @@ document.addEventListener("submit", async event => {
       return;
     }
 
-    if (form.id === "settingsForm") {
+    if (currentFormId === "settingsForm") {
       const settingsSaveButton = form.querySelector("[data-settings-save]");
       if (settingsSaveButton) {
         if (app.settingsSavePending) return;
@@ -8518,7 +8523,7 @@ document.addEventListener("submit", async event => {
       await loadState();
     }
 
-    if (form.id === "settingsVipForm") {
+    if (currentFormId === "settingsVipForm") {
       const data = Object.fromEntries(new FormData(form).entries());
       await api("/api/settings", {
         method: "PUT",
@@ -8528,7 +8533,7 @@ document.addEventListener("submit", async event => {
       await loadState();
     }
 
-    if (form.id === "vipThresholdForm") {
+    if (currentFormId === "vipThresholdForm") {
       const data = Object.fromEntries(new FormData(form).entries());
       await api("/api/settings", {
         method: "PUT",
@@ -8538,7 +8543,7 @@ document.addEventListener("submit", async event => {
       await loadState();
     }
 
-    if (form.id === "settingsLineForm") {
+    if (currentFormId === "settingsLineForm") {
       const data = Object.fromEntries(new FormData(form).entries());
       data.lineWebhookEnabled = form.elements.lineWebhookEnabled.checked;
       await api("/api/settings", {
@@ -8549,7 +8554,7 @@ document.addEventListener("submit", async event => {
       await loadState();
     }
 
-    if (form.id === "rulesForm") {
+    if (currentFormId === "rulesForm") {
       const data = Object.fromEntries(new FormData(form).entries());
       await api("/api/followup-rules", {
         method: "PUT",
@@ -8559,7 +8564,7 @@ document.addEventListener("submit", async event => {
       await loadState();
     }
 
-    if (form.id === "contactForm") {
+    if (currentFormId === "contactForm") {
       const data = Object.fromEntries(new FormData(form).entries());
       await api("/api/contact-log", {
         method: "POST",
@@ -8570,7 +8575,7 @@ document.addEventListener("submit", async event => {
       await loadState();
     }
 
-    if (form.id === "customerEditForm") {
+    if (currentFormId === "customerEditForm") {
       const data = Object.fromEntries(new FormData(form).entries());
       await api(`/api/customers/${encodeURIComponent(data.customerId)}`, {
         method: "PUT",
@@ -8581,7 +8586,7 @@ document.addEventListener("submit", async event => {
       await loadState();
     }
 
-    if (form.id === "profileForm") {
+    if (currentFormId === "profileForm") {
       const data = Object.fromEntries(new FormData(form).entries());
       const displayName = String(data.displayName || "").trim();
       if (!displayName) {
