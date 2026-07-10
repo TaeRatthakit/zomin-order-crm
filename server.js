@@ -20,7 +20,8 @@ const {
   verifyCustomerSync,
   persistOrderMutation,
   persistOrderProfitSnapshots,
-  persistUserProfile
+  persistUserProfile,
+  persistSettingsPatch
 } = require("./lib/db");
 const {
   hashPassword,
@@ -538,6 +539,13 @@ function publicSettings(settings = {}) {
     lineChannelAccessTokenFromEnv: Boolean(process.env.LINE_CHANNEL_ACCESS_TOKEN),
     lineGroupIdFromEnv: Boolean(process.env.LINE_GROUP_ID),
     openaiApiKeyFromEnv: Boolean(process.env.OPENAI_API_KEY)
+  };
+}
+
+function financeSettingsPayload(settings = {}) {
+  return {
+    productCosts: normalizeSettingsCostRows(settings.productCosts, "costPerJar"),
+    additionalCosts: normalizeSettingsCostRows(settings.additionalCosts, "amount")
   };
 }
 
@@ -2202,7 +2210,41 @@ async function handleApi(req, res) {
     if (handled !== false) return;
   }
 
+  if (req.method === "PUT" && url.pathname === "/api/settings/finance") {
+    if (!requireAdmin(req, res)) return;
+    const body = await readBody(req);
+    const patch = {};
+    if (body.productCosts !== undefined) {
+      patch.productCosts = normalizeSettingsCostRows(body.productCosts, "costPerJar");
+    }
+    if (body.additionalCosts !== undefined) {
+      patch.additionalCosts = normalizeSettingsCostRows(body.additionalCosts, "amount");
+    }
+    if (patch.productCosts === undefined && patch.additionalCosts === undefined) {
+      return json(res, 400, { ok: false, error: "ไม่มีข้อมูลต้นทุนให้บันทึก" });
+    }
+    const persistStartedAt = Date.now();
+    if (typeof persistSettingsPatch === "function") {
+      await persistSettingsPatch(patch);
+    } else {
+      const fallbackDb = await readDb();
+      fallbackDb.settings = { ...(fallbackDb.settings || {}), ...patch };
+      await writeDb(fallbackDb);
+    }
+    const persistMs = Date.now() - persistStartedAt;
+    return json(res, 200, {
+      ok: true,
+      settings: financeSettingsPayload(patch)
+    }, {
+      "Server-Timing": `dbread;dur=0, dbwrite;dur=${persistMs}`,
+      "X-Settings-Db-Read-Ms": "0",
+      "X-Settings-Db-Write-Ms": String(persistMs)
+    });
+  }
+
+  const dbReadStartedAt = Date.now();
   const db = await readDb();
+  const dbReadMs = Date.now() - dbReadStartedAt;
   const currentUser = isLineWebhook ? null : requireUser(req, res);
   if (!isLineWebhook && !currentUser) return;
 
@@ -2681,7 +2723,10 @@ async function handleApi(req, res) {
         : Boolean(body.staffCanExport)
     };
     await writeDb(db);
-    return json(res, 200, { ok: true, settings: publicSettings(db.settings) });
+    return json(res, 200, { ok: true, settings: publicSettings(db.settings) }, {
+      "Server-Timing": `dbread;dur=${dbReadMs}`,
+      "X-Settings-Db-Read-Ms": String(dbReadMs)
+    });
   }
 
   if (req.method === "POST" && url.pathname === "/api/products") {

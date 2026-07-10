@@ -4454,6 +4454,24 @@ function refreshAdditionalCostsSummary() {
   if (target) target.textContent = `${money(total)} บาท`;
 }
 
+function readFinanceSettingsForm(form) {
+  return {
+    productCosts: Array.from(form.querySelectorAll("[data-product-cost-row]")).map(row => ({
+      id: row.dataset.id,
+      name: row.querySelector("[name='productCostName']")?.value.trim(),
+      costPerJar: Number(row.querySelector("[name='productCostAmount']")?.value || 0),
+      enabled: row.querySelector("[name='productCostEnabled']")?.checked
+    })).filter(item => item.name),
+    additionalCosts: Array.from(form.querySelectorAll("[data-additional-cost-row]")).map(row => ({
+      id: row.dataset.id,
+      name: row.querySelector("[name='additionalCostName']")?.value.trim(),
+      amount: Number(row.querySelector("[name='additionalCostAmount']")?.value || 0),
+      type: row.querySelector("[name='additionalCostType']")?.value || "fixed_per_order",
+      enabled: row.querySelector("[name='additionalCostEnabled']")?.checked
+    })).filter(item => item.name)
+  };
+}
+
 function followupCards(customers, compact = false) {
   if (!customers.length) return `<div class="empty-state">ยังไม่มีลูกค้าถึงกำหนดในวันนี้</div>`;
   return `
@@ -8094,6 +8112,23 @@ document.addEventListener("submit", async event => {
         if (app.settingsSavePending) return;
         app.settingsSavePending = true;
         setSettingsSaveState("saving", settingsSaveButton);
+        const data = readFinanceSettingsForm(form);
+        const payload = await api("/api/settings/finance", {
+          method: "PUT",
+          body: JSON.stringify(data)
+        });
+        if (app.data?.settings) {
+          app.data.settings = {
+            ...app.data.settings,
+            ...(payload.settings || data)
+          };
+        }
+        setSettingsSaveState("saved", settingsSaveButton);
+        await new Promise(resolve => setTimeout(resolve, 1200));
+        showToast("บันทึกต้นทุนและค่าใช้จ่ายแล้ว");
+        app.settingsSavePending = false;
+        renderSettings();
+        return;
       }
       const data = Object.fromEntries(new FormData(form).entries());
       if (form.elements.lineWebhookEnabled) data.lineWebhookEnabled = form.elements.lineWebhookEnabled.checked;
