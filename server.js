@@ -549,6 +549,13 @@ function financeSettingsPayload(settings = {}) {
   };
 }
 
+function productSettingsPayload(settings = {}) {
+  return {
+    products: normalizeProductRecords(settings.products),
+    productCosts: normalizeSettingsCostRows(settings.productCosts, "costPerJar")
+  };
+}
+
 function marketingPerformanceForDb(db, period = {}) {
   return marketingPerformance({
     orders: db.orders || [],
@@ -2783,9 +2790,20 @@ async function handleApi(req, res) {
     };
     if (existingCostIndex === -1) productCosts.push(costRow);
     else productCosts[existingCostIndex] = costRow;
-    db.settings = { ...db.settings, products, productCosts };
-    await writeDb(db);
-    return json(res, 200, { ok: true, product, settings: publicSettings(db.settings) });
+    const patch = { products, productCosts };
+    const persistStartedAt = Date.now();
+    if (typeof persistSettingsPatch === "function") {
+      await persistSettingsPatch(patch);
+    } else {
+      db.settings = { ...db.settings, ...patch };
+      await writeDb(db);
+    }
+    const persistMs = Date.now() - persistStartedAt;
+    return json(res, 200, { ok: true, product, settings: productSettingsPayload(patch) }, {
+      "Server-Timing": `dbread;dur=0, dbwrite;dur=${persistMs}`,
+      "X-Settings-Db-Read-Ms": "0",
+      "X-Settings-Db-Write-Ms": String(persistMs)
+    });
   }
 
   if (req.method === "PUT" && /^\/api\/products\/[^/]+$/.test(url.pathname)) {
@@ -2815,9 +2833,20 @@ async function handleApi(req, res) {
     };
     if (costIndex === -1) productCosts.push(costRow);
     else productCosts[costIndex] = costRow;
-    db.settings = { ...db.settings, products, productCosts };
-    await writeDb(db);
-    return json(res, 200, { ok: true, product: next, settings: publicSettings(db.settings) });
+    const patch = { products, productCosts };
+    const persistStartedAt = Date.now();
+    if (typeof persistSettingsPatch === "function") {
+      await persistSettingsPatch(patch);
+    } else {
+      db.settings = { ...db.settings, ...patch };
+      await writeDb(db);
+    }
+    const persistMs = Date.now() - persistStartedAt;
+    return json(res, 200, { ok: true, product: next, settings: productSettingsPayload(patch) }, {
+      "Server-Timing": `dbread;dur=0, dbwrite;dur=${persistMs}`,
+      "X-Settings-Db-Read-Ms": "0",
+      "X-Settings-Db-Write-Ms": String(persistMs)
+    });
   }
 
   if (req.method === "POST" && /^\/api\/products\/[^/]+\/archive$/.test(url.pathname)) {

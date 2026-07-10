@@ -6606,6 +6606,23 @@ function readProductPackageDraft() {
   });
 }
 
+function applyProductSavePayload(payload = {}) {
+  if (!app.data) return;
+  app.data.settings = app.data.settings || {};
+  if (Array.isArray(payload.settings?.products)) {
+    app.data.settings.products = normalizeProductRecords({ products: payload.settings.products });
+  } else if (payload.product) {
+    const products = normalizeProductRecords();
+    const index = products.findIndex(item => item.id === payload.product.id);
+    if (index === -1) products.push(payload.product);
+    else products[index] = { ...products[index], ...payload.product };
+    app.data.settings.products = normalizeProductRecords({ products });
+  }
+  if (Array.isArray(payload.settings?.productCosts)) {
+    app.data.settings.productCosts = payload.settings.productCosts;
+  }
+}
+
 function setProductSaveState(isSaving) {
   app.productSavePending = isSaving;
   if (!els.productSubmitButton) return;
@@ -7968,10 +7985,11 @@ document.addEventListener("submit", async event => {
       const url = useCreate ? "/api/products" : `/api/products/${encodeURIComponent(app.editingProductId)}`;
       const method = useCreate ? "POST" : "PUT";
       try {
-        await api(url, {
+        const payload = await api(url, {
           method,
           body: JSON.stringify(data)
         });
+        applyProductSavePayload(payload);
         app.editingProductId = "";
         app.productDraftImage = "";
         app.productPackageDraft = [];
@@ -7979,7 +7997,7 @@ document.addEventListener("submit", async event => {
         if (els.productImageFileInput) els.productImageFileInput.value = "";
         els.productDialog.close();
         showToast("บันทึกสินค้าแล้ว");
-        await loadState();
+        render();
       } finally {
         setProductSaveState(false);
       }
