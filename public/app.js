@@ -101,6 +101,7 @@ const app = {
   deletingCustomerId: "",
   editingUserId: "",
   deletingUserId: "",
+  confirmDialogResolve: null,
   teamSavePending: false,
   profileDraftImage: "",
   profileSaving: false,
@@ -351,6 +352,10 @@ const els = {
   deleteUserDialog: document.querySelector("#deleteUserDialog"),
   deleteUserForm: document.querySelector("#deleteUserForm"),
   deleteUserName: document.querySelector("#deleteUserName"),
+  confirmDialog: document.querySelector("#confirmDialog"),
+  confirmDialogTitle: document.querySelector("#confirmDialogTitle"),
+  confirmDialogMessage: document.querySelector("#confirmDialogMessage"),
+  confirmDialogAccept: document.querySelector("#confirmDialogAccept"),
   logoutDialog: document.querySelector("#logoutDialog"),
   logoutForm: document.querySelector("#logoutForm"),
   profileDialog: document.querySelector("#profileDialog"),
@@ -7460,6 +7465,26 @@ function openDeleteCustomerDialog(customerId) {
   els.deleteCustomerDialog.showModal();
 }
 
+function resolveConfirmDialog(confirmed = false) {
+  if (app.confirmDialogResolve) {
+    app.confirmDialogResolve(Boolean(confirmed));
+    app.confirmDialogResolve = null;
+  }
+  if (els.confirmDialog?.open) els.confirmDialog.close();
+}
+
+function showConfirmDialog({ title, message, confirmText = "ยืนยัน" }) {
+  if (!els.confirmDialog) return Promise.resolve(false);
+  if (els.confirmDialog.open) resolveConfirmDialog(false);
+  if (els.confirmDialogTitle) els.confirmDialogTitle.textContent = title || "ยืนยันการทำรายการ";
+  if (els.confirmDialogMessage) els.confirmDialogMessage.textContent = message || "คุณต้องการดำเนินการต่อใช่หรือไม่?";
+  if (els.confirmDialogAccept) els.confirmDialogAccept.textContent = confirmText;
+  els.confirmDialog.showModal();
+  return new Promise(resolve => {
+    app.confirmDialogResolve = resolve;
+  });
+}
+
 function openDeleteUserDialog(userId) {
   const user = (app.data.users || []).find(item => item.id === userId);
   if (!user) return;
@@ -8015,7 +8040,12 @@ document.addEventListener("click", async event => {
 
   const deleteAdCostButton = event.target.closest("[data-delete-ad-cost]");
   if (deleteAdCostButton) {
-    if (!window.confirm("ลบรายการค่าโฆษณานี้ใช่หรือไม่?")) return;
+    const confirmed = await showConfirmDialog({
+      title: "ลบรายการค่าโฆษณา?",
+      message: "ลบรายการค่าโฆษณานี้ใช่หรือไม่?",
+      confirmText: "ลบรายการ"
+    });
+    if (!confirmed) return;
     await api(`/api/ad-costs/${encodeURIComponent(deleteAdCostButton.dataset.deleteAdCost)}`, { method: "DELETE" });
     app.editingAdCostId = "";
     showToast("ลบรายการค่าโฆษณาแล้ว");
@@ -8052,7 +8082,12 @@ document.addEventListener("click", async event => {
 
   const deleteAdPlatformButton = event.target.closest("[data-delete-ad-platform]");
   if (deleteAdPlatformButton) {
-    if (!window.confirm("ลบแพลตฟอร์มนี้ใช่หรือไม่? รายการค่าโฆษณาเดิมจะยังคงอยู่")) return;
+    const confirmed = await showConfirmDialog({
+      title: "ลบแพลตฟอร์มโฆษณา?",
+      message: "ลบแพลตฟอร์มนี้ใช่หรือไม่? รายการค่าโฆษณาเดิมจะยังคงอยู่",
+      confirmText: "ลบแพลตฟอร์ม"
+    });
+    if (!confirmed) return;
     await api(`/api/ad-platforms/${encodeURIComponent(deleteAdPlatformButton.dataset.deleteAdPlatform)}`, { method: "DELETE" });
     app.editingAdPlatformId = "";
     showToast("ลบแพลตฟอร์มแล้ว");
@@ -8281,6 +8316,9 @@ document.addEventListener("click", async event => {
     els.deleteUserDialog.close();
   }
 
+  if (event.target.closest("[data-close-confirm]")) resolveConfirmDialog(false);
+  if (event.target.closest("[data-accept-confirm]")) resolveConfirmDialog(true);
+
   if (event.target.closest("[data-close-customer]")) els.customerDialog.close();
   if (event.target.closest("[data-close-profile]")) els.profileDialog.close();
   if (event.target.closest("[data-close-product]")) {
@@ -8295,6 +8333,11 @@ document.addEventListener("click", async event => {
   }
   if (event.target.closest("[data-close-product-detail]")) els.productDetailDialog.close();
 
+});
+
+els.confirmDialog?.addEventListener("cancel", event => {
+  event.preventDefault();
+  resolveConfirmDialog(false);
 });
 
 document.addEventListener("dragover", event => {
