@@ -209,6 +209,10 @@ function canExportData() {
   return can("orders.export") || can("customers.export") || can("reports.export");
 }
 
+function isSettingsHierarchyView(view) {
+  return view === "settings" || String(view || "").startsWith("settings");
+}
+
 function canAccessView(view) {
   if (ownerViews.has(view)) return isOwner();
   if (view === "orders") return can("orders.view");
@@ -3346,20 +3350,7 @@ function renderMobileBusinessProductDetail() {
 }
 
 function renderMobileBusinessSystem() {
-  const settings = app.data.settings || {};
-  return `
-    <section class="mobile-business-page mobile-business-subpage">
-      ${mobileBusinessHeader("ตั้งค่าระบบ", "ตั้งค่าข้อมูลธุรกิจและการทำงานของระบบ", "settings")}
-      <form class="mobile-business-form" id="settingsForm">
-        <input name="daysPerUnit" type="hidden" value="${Math.max(1, Number(settings.followUpDaysPerUnit || 15))}">
-        <label>ชื่อธุรกิจ<input name="businessName" value="${escapeHtml(safeBusinessName(settings.businessName, ""))}" placeholder="Growup Pilot"></label>
-        <label>ประเภทธุรกิจ<input value="${escapeHtml(settings.businessType || "")}" placeholder="ยังไม่ได้ระบุ" disabled></label>
-        <label>ราคาต่อชิ้นเริ่มต้น (บาท)<input name="defaultJarPrice" type="number" min="0" value="${Number(settings.defaultJarPrice || 0)}"></label>
-        <p class="mobile-business-form-note">ประเภทธุรกิจยังไม่มีแหล่งข้อมูลสำหรับบันทึก ระบบจึงแสดงสถานะว่างอย่างปลอดภัย</p>
-        <button class="button primary mobile-business-full-button" type="submit">บันทึกการตั้งค่า</button>
-      </form>
-    </section>
-  `;
+  return settingsMenuMarkup({ embeddedInBusiness: true });
 }
 
 function renderMobileBusinessNotifications() {
@@ -3783,7 +3774,7 @@ function renderMobileBusinessManagement() {
 }
 
 function renderSettings() {
-  renderSettingsMenu();
+  renderMobileBusinessManagement();
 }
 
 function setBusinessManagementPage(page, options = {}) {
@@ -6501,11 +6492,13 @@ const settingsMenuItems = [
   { view: "settingsIntegrations", title: "Integrations", titleTh: "การเชื่อมต่อ", description: "เชื่อมต่อบริการภายนอก เช่น LINE, Facebook, Google และอื่นๆ", icon: "link", tone: "cyan" }
 ];
 
-function settingsSubpageShell(kicker, title, description, inner) {
+function settingsSubpageShell(kicker, title, description, inner, options = {}) {
+  const backView = options.backView || "settingsNavigation";
+  const backLabel = options.backLabel || "กลับไปหน้าตั้งค่า";
   return `
     <section class="section saas-page settings-page settings-premium-page settings-subpage">
       <div class="settings-subpage-header">
-        <button class="subpage-back settings-inline-back" type="button" data-view-shortcut="settings" aria-label="กลับไปหน้าตั้งค่า">←</button>
+        <button class="subpage-back settings-inline-back" type="button" data-settings-back="${escapeHtml(backView)}" aria-label="${escapeHtml(backLabel)}">←</button>
         <div class="page-identity-copy">
           <span class="page-kicker">${escapeHtml(kicker)}</span>
           <h2>${escapeHtml(title)}</h2>
@@ -6521,11 +6514,11 @@ function settingsIcon(name) {
   return iconSvg(name);
 }
 
-function renderSettingsMenu() {
-  els.content.innerHTML = `
+function settingsMenuMarkup({ embeddedInBusiness = false } = {}) {
+  return `
     <section class="section saas-page settings-page settings-premium-page settings-menu-workspace grow-settings-shell">
       <div class="settings-subpage-header settings-main-header">
-        <button class="subpage-back settings-inline-back" type="button" data-view-shortcut="settings" aria-label="กลับไปหน้าจัดการธุรกิจ">${iconSvg("arrow")}</button>
+        <button class="subpage-back settings-inline-back" type="button" ${embeddedInBusiness ? 'data-business-page="main"' : 'data-view-shortcut="settings"'} aria-label="กลับไปหน้าจัดการธุรกิจ">${iconSvg("arrow")}</button>
         <div class="page-identity-copy">
           <h2>ตั้งค่า</h2>
           <p>จัดการการตั้งค่าของระบบและธุรกิจของคุณ</p>
@@ -6545,6 +6538,10 @@ function renderSettingsMenu() {
       </div>
     </section>
   `;
+}
+
+function renderSettingsMenu() {
+  els.content.innerHTML = settingsMenuMarkup();
 }
 
 function userRoleLabel(role) {
@@ -7148,6 +7145,8 @@ function renderSettingsLineHub() {
         </article>
       </div>
     `
+    ,
+    { backView: "settingsIntegrations", backLabel: "กลับไปหน้าการเชื่อมต่อ" }
   );
 }
 
@@ -8084,7 +8083,7 @@ function setView(view) {
   if (app.view === "settings" && app.mobileBusinessPage === "customers" && view !== "settings") {
     resetCustomerManagementState({ resetGroup: true });
   }
-  if (view !== "settings") clearBusinessManagementScrollRestore();
+  if (!isSettingsHierarchyView(view)) clearBusinessManagementScrollRestore();
   app.mobileOrderMenuId = "";
   app.view = view;
   clearTimeout(app.importPollTimer);
@@ -8092,6 +8091,21 @@ function setView(view) {
   render();
   refreshSharedState().catch(error => console.warn("[state-sync]", error.message || error));
   if (view === "import" && !app.importWorker) refreshImportJob().catch(error => showToast(error.message));
+}
+
+function showSettingsNavigationPage({ replaceHistory = false } = {}) {
+  if (!canAccessView("settings")) {
+    showToast("เมนูนี้ต้องใช้สิทธิ์ Owner/Admin");
+    return;
+  }
+  app.mobileOrderMenuId = "";
+  app.view = "settings";
+  app.mobileBusinessPage = "system";
+  clearTimeout(app.importPollTimer);
+  navigateToView("settings", replaceHistory);
+  pushBusinessManagementHistory("system", true);
+  render();
+  refreshSharedState().catch(error => console.warn("[state-sync]", error.message || error));
 }
 
 async function setMobileNavView(view) {
@@ -8105,7 +8119,7 @@ async function setMobileNavView(view) {
   if (app.view === "settings" && app.mobileBusinessPage === "customers" && view !== "settings") {
     resetCustomerManagementState({ resetGroup: true });
   }
-  if (view !== "settings") clearBusinessManagementScrollRestore();
+  if (!isSettingsHierarchyView(view)) clearBusinessManagementScrollRestore();
 
   const sequence = ++app.mobileNavigationSequence;
   const previousPage = app.view;
@@ -8184,7 +8198,7 @@ function syncViewFromLocation(event = null) {
     if (previousBusinessPage === "customers" && nextBusinessPage !== "customers") resetCustomerManagementState({ resetGroup: true });
     app.mobileBusinessPage = nextBusinessPage;
     if (nextBusinessPage !== "security") app.securityDetailKey = "";
-  } else if (nextView !== "settings") {
+  } else if (!isSettingsHierarchyView(nextView)) {
     if (wasCustomerManagement && !["customers", "settingsCustomers"].includes(nextView)) resetCustomerManagementState({ resetGroup: true });
     clearBusinessManagementScrollRestore();
     app.mobileBusinessPage = "main";
@@ -8795,7 +8809,7 @@ document.addEventListener("click", async event => {
     const nextPage = businessPageButton.dataset.businessPage || "main";
     if (nextPage !== app.mobileBusinessPage && !await confirmDiscardPermissionChanges()) return;
     const statePage = history.state?.businessManagementPage || "main";
-    if (nextPage === "main" && statePage !== "main") {
+    if (nextPage === "main" && statePage !== "main" && app.mobileBusinessPage !== "system") {
       history.back();
       return;
     }
@@ -9218,6 +9232,14 @@ document.addEventListener("click", async event => {
 
   if (event.target.closest("[data-reset-settings]")) {
     render();
+    return;
+  }
+
+  const settingsBackButton = event.target.closest("[data-settings-back]");
+  if (settingsBackButton) {
+    const target = settingsBackButton.dataset.settingsBack || "settingsNavigation";
+    if (target === "settingsNavigation") showSettingsNavigationPage();
+    else setView(target);
     return;
   }
 
