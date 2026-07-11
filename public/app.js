@@ -128,7 +128,9 @@ const app = {
   permissionRole: "Admin",
   permissionCatalog: [],
   rolePermissionsDraft: null,
+  rolePermissionsSavedSnapshot: "",
   recommendedRolePermissions: null,
+  openPermissionGroups: null,
   permissionsSavePending: false
 };
 
@@ -6852,6 +6854,31 @@ function permissionMatrix() {
   return app.rolePermissionsDraft || { Owner: {}, Admin: {}, Staff: {} };
 }
 
+function permissionDraftSnapshot(value = app.rolePermissionsDraft) {
+  const source = value || {};
+  return JSON.stringify({
+    Admin: source.Admin || {},
+    Staff: source.Staff || {}
+  });
+}
+
+function markPermissionDraftSaved() {
+  app.rolePermissionsSavedSnapshot = permissionDraftSnapshot();
+}
+
+function hasUnsavedPermissionChanges() {
+  return Boolean(app.rolePermissionsDraft) && permissionDraftSnapshot() !== app.rolePermissionsSavedSnapshot;
+}
+
+async function confirmDiscardPermissionChanges() {
+  if (!hasUnsavedPermissionChanges()) return true;
+  return showConfirmDialog({
+    title: "ยังไม่ได้บันทึกสิทธิ์",
+    message: "มีการเปลี่ยนแปลงสิทธิ์ที่ยังไม่ได้บันทึก ต้องการออกจากหน้านี้โดยไม่บันทึกหรือไม่?",
+    confirmText: "ออกโดยไม่บันทึก"
+  });
+}
+
 async function ensurePermissionEditorLoaded() {
   if (!isOwner() || app.rolePermissionsDraft) return;
   try {
@@ -6861,6 +6888,7 @@ async function ensurePermissionEditorLoaded() {
     app.recommendedRolePermissions = payload.recommended || null;
     ROLE_PERMISSION_DEFAULTS.Admin = payload.recommended?.Admin || {};
     ROLE_PERMISSION_DEFAULTS.Staff = payload.recommended?.Staff || {};
+    markPermissionDraftSaved();
     render();
   } catch (error) {
     showToast(error.message || "โหลดสิทธิ์ไม่สำเร็จ", "error");
@@ -6868,11 +6896,43 @@ async function ensurePermissionEditorLoaded() {
 }
 
 function permissionToggle(role, key, checked, disabled = false) {
+  const inputId = `permission-${role}-${key}`.replace(/[^a-zA-Z0-9_-]/g, "-");
   return `
-    <label class="permission-switch" title="${disabled ? "Owner เปิดสิทธิ์เต็มเสมอ" : ""}">
-      <input type="checkbox" data-permission-toggle data-role="${escapeHtml(role)}" data-permission="${escapeHtml(key)}" ${checked ? "checked" : ""} ${disabled ? "disabled" : ""}>
+    <label class="permission-switch" for="${escapeHtml(inputId)}" title="${disabled ? "Owner เปิดสิทธิ์เต็มเสมอ" : ""}">
+      <input id="${escapeHtml(inputId)}" type="checkbox" data-permission-toggle data-role="${escapeHtml(role)}" data-permission="${escapeHtml(key)}" ${checked ? "checked" : ""} ${disabled ? "disabled" : ""}>
       <span class="settings-switch-ui"></span>
     </label>
+  `;
+}
+
+function permissionCardMarkup(group, { mobile = false } = {}) {
+  const matrix = permissionMatrix();
+  const selectedRole = app.permissionRole || "Admin";
+  const count = group.permissions.length;
+  const enabledCount = group.permissions.filter(([key]) => Boolean(matrix[selectedRole]?.[key])).length;
+  const open = !mobile || app.openPermissionGroups?.has?.(group.id);
+  return `
+    <section class="${mobile ? "mobile-permission-card" : "permission-card"}" data-permission-group="${escapeHtml(group.id)}">
+      <button class="permission-card-head" type="button" data-permission-accordion="${escapeHtml(group.id)}" aria-expanded="${open ? "true" : "false"}">
+        <span class="permission-card-icon">${iconSvg(group.icon || "settings")}</span>
+        <span class="permission-card-title">
+          <strong>${escapeHtml(group.label)}${mobile ? ` (${count})` : ""}</strong>
+          <small>${mobile ? `${enabledCount}/${count} เปิดอยู่` : "จัดการสิทธิ์ในหมวดนี้"}</small>
+        </span>
+        ${mobile ? `<span class="permission-card-chevron">${open ? "⌃" : "⌄"}</span>` : ""}
+      </button>
+      <div class="permission-card-body" ${mobile && !open ? "hidden" : ""}>
+        ${group.permissions.map(([key, label, description]) => `
+          <div class="permission-row">
+            <span class="permission-row-copy">
+              <b>${escapeHtml(label)}</b>
+              <small>${escapeHtml(description)}</small>
+            </span>
+            ${permissionToggle(selectedRole, key, Boolean(matrix[selectedRole]?.[key]))}
+          </div>
+        `).join("")}
+      </div>
+    </section>
   `;
 }
 
@@ -6883,59 +6943,31 @@ function renderPermissionRows({ mobile = false } = {}) {
   if (!catalog.length || !matrix.Admin || !matrix.Staff) {
     return `<article class="panel stack panel-premium permission-loading">กำลังโหลดสิทธิ์...</article>`;
   }
+  if (mobile && !app.openPermissionGroups) {
+    app.openPermissionGroups = new Set([catalog[0]?.id].filter(Boolean));
+  }
   if (mobile) {
     return `
       <div class="mobile-permission-groups">
-        ${catalog.map(group => `
-          <section class="mobile-permission-card">
-            <header><span>${iconSvg(group.icon || "settings")}</span><strong>${escapeHtml(group.label)}</strong></header>
-            ${group.permissions.map(([key, label, description]) => `
-              <div class="mobile-permission-row">
-                <span><b>${escapeHtml(label)}</b><small>${escapeHtml(description)}</small></span>
-                ${permissionToggle(selectedRole, key, Boolean(matrix[selectedRole]?.[key]))}
-              </div>
-            `).join("")}
-          </section>
-        `).join("")}
+        ${catalog.map(group => permissionCardMarkup(group, { mobile })).join("")}
       </div>
     `;
   }
   return `
-    <div class="permission-table-wrap">
-      <table class="permission-table">
-        <thead>
-          <tr>
-            <th>หมวดหมู่ / ฟีเจอร์</th>
-            <th class="owner-col">Owner<br><small>สิทธิ์เต็ม</small></th>
-            <th>Admin<br><small>กำหนดสิทธิ์ได้</small></th>
-            <th>Staff<br><small>กำหนดสิทธิ์ได้</small></th>
-          </tr>
-        </thead>
-        <tbody>
-          ${catalog.map(group => `
-            <tr class="permission-group-row"><td colspan="4">${iconSvg(group.icon || "settings")} ${escapeHtml(group.label)}</td></tr>
-            ${group.permissions.map(([key, label, description]) => `
-              <tr>
-                <td><strong>${escapeHtml(label)}</strong><small>${escapeHtml(description)}</small></td>
-                <td class="owner-col"><span class="permission-locked">เปิดเสมอ</span></td>
-                <td>${permissionToggle("Admin", key, Boolean(matrix.Admin?.[key]))}</td>
-                <td>${permissionToggle("Staff", key, Boolean(matrix.Staff?.[key]))}</td>
-              </tr>
-            `).join("")}
-          `).join("")}
-        </tbody>
-      </table>
+    <div class="permission-card-grid">
+      ${catalog.map(group => permissionCardMarkup(group)).join("")}
     </div>
   `;
 }
 
 function renderPermissionsPanel({ mobile = false } = {}) {
   const selectedRole = app.permissionRole || "Admin";
+  const dirty = hasUnsavedPermissionChanges();
   return `
-    <section class="${mobile ? "mobile-permissions-panel" : "permissions-panel panel panel-premium"}">
+    <section class="${mobile ? "mobile-permissions-panel" : "permissions-panel"}">
       <div class="permission-toolbar">
         <label>เลือก Role เพื่อกำหนดสิทธิ์
-          <select data-permission-role>${permissionsRoleOptions(selectedRole)}</select>
+          <select data-permission-role aria-label="เลือก Role เพื่อกำหนดสิทธิ์">${permissionsRoleOptions(selectedRole)}</select>
         </label>
         <div class="permission-actions">
           <button class="button primary" type="button" data-permission-enable-all>เปิดทั้งหมด</button>
@@ -6945,7 +6977,8 @@ function renderPermissionsPanel({ mobile = false } = {}) {
       </div>
       ${renderPermissionRows({ mobile })}
       <div class="${mobile ? "mobile-permission-save" : "settings-submit-bar permission-save-bar"}">
-        <button class="button primary" type="button" data-save-permissions>${app.permissionsSavePending ? "กำลังบันทึก..." : "บันทึกการตั้งค่า"}</button>
+        ${dirty ? `<span class="permission-dirty-note">มีการเปลี่ยนแปลงที่ยังไม่ได้บันทึก</span>` : ""}
+        <button class="button ${dirty ? "primary" : "ghost"}" type="button" data-save-permissions ${app.permissionsSavePending ? "disabled" : ""}>${app.permissionsSavePending ? "กำลังบันทึก..." : "บันทึกการตั้งค่า"}</button>
       </div>
     </section>
   `;
@@ -6954,6 +6987,11 @@ function renderPermissionsPanel({ mobile = false } = {}) {
 function renderSettingsUsers() {
   if (!isOwner()) {
     els.content.innerHTML = `<section class="section"><article class="panel panel-premium">403 Forbidden</article></section>`;
+    return;
+  }
+  if (isMobileViewport()) {
+    app.mobileBusinessPage = app.mobileBusinessPage === "userEditor" ? "userEditor" : "roles";
+    els.content.innerHTML = renderMobileBusinessRoles();
     return;
   }
   ensurePermissionEditorLoaded();
@@ -8429,6 +8467,7 @@ document.addEventListener("click", async event => {
 
   const navButton = event.target.closest("[data-view]");
   if (navButton) {
+    if (!await confirmDiscardPermissionChanges()) return;
     const nextView = navButton.dataset.view;
     if (nextView !== "settings") clearBusinessManagementScrollRestore();
     if (nextView === "settings") app.mobileBusinessPage = "main";
@@ -8441,6 +8480,7 @@ document.addEventListener("click", async event => {
   const businessPageButton = event.target.closest("[data-business-page]");
   if (businessPageButton && app.view === "settings") {
     const nextPage = businessPageButton.dataset.businessPage || "main";
+    if (nextPage !== app.mobileBusinessPage && !await confirmDiscardPermissionChanges()) return;
     const statePage = history.state?.businessManagementPage || "main";
     if (nextPage === "main" && statePage !== "main") {
       history.back();
@@ -8531,24 +8571,19 @@ document.addEventListener("click", async event => {
 
   const settingsUsersTab = event.target.closest("[data-settings-users-tab]");
   if (settingsUsersTab) {
+    if (!await confirmDiscardPermissionChanges()) return;
     app.settingsUsersTab = settingsUsersTab.dataset.settingsUsersTab || "members";
     render();
     return;
   }
 
-  const permissionRoleSelect = event.target.closest("[data-permission-role]");
-  if (permissionRoleSelect) {
-    app.permissionRole = permissionRoleSelect.value === "Staff" ? "Staff" : "Admin";
+  const permissionAccordion = event.target.closest("[data-permission-accordion]");
+  if (permissionAccordion) {
+    const groupId = permissionAccordion.dataset.permissionAccordion || "";
+    app.openPermissionGroups = app.openPermissionGroups || new Set();
+    if (app.openPermissionGroups.has(groupId)) app.openPermissionGroups.delete(groupId);
+    else app.openPermissionGroups.add(groupId);
     render();
-    return;
-  }
-
-  const permissionToggleInput = event.target.closest("[data-permission-toggle]");
-  if (permissionToggleInput) {
-    const role = permissionToggleInput.dataset.role === "Staff" ? "Staff" : "Admin";
-    const key = permissionToggleInput.dataset.permission || "";
-    app.rolePermissionsDraft = app.rolePermissionsDraft || { Admin: {}, Staff: {} };
-    app.rolePermissionsDraft[role] = { ...(app.rolePermissionsDraft[role] || {}), [key]: permissionToggleInput.checked };
     return;
   }
 
@@ -8593,6 +8628,7 @@ document.addEventListener("click", async event => {
       });
       app.rolePermissionsDraft = payload.rolePermissions || app.rolePermissionsDraft;
       app.recommendedRolePermissions = payload.recommended || app.recommendedRolePermissions;
+      markPermissionDraftSaved();
       showToast("บันทึกสิทธิ์การเข้าถึงแล้ว");
       await loadState();
     } catch (error) {
@@ -8704,6 +8740,7 @@ document.addEventListener("click", async event => {
 
   const shortcut = event.target.closest("[data-view-shortcut]");
   if (shortcut) {
+    if (!await confirmDiscardPermissionChanges()) return;
     setView(shortcut.dataset.viewShortcut);
     document.body.classList.remove("sidebar-open");
   }
@@ -9732,6 +9769,11 @@ document.addEventListener("submit", async event => {
 
 window.addEventListener("hashchange", syncViewFromLocation);
 window.addEventListener("popstate", syncViewFromLocation);
+window.addEventListener("beforeunload", event => {
+  if (!hasUnsavedPermissionChanges()) return;
+  event.preventDefault();
+  event.returnValue = "";
+});
 window.addEventListener("resize", handleViewportResize);
 window.addEventListener("focus", () => {
   refreshCurrentUser().catch(error => console.warn("[user-sync]", error.message || error));

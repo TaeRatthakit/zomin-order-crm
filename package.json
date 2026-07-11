@@ -9,6 +9,7 @@
     "build": "node scripts/verify-build.js",
     "test": "node scripts/smoke-test.js",
     "test:permissions": "node scripts/permission-smoke-test.js",
+    "test:permission-ui": "node scripts/permission-ui-test.js",
     "test:large-import": "node scripts/test-large-import.js",
     "seed": "node scripts/seed.js",
     "seed:admin": "node scripts/seed-admin.js",

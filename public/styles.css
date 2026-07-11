@@ -9340,8 +9340,8 @@ small,
 }
 
 .permissions-panel {
-  padding: 18px;
-  overflow: hidden;
+  display: grid;
+  gap: 14px;
 }
 
 .permission-toolbar,
@@ -9354,7 +9354,11 @@ small,
 
 .permission-toolbar {
   justify-content: space-between;
-  margin-bottom: 16px;
+  margin-bottom: 0;
+  padding: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 8px;
+  background: rgba(12, 18, 32, 0.74);
 }
 
 .permission-toolbar label {
@@ -9365,81 +9369,180 @@ small,
 }
 
 .permission-toolbar select {
-  min-width: 180px;
+  min-width: 190px;
+  min-height: 38px;
+  position: relative;
+  z-index: 2;
+  cursor: pointer;
 }
 
-.permission-table-wrap {
-  overflow: auto;
-  border: 1px solid rgba(148, 163, 184, 0.14);
+.permission-actions .button {
+  min-height: 38px;
+  padding: 0 14px;
   border-radius: 8px;
 }
 
-.permission-table {
+.permission-card-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.permission-card,
+.mobile-permission-card {
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(16, 24, 42, 0.86), rgba(8, 14, 26, 0.86)),
+    radial-gradient(circle at top left, rgba(124, 45, 242, 0.14), transparent 34%);
+}
+
+.permission-card-head {
   width: 100%;
-  min-width: 760px;
-  border-collapse: collapse;
-}
-
-.permission-table th,
-.permission-table td {
-  padding: 12px 14px;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
-  color: rgba(244, 240, 255, 0.9);
-  vertical-align: middle;
-}
-
-.permission-table th {
-  background: rgba(13, 20, 36, 0.82);
-  text-align: center;
-}
-
-.permission-table th:first-child,
-.permission-table td:first-child {
+  display: grid;
+  grid-template-columns: auto minmax(130px, 190px) auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 0;
+  padding: 14px 16px;
+  border: 0;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.92);
   text-align: left;
 }
 
-.permission-table td small,
-.permission-table th small {
-  display: block;
-  margin-top: 3px;
-  color: rgba(203, 213, 225, 0.68);
-  font-size: 12px;
+.permission-card-icon {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  color: #c99cff;
+  background: rgba(124, 45, 242, 0.22);
 }
 
-.permission-group-row td {
-  color: #6ef0a0;
-  background: rgba(14, 22, 39, 0.88);
-  font-weight: 900;
-}
-
-.permission-group-row .nav-icon {
+.permission-card-icon .nav-icon {
   width: 18px;
   height: 18px;
-  margin-right: 6px;
-  vertical-align: -4px;
 }
 
-.owner-col {
-  background: rgba(251, 191, 36, 0.06);
-  box-shadow: inset 1px 0 rgba(251, 191, 36, 0.22), inset -1px 0 rgba(251, 191, 36, 0.22);
+.permission-card-title {
+  display: grid;
+  gap: 4px;
 }
 
-.permission-locked {
-  display: inline-flex;
-  align-items: center;
-  min-height: 28px;
-  color: #62e889;
+.permission-card-title strong {
+  font-size: 16px;
   font-weight: 900;
+}
+
+.permission-card-title small {
+  color: rgba(203, 213, 225, 0.64);
+  font-size: 12px;
+  line-height: 1.25;
+}
+
+.permission-card-body {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.permission-row {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 52px;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-right: 1px solid rgba(148, 163, 184, 0.1);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+}
+
+.permission-row:nth-child(3n) {
+  border-right: 0;
+}
+
+.permission-row-copy {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.permission-row-copy b,
+.permission-row-copy small {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.permission-row-copy b {
+  color: rgba(255, 255, 255, 0.94);
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.permission-row-copy small {
+  color: rgba(203, 213, 225, 0.64);
+  font-size: 12px;
 }
 
 .permission-switch {
   display: inline-flex;
   justify-content: center;
-  width: 100%;
+  align-items: center;
+  width: 52px;
+  min-height: 36px;
+  cursor: pointer;
+}
+
+.permission-switch input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.permission-switch .settings-switch-ui {
+  flex: 0 0 auto;
+  width: 42px;
+  height: 24px;
+}
+
+.permission-switch .settings-switch-ui::after {
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+}
+
+.permission-switch input:checked + .settings-switch-ui {
+  background: linear-gradient(135deg, #7b2cff 0%, #b15cff 100%);
+}
+
+.permission-switch input:checked + .settings-switch-ui::after {
+  transform: translateX(18px);
+}
+
+.permission-switch input:focus-visible + .settings-switch-ui {
+  outline: 2px solid rgba(203, 166, 255, 0.88);
+  outline-offset: 3px;
 }
 
 .permission-save-bar {
-  margin-top: 16px;
+  margin-top: 0;
+  padding: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 8px;
+  background: rgba(12, 18, 32, 0.74);
+}
+
+.permission-dirty-note {
+  margin-right: auto;
+  color: rgba(203, 213, 225, 0.76);
+  font-size: 13px;
+  font-weight: 800;
 }
 
 @media (max-width: 760px) {
@@ -9460,22 +9563,40 @@ small,
 
   .mobile-permissions-panel {
     display: grid;
-    gap: 12px;
-    padding-bottom: 86px;
+    gap: 10px;
+    padding-bottom: 112px;
   }
 
   .mobile-permissions-panel .permission-toolbar {
     display: grid;
-    gap: 10px;
+    gap: 8px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+
+  .mobile-permissions-panel .permission-toolbar label {
+    gap: 6px;
+    font-size: 12px;
+  }
+
+  .mobile-permissions-panel .permission-toolbar select {
+    min-width: 0;
+    min-height: 38px;
+    border-radius: 8px;
   }
 
   .mobile-permissions-panel .permission-actions {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
   }
 
-  .mobile-permissions-panel .permission-actions [data-permission-restore-defaults] {
-    grid-column: 1 / -1;
+  .mobile-permissions-panel .permission-actions .button {
+    min-width: 0;
+    min-height: 42px;
+    padding: 0 8px;
+    font-size: 12px;
   }
 
   .mobile-permission-groups {
@@ -9483,62 +9604,74 @@ small,
     gap: 10px;
   }
 
-  .mobile-permission-card {
-    overflow: hidden;
-    border: 1px solid rgba(148, 163, 184, 0.16);
-    border-radius: 8px;
-    background: rgba(13, 20, 36, 0.74);
+  .mobile-permission-card .permission-card-head {
+    grid-template-columns: 32px minmax(0, 1fr) 22px;
+    min-height: 46px;
+    padding: 8px 10px;
+    border-bottom: 0;
   }
 
-  .mobile-permission-card header,
-  .mobile-permission-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 12px;
+  .mobile-permission-card .permission-card-head[aria-expanded="true"] {
+    border-bottom: 1px solid rgba(148, 163, 184, 0.1);
   }
 
-  .mobile-permission-card header {
-    color: #6ef0a0;
-    border-bottom: 1px solid rgba(148, 163, 184, 0.12);
-    font-weight: 900;
+  .mobile-permission-card .permission-card-icon {
+    width: 32px;
+    height: 32px;
   }
 
-  .mobile-permission-card header .nav-icon {
-    width: 18px;
-    height: 18px;
-  }
-
-  .mobile-permission-row + .mobile-permission-row {
-    border-top: 1px solid rgba(148, 163, 184, 0.1);
-  }
-
-  .mobile-permission-row span:first-child {
-    min-width: 0;
-  }
-
-  .mobile-permission-row b,
-  .mobile-permission-row small {
-    display: block;
-  }
-
-  .mobile-permission-row b {
-    color: rgba(255, 255, 255, 0.92);
+  .mobile-permission-card .permission-card-title strong {
     font-size: 14px;
   }
 
-  .mobile-permission-row small {
-    margin-top: 3px;
-    color: rgba(203, 213, 225, 0.7);
-    font-size: 12px;
-    line-height: 1.4;
+  .mobile-permission-card .permission-card-title small {
+    font-size: 11px;
+  }
+
+  .permission-card-chevron {
+    color: rgba(226, 232, 240, 0.8);
+    font-size: 16px;
+    text-align: right;
+  }
+
+  .mobile-permission-card .permission-card-body {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .mobile-permission-card .permission-row {
+    grid-template-columns: minmax(0, 1fr) 48px;
+    gap: 8px;
+    min-height: 48px;
+    padding: 8px 10px;
+    border-right: 0;
+  }
+
+  .mobile-permission-card .permission-row-copy b {
+    font-size: 13px;
+  }
+
+  .mobile-permission-card .permission-row-copy small {
+    font-size: 11px;
+    max-width: 100%;
+  }
+
+  .mobile-permission-card .permission-switch {
+    width: 48px;
+    min-height: 36px;
   }
 
   .mobile-permission-save {
     position: sticky;
-    bottom: 12px;
+    bottom: 74px;
     z-index: 6;
+    display: grid;
+    gap: 8px;
+    padding: 10px;
+    border: 1px solid rgba(148, 163, 184, 0.14);
+    border-radius: 8px;
+    background: rgba(8, 13, 25, 0.94);
+    backdrop-filter: blur(18px);
   }
 
   .mobile-permission-save .button {
