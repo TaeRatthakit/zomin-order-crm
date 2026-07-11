@@ -83,11 +83,12 @@ function normalizeCustomerSource(value) {
     .replace(/&/g, " and ")
     .replace(/[^a-z0-9ก-๙]+/g, "_")
     .replace(/^_+|_+$/g, "");
-  const known = ["facebook", "line", "phone", "referral", "tiktok", "shopee", "lazada", "instagram", "website", "walk_in"];
+  const known = ["facebook", "line", "phone", "crm", "referral", "tiktok", "shopee", "lazada", "instagram", "website", "walk_in"];
   if (!raw) return { originSource: "", originSourceOther: "" };
   if (known.includes(normalized)) return { originSource: normalized, originSourceOther: "" };
   if (normalized.includes("facebook") || normalized === "fb" || raw.includes("เฟส") || raw.includes("เพจ") || raw.includes("ไลฟ์")) return { originSource: "facebook", originSourceOther: "" };
   if (normalized.includes("line") || raw.includes("ไลน์")) return { originSource: "line", originSourceOther: "" };
+  if (normalized === "crm" || normalized.includes("customer_relationship") || raw.includes("ลูกค้าสัมพันธ์")) return { originSource: "crm", originSourceOther: "" };
   if (normalized.includes("tiktok") || normalized.includes("tik_tok") || raw.includes("ติ๊กต็อก")) return { originSource: "tiktok", originSourceOther: "" };
   if (normalized.includes("shopee") || raw.includes("ช้อปปี้") || raw.includes("ช็อปปี้")) return { originSource: "shopee", originSourceOther: "" };
   if (normalized.includes("lazada") || raw.includes("ลาซาด้า")) return { originSource: "lazada", originSourceOther: "" };

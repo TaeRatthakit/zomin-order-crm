@@ -16960,7 +16960,11 @@ body.mobile-orders-view #orderDialog.grow-modal .form-grid.grow-modal-body {
 }
 
 .source-icon-phone {
-  background: #8b5cf6 !important;
+  background: #f59e0b !important;
+}
+
+.source-icon-crm {
+  background: #14b8a6 !important;
 }
 
 .source-icon-tiktok {

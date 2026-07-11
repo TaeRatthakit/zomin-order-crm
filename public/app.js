@@ -5585,6 +5585,7 @@ function summarizeOriginSource(value) {
     source.includes("inbox")
   ) return "Facebook";
   if (normalized.includes("line") || source.includes("ไลน์")) return "LINE";
+  if (normalized === "crm" || normalized.includes("customer_relationship") || source.includes("ลูกค้าสัมพันธ์")) return "CRM";
   if (source.includes("โทร") || normalized.includes("phone") || normalized.includes("call") || normalized.includes("tel")) return "โทร";
   return MISSING_CHANNEL_LABEL;
 }
@@ -5628,7 +5629,8 @@ const ADD_CUSTOMER_SOURCE_VALUE = "__add_source__";
 const DEFAULT_CUSTOMER_SOURCE_CHANNELS = [
   { key: "facebook", name: "Facebook", color: "#1769e8", iconKey: "facebook" },
   { key: "line", name: "LINE", color: "#06c755", iconKey: "line" },
-  { key: "phone", name: "โทร", reportName: "โทร", color: "#f59e0b", iconKey: "phone" }
+  { key: "phone", name: "โทร", reportName: "โทร", color: "#f59e0b", iconKey: "phone" },
+  { key: "crm", name: "CRM", color: "#14b8a6", iconKey: "crm" }
 ];
 const LEGACY_CUSTOMER_SOURCE_CHANNELS = [
   { key: "referral", name: "Customer Referral", color: "#f43f5e", iconKey: "tag" },
@@ -5675,6 +5677,7 @@ function normalizeCustomerSourceKey(value = "") {
     normalized.includes("inbox")
   ) return "facebook";
   if (normalized.includes("line") || normalized.includes("line_oa") || raw.includes("ไลน์")) return "line";
+  if (normalized === "crm" || normalized.includes("customer_relationship") || normalized.includes("ลูกค้าสัมพันธ์")) return "crm";
   if (normalized.includes("tiktok") || normalized.includes("tik_tok") || raw.includes("ติ๊กต็อก")) return "tiktok";
   if (normalized.includes("shopee") || raw.includes("ช้อปปี้") || raw.includes("ช็อปปี้")) return "shopee";
   if (normalized.includes("lazada") || raw.includes("ลาซาด้า")) return "lazada";
@@ -5716,6 +5719,7 @@ function customerSourceIconKey(key = "", name = "") {
   const text = `${key} ${name}`.toLowerCase();
   if (text.includes("facebook") || text.includes("fb") || text.includes("เฟส")) return "facebook";
   if (text.includes("line") || text.includes("ไลน์")) return "line";
+  if (text.includes("crm") || text.includes("ลูกค้าสัมพันธ์")) return "crm";
   if (text.includes("phone") || text.includes("call") || text.includes("tel") || text.includes("โทร")) return "phone";
   if (text.includes("tiktok") || text.includes("tik_tok") || text.includes("ติ๊กต็อก")) return "tiktok";
   if (text.includes("shopee") || text.includes("lazada") || text.includes("shop") || text.includes("ช้อป") || text.includes("ลาซาด้า")) return "shopping";
@@ -5730,6 +5734,7 @@ function customerSourceIconInner(iconKey = "", fallbackText = "") {
     facebook: `<span class="source-icon-letter">f</span>`,
     line: `<span class="source-icon-line">LINE</span>`,
     phone: iconSvg("phone"),
+    crm: iconSvg("briefcase"),
     tiktok: `<span class="source-icon-tiktok">♪</span>`,
     shopping: iconSvg("orders"),
     instagram: `<span class="source-icon-instagram">◎</span>`,
@@ -5811,6 +5816,20 @@ function customerSourceOptions({ includeOrderDerived = false } = {}) {
   return [...map.values()].sort((a, b) => (a.sortOrder - b.sortOrder) || a.name.localeCompare(b.name));
 }
 
+function reportCustomerSourceOptions() {
+  const map = new Map();
+  [...DEFAULT_CUSTOMER_SOURCE_CHANNELS, ...LEGACY_CUSTOMER_SOURCE_CHANNELS].forEach((source, index) => {
+    const option = normalizedCustomerSourceOption({ ...source, sortOrder: index });
+    if (option && !map.has(option.key)) map.set(option.key, option);
+  });
+  const configured = Array.isArray(app.data?.settings?.customerSources) ? app.data.settings.customerSources : [];
+  configured.forEach((source, index) => {
+    const option = normalizedCustomerSourceOption(source, index + DEFAULT_CUSTOMER_SOURCE_CHANNELS.length);
+    if (option) map.set(option.key, option);
+  });
+  return [...map.values()].sort((a, b) => (a.sortOrder - b.sortOrder) || a.name.localeCompare(b.name));
+}
+
 function renderCustomerSourcePicker(select, options, current = "") {
   const field = select.closest(".customer-source-field");
   const trigger = field?.querySelector("[data-source-picker-trigger]");
@@ -5863,13 +5882,12 @@ function customerSourceKeyForOrder(order = {}) {
 }
 
 function reportAcquisitionChannelRows(orders = []) {
-  const optionMap = new Map(customerSourceOptions({ includeOrderDerived: true }).map(source => [source.key, source]));
+  const optionMap = new Map(reportCustomerSourceOptions().map(source => [source.key, source]));
   const channelMap = new Map();
   for (const order of orders) {
     const key = customerSourceKeyForOrder(order);
     if (!key) continue;
-    const orderOption = customerSourceOptionFromOrder(order);
-    const option = optionMap.get(key) || orderOption || normalizedCustomerSourceOption({ key, name: key.replace(/_/g, " ") });
+    const option = optionMap.get(key);
     if (!option) continue;
     if (!channelMap.has(key)) {
       channelMap.set(key, {

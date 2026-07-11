@@ -871,7 +871,8 @@ function orderChannel(order = {}) {
 const DEFAULT_CUSTOMER_SOURCE_CHANNELS = [
   { key: "facebook", name: "Facebook" },
   { key: "line", name: "LINE" },
-  { key: "phone", name: "โทร" }
+  { key: "phone", name: "โทร" },
+  { key: "crm", name: "CRM" }
 ];
 
 const LEGACY_CUSTOMER_SOURCE_CHANNELS = [
@@ -913,6 +914,7 @@ function normalizeCustomerSourceKey(value = "") {
     normalized.includes("inbox")
   ) return "facebook";
   if (normalized.includes("line") || normalized.includes("line_oa") || raw.includes("ไลน์")) return "line";
+  if (normalized === "crm" || normalized.includes("customer_relationship") || normalized.includes("ลูกค้าสัมพันธ์")) return "crm";
   if (normalized.includes("tiktok") || normalized.includes("tik_tok") || raw.includes("ติ๊กต็อก")) return "tiktok";
   if (normalized.includes("shopee") || raw.includes("ช้อปปี้") || raw.includes("ช็อปปี้")) return "shopee";
   if (normalized.includes("lazada") || raw.includes("ลาซาด้า")) return "lazada";
