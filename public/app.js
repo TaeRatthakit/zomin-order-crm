@@ -5343,7 +5343,7 @@ function renderImportCenter({ embedded = false } = {}) {
           ` : ""}
           ${job?.lastError ? `<p class="form-error">${escapeHtml(job.lastError)}</p>` : ""}
           <div class="import-column-note">
-            คอลัมน์หลักที่รองรับ: เลขออเดอร์, วันที่ซื้อ, ช่องทางการสั่งซื้อ, Facebook / LINE ลูกค้า, ชื่อลูกค้า, เบอร์โทร, เบอร์โทรสำรอง, ที่อยู่จัดส่ง, จำนวน, ยอดซื้อ, ของแถมที่ลูกค้าได้, สถานะบัตร VIP, อาการลูกค้า, ลูกค้ามาจาก และหมายเหตุ
+            คอลัมน์หลักที่รองรับ: เลขออเดอร์, วันที่ซื้อ, ช่องทางการสั่งซื้อ, Facebook / LINE ลูกค้า, ชื่อลูกค้า, เบอร์โทร, เบอร์โทรสำรอง, ที่อยู่จัดส่ง, จำนวน, ยอดซื้อ, ของแถมที่ลูกค้าได้, สถานะบัตร VIP, อาการลูกค้า, ช่องทางการขาย และหมายเหตุ
           </div>
         </div>
         <aside class="import-center-side">
@@ -5386,7 +5386,7 @@ function renderImportInspection(inspection, busy) {
       <td data-label="ของแถม">${escapeHtml(row.freeGift || "-")}</td>
       <td data-label="บัตร VIP">${escapeHtml(row.vipCardStatus || "-")}</td>
       <td data-label="อาการลูกค้า">${escapeHtml(row.tags || "-")}</td>
-      <td data-label="ลูกค้ามาจาก">${escapeHtml(row.originSource || "-")}</td>
+      <td data-label="ช่องทางการขาย">${escapeHtml(row.originSource || "-")}</td>
       <td data-label="หมายเหตุ">${escapeHtml(row.note || "-")}</td>
     </tr>
   `).join("");
@@ -5442,7 +5442,7 @@ function renderImportInspection(inspection, busy) {
               <th>ของแถม</th>
               <th>บัตร VIP</th>
               <th>อาการลูกค้า</th>
-              <th>ลูกค้ามาจาก</th>
+              <th>ช่องทางการขาย</th>
               <th>หมายเหตุ</th>
             </tr>
           </thead>
@@ -5841,7 +5841,7 @@ function renderCustomerSourcePicker(select, options, current = "") {
   const selected = options.find(source => source.key === current);
   triggerLabel.innerHTML = selected
     ? `${customerSourceIconHtml(selected)}<span>${escapeHtml(selected.name)}</span>`
-    : `<span class="customer-source-placeholder">เลือกช่องทางการมาของลูกค้า</span>`;
+    : `<span class="customer-source-placeholder">เลือกช่องทางการขาย</span>`;
   menu.innerHTML = `
     ${options.map(source => `
       <button class="customer-source-option${source.key === current ? " is-selected" : ""}" type="button" data-source-option="${escapeHtml(source.key)}" role="option" aria-selected="${source.key === current ? "true" : "false"}">
@@ -5862,7 +5862,7 @@ function refreshCustomerSourceSelect(selectedValue = "") {
   const current = String(selectedValue || select.value || "").trim();
   const options = customerSourceOptions();
   select.innerHTML = `
-    <option value="">เลือกแหล่งที่มา</option>
+    <option value="">เลือกช่องทางการขาย</option>
     ${options.map(source => `<option value="${escapeHtml(source.key)}">${escapeHtml(source.name)}</option>`).join("")}
     <option value="${ADD_CUSTOMER_SOURCE_VALUE}">+ Add Source</option>
   `;
@@ -7392,7 +7392,7 @@ function renderCustomerDetail(customer) {
             <div class="timeline-item">
               <strong>${formatShortDate(order.date)} · ${escapeHtml(order.items || "-")} · ${order.jars} กระปุก · ${money(order.amount)} บาท</strong>
               <span class="muted">ช่องทางการสั่งซื้อ ${escapeHtml(displayOrderChannel(order))}</span>
-              <span class="muted">เบอร์สำรอง ${escapeHtml(order.alternatePhone || "-")} · ลูกค้ามาจาก ${escapeHtml(order.originSource || "-")}</span>
+              <span class="muted">เบอร์สำรอง ${escapeHtml(order.alternatePhone || "-")} · ช่องทางการขาย ${escapeHtml(order.originSource || "-")}</span>
               <span class="muted">Facebook / LINE ลูกค้า ${escapeHtml(order.socialName || "-")} · ของแถม ${escapeHtml(order.freeGift || "-")}</span>
               <span class="muted">บัตร VIP ${escapeHtml(order.vipCardStatus || "-")}</span>
               <span class="muted">อาการลูกค้า ${escapeHtml((order.tags || []).join(", ") || "-")} · หมายเหตุ ${escapeHtml(order.note || "-")}</span>
@@ -7901,7 +7901,7 @@ async function submitOrder(form) {
   const originSourceOther = String(data.originSourceOther || "").trim();
   if (selectedChoice === ADD_CUSTOMER_SOURCE_VALUE && !originSourceOther) {
     setOrderSaveState(false);
-    showToast("กรุณาระบุชื่อแหล่งที่มาใหม่");
+    showToast("กรุณาระบุช่องทางการขายใหม่");
     els.orderForm.elements.originSourceOther?.focus();
     return;
   }

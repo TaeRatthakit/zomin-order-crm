@@ -18,7 +18,7 @@ const FIELD_DEFS = [
   { key: "freeGift", label: "ของแถมที่ลูกค้าได้", required: false, aliases: ["ของแถมที่ลูกค้าได้", "free_gift", "free gift", "ของแถม", "แถม"] },
   { key: "vipCardStatus", label: "สถานะบัตร VIP", required: false, aliases: ["สถานะบัตร vip", "vip_card_status", "vip card status", "บัตร vip", "เคยได้บัตรvipแล้วหรือยัง"] },
   { key: "tags", label: "อาการลูกค้า", required: false, aliases: ["อาการลูกค้า", "tags", "tag", "แท็ก", "อาการ"] },
-  { key: "originSource", label: "ลูกค้ามาจาก", required: false, aliases: ["ลูกค้ามาจาก", "origin_source", "origin source", "มาจาก", "แหล่งที่มา"] },
+  { key: "originSource", label: "ช่องทางการขาย", required: false, aliases: ["ช่องทางการขาย", "ลูกค้ามาจาก", "origin_source", "origin source", "มาจาก", "แหล่งที่มา"] },
   { key: "note", label: "หมายเหตุ", required: false, aliases: ["หมายเหตุ", "note", "remark", "remarks"] },
   { key: "items", label: "สินค้า", required: false, aliases: ["สินค้า", "items", "product", "product_name"] }
 ];

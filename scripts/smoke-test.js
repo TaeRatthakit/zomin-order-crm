@@ -921,7 +921,7 @@ async function main() {
     "",
     "อาการลูกค้า : ปวดเข่า, นอนไม่หลับ",
     "",
-    "ลูกค้ามาจาก : ลูกค้าบอกต่อ",
+    "ช่องทางการขาย : ลูกค้าบอกต่อ",
     "",
     "หมายเหตุ : โทรก่อนส่ง"
   ].join("\n");
@@ -937,6 +937,19 @@ async function main() {
   }
   if (newLineRow.orderNumber !== `LINE-${uniqueSuffix}` || newLineRow.sourceChannel !== "ไลน์บริษัท") {
     fail("new LINE format did not parse order number or sales channel");
+  }
+  if (newLineRow.originSource !== "ลูกค้าบอกต่อ") {
+    fail(`new LINE format did not parse ช่องทางการขาย: ${JSON.stringify(newLineRow)}`);
+  }
+  const legacyLinePreview = await request("/api/parse-preview", {
+    method: "POST",
+    headers: { cookie, "content-type": "application/json" },
+    body: JSON.stringify({ content: newLineOrderText.replace("ช่องทางการขาย : ลูกค้าบอกต่อ", "ลูกค้ามาจาก : ลูกค้าบอกต่อ") })
+  });
+  if (legacyLinePreview.status !== 200) fail(`legacy LINE format preview returned ${legacyLinePreview.status}`);
+  const legacyLineRow = JSON.parse(legacyLinePreview.text).rows?.[0];
+  if (legacyLineRow?.originSource !== "ลูกค้าบอกต่อ") {
+    fail(`legacy LINE format did not parse ลูกค้ามาจาก: ${JSON.stringify(legacyLineRow)}`);
   }
   if (newLineRow.name !== "คุณไลน์ ทดสอบ" || newLineRow.phone !== `08123${uniquePhoneSuffix}`) {
     fail("new LINE format did not parse customer fields");

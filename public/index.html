@@ -199,9 +199,9 @@
             </select>
           </label>
           <label>อาการลูกค้า<input name="tags" placeholder="คั่นด้วย comma เช่น ปวดเข่า, ซื้อให้แม่"></label>
-          <label class="customer-source-field">ลูกค้ามาจาก
+          <label class="customer-source-field">ช่องทางการขาย
             <select name="originSourceChoice" data-customer-source-native hidden>
-              <option value="">เลือกแหล่งที่มา</option>
+              <option value="">เลือกช่องทางการขาย</option>
               <option value="facebook">Facebook</option>
               <option value="line">LINE</option>
               <option value="phone">โทร</option>
@@ -210,13 +210,13 @@
             </select>
             <div class="customer-source-picker" data-source-picker>
               <button class="customer-source-trigger" type="button" data-source-picker-trigger aria-haspopup="listbox" aria-expanded="false">
-                <span data-source-picker-trigger-label>เลือกช่องทางการมาของลูกค้า</span>
+                <span data-source-picker-trigger-label>เลือกช่องทางการขาย</span>
                 <span aria-hidden="true">⌄</span>
               </button>
               <div class="customer-source-menu" data-source-picker-menu role="listbox" hidden></div>
             </div>
           </label>
-          <label data-origin-source-other-field hidden>เพิ่มแหล่งที่มา
+          <label data-origin-source-other-field hidden>เพิ่มช่องทางการขาย
             <input name="originSourceOther" autocomplete="off" placeholder="เช่น TikTok, งานแฟร์, พาร์ทเนอร์">
           </label>
           <label class="span-2">หมายเหตุ<textarea name="note" placeholder="หมายเหตุเกี่ยวกับออเดอร์"></textarea></label>

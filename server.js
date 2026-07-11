@@ -1860,7 +1860,8 @@ function parseLineImportContent(content, defaultJarPrice = 750) {
 }
 
 function parseLabel(textValue, labels) {
-  const pattern = new RegExp(`(?:${labels.join("|")})\\s*[:：-]\\s*([^\\n]+)`, "i");
+  const escapedLabels = labels.map(label => String(label).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  const pattern = new RegExp(`(?:${escapedLabels.join("|")})\\s*[:：-]\\s*([^\\n]+)`, "i");
   return String(textValue || "").match(pattern)?.[1]?.trim() || "";
 }
 
@@ -1876,7 +1877,7 @@ const PRIMARY_LINE_ORDER_FIELDS = [
   ["address", "ที่อยู่จัดส่ง"],
   ["jars", "จำนวนกระปุก"],
   ["amount", "ยอดซื้อ"],
-  ["originSource", "ลูกค้ามาจาก"],
+  ["originSource", "ช่องทางการขาย", ["ลูกค้ามาจาก"]],
   ["freeGift", "ของแถมที่ลูกค้าได้"],
   ["vipCardStatus", "สถานะบัตร VIP"],
   ["tags", "อาการลูกค้า"],
@@ -1887,53 +1888,61 @@ function parsePrimaryLineOrderForm(rawText) {
   const textValue = String(rawText || "").trim();
   if (!textValue) return null;
   const lines = textValue.split(/\n+/).map(line => line.trim()).filter(Boolean);
-  const labels = PRIMARY_LINE_ORDER_FIELDS.map(([, label]) => label);
+  const fieldLabels = PRIMARY_LINE_ORDER_FIELDS.map(([key, label, aliases = []]) => ({
+    key,
+    labels: [label, ...aliases]
+  }));
+  const labels = fieldLabels.flatMap(field => field.labels);
   const labelMap = new Map();
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index];
-    const matchedLabel = labels.find(label => {
+    const matchedField = fieldLabels.find(field => field.labels.some(label => {
       const normalizedLine = line.toLowerCase();
       const normalizedLabel = label.toLowerCase();
       const escapedLabel = normalizedLabel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       return normalizedLine === normalizedLabel
         || new RegExp(`^${escapedLabel}\\s*[:：]`).test(normalizedLine);
-    });
-    if (!matchedLabel) continue;
+    }));
+    if (!matchedField) continue;
+    const matchedLabel = matchedField.labels.find(label => {
+      const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      return new RegExp(`^${escapedLabel}\\s*(?:[:：]|$)`, "i").test(line);
+    }) || matchedField.labels[0];
     const inlineValue = line.slice(matchedLabel.length).replace(/^\s*[:：]\s*/, "").trim();
     const nextLine = lines[index + 1] || "";
     const nextLineIsLabel = labels.some(label => {
       const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       return new RegExp(`^${escapedLabel}\\s*(?:[:：]|$)`, "i").test(nextLine);
     });
-    labelMap.set(matchedLabel, inlineValue || (nextLineIsLabel ? "" : nextLine));
+    labelMap.set(matchedField.key, inlineValue || (nextLineIsLabel ? "" : nextLine));
   }
   if (!labelMap.size) return null;
-  const requiredLabels = ["วันที่ซื้อ", "ชื่อลูกค้า", "เบอร์โทร", "ที่อยู่จัดส่ง", "จำนวนกระปุก", "ยอดซื้อ"];
-  const hasPrimaryShape = requiredLabels.every(label => labelMap.has(label));
+  const requiredKeys = ["date", "name", "phone", "address", "jars", "amount"];
+  const hasPrimaryShape = requiredKeys.every(key => labelMap.has(key));
   if (!hasPrimaryShape) return null;
-  const get = label => String(labelMap.get(label) || "").trim();
-  const phone = normalizePhone(get("เบอร์โทร"));
+  const get = key => String(labelMap.get(key) || "").trim();
+  const phone = normalizePhone(get("phone"));
   if (!phone) return null;
   return {
-    items: normalizeProductNameForMatching(get("สินค้า")),
-    orderNumber: normalizeImportText(get("เลขออเดอร์")),
-    name: normalizeImportText(get("ชื่อลูกค้า") || `ลูกค้า ${phone}`),
+    items: normalizeProductNameForMatching(get("items")),
+    orderNumber: normalizeImportText(get("orderNumber")),
+    name: normalizeImportText(get("name") || `ลูกค้า ${phone}`),
     phone,
-    alternatePhone: normalizePhone(get("เบอร์โทรสำรอง")),
-    address: normalizeImportText(get("ที่อยู่จัดส่ง")),
-    date: normalizeImportDate(get("วันที่ซื้อ")) || toDateOnly(),
-    jars: Number(get("จำนวนกระปุก").replace(/[^\d.]/g, "")) || parseQuantity(get("จำนวนกระปุก")) || 1,
-    amount: get("ยอดซื้อ")
-      ? parseCurrency(get("ยอดซื้อ")) ?? Number(get("ยอดซื้อ").replace(/,/g, "").replace(/[^\d.]/g, ""))
+    alternatePhone: normalizePhone(get("alternatePhone")),
+    address: normalizeImportText(get("address")),
+    date: normalizeImportDate(get("date")) || toDateOnly(),
+    jars: Number(get("jars").replace(/[^\d.]/g, "")) || parseQuantity(get("jars")) || 1,
+    amount: get("amount")
+      ? parseCurrency(get("amount")) ?? Number(get("amount").replace(/,/g, "").replace(/[^\d.]/g, ""))
       : null,
     source: "LINE",
-    sourceChannel: normalizeImportText(get("ช่องทางการสั่งซื้อ") || "LINE"),
-    originSource: normalizeImportText(get("ลูกค้ามาจาก")),
-    socialName: normalizeImportText(get("Facebook / LINE ลูกค้า")),
-    freeGift: normalizeImportText(get("ของแถมที่ลูกค้าได้")),
-    vipCardStatus: normalizeImportText(get("สถานะบัตร VIP") || "ยังไม่ได้ส่งบัตร") || "ยังไม่ได้ส่งบัตร",
-    tags: splitTags(get("อาการลูกค้า")),
-    note: normalizeImportText(get("หมายเหตุ")),
+    sourceChannel: normalizeImportText(get("sourceChannel") || "LINE"),
+    originSource: normalizeImportText(get("originSource")),
+    socialName: normalizeImportText(get("socialName")),
+    freeGift: normalizeImportText(get("freeGift")),
+    vipCardStatus: normalizeImportText(get("vipCardStatus") || "ยังไม่ได้ส่งบัตร") || "ยังไม่ได้ส่งบัตร",
+    tags: splitTags(get("tags")),
+    note: normalizeImportText(get("note")),
     rawText: textValue
   };
 }
@@ -2030,6 +2039,7 @@ function parseLineOrder(rawText, defaultJarPrice = 750) {
     tags: tagMatches,
     source: "LINE",
     sourceChannel: parseSourceChannel(textValue),
+    originSource: normalizeImportText(parseLabel(textValue, ["ช่องทางการขาย", "ลูกค้ามาจาก", "origin_source", "origin source", "มาจาก", "แหล่งที่มา"])),
     socialName: parseSocialName(textValue),
     freeGift: parseFreeGift(textValue),
     note,
@@ -2468,7 +2478,7 @@ function normalizeImportRow(row, defaultJarPrice) {
     "บัตร vip",
     "เคยได้บัตรvipแล้วหรือยัง"
   ));
-  const originSource = normalizeOrderOriginSource(get("origin_source", "origin source", "ลูกค้ามาจาก", "มาจาก", "แหล่งที่มา"));
+  const originSource = normalizeOrderOriginSource(get("origin_source", "origin source", "ช่องทางการขาย", "ลูกค้ามาจาก", "มาจาก", "แหล่งที่มา"));
   return {
     items: get("items", "product", "product_name", "สินค้า") || "Growup",
     orderNumber,
@@ -3085,9 +3095,9 @@ async function handleApi(req, res) {
     if (!await requirePermission(req, res, db, "system.business", "ไม่มีสิทธิ์ตั้งค่าธุรกิจ")) return;
     const body = await readBody(req);
     const name = String(body.name || "").trim();
-    if (!name) return json(res, 400, { ok: false, error: "กรุณาระบุชื่อแหล่งที่มา" });
+    if (!name) return json(res, 400, { ok: false, error: "กรุณาระบุช่องทางการขาย" });
     const source = normalizeCustomerSourceRecord({ name, sortOrder: 1000 });
-    if (!source) return json(res, 400, { ok: false, error: "ชื่อแหล่งที่มาไม่ถูกต้อง" });
+    if (!source) return json(res, 400, { ok: false, error: "ช่องทางการขายไม่ถูกต้อง" });
     const defaultSource = DEFAULT_CUSTOMER_SOURCE_CHANNELS.find(item => item.key === source.key);
     if (defaultSource) {
       return json(res, 200, { ok: true, source: defaultSource, settings: publicSettings(db.settings || {}) });
