@@ -4262,22 +4262,6 @@ function renderMobileOpportunities() {
 
 function renderOpportunities() {
   els.content.innerHTML = renderMobileOpportunities();
-  if (isMobileViewport()) return;
-  const cards = opportunityCardsData();
-  const list = els.content.querySelector(".mobile-opportunity-customer-list");
-  if (!list) return;
-  list.insertAdjacentHTML("afterend", `
-    <section class="desktop-opportunity-shortcuts" aria-label="ทางลัดโอกาสทำเงิน">
-      ${cards.map(card => `
-        <button class="desktop-opportunity-shortcut" type="button" data-view-shortcut="${escapeHtml(card.targetView)}">
-          <span class="tag">${money(card.count)} รายการ</span>
-          <strong>${escapeHtml(card.title)}</strong>
-          <small>${escapeHtml(card.description)}</small>
-          <b>${money(card.revenue)} บาท</b>
-        </button>
-      `).join("")}
-    </section>
-  `);
 }
 
 function renderProducts() {
