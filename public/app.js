@@ -5688,19 +5688,33 @@ function normalizedCustomerSourceOption(source = {}, index = 0) {
   };
 }
 
+function isDerivedCustomerSourceNoise(order = {}, name = "") {
+  const text = String(name || "").trim();
+  const lower = text.toLowerCase();
+  if (!text) return true;
+  if (/หมายเหตุ|สินค้า|ยอดซื้อ|จำนวน|กระปุก|บาท|เก็บเงิน|ไม่รับสาย/i.test(text)) return true;
+  const sourceKey = customerSourceKeyFromName(text);
+  const itemKey = customerSourceKeyFromName(order.items || order.productName || "");
+  if (itemKey && (sourceKey.includes(itemKey) || itemKey.includes(sourceKey))) return true;
+  return ["zomin", "โซมิน", "งาดำ", "น้ำมัน"].some(word => lower.includes(word));
+}
+
 function customerSourceOptionFromOrder(order = {}) {
   const raw = String(order.originSource || order.origin_source || "").trim();
   const other = customerSourceOtherText(order);
   if (!raw) return null;
   if (normalizeCustomerSourceKey(raw) === "" && other) {
+    if (isDerivedCustomerSourceNoise(order, other)) return null;
     return normalizedCustomerSourceOption({ key: customerSourceKeyFromName(other), name: other });
   }
   if (raw.toLowerCase() === "other" && other) {
+    if (isDerivedCustomerSourceNoise(order, other)) return null;
     return normalizedCustomerSourceOption({ key: customerSourceKeyFromName(other), name: other });
   }
   const key = normalizeCustomerSourceKey(raw);
   if (!key) return null;
   const known = CUSTOMER_SOURCE_BY_KEY.get(key);
+  if (!known && isDerivedCustomerSourceNoise(order, raw)) return null;
   return normalizedCustomerSourceOption({ key, name: known?.name || raw });
 }
 
@@ -5740,8 +5754,10 @@ function refreshCustomerSourceSelect(selectedValue = "") {
 function customerSourceKeyForOrder(order = {}) {
   const raw = String(order.originSource || order.origin_source || "").trim();
   const other = customerSourceOtherText(order);
+  if (raw.toLowerCase() === "other" && other && isDerivedCustomerSourceNoise(order, other)) return "";
   if (raw.toLowerCase() === "other" && other) return normalizeCustomerSourceKey(other);
   const key = normalizeCustomerSourceKey(raw);
+  if (key && !CUSTOMER_SOURCE_BY_KEY.has(key) && isDerivedCustomerSourceNoise(order, raw)) return "";
   if (key) return key;
   return raw ? customerSourceKeyFromName(raw) : "";
 }
