@@ -42,6 +42,7 @@ assert(changeHandler.includes("[data-permission-toggle]"), "permission toggle ch
 assert(css.includes(".permission-switch input"), "permission checkbox hiding CSS missing");
 assert(css.includes("opacity: 0"), "permission checkbox should be visually hidden");
 assert(css.includes(".permission-switch input:focus-visible + .settings-switch-ui"), "switch focus style missing");
+assert(css.includes(".permission-switch .settings-switch-ui") && css.includes("pointer-events: none"), "visual switch must not intercept pointer events");
 assert(css.includes(".permission-row-copy b,") && css.includes("text-overflow: ellipsis"), "one-line ellipsis for permission labels/descriptions missing");
 assert(css.includes("@media (max-width: 760px)") && css.includes("grid-template-columns: 1fr"), "mobile one-column permission layout missing");
 assert(css.includes("bottom: 74px"), "mobile sticky save should sit above bottom navigation");
