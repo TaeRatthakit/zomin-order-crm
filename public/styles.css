@@ -320,6 +320,9 @@
 
   body.mobile-reports-view .sales-channel-report-card .mobile-report-channel-legend {
     gap: 0;
+    max-height: 460px;
+    overflow-y: auto;
+    padding-right: 2px;
   }
 
   body.mobile-reports-view .sales-channel-report-card .mobile-report-channel-row {
@@ -14465,6 +14468,12 @@ small,
     color: #9aa8b9;
     font-size: 12px;
     font-weight: 800;
+  }
+
+  body.desktop-app-shell:not(.login-view) .sales-channel-report-card .mobile-report-channel-legend {
+    max-height: 340px;
+    overflow-y: auto;
+    padding-right: 6px;
   }
 
   body.desktop-app-shell:not(.login-view) .sales-channel-report-card .sales-channel-head span:not(:first-child),

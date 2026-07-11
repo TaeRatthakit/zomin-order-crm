@@ -5585,26 +5585,46 @@ function reportDelta(currentValue, previousValue) {
   return { text: "0%", tone: "flat" };
 }
 
-const REPORT_ACQUISITION_CHANNELS = [
+const ADD_CUSTOMER_SOURCE_VALUE = "__add_source__";
+const DEFAULT_CUSTOMER_SOURCE_CHANNELS = [
   { key: "facebook", name: "Facebook", color: "#1769e8", icon: "f" },
   { key: "line", name: "LINE", color: "#06c755", icon: "LINE" },
-  { key: "phone", name: "Phone Order", color: "#f59e0b", icon: "☎" },
+  { key: "phone", name: "Phone", reportName: "Phone Order", color: "#f59e0b", icon: "☎" }
+];
+const LEGACY_CUSTOMER_SOURCE_CHANNELS = [
   { key: "referral", name: "Customer Referral", color: "#f43f5e", icon: "REF" },
   { key: "tiktok", name: "TikTok", color: "#22d3ee", icon: "TT" },
   { key: "shopee", name: "Shopee", color: "#fb5a2a", icon: "SP" },
   { key: "lazada", name: "Lazada", color: "#7c3aed", icon: "LZ" },
   { key: "instagram", name: "Instagram", color: "#e1306c", icon: "IG" },
   { key: "website", name: "Website", color: "#38bdf8", icon: "WWW" },
-  { key: "walk_in", name: "Walk-in", color: "#84cc16", icon: "IN" },
-  { key: "other", name: "Other", color: "#94a3b8", icon: "OTH" }
+  { key: "walk_in", name: "Walk-in", color: "#84cc16", icon: "IN" }
 ];
 
-const CUSTOMER_SOURCE_CHANNELS = REPORT_ACQUISITION_CHANNELS;
-const CUSTOMER_SOURCE_KEYS = new Set(CUSTOMER_SOURCE_CHANNELS.map(channel => channel.key));
+const CUSTOMER_SOURCE_KNOWN_CHANNELS = [...DEFAULT_CUSTOMER_SOURCE_CHANNELS, ...LEGACY_CUSTOMER_SOURCE_CHANNELS];
+const CUSTOMER_SOURCE_KEYS = new Set(CUSTOMER_SOURCE_KNOWN_CHANNELS.map(channel => channel.key));
+const CUSTOMER_SOURCE_BY_KEY = new Map(CUSTOMER_SOURCE_KNOWN_CHANNELS.map(channel => [channel.key, channel]));
+const CUSTOMER_SOURCE_PALETTE = [
+  "#1769e8", "#06c755", "#f59e0b", "#f43f5e", "#22d3ee", "#fb5a2a",
+  "#7c3aed", "#e1306c", "#38bdf8", "#84cc16", "#14b8a6", "#a855f7",
+  "#ef4444", "#0ea5e9", "#eab308", "#ec4899"
+];
+
+function customerSourceKeyFromName(value = "") {
+  const raw = String(value || "").trim();
+  const normalized = raw
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9ก-๙]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  return normalized;
+}
 
 function normalizeCustomerSourceKey(value = "") {
   const raw = String(value || "").trim();
-  const normalized = raw.toLowerCase().replace(/[\s-]+/g, "_");
+  const normalized = customerSourceKeyFromName(raw);
   if (!raw || raw === MISSING_CHANNEL_LABEL) return "";
   if (CUSTOMER_SOURCE_KEYS.has(normalized)) return normalized;
   if (
@@ -5630,55 +5650,128 @@ function normalizeCustomerSourceKey(value = "") {
     normalized.includes("refer") ||
     normalized.includes("word of mouth")
   ) return "referral";
-  if (normalized === "other" || raw.includes("อื่น")) return "other";
-  return "";
+  if (normalized === "other" || raw.includes("อื่น")) return "";
+  return normalized;
 }
 
 function customerSourceOtherText(order = {}) {
   return String(order.originSourceOther || order.origin_source_other || "").trim();
 }
 
+function customerSourceColor(key = "") {
+  const known = CUSTOMER_SOURCE_BY_KEY.get(key);
+  if (known?.color) return known.color;
+  let hash = 0;
+  for (const char of String(key || "")) hash = ((hash << 5) - hash) + char.charCodeAt(0);
+  return CUSTOMER_SOURCE_PALETTE[Math.abs(hash) % CUSTOMER_SOURCE_PALETTE.length];
+}
+
+function customerSourceIcon(name = "") {
+  const words = String(name || "").trim().split(/\s+/).filter(Boolean);
+  if (!words.length) return "SRC";
+  if (words.length === 1) return words[0].slice(0, 3).toUpperCase();
+  return words.slice(0, 2).map(word => word[0]).join("").toUpperCase();
+}
+
+function normalizedCustomerSourceOption(source = {}, index = 0) {
+  const name = String(source.name || source.label || source.value || "").trim();
+  const key = normalizeCustomerSourceKey(source.key || source.id || name);
+  if (!key || !name) return null;
+  const known = CUSTOMER_SOURCE_BY_KEY.get(key);
+  return {
+    key,
+    name: known?.name || name,
+    reportName: known?.reportName || known?.name || name,
+    color: source.color || known?.color || customerSourceColor(key),
+    icon: source.icon || known?.icon || customerSourceIcon(name),
+    sortOrder: Number(source.sortOrder ?? source.order ?? index + 10)
+  };
+}
+
+function customerSourceOptionFromOrder(order = {}) {
+  const raw = String(order.originSource || order.origin_source || "").trim();
+  const other = customerSourceOtherText(order);
+  if (!raw) return null;
+  if (normalizeCustomerSourceKey(raw) === "" && other) {
+    return normalizedCustomerSourceOption({ key: customerSourceKeyFromName(other), name: other });
+  }
+  if (raw.toLowerCase() === "other" && other) {
+    return normalizedCustomerSourceOption({ key: customerSourceKeyFromName(other), name: other });
+  }
+  const key = normalizeCustomerSourceKey(raw);
+  if (!key) return null;
+  const known = CUSTOMER_SOURCE_BY_KEY.get(key);
+  return normalizedCustomerSourceOption({ key, name: known?.name || raw });
+}
+
+function customerSourceOptions({ includeOrderDerived = true } = {}) {
+  const map = new Map();
+  DEFAULT_CUSTOMER_SOURCE_CHANNELS.forEach((source, index) => {
+    map.set(source.key, normalizedCustomerSourceOption({ ...source, sortOrder: index }));
+  });
+  const configured = Array.isArray(app.data?.settings?.customerSources) ? app.data.settings.customerSources : [];
+  configured.forEach((source, index) => {
+    const option = normalizedCustomerSourceOption(source, index + DEFAULT_CUSTOMER_SOURCE_CHANNELS.length);
+    if (option && !map.has(option.key)) map.set(option.key, option);
+  });
+  if (includeOrderDerived) {
+    (app.data?.orders || []).forEach(order => {
+      const option = customerSourceOptionFromOrder(order);
+      if (option && !map.has(option.key)) map.set(option.key, { ...option, sortOrder: 1000 + map.size });
+    });
+  }
+  return [...map.values()].sort((a, b) => (a.sortOrder - b.sortOrder) || a.name.localeCompare(b.name));
+}
+
+function refreshCustomerSourceSelect(selectedValue = "") {
+  const select = els.orderForm?.elements?.originSourceChoice;
+  if (!select) return;
+  const current = String(selectedValue || select.value || "").trim();
+  const options = customerSourceOptions();
+  select.innerHTML = `
+    <option value="">เลือกแหล่งที่มา</option>
+    ${options.map(source => `<option value="${escapeHtml(source.key)}">${escapeHtml(source.name)}</option>`).join("")}
+    <option value="${ADD_CUSTOMER_SOURCE_VALUE}">+ Add Source</option>
+  `;
+  if (current && options.some(source => source.key === current)) select.value = current;
+  else if (current === ADD_CUSTOMER_SOURCE_VALUE) select.value = ADD_CUSTOMER_SOURCE_VALUE;
+}
+
 function customerSourceKeyForOrder(order = {}) {
   const raw = String(order.originSource || order.origin_source || "").trim();
+  const other = customerSourceOtherText(order);
+  if (raw.toLowerCase() === "other" && other) return normalizeCustomerSourceKey(other);
   const key = normalizeCustomerSourceKey(raw);
   if (key) return key;
-  return raw ? "other" : "";
+  return raw ? customerSourceKeyFromName(raw) : "";
 }
 
 function reportAcquisitionChannelRows(orders = []) {
-  const channelMap = new Map(CUSTOMER_SOURCE_CHANNELS.map(channel => [
-    channel.key,
-    { ...channel, revenue: 0, count: 0, percent: 0 }
-  ]));
+  const optionMap = new Map(customerSourceOptions().map(source => [source.key, source]));
+  const channelMap = new Map();
   for (const order of orders) {
     const key = customerSourceKeyForOrder(order);
     if (!key) continue;
-    const row = channelMap.get(CUSTOMER_SOURCE_KEYS.has(key) ? key : "other");
+    const orderOption = customerSourceOptionFromOrder(order);
+    const option = optionMap.get(key) || orderOption || normalizedCustomerSourceOption({ key, name: key.replace(/_/g, " ") });
+    if (!channelMap.has(key)) {
+      channelMap.set(key, {
+        ...option,
+        name: option.reportName || option.name,
+        revenue: 0,
+        count: 0,
+        percent: 0
+      });
+    }
+    const row = channelMap.get(key);
     row.revenue += Number(order.amount || 0);
     row.count += 1;
   }
   const totalCount = [...channelMap.values()].reduce((sum, row) => sum + row.count, 0);
   const totalRevenue = [...channelMap.values()].reduce((sum, row) => sum + row.revenue, 0);
-  const sortedRows = [...channelMap.values()]
+  let rows = [...channelMap.values()]
     .filter(row => row.count > 0)
     .sort((a, b) => (b.count - a.count) || (b.revenue - a.revenue));
-  const visibleLimit = sortedRows.length > 6 ? 5 : 6;
-  let rows = sortedRows.slice(0, visibleLimit);
-  const remainder = sortedRows.slice(visibleLimit);
-  if (remainder.length) {
-    rows = [
-      ...rows,
-      {
-        key: "other_channels",
-        name: "Other Channels",
-        color: "#64748b",
-        icon: "••",
-        count: remainder.reduce((sum, row) => sum + row.count, 0),
-        revenue: remainder.reduce((sum, row) => sum + row.revenue, 0),
-        percent: 0
-      }
-    ];
-  }
   rows = rows.map(row => {
     return {
       ...row,
@@ -7523,13 +7616,30 @@ async function submitOrder(form) {
   if (app.orderSavePending) return;
   setOrderSaveState(true);
   const data = Object.fromEntries(new FormData(form).entries());
-  const selectedOriginSource = normalizeCustomerSourceKey(data.originSourceChoice);
+  const selectedChoice = String(data.originSourceChoice || "").trim();
+  let selectedOriginSource = normalizeCustomerSourceKey(selectedChoice);
   const originSourceOther = String(data.originSourceOther || "").trim();
-  if (selectedOriginSource === "other" && !originSourceOther) {
+  if (selectedChoice === ADD_CUSTOMER_SOURCE_VALUE && !originSourceOther) {
     setOrderSaveState(false);
-    showToast("กรุณาระบุแหล่งที่มาอื่น");
+    showToast("กรุณาระบุชื่อแหล่งที่มาใหม่");
     els.orderForm.elements.originSourceOther?.focus();
     return;
+  }
+  if (selectedChoice === ADD_CUSTOMER_SOURCE_VALUE) {
+    try {
+      const payload = await api("/api/customer-sources", {
+        method: "POST",
+        body: JSON.stringify({ name: originSourceOther })
+      });
+      if (payload.settings && app.data?.settings) {
+        app.data.settings = { ...app.data.settings, ...payload.settings };
+      }
+      selectedOriginSource = payload.source?.key || normalizeCustomerSourceKey(originSourceOther);
+      refreshCustomerSourceSelect(selectedOriginSource);
+    } catch (error) {
+      setOrderSaveState(false);
+      throw error;
+    }
   }
   if (String(data.date || "").includes("T")) {
     const [datePart, timePart] = String(data.date).split("T");
@@ -7538,7 +7648,7 @@ async function submitOrder(form) {
   }
   const preservedOriginSource = String(form.dataset.originSourceValue || "").trim();
   data.originSource = selectedOriginSource || normalizeCustomerSourceKey(preservedOriginSource) || "";
-  data.originSourceOther = data.originSource === "other" ? originSourceOther || preservedOriginSource : "";
+  data.originSourceOther = "";
   delete data.originSourceChoice;
   applyQuantityMatchedOrderPackage(data);
   const orderId = app.editingOrderId;
@@ -7743,6 +7853,7 @@ function openOrderDialog(order = null) {
   delete els.orderForm.dataset.originSourceValue;
   els.orderDialogTitle.textContent = order ? "แก้ไขออเดอร์" : "เพิ่มออเดอร์";
   els.orderSubmitButton.textContent = order ? "บันทึกการแก้ไข" : "บันทึกออเดอร์";
+  refreshCustomerSourceSelect();
   if (order) {
     const fields = {
       items: order.items,
@@ -7766,13 +7877,17 @@ function openOrderDialog(order = null) {
     });
     const originSource = String(order.originSource || "");
     const originSourceKey = customerSourceKeyForOrder(order);
-    els.orderForm.elements.originSourceChoice.value = CUSTOMER_SOURCE_KEYS.has(originSourceKey) ? originSourceKey : "";
-    els.orderForm.elements.originSourceOther.value = originSourceKey === "other"
-      ? customerSourceOtherText(order) || originSource
-      : "";
-    if (originSource && originSourceKey === "other") {
-      els.orderForm.dataset.originSourceValue = originSource;
+    refreshCustomerSourceSelect(originSourceKey);
+    els.orderForm.elements.originSourceOther.value = "";
+    if (originSource && originSourceKey && els.orderForm.elements.originSourceChoice.value !== originSourceKey) {
+      const option = customerSourceOptionFromOrder(order);
+      if (option) {
+        const existing = Array.isArray(app.data?.settings?.customerSources) ? app.data.settings.customerSources : [];
+        app.data.settings.customerSources = [...existing, option];
+        refreshCustomerSourceSelect(originSourceKey);
+      }
     }
+    if (originSource) els.orderForm.dataset.originSourceValue = originSource;
   } else {
     const dateValue = els.workDate.value || todayISO();
     const now = new Date();
@@ -7803,14 +7918,14 @@ function openOrderDialog(order = null) {
 }
 
 function syncOriginSourceFields() {
-  const choice = normalizeCustomerSourceKey(els.orderForm.elements.originSourceChoice?.value || "");
+  const choice = String(els.orderForm.elements.originSourceChoice?.value || "").trim();
   const otherField = els.orderForm.querySelector("[data-origin-source-other-field]");
   const otherInput = els.orderForm.elements.originSourceOther;
   if (!otherField || !otherInput) return;
-  const isOther = choice === "other";
-  otherField.hidden = !isOther;
-  otherInput.required = isOther;
-  if (!isOther) otherInput.value = "";
+  const isAdding = choice === ADD_CUSTOMER_SOURCE_VALUE;
+  otherField.hidden = !isAdding;
+  otherInput.required = isAdding;
+  if (!isAdding) otherInput.value = "";
 }
 
 async function copyText(text) {

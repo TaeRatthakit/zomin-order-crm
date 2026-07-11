@@ -617,6 +617,7 @@ function publicSettings(settings = {}) {
     products: normalizeProductRecords(effective.products),
     productCosts: normalizeSettingsCostRows(effective.productCosts, "costPerJar"),
     additionalCosts: normalizeSettingsCostRows(effective.additionalCosts, "amount"),
+    customerSources: normalizeCustomerSources(effective.customerSources),
     adPlatforms: normalizeAdPlatforms(effective.adPlatforms, {
       useDefaults: effective.adPlatforms === undefined
     }),
@@ -719,23 +720,40 @@ function orderChannel(order = {}) {
   return channel || "";
 }
 
-const CUSTOMER_SOURCE_KEYS = new Set([
-  "facebook",
-  "line",
-  "phone",
-  "referral",
-  "tiktok",
-  "shopee",
-  "lazada",
-  "instagram",
-  "website",
-  "walk_in",
-  "other"
-]);
+const DEFAULT_CUSTOMER_SOURCE_CHANNELS = [
+  { key: "facebook", name: "Facebook" },
+  { key: "line", name: "LINE" },
+  { key: "phone", name: "Phone" }
+];
+
+const LEGACY_CUSTOMER_SOURCE_CHANNELS = [
+  { key: "referral", name: "Customer Referral" },
+  { key: "tiktok", name: "TikTok" },
+  { key: "shopee", name: "Shopee" },
+  { key: "lazada", name: "Lazada" },
+  { key: "instagram", name: "Instagram" },
+  { key: "website", name: "Website" },
+  { key: "walk_in", name: "Walk-in" }
+];
+
+const CUSTOMER_SOURCE_KNOWN_CHANNELS = [...DEFAULT_CUSTOMER_SOURCE_CHANNELS, ...LEGACY_CUSTOMER_SOURCE_CHANNELS];
+const CUSTOMER_SOURCE_KEYS = new Set(CUSTOMER_SOURCE_KNOWN_CHANNELS.map(channel => channel.key));
+const CUSTOMER_SOURCE_BY_KEY = new Map(CUSTOMER_SOURCE_KNOWN_CHANNELS.map(channel => [channel.key, channel]));
+
+function customerSourceKeyFromName(value = "") {
+  return String(value || "")
+    .trim()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9ก-๙]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
 
 function normalizeCustomerSourceKey(value = "") {
   const raw = String(value || "").trim();
-  const normalized = raw.toLowerCase().replace(/[\s-]+/g, "_");
+  const normalized = customerSourceKeyFromName(raw);
   if (!raw) return "";
   if (CUSTOMER_SOURCE_KEYS.has(normalized)) return normalized;
   if (
@@ -761,17 +779,42 @@ function normalizeCustomerSourceKey(value = "") {
     normalized.includes("refer") ||
     normalized.includes("word_of_mouth")
   ) return "referral";
-  if (normalized === "other" || raw.includes("อื่น")) return "other";
-  return "";
+  if (normalized === "other" || raw.includes("อื่น")) return "";
+  return normalized;
+}
+
+function normalizeCustomerSourceRecord(source = {}, index = 0) {
+  const name = String(source.name || source.label || source.value || "").trim();
+  const key = normalizeCustomerSourceKey(source.key || source.id || name);
+  if (!key || !name) return null;
+  const known = CUSTOMER_SOURCE_BY_KEY.get(key);
+  return {
+    key,
+    name: known?.name || name,
+    sortOrder: Number(source.sortOrder ?? source.order ?? index + 10)
+  };
+}
+
+function normalizeCustomerSources(sources = []) {
+  const map = new Map();
+  (Array.isArray(sources) ? sources : []).forEach((source, index) => {
+    const normalized = normalizeCustomerSourceRecord(source, index);
+    if (normalized && !DEFAULT_CUSTOMER_SOURCE_CHANNELS.some(item => item.key === normalized.key)) {
+      map.set(normalized.key, normalized);
+    }
+  });
+  return [...map.values()].sort((a, b) => (a.sortOrder - b.sortOrder) || a.name.localeCompare(b.name));
 }
 
 function normalizeOrderOriginSource(sourceValue = "", otherValue = "") {
   const raw = String(sourceValue || "").trim();
-  const key = normalizeCustomerSourceKey(raw);
   const other = String(otherValue || "").trim();
   if (!raw && !other) return { originSource: "", originSourceOther: "" };
-  if (key && key !== "other") return { originSource: key, originSourceOther: "" };
-  return { originSource: "other", originSourceOther: other || raw };
+  if (raw.toLowerCase() === "other" && other) {
+    return { originSource: normalizeCustomerSourceKey(other), originSourceOther: "" };
+  }
+  const key = normalizeCustomerSourceKey(raw || other);
+  return { originSource: key, originSourceOther: "" };
 }
 
 function normalizeDuplicateText(value) {
@@ -2792,6 +2835,28 @@ async function handleApi(req, res) {
     });
   }
 
+  if (req.method === "POST" && url.pathname === "/api/customer-sources") {
+    const body = await readBody(req);
+    const name = String(body.name || "").trim();
+    if (!name) return json(res, 400, { ok: false, error: "กรุณาระบุชื่อแหล่งที่มา" });
+    const source = normalizeCustomerSourceRecord({ name, sortOrder: 1000 });
+    if (!source) return json(res, 400, { ok: false, error: "ชื่อแหล่งที่มาไม่ถูกต้อง" });
+    const defaultSource = DEFAULT_CUSTOMER_SOURCE_CHANNELS.find(item => item.key === source.key);
+    if (defaultSource) {
+      return json(res, 200, { ok: true, source: defaultSource, settings: publicSettings(db.settings || {}) });
+    }
+    db.settings = db.settings || {};
+    const sources = normalizeCustomerSources(db.settings.customerSources);
+    const existing = sources.find(item => item.key === source.key);
+    if (!existing) {
+      sources.push({ ...source, sortOrder: sources.length + DEFAULT_CUSTOMER_SOURCE_CHANNELS.length });
+      db.settings.customerSources = normalizeCustomerSources(sources);
+      await writeDb(db);
+    }
+    const saved = existing || db.settings.customerSources.find(item => item.key === source.key) || source;
+    return json(res, 200, { ok: true, source: saved, settings: publicSettings(db.settings || {}) });
+  }
+
   if (req.method === "POST" && url.pathname === "/api/ad-costs") {
     const body = await readBody(req);
     const record = normalizeAdCostInput(db, body);
@@ -3222,6 +3287,9 @@ async function handleApi(req, res) {
       additionalCosts: body.additionalCosts === undefined
         ? normalizeSettingsCostRows(db.settings.additionalCosts, "amount")
         : normalizeSettingsCostRows(body.additionalCosts, "amount"),
+      customerSources: body.customerSources === undefined
+        ? normalizeCustomerSources(db.settings.customerSources)
+        : normalizeCustomerSources(body.customerSources),
       lineChannelId: process.env.LINE_CHANNEL_ID
         ? db.settings.lineChannelId || ""
         : String(body.lineChannelId ?? db.settings.lineChannelId ?? ""),

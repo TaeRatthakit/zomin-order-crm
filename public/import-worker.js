@@ -76,10 +76,16 @@ function normalizeVipStatus(value) {
 
 function normalizeCustomerSource(value) {
   const raw = cellText(value);
-  const normalized = raw.toLowerCase().replace(/[\s-]+/g, "_");
-  const known = ["facebook", "line", "phone", "referral", "tiktok", "shopee", "lazada", "instagram", "website", "walk_in", "other"];
+  const normalized = raw
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9ก-๙]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  const known = ["facebook", "line", "phone", "referral", "tiktok", "shopee", "lazada", "instagram", "website", "walk_in"];
   if (!raw) return { originSource: "", originSourceOther: "" };
-  if (known.includes(normalized)) return { originSource: normalized, originSourceOther: normalized === "other" ? raw : "" };
+  if (known.includes(normalized)) return { originSource: normalized, originSourceOther: "" };
   if (normalized.includes("facebook") || normalized === "fb" || raw.includes("เฟส") || raw.includes("เพจ") || raw.includes("ไลฟ์")) return { originSource: "facebook", originSourceOther: "" };
   if (normalized.includes("line") || raw.includes("ไลน์")) return { originSource: "line", originSourceOther: "" };
   if (normalized.includes("tiktok") || normalized.includes("tik_tok") || raw.includes("ติ๊กต็อก")) return { originSource: "tiktok", originSourceOther: "" };
@@ -90,7 +96,7 @@ function normalizeCustomerSource(value) {
   if (normalized.includes("walk_in") || normalized.includes("walkin") || raw.includes("หน้าร้าน")) return { originSource: "walk_in", originSourceOther: "" };
   if (raw.includes("โทร") || normalized.includes("phone") || normalized.includes("call") || normalized.includes("tel")) return { originSource: "phone", originSourceOther: "" };
   if (raw.includes("บอกต่อ") || raw.includes("แนะนำ") || normalized.includes("referral") || normalized.includes("refer")) return { originSource: "referral", originSourceOther: "" };
-  return { originSource: "other", originSourceOther: raw };
+  return { originSource: normalized, originSourceOther: "" };
 }
 
 function matchField(headerValue) {
