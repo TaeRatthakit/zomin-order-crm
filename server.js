@@ -723,7 +723,7 @@ function orderChannel(order = {}) {
 const DEFAULT_CUSTOMER_SOURCE_CHANNELS = [
   { key: "facebook", name: "Facebook" },
   { key: "line", name: "LINE" },
-  { key: "phone", name: "Phone" }
+  { key: "phone", name: "โทร" }
 ];
 
 const LEGACY_CUSTOMER_SOURCE_CHANNELS = [

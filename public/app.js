@@ -324,6 +324,9 @@ function iconSvg(name) {
     arrow: '<path d="m15 18-6-6 6-6"/>',
     settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 8 19.4a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 8a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V3a2 2 0 1 1 4 0v.09A1.7 1.7 0 0 0 16 4.6a1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9c0 .38.14.74.4 1a1.7 1.7 0 0 0 1.1.4H21a2 2 0 1 1 0 4h-.09c-.41 0-.81.15-1.1.4a1.7 1.7 0 0 0-.41 1.1Z"/>',
     trash: '<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="m19 6-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/>',
+    phone: '<path d="M22 16.92v3a2 2 0 0 1-2.18 2A19.8 19.8 0 0 1 3.08 5.18 2 2 0 0 1 5.06 3h3a2 2 0 0 1 2 1.72c.12.9.33 1.77.63 2.6a2 2 0 0 1-.45 2.11L9 10.67a16 16 0 0 0 4.33 4.33l1.24-1.24a2 2 0 0 1 2.11-.45c.83.3 1.7.51 2.6.63A2 2 0 0 1 22 16.92Z"/>',
+    tag: '<path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8Z"/><path d="M7.5 7.5h.01"/>',
+    orders: '<path d="M6 7h15l-2 8H8L6 7Z"/><path d="M6 7 5.2 4H3"/><circle cx="9" cy="20" r="1"/><circle cx="18" cy="20" r="1"/>',
     more: '<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>'
   };
   return `<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icons[name] || icons.more}</svg>`;
@@ -5587,18 +5590,18 @@ function reportDelta(currentValue, previousValue) {
 
 const ADD_CUSTOMER_SOURCE_VALUE = "__add_source__";
 const DEFAULT_CUSTOMER_SOURCE_CHANNELS = [
-  { key: "facebook", name: "Facebook", color: "#1769e8", icon: "f" },
-  { key: "line", name: "LINE", color: "#06c755", icon: "LINE" },
-  { key: "phone", name: "Phone", reportName: "Phone Order", color: "#f59e0b", icon: "☎" }
+  { key: "facebook", name: "Facebook", color: "#1769e8", iconKey: "facebook" },
+  { key: "line", name: "LINE", color: "#06c755", iconKey: "line" },
+  { key: "phone", name: "โทร", reportName: "โทร", color: "#f59e0b", iconKey: "phone" }
 ];
 const LEGACY_CUSTOMER_SOURCE_CHANNELS = [
-  { key: "referral", name: "Customer Referral", color: "#f43f5e", icon: "REF" },
-  { key: "tiktok", name: "TikTok", color: "#22d3ee", icon: "TT" },
-  { key: "shopee", name: "Shopee", color: "#fb5a2a", icon: "SP" },
-  { key: "lazada", name: "Lazada", color: "#7c3aed", icon: "LZ" },
-  { key: "instagram", name: "Instagram", color: "#e1306c", icon: "IG" },
-  { key: "website", name: "Website", color: "#38bdf8", icon: "WWW" },
-  { key: "walk_in", name: "Walk-in", color: "#84cc16", icon: "IN" }
+  { key: "referral", name: "Customer Referral", color: "#f43f5e", iconKey: "tag" },
+  { key: "tiktok", name: "TikTok", color: "#22d3ee", iconKey: "tiktok" },
+  { key: "shopee", name: "Shopee", color: "#fb5a2a", iconKey: "shopping" },
+  { key: "lazada", name: "Lazada", color: "#7c3aed", iconKey: "shopping" },
+  { key: "instagram", name: "Instagram", color: "#e1306c", iconKey: "instagram" },
+  { key: "website", name: "Website", color: "#38bdf8", iconKey: "website" },
+  { key: "walk_in", name: "Walk-in", color: "#84cc16", iconKey: "tag" }
 ];
 
 const CUSTOMER_SOURCE_KNOWN_CHANNELS = [...DEFAULT_CUSTOMER_SOURCE_CHANNELS, ...LEGACY_CUSTOMER_SOURCE_CHANNELS];
@@ -5673,17 +5676,52 @@ function customerSourceIcon(name = "") {
   return words.slice(0, 2).map(word => word[0]).join("").toUpperCase();
 }
 
+function customerSourceIconKey(key = "", name = "") {
+  const text = `${key} ${name}`.toLowerCase();
+  if (text.includes("facebook") || text.includes("fb") || text.includes("เฟส")) return "facebook";
+  if (text.includes("line") || text.includes("ไลน์")) return "line";
+  if (text.includes("phone") || text.includes("call") || text.includes("tel") || text.includes("โทร")) return "phone";
+  if (text.includes("tiktok") || text.includes("tik_tok") || text.includes("ติ๊กต็อก")) return "tiktok";
+  if (text.includes("shopee") || text.includes("lazada") || text.includes("shop") || text.includes("ช้อป") || text.includes("ลาซาด้า")) return "shopping";
+  if (text.includes("instagram") || /\big\b/.test(text) || text.includes("อินสตาแกรม")) return "instagram";
+  if (text.includes("website") || text.includes("web") || text.includes("เว็บไซต์")) return "website";
+  return "tag";
+}
+
+function customerSourceIconInner(iconKey = "", fallbackText = "") {
+  const label = escapeHtml(customerSourceIcon(fallbackText));
+  const icons = {
+    facebook: `<span class="source-icon-letter">f</span>`,
+    line: `<span class="source-icon-line">LINE</span>`,
+    phone: iconSvg("phone"),
+    tiktok: `<span class="source-icon-tiktok">♪</span>`,
+    shopping: iconSvg("orders"),
+    instagram: `<span class="source-icon-instagram">◎</span>`,
+    website: `<span class="source-icon-globe">⌾</span>`,
+    tag: iconSvg("tag")
+  };
+  return icons[iconKey] || `<span class="source-icon-letter">${label}</span>`;
+}
+
+function customerSourceIconHtml(source = {}, extraClass = "") {
+  const iconKey = source.iconKey || customerSourceIconKey(source.key, source.name);
+  const className = `customer-source-icon source-icon-${escapeHtml(iconKey)}${extraClass ? ` ${escapeHtml(extraClass)}` : ""}`;
+  return `<i class="${className}" style="--channel-color:${escapeHtml(source.color || customerSourceColor(source.key))}" aria-hidden="true">${customerSourceIconInner(iconKey, source.name || source.key)}</i>`;
+}
+
 function normalizedCustomerSourceOption(source = {}, index = 0) {
   const name = String(source.name || source.label || source.value || "").trim();
   const key = normalizeCustomerSourceKey(source.key || source.id || name);
   if (!key || !name) return null;
   const known = CUSTOMER_SOURCE_BY_KEY.get(key);
+  const displayName = known?.name || name;
   return {
     key,
-    name: known?.name || name,
-    reportName: known?.reportName || known?.name || name,
+    name: displayName,
+    reportName: known?.reportName || displayName,
     color: source.color || known?.color || customerSourceColor(key),
-    icon: source.icon || known?.icon || customerSourceIcon(name),
+    iconKey: source.iconKey || known?.iconKey || customerSourceIconKey(key, displayName),
+    icon: source.icon || known?.icon || customerSourceIcon(displayName),
     sortOrder: Number(source.sortOrder ?? source.order ?? index + 10)
   };
 }
@@ -5718,7 +5756,7 @@ function customerSourceOptionFromOrder(order = {}) {
   return normalizedCustomerSourceOption({ key, name: known?.name || raw });
 }
 
-function customerSourceOptions({ includeOrderDerived = true } = {}) {
+function customerSourceOptions({ includeOrderDerived = false } = {}) {
   const map = new Map();
   DEFAULT_CUSTOMER_SOURCE_CHANNELS.forEach((source, index) => {
     map.set(source.key, normalizedCustomerSourceOption({ ...source, sortOrder: index }));
@@ -5737,6 +5775,30 @@ function customerSourceOptions({ includeOrderDerived = true } = {}) {
   return [...map.values()].sort((a, b) => (a.sortOrder - b.sortOrder) || a.name.localeCompare(b.name));
 }
 
+function renderCustomerSourcePicker(select, options, current = "") {
+  const field = select.closest(".customer-source-field");
+  const trigger = field?.querySelector("[data-source-picker-trigger]");
+  const triggerLabel = field?.querySelector("[data-source-picker-trigger-label]");
+  const menu = field?.querySelector("[data-source-picker-menu]");
+  if (!field || !trigger || !triggerLabel || !menu) return;
+  const selected = options.find(source => source.key === current);
+  triggerLabel.innerHTML = selected
+    ? `${customerSourceIconHtml(selected)}<span>${escapeHtml(selected.name)}</span>`
+    : `<span class="customer-source-placeholder">เลือกช่องทางการมาของลูกค้า</span>`;
+  menu.innerHTML = `
+    ${options.map(source => `
+      <button class="customer-source-option${source.key === current ? " is-selected" : ""}" type="button" data-source-option="${escapeHtml(source.key)}" role="option" aria-selected="${source.key === current ? "true" : "false"}">
+        ${customerSourceIconHtml(source)}
+        <span>${escapeHtml(source.name)}</span>
+      </button>
+    `).join("")}
+    <button class="customer-source-option customer-source-add-option${current === ADD_CUSTOMER_SOURCE_VALUE ? " is-selected" : ""}" type="button" data-source-option="${ADD_CUSTOMER_SOURCE_VALUE}" role="option" aria-selected="${current === ADD_CUSTOMER_SOURCE_VALUE ? "true" : "false"}">
+      <i class="customer-source-icon source-icon-add" aria-hidden="true">+</i>
+      <span>เพิ่มช่องทาง</span>
+    </button>
+  `;
+}
+
 function refreshCustomerSourceSelect(selectedValue = "") {
   const select = els.orderForm?.elements?.originSourceChoice;
   if (!select) return;
@@ -5749,6 +5811,8 @@ function refreshCustomerSourceSelect(selectedValue = "") {
   `;
   if (current && options.some(source => source.key === current)) select.value = current;
   else if (current === ADD_CUSTOMER_SOURCE_VALUE) select.value = ADD_CUSTOMER_SOURCE_VALUE;
+  else select.value = "";
+  renderCustomerSourcePicker(select, options, select.value);
 }
 
 function customerSourceKeyForOrder(order = {}) {
@@ -5763,7 +5827,7 @@ function customerSourceKeyForOrder(order = {}) {
 }
 
 function reportAcquisitionChannelRows(orders = []) {
-  const optionMap = new Map(customerSourceOptions().map(source => [source.key, source]));
+  const optionMap = new Map(customerSourceOptions({ includeOrderDerived: true }).map(source => [source.key, source]));
   const channelMap = new Map();
   for (const order of orders) {
     const key = customerSourceKeyForOrder(order);
@@ -5937,7 +6001,7 @@ function renderMobileReports(selectedDate, selectedMonth) {
                 </div>
                 ${channelRows.map(row => `
                   <div class="mobile-report-channel-row" style="--channel-color:${row.color};">
-                    <span class="report-channel-name"><i style="--channel-color:${row.color}">${escapeHtml(row.icon)}</i><span><b>${escapeHtml(row.name)}</b><small>${money(row.count)} ออเดอร์</small></span></span>
+                    <span class="report-channel-name">${customerSourceIconHtml(row)}<span><b>${escapeHtml(row.name)}</b><small>${money(row.count)} ออเดอร์</small></span></span>
                     <em>${money(row.count)}</em>
                     <span>${row.percent.toFixed(1)}%</span>
                     <strong>฿${money(row.revenue)}</strong>
@@ -7896,14 +7960,6 @@ function openOrderDialog(order = null) {
     const originSourceKey = customerSourceKeyForOrder(order);
     refreshCustomerSourceSelect(originSourceKey);
     els.orderForm.elements.originSourceOther.value = "";
-    if (originSource && originSourceKey && els.orderForm.elements.originSourceChoice.value !== originSourceKey) {
-      const option = customerSourceOptionFromOrder(order);
-      if (option) {
-        const existing = Array.isArray(app.data?.settings?.customerSources) ? app.data.settings.customerSources : [];
-        app.data.settings.customerSources = [...existing, option];
-        refreshCustomerSourceSelect(originSourceKey);
-      }
-    }
     if (originSource) els.orderForm.dataset.originSourceValue = originSource;
   } else {
     const dateValue = els.workDate.value || todayISO();
@@ -7943,6 +7999,16 @@ function syncOriginSourceFields() {
   otherField.hidden = !isAdding;
   otherInput.required = isAdding;
   if (!isAdding) otherInput.value = "";
+}
+
+function closeCustomerSourcePicker() {
+  const field = els.orderForm?.querySelector("[data-source-picker]");
+  const trigger = field?.querySelector("[data-source-picker-trigger]");
+  const menu = field?.querySelector("[data-source-picker-menu]");
+  if (!field || !trigger || !menu) return;
+  field.classList.remove("is-open");
+  trigger.setAttribute("aria-expanded", "false");
+  menu.hidden = true;
 }
 
 async function copyText(text) {
@@ -7987,6 +8053,41 @@ els.productDialog?.addEventListener("close", () => {
 });
 
 document.addEventListener("click", async event => {
+  const sourceTrigger = event.target.closest("[data-source-picker-trigger]");
+  if (sourceTrigger && sourceTrigger.closest("#orderForm")) {
+    const picker = sourceTrigger.closest("[data-source-picker]");
+    const menu = picker?.querySelector("[data-source-picker-menu]");
+    const isOpen = picker?.classList.contains("is-open");
+    document.querySelectorAll("[data-source-picker].is-open").forEach(openPicker => {
+      if (openPicker !== picker) {
+        openPicker.classList.remove("is-open");
+        openPicker.querySelector("[data-source-picker-trigger]")?.setAttribute("aria-expanded", "false");
+        const openMenu = openPicker.querySelector("[data-source-picker-menu]");
+        if (openMenu) openMenu.hidden = true;
+      }
+    });
+    if (picker && menu) {
+      picker.classList.toggle("is-open", !isOpen);
+      sourceTrigger.setAttribute("aria-expanded", String(!isOpen));
+      menu.hidden = isOpen;
+    }
+    return;
+  }
+
+  const sourceOption = event.target.closest("[data-source-option]");
+  if (sourceOption && sourceOption.closest("#orderForm")) {
+    const select = els.orderForm?.elements?.originSourceChoice;
+    if (select) {
+      select.value = sourceOption.dataset.sourceOption || "";
+      syncOriginSourceFields();
+      renderCustomerSourcePicker(select, customerSourceOptions(), select.value);
+    }
+    closeCustomerSourcePicker();
+    return;
+  }
+
+  if (!event.target.closest("[data-source-picker]")) closeCustomerSourcePicker();
+
   if (event.target.closest("#mobileMenuToggle")) {
     document.body.classList.toggle("sidebar-open");
   }
