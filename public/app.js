@@ -2076,6 +2076,85 @@ function validateVipThresholdValues({ vip, vvip, superVip }) {
   return "";
 }
 
+function renderCustomerManagementContent({ includeHero = true, extraClass = "" } = {}) {
+  if (!app.customerSearchDraft) app.customerSearchDraft = app.filters.q || "";
+  if (!customerGroupDefinitions().some(group => group.id === app.customerGroupFilter)) app.customerGroupFilter = "all";
+  const customers = sortByPriority(applyCustomerFilters());
+  const allCustomers = app.data.customers || [];
+  const activeGroup = activeCustomerGroup();
+  const thresholds = app.data.settings?.vipThresholds || {};
+  const canEditVipSettings = isOwner();
+  const vipSettings = `
+    <form class="customer-vip-settings-panel" id="customerVipSettingsForm">
+      <div class="customer-vip-settings-head">
+        <span class="customer-vip-settings-icon" aria-hidden="true">${iconSvg("settings")}</span>
+        <div>
+          <h3>VIP Level Settings</h3>
+          <p>${canEditVipSettings ? "แก้ยอดซื้อสะสมขั้นต่ำ แล้วระบบจะคำนวณระดับลูกค้าใหม่หลังบันทึก" : "เฉพาะ Owner เท่านั้นที่แก้ไขยอดขั้นต่ำของระดับ VIP ได้"}</p>
+        </div>
+      </div>
+      <div class="customer-vip-settings-grid">
+        <label>VIP minimum total spending
+          <input name="vipThreshold" type="number" min="0" required value="${Number(thresholds.vip ?? 5000)}" ${canEditVipSettings ? "" : "disabled"}>
+        </label>
+        <label>VVIP minimum total spending
+          <input name="vvipThreshold" type="number" min="0" required value="${Number(thresholds.vvip ?? 10000)}" ${canEditVipSettings ? "" : "disabled"}>
+        </label>
+        <label>SUPER VIP minimum total spending
+          <input name="superVipThreshold" type="number" min="0" required value="${Number(thresholds.superVip ?? 20000)}" ${canEditVipSettings ? "" : "disabled"}>
+        </label>
+        ${canEditVipSettings ? `<button class="button primary customer-vip-settings-save" type="submit">บันทึก</button>` : ""}
+      </div>
+    </form>
+  `;
+  const hero = includeHero ? `
+    <div class="page-identity workspace-hero customers-hero">
+      <div class="page-identity-copy">
+        <span class="page-kicker">Customer Intelligence</span>
+        <h2>จัดการลูกค้า</h2>
+        <p>ค้นหา แบ่งกลุ่ม และปรับระดับ VIP จากยอดซื้อสะสม</p>
+      </div>
+      <div class="customer-summary-grid" aria-label="ตัวกรองกลุ่มลูกค้า">
+        ${customerGroupDefinitions(allCustomers).map(group => customerSummaryCard(group, app.customerGroupFilter)).join("")}
+      </div>
+    </div>
+  ` : "";
+  return `
+    <section class="saas-page customers-page customer-management-page ${escapeHtml(extraClass)}">
+      ${hero}
+      <div class="customer-management-toolbar">
+        <div class="customer-list-heading">
+          <div>
+            <h3 id="customerListTitle">${escapeHtml(activeGroup.title)}</h3>
+            <p id="customerListCount">แสดง ${money(customers.length)} จาก ${money(allCustomers.length)} คน${app.filters.q ? ` • ค้นหา "${escapeHtml(app.filters.q)}"` : ""}${app.filters.tag ? ` • ${escapeHtml(app.filters.tag)}` : ""}</p>
+          </div>
+        </div>
+        <div class="customer-search-row">
+          <input class="customer-search-input" data-customer-search-input placeholder="ค้นหาชื่อลูกค้า, เบอร์โทร" value="${escapeHtml(app.customerSearchDraft)}">
+          <button class="button primary customer-search-button" type="button" data-customer-search>
+            <span class="customer-search-icon" aria-hidden="true">${dashboardCardIcon("search")}</span>
+            <span>ค้นหา</span>
+          </button>
+        </div>
+        ${vipSettings}
+      </div>
+      <div id="searchResults">${customerTable(customers)}</div>
+    </section>
+  `;
+}
+
+function renderCustomerManagementCurrentView() {
+  if (app.view === "settings") {
+    renderSettings();
+    return;
+  }
+  if (app.view === "settingsCustomers") {
+    renderSettingsCustomers();
+    return;
+  }
+  renderSearch();
+}
+
 function orderCard(order) {
   return `
     <tr data-order-id="${escapeHtml(order.id)}">
@@ -3083,28 +3162,11 @@ function renderMobileSetupWizard() {
 }
 
 function renderMobileBusinessCustomers() {
-  const customers = sortByPriority(app.data.customers || []);
-  const newCount = customers.filter(customer => customer.status === "NEW").length;
-  const repeatCount = customers.filter(customer => Number(customer.purchaseCount || 0) > 1).length;
   return `
-    <section class="mobile-business-page mobile-business-subpage">
+    <section class="mobile-business-page mobile-business-subpage customer-management-business-page">
       ${mobileBusinessHeader("จัดการลูกค้า", "เพิ่ม แก้ไข และดูข้อมูลลูกค้าทั้งหมด", "users")}
       <button class="button primary mobile-business-full-button" type="button" data-view-shortcut="orders">${iconSvg("users")} เพิ่มลูกค้าผ่านออเดอร์</button>
-      <div class="mobile-business-kpis three">
-        <article class="purple"><span>ลูกค้าทั้งหมด</span><strong>${money(customers.length)}</strong><small>ราย</small></article>
-        <article class="blue"><span>ลูกค้าใหม่</span><strong>${money(newCount)}</strong><small>ราย</small></article>
-        <article class="green"><span>ลูกค้าประจำ</span><strong>${money(repeatCount)}</strong><small>ราย</small></article>
-      </div>
-      <div class="mobile-business-record-list">
-        ${customers.map(customer => `
-          <button class="mobile-business-record" type="button" data-business-customer="${escapeHtml(customer.id)}">
-            <span class="mobile-business-avatar">${escapeHtml(initials(customer.name))}</span>
-            <span><strong>${escapeHtml(customer.name)}</strong><small>${escapeHtml(customer.phone || "ไม่มีเบอร์โทร")}</small></span>
-            ${vipBadge(customer.vipLevel)}
-            <span class="mobile-business-record-date">${formatShortDate(customer.lastPurchaseDate)}</span>
-          </button>
-        `).join("") || mobileBusinessEmpty("ยังไม่มีข้อมูลลูกค้า", "เพิ่มลูกค้าจากออเดอร์จริงเพื่อให้แสดงในหน้านี้")}
-      </div>
+      ${renderCustomerManagementContent({ extraClass: "embedded-customer-management" })}
     </section>
   `;
 }
@@ -3986,64 +4048,9 @@ function applyCustomerFilters() {
 }
 
 function renderSearch() {
-  if (!app.customerSearchDraft) app.customerSearchDraft = app.filters.q || "";
-  if (!customerGroupDefinitions().some(group => group.id === app.customerGroupFilter)) app.customerGroupFilter = "all";
-  const customers = sortByPriority(applyCustomerFilters());
-  const allCustomers = app.data.customers || [];
-  const activeGroup = activeCustomerGroup();
-  const thresholds = app.data.settings?.vipThresholds || {};
-  const ownerSettings = isOwner() ? `
-    <form class="customer-vip-settings-panel" id="customerVipSettingsForm">
-      <div class="customer-vip-settings-head">
-        <span class="customer-vip-settings-icon" aria-hidden="true">${iconSvg("settings")}</span>
-        <div>
-          <h3>VIP Level Settings</h3>
-          <p>แก้ยอดซื้อสะสมขั้นต่ำ แล้วระบบจะคำนวณระดับลูกค้าใหม่หลังบันทึก</p>
-        </div>
-      </div>
-      <div class="customer-vip-settings-grid">
-        <label>VIP minimum total spending
-          <input name="vipThreshold" type="number" min="0" required value="${Number(thresholds.vip ?? 5000)}">
-        </label>
-        <label>VVIP minimum total spending
-          <input name="vvipThreshold" type="number" min="0" required value="${Number(thresholds.vvip ?? 10000)}">
-        </label>
-        <label>SUPER VIP minimum total spending
-          <input name="superVipThreshold" type="number" min="0" required value="${Number(thresholds.superVip ?? 20000)}">
-        </label>
-        <button class="button primary customer-vip-settings-save" type="submit">บันทึก</button>
-      </div>
-    </form>
-  ` : "";
   els.content.innerHTML = `
-    <section class="section saas-page customers-page">
-      <div class="page-identity workspace-hero customers-hero">
-        <div class="page-identity-copy">
-          <span class="page-kicker">Customer Intelligence</span>
-          <h2>จัดการลูกค้า</h2>
-          <p>ค้นหา แบ่งกลุ่ม และปรับระดับ VIP จากยอดซื้อสะสม</p>
-        </div>
-        <div class="customer-summary-grid" aria-label="ตัวกรองกลุ่มลูกค้า">
-          ${customerGroupDefinitions(allCustomers).map(group => customerSummaryCard(group, app.customerGroupFilter)).join("")}
-        </div>
-      </div>
-      <div class="customer-management-toolbar">
-        <div class="customer-list-heading">
-          <div>
-            <h3 id="customerListTitle">${escapeHtml(activeGroup.title)}</h3>
-            <p id="customerListCount">แสดง ${money(customers.length)} จาก ${money(allCustomers.length)} คน${app.filters.q ? ` • ค้นหา "${escapeHtml(app.filters.q)}"` : ""}${app.filters.tag ? ` • ${escapeHtml(app.filters.tag)}` : ""}</p>
-          </div>
-        </div>
-        <div class="customer-search-row">
-          <input class="customer-search-input" data-customer-search-input placeholder="ค้นหาชื่อลูกค้า, เบอร์โทร" value="${escapeHtml(app.customerSearchDraft)}">
-          <button class="button primary customer-search-button" type="button" data-customer-search>
-            <span class="customer-search-icon" aria-hidden="true">${dashboardCardIcon("search")}</span>
-            <span>ค้นหา</span>
-          </button>
-        </div>
-        ${ownerSettings}
-      </div>
-      <div id="searchResults">${customerTable(customers)}</div>
+    <section class="section">
+      ${renderCustomerManagementContent()}
     </section>
   `;
 }
@@ -4391,8 +4398,8 @@ function renderMarketing() {
 }
 
 function updateSearchResults() {
-  if (app.view === "customers") {
-    renderSearch();
+  if (["customers", "settings", "settingsCustomers"].includes(app.view)) {
+    renderCustomerManagementCurrentView();
     return;
   }
   const results = document.querySelector("#searchResults");
@@ -6484,51 +6491,11 @@ function renderSettingsFinance() {
 }
 
 function renderSettingsCustomers() {
-  const settings = app.data.settings;
-  const thresholds = settings.vipThresholds || {};
-  const daysPerUnit = Math.max(1, Number(settings.followUpDaysPerUnit || 15));
-  els.content.innerHTML = settingsSubpageShell(
-    "Customers",
-    "ลูกค้า",
-    "ตั้งค่าการติดตามลูกค้าและเกณฑ์ VIP",
-    `
-      <form class="panel stack panel-premium settings-subpage-form" id="settingsForm">
-        <div class="form-grid">
-          <label>VIP Threshold<input name="vipThreshold" type="number" min="0" value="${Number(thresholds.vip || 5000)}"></label>
-          <label>VVIP Threshold<input name="vvipThreshold" type="number" min="0" value="${Number(thresholds.vvip || 10000)}"></label>
-          <label class="span-2">SUPER VIP Threshold<input name="superVipThreshold" type="number" min="0" value="${Number(thresholds.superVip || 20000)}"></label>
-        </div>
-        <label class="followup-setting-row" for="followupDaysPerUnit">
-          <span>จำนวนวันต่อ 1 กระปุก</span>
-          <div class="followup-setting-input">
-            <input id="followupDaysPerUnit" name="daysPerUnit" type="number" min="1" required value="${daysPerUnit}">
-            <span>วัน / กระปุก</span>
-          </div>
-          <div class="followup-setting-note">ระบบจะคำนวณวันติดตามจากจำนวนทั้งหมดที่ลูกค้าได้รับ รวมของแถม</div>
-        </label>
-        <div class="panel tight followup-preview-panel">
-          <strong>ตัวอย่างการคำนวณ Follow-up</strong>
-          <div class="table-wrap mobile-stack-wrap">
-            <table class="rules-table mobile-stack-table">
-              <thead><tr><th>ลูกค้าได้รับทั้งหมด</th><th>ระบบติดตามอีก</th></tr></thead>
-              <tbody id="followupPreviewBody">
-                ${followUpPreviewRows(daysPerUnit).map(row => `
-                  <tr>
-                    <td data-label="ลูกค้าได้รับทั้งหมด">${row.units} กระปุก</td>
-                    <td data-label="ระบบติดตามอีก">${row.days} วัน</td>
-                  </tr>
-                `).join("")}
-              </tbody>
-            </table>
-          </div>
-        </div>
-        <div class="settings-submit-bar">
-          <button class="button ghost" type="button" data-reset-settings>ยกเลิก</button>
-          <button class="button primary" type="submit">บันทึกการตั้งค่า</button>
-        </div>
-      </form>
-    `
-  );
+  els.content.innerHTML = `
+    <section class="section">
+      ${renderCustomerManagementContent({ extraClass: "settings-customers-management" })}
+    </section>
+  `;
 }
 
 function renderSettingsLineHub() {
@@ -8227,7 +8194,7 @@ document.addEventListener("click", async event => {
   const customerGroupFilter = event.target.closest("[data-customer-group-filter]");
   if (customerGroupFilter) {
     app.customerGroupFilter = customerGroupFilter.dataset.customerGroupFilter || "all";
-    renderSearch();
+    renderCustomerManagementCurrentView();
     return;
   }
 
@@ -8235,7 +8202,7 @@ document.addEventListener("click", async event => {
     const searchInput = document.querySelector("[data-customer-search-input]");
     app.customerSearchDraft = searchInput?.value ?? app.customerSearchDraft;
     app.filters.q = app.customerSearchDraft.trim();
-    renderSearch();
+    renderCustomerManagementCurrentView();
     return;
   }
 
@@ -8352,7 +8319,7 @@ document.addEventListener("click", async event => {
     app.filters = { q: "", tag: "", status: "", vip: "" };
     app.customerGroupFilter = "all";
     app.customerSearchDraft = "";
-    renderSearch();
+    renderCustomerManagementCurrentView();
   }
 
   if (event.target.closest("[data-reset-order-filters]")) {
@@ -8544,7 +8511,7 @@ document.addEventListener("keydown", event => {
     event.preventDefault();
     app.customerSearchDraft = event.target.value;
     app.filters.q = app.customerSearchDraft.trim();
-    renderSearch();
+    renderCustomerManagementCurrentView();
   }
 });
 
@@ -8606,7 +8573,7 @@ document.addEventListener("change", async event => {
 
   if (event.target?.matches?.("[data-customers-show-all]")) {
     app.customersShowAll = event.target.checked;
-    renderSearch();
+    renderCustomerManagementCurrentView();
   }
 
   if (event.target?.matches?.("[data-report-month]")) {
