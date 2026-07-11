@@ -5586,9 +5586,9 @@ function reportDelta(currentValue, previousValue) {
 
 const REPORT_ACQUISITION_CHANNELS = [
   { name: "Facebook", color: "#1769e8", icon: "f" },
-  { name: "LINE OA", color: "#8f45f7", icon: "LINE" },
-  { name: "Phone Order", color: "#10c86f", icon: "☎" },
-  { name: "Customer Referral", color: "#ff9f0a", icon: "REF" }
+  { name: "LINE", color: "#06c755", icon: "LINE" },
+  { name: "Phone Order", color: "#f59e0b", icon: "☎" },
+  { name: "Customer Referral", color: "#f43f5e", icon: "REF" }
 ];
 
 function reportAcquisitionChannelName(order = {}) {
@@ -5603,7 +5603,7 @@ function reportAcquisitionChannelName(order = {}) {
     raw.includes("ไลฟ์") ||
     normalized.includes("inbox")
   ) return "Facebook";
-  if (normalized.includes("line") || raw.includes("ไลน์")) return "LINE OA";
+  if (normalized.includes("line") || raw.includes("ไลน์")) return "LINE";
   if (raw.includes("โทร") || normalized.includes("phone") || normalized.includes("call") || normalized.includes("tel")) return "Phone Order";
   if (
     raw.includes("บอกต่อ") ||
@@ -5617,7 +5617,7 @@ function reportAcquisitionChannelName(order = {}) {
 
 function reportChannelIcon(channel) {
   if (channel === "Facebook") return "f";
-  if (channel === "LINE OA") return "LINE";
+  if (channel === "LINE") return "LINE";
   if (channel === "Phone Order") return "☎";
   if (channel === "Customer Referral") return "REF";
   return "●";
