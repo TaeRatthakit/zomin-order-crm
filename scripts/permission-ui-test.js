@@ -29,6 +29,14 @@ assert(appJs.includes("data-permission-restore-defaults"), "restore defaults act
 assert(appJs.includes("markPermissionDraftSaved();"), "save flow must reset permission dirty snapshot");
 assert(appJs.includes("confirmDiscardPermissionChanges"), "unsaved-change discard guard missing");
 assert(appJs.includes("data-permission-accordion"), "mobile permission accordion missing");
+assert(appJs.includes("ensurePermissionAccordionState"), "shared accordion state initializer missing");
+assert(!appJs.includes("!mobile || app.openPermissionGroups"), "desktop accordion must not be forced open");
+assert(!appJs.includes("enabledCount"), "permission enabled counters must not be rendered");
+assert(!appJs.includes("เปิดอยู่"), "permission enabled count text must not be rendered");
+assert(!appJs.includes("` (${count})`"), "permission category count must not be rendered");
+assert(!appJs.includes("permission-card-body\" hidden"), "accordion body should not rely on hidden attribute");
+assert(appJs.includes("aria-hidden=\"${open ? \"false\" : \"true\"}\""), "accordion body aria state missing");
+assert(appJs.includes("permission-card-chevron"), "accordion chevron missing");
 
 const clickHandlerStart = appJs.indexOf('document.addEventListener("click"');
 const changeHandlerStart = appJs.indexOf('document.addEventListener("change"');
@@ -46,6 +54,9 @@ assert(css.includes(".permission-switch input:focus-visible + .settings-switch-u
 assert(css.includes(".permission-switch .settings-switch-ui") && css.includes("pointer-events: none"), "visual switch must not intercept pointer events");
 assert(css.includes(".permission-row-copy b,") && css.includes("text-overflow: ellipsis"), "one-line ellipsis for permission labels/descriptions missing");
 assert(css.includes("@media (max-width: 760px)") && css.includes("grid-template-columns: 1fr"), "mobile one-column permission layout missing");
+assert(css.includes("grid-template-rows: 0fr") && css.includes("grid-template-rows: 1fr"), "accordion expand/collapse grid animation missing");
+assert(css.includes("transition: grid-template-rows") && css.includes("opacity 160ms ease"), "accordion transition missing");
+assert(css.includes("transform: rotate(180deg)"), "accordion chevron rotation missing");
 assert(css.includes("bottom: 74px"), "mobile sticky save should sit above bottom navigation");
 assert(css.includes("padding-bottom: 112px"), "mobile panel must reserve space for sticky save");
 

@@ -9400,16 +9400,26 @@ small,
 .permission-card-head {
   width: 100%;
   display: grid;
-  grid-template-columns: auto minmax(130px, 190px) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
   min-height: 0;
   padding: 14px 16px;
   border: 0;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.1);
   background: transparent;
   color: rgba(255, 255, 255, 0.92);
+  cursor: pointer;
   text-align: left;
+}
+
+.permission-card.is-open .permission-card-head,
+.mobile-permission-card.is-open .permission-card-head {
+  border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+}
+
+.permission-card-head:focus-visible {
+  outline: 2px solid rgba(168, 85, 247, 0.82);
+  outline-offset: -2px;
 }
 
 .permission-card-icon {
@@ -9429,23 +9439,49 @@ small,
 
 .permission-card-title {
   display: grid;
-  gap: 4px;
+  min-width: 0;
 }
 
 .permission-card-title strong {
   font-size: 16px;
   font-weight: 900;
-}
-
-.permission-card-title small {
-  color: rgba(203, 213, 225, 0.64);
-  font-size: 12px;
-  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .permission-card-body {
   display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition: grid-template-rows 180ms ease, opacity 160ms ease;
+}
+
+.permission-card.is-open .permission-card-body,
+.mobile-permission-card.is-open .permission-card-body {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.permission-card-body-inner {
+  min-height: 0;
+  overflow: hidden;
+  display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.permission-card-chevron {
+  display: inline-grid;
+  place-items: center;
+  color: rgba(226, 232, 240, 0.8);
+  font-size: 16px;
+  line-height: 1;
+  transition: transform 160ms ease;
+}
+
+.permission-card.is-open .permission-card-chevron,
+.mobile-permission-card.is-open .permission-card-chevron {
+  transform: rotate(180deg);
 }
 
 .permission-row {
@@ -9614,7 +9650,7 @@ small,
     border-bottom: 0;
   }
 
-  .mobile-permission-card .permission-card-head[aria-expanded="true"] {
+  .mobile-permission-card.is-open .permission-card-head {
     border-bottom: 1px solid rgba(148, 163, 184, 0.1);
   }
 
@@ -9627,18 +9663,7 @@ small,
     font-size: 14px;
   }
 
-  .mobile-permission-card .permission-card-title small {
-    font-size: 11px;
-  }
-
-  .permission-card-chevron {
-    color: rgba(226, 232, 240, 0.8);
-    font-size: 16px;
-    text-align: right;
-  }
-
-  .mobile-permission-card .permission-card-body {
-    display: grid;
+  .mobile-permission-card .permission-card-body-inner {
     grid-template-columns: 1fr;
   }
 

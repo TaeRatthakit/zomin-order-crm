@@ -6905,32 +6905,35 @@ function permissionToggle(role, key, checked, disabled = false) {
   `;
 }
 
+function ensurePermissionAccordionState() {
+  if (!app.openPermissionGroups) app.openPermissionGroups = new Set();
+}
+
 function permissionCardMarkup(group, { mobile = false } = {}) {
   const matrix = permissionMatrix();
   const selectedRole = app.permissionRole || "Admin";
-  const count = group.permissions.length;
-  const enabledCount = group.permissions.filter(([key]) => Boolean(matrix[selectedRole]?.[key])).length;
-  const open = !mobile || app.openPermissionGroups?.has?.(group.id);
+  const open = app.openPermissionGroups?.has?.(group.id);
   return `
-    <section class="${mobile ? "mobile-permission-card" : "permission-card"}" data-permission-group="${escapeHtml(group.id)}">
+    <section class="${mobile ? "mobile-permission-card" : "permission-card"} ${open ? "is-open" : ""}" data-permission-group="${escapeHtml(group.id)}">
       <button class="permission-card-head" type="button" data-permission-accordion="${escapeHtml(group.id)}" aria-expanded="${open ? "true" : "false"}">
         <span class="permission-card-icon">${iconSvg(group.icon || "settings")}</span>
         <span class="permission-card-title">
-          <strong>${escapeHtml(group.label)}${mobile ? ` (${count})` : ""}</strong>
-          <small>${mobile ? `${enabledCount}/${count} เปิดอยู่` : "จัดการสิทธิ์ในหมวดนี้"}</small>
+          <strong>${escapeHtml(group.label)}</strong>
         </span>
-        ${mobile ? `<span class="permission-card-chevron">${open ? "⌃" : "⌄"}</span>` : ""}
+        <span class="permission-card-chevron" aria-hidden="true">⌄</span>
       </button>
-      <div class="permission-card-body" ${mobile && !open ? "hidden" : ""}>
-        ${group.permissions.map(([key, label, description]) => `
-          <div class="permission-row">
-            <span class="permission-row-copy">
-              <b>${escapeHtml(label)}</b>
-              <small>${escapeHtml(description)}</small>
-            </span>
-            ${permissionToggle(selectedRole, key, Boolean(matrix[selectedRole]?.[key]))}
-          </div>
-        `).join("")}
+      <div class="permission-card-body" aria-hidden="${open ? "false" : "true"}" ${open ? "" : "inert"}>
+        <div class="permission-card-body-inner">
+          ${group.permissions.map(([key, label, description]) => `
+            <div class="permission-row">
+              <span class="permission-row-copy">
+                <b>${escapeHtml(label)}</b>
+                <small>${escapeHtml(description)}</small>
+              </span>
+              ${permissionToggle(selectedRole, key, Boolean(matrix[selectedRole]?.[key]))}
+            </div>
+          `).join("")}
+        </div>
       </div>
     </section>
   `;
@@ -6943,9 +6946,7 @@ function renderPermissionRows({ mobile = false } = {}) {
   if (!catalog.length || !matrix.Admin || !matrix.Staff) {
     return `<article class="panel stack panel-premium permission-loading">กำลังโหลดสิทธิ์...</article>`;
   }
-  if (mobile && !app.openPermissionGroups) {
-    app.openPermissionGroups = new Set([catalog[0]?.id].filter(Boolean));
-  }
+  ensurePermissionAccordionState();
   if (mobile) {
     return `
       <div class="mobile-permission-groups">
