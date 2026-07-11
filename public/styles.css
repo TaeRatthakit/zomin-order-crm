@@ -9488,6 +9488,7 @@ small,
 }
 
 .permission-switch {
+  position: relative;
   display: inline-flex;
   justify-content: center;
   align-items: center;
@@ -9498,10 +9499,11 @@ small,
 
 .permission-switch input {
   position: absolute;
-  width: 1px;
-  height: 1px;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   opacity: 0;
-  pointer-events: none;
+  cursor: pointer;
 }
 
 .permission-switch .settings-switch-ui {

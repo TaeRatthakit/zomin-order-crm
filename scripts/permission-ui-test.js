@@ -41,6 +41,7 @@ assert(changeHandler.includes("[data-permission-toggle]"), "permission toggle ch
 
 assert(css.includes(".permission-switch input"), "permission checkbox hiding CSS missing");
 assert(css.includes("opacity: 0"), "permission checkbox should be visually hidden");
+assert(css.includes("inset: 0") && css.includes("width: 100%") && css.includes("height: 100%"), "permission input must cover the switch touch target");
 assert(css.includes(".permission-switch input:focus-visible + .settings-switch-ui"), "switch focus style missing");
 assert(css.includes(".permission-switch .settings-switch-ui") && css.includes("pointer-events: none"), "visual switch must not intercept pointer events");
 assert(css.includes(".permission-row-copy b,") && css.includes("text-overflow: ellipsis"), "one-line ellipsis for permission labels/descriptions missing");
