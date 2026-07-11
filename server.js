@@ -65,6 +65,154 @@ const MIME_TYPES = {
   ".jpeg": "image/jpeg"
 };
 
+const PERMISSION_GROUPS = [
+  {
+    id: "orders",
+    label: "ออเดอร์",
+    icon: "clipboard",
+    permissions: [
+      ["orders.view", "ดูออเดอร์", "ดูรายการออเดอร์ทั้งหมดและรายละเอียดออเดอร์"],
+      ["orders.create", "เพิ่มออเดอร์", "สร้างออเดอร์ใหม่"],
+      ["orders.edit", "แก้ไขออเดอร์", "แก้ไขข้อมูลออเดอร์"],
+      ["orders.delete", "ลบออเดอร์", "ลบออเดอร์"],
+      ["orders.status", "เปลี่ยนสถานะออเดอร์", "เปลี่ยนสถานะและข้อมูลจัดส่งของออเดอร์"],
+      ["orders.export", "Export ออเดอร์", "ส่งออกรายชื่อออเดอร์"]
+    ]
+  },
+  {
+    id: "customers",
+    label: "ลูกค้า",
+    icon: "users",
+    permissions: [
+      ["customers.view", "ดูข้อมูลลูกค้า", "ดูข้อมูลลูกค้าทั้งหมด"],
+      ["customers.edit", "เพิ่ม / แก้ไขลูกค้า", "เพิ่มหรือแก้ไขข้อมูลลูกค้า"],
+      ["customers.delete", "ลบลูกค้า", "ลบข้อมูลลูกค้า"],
+      ["customers.export", "Export ลูกค้า", "ส่งออกข้อมูลลูกค้า"],
+      ["customers.import", "Import ลูกค้า", "นำเข้าข้อมูลลูกค้า/ออเดอร์"]
+    ]
+  },
+  {
+    id: "products",
+    label: "สินค้า",
+    icon: "box",
+    permissions: [
+      ["products.view", "ดูสินค้า", "ดูรายการสินค้าและสต็อก"],
+      ["products.edit", "เพิ่ม / แก้ไขสินค้า", "เพิ่มหรือแก้ไขสินค้า"],
+      ["products.delete", "ลบสินค้า", "ลบหรือเก็บถาวรสินค้า"],
+      ["products.stock", "ปรับสต็อกสินค้า", "ปรับจำนวนสต็อกสินค้า"]
+    ]
+  },
+  {
+    id: "reports",
+    label: "รายงาน & การเงิน",
+    icon: "chart",
+    permissions: [
+      ["reports.sales", "ดูยอดขาย / รายงาน", "ดูยอดขายและรายงานภาพรวม"],
+      ["reports.costs", "ดูต้นทุนสินค้า", "ดูต้นทุนสินค้าและค่าใช้จ่าย"],
+      ["reports.profit", "ดูกำไร", "ดูกำไรและผลประกอบการ"],
+      ["reports.finance", "ดูรายงานการเงิน", "ดูข้อมูลการเงินเชิงลึก"],
+      ["reports.export", "Export รายงาน", "ส่งออกรายงาน"]
+    ]
+  },
+  {
+    id: "system",
+    label: "ระบบ",
+    icon: "settings",
+    permissions: [
+      ["system.users", "จัดการผู้ใช้งาน", "เพิ่ม / ลบ / แก้ไขผู้ใช้งาน"],
+      ["system.permissions", "กำหนดสิทธิ์การเข้าถึง", "กำหนดสิทธิ์ผู้ใช้งาน"],
+      ["system.business", "ตั้งค่าธุรกิจ", "ตั้งค่าข้อมูลร้าน"],
+      ["system.integrations", "ตั้งค่าระบบ / การเชื่อมต่อ", "ตั้งค่าระบบและการเชื่อมต่อ"],
+      ["system.danger", "ลบข้อมูลสำคัญ", "ลบข้อมูลหรือสำรอง/กู้คืนข้อมูลสำคัญ"]
+    ]
+  }
+];
+
+const PERMISSION_KEYS = PERMISSION_GROUPS.flatMap(group => group.permissions.map(([key]) => key));
+const FULL_PERMISSIONS = Object.fromEntries(PERMISSION_KEYS.map(key => [key, true]));
+const RECOMMENDED_ROLE_PERMISSIONS = {
+  Admin: {
+    "orders.view": true,
+    "orders.create": true,
+    "orders.edit": true,
+    "orders.delete": false,
+    "orders.status": true,
+    "orders.export": true,
+    "customers.view": true,
+    "customers.edit": true,
+    "customers.delete": false,
+    "customers.export": true,
+    "customers.import": true,
+    "products.view": true,
+    "products.edit": true,
+    "products.delete": false,
+    "products.stock": true,
+    "reports.sales": true,
+    "reports.costs": true,
+    "reports.profit": false,
+    "reports.finance": false,
+    "reports.export": true,
+    "system.users": false,
+    "system.permissions": false,
+    "system.business": true,
+    "system.integrations": true,
+    "system.danger": false
+  },
+  Staff: {
+    "orders.view": true,
+    "orders.create": true,
+    "orders.edit": false,
+    "orders.delete": false,
+    "orders.status": true,
+    "orders.export": false,
+    "customers.view": true,
+    "customers.edit": false,
+    "customers.delete": false,
+    "customers.export": false,
+    "customers.import": false,
+    "products.view": true,
+    "products.edit": false,
+    "products.delete": false,
+    "products.stock": false,
+    "reports.sales": false,
+    "reports.costs": false,
+    "reports.profit": false,
+    "reports.finance": false,
+    "reports.export": false,
+    "system.users": false,
+    "system.permissions": false,
+    "system.business": false,
+    "system.integrations": false,
+    "system.danger": false
+  }
+};
+
+function normalizedRolePermissions(settings = {}) {
+  const stored = settings.rolePermissions && typeof settings.rolePermissions === "object"
+    ? settings.rolePermissions
+    : {};
+  return {
+    Owner: { ...FULL_PERMISSIONS },
+    Admin: { ...RECOMMENDED_ROLE_PERMISSIONS.Admin, ...(stored.Admin || {}) },
+    Staff: { ...RECOMMENDED_ROLE_PERMISSIONS.Staff, ...(stored.Staff || {}) }
+  };
+}
+
+function sanitizeRolePermissions(input = {}) {
+  const normalized = normalizedRolePermissions({ rolePermissions: input });
+  return {
+    Owner: { ...FULL_PERMISSIONS },
+    Admin: Object.fromEntries(PERMISSION_KEYS.map(key => [key, Boolean(normalized.Admin[key])])),
+    Staff: Object.fromEntries(PERMISSION_KEYS.map(key => [key, Boolean(normalized.Staff[key])]))
+  };
+}
+
+function permissionPayloadForRole(role, settings = {}) {
+  if (role === "Owner") return { ...FULL_PERMISSIONS };
+  const matrix = normalizedRolePermissions(settings);
+  return { ...(matrix[role] || matrix.Staff) };
+}
+
 function json(res, status, payload, extraHeaders = {}) {
   res.writeHead(status, {
     "Content-Type": "application/json; charset=utf-8",
@@ -943,6 +1091,44 @@ async function requireAdmin(req, res, db = null) {
   return user;
 }
 
+async function requireOwner(req, res, db = null) {
+  const sessionUser = requireUser(req, res);
+  if (!sessionUser) return null;
+  const user = await freshSessionUser(req, db);
+  if (!user) {
+    sessionExpiredResponse(req, res);
+    return null;
+  }
+  if (user.role !== "Owner") {
+    json(res, 403, { ok: false, error: "ต้องใช้สิทธิ์ Owner" });
+    return null;
+  }
+  return user;
+}
+
+function hasPermission(user, dbOrSettings, permission) {
+  if (!user) return false;
+  if (user.role === "Owner") return true;
+  const settings = dbOrSettings?.settings || dbOrSettings || {};
+  return Boolean(permissionPayloadForRole(user.role, settings)[permission]);
+}
+
+async function requirePermission(req, res, db, permission, error = "ไม่มีสิทธิ์เข้าถึงส่วนนี้") {
+  const sessionUser = requireUser(req, res);
+  if (!sessionUser) return null;
+  const sourceDb = db || await readDb();
+  const user = currentUserFromDb(sessionUser, sourceDb);
+  if (!user) {
+    sessionExpiredResponse(req, res);
+    return null;
+  }
+  if (!hasPermission(user, sourceDb, permission)) {
+    json(res, 403, { ok: false, error });
+    return null;
+  }
+  return user;
+}
+
 function normalizeUserRole(role) {
   return ["Owner", "Admin", "Staff"].includes(role) ? role : "Staff";
 }
@@ -1040,13 +1226,16 @@ async function handleImportJobsApi(req, res, url) {
   }
 
   if (req.method === "GET" && url.pathname === "/api/import-jobs/latest-cleanup-preview") {
-    if (!await requireAdmin(req, res)) return true;
+    const db = await readDb();
+    if (!await requirePermission(req, res, db, "system.danger", "ไม่มีสิทธิ์ล้างข้อมูลงานนำเข้า")) return true;
     const preview = await previewLatestImportCleanup(url.searchParams.get("type") || "orders");
     if (!preview) return json(res, 404, { ok: false, error: "ไม่พบงานนำเข้าล่าสุด" });
     return json(res, 200, { ok: true, preview: importCleanupView(preview) });
   }
 
   if (req.method === "POST" && url.pathname === "/api/import-jobs") {
+    const db = await readDb();
+    if (!await requirePermission(req, res, db, "customers.import", "ไม่มีสิทธิ์นำเข้าข้อมูล")) return true;
     const body = await readBody(req);
     const type = body.type || "orders";
     if (type !== "orders") return json(res, 400, { ok: false, error: "ประเภทการนำเข้ายังไม่รองรับ" });
@@ -1112,7 +1301,8 @@ async function handleImportJobsApi(req, res, url) {
   }
 
   if (req.method === "POST" && parts[3] === "cleanup") {
-    if (!await requireAdmin(req, res)) return true;
+    const db = await readDb();
+    if (!await requirePermission(req, res, db, "system.danger", "ไม่มีสิทธิ์ล้างข้อมูลงานนำเข้า")) return true;
     try {
       const result = await cleanupImportJob(jobId);
       if (!result) return json(res, 404, { ok: false, error: "ไม่พบงานนำเข้า" });
@@ -1132,6 +1322,8 @@ async function handleImportJobsApi(req, res, url) {
   }
 
   if (req.method === "POST" && parts[3] === "cancel") {
+    const db = await readDb();
+    if (!await requirePermission(req, res, db, "customers.import", "ไม่มีสิทธิ์จัดการงานนำเข้า")) return true;
     if (["queued", "running", "paused"].includes(job.status)) {
       job.status = "cancelled";
       job.completedAt = new Date().toISOString();
@@ -1142,6 +1334,8 @@ async function handleImportJobsApi(req, res, url) {
   }
 
   if (req.method === "POST" && parts[3] === "batches") {
+    const db = await readDb();
+    if (!await requirePermission(req, res, db, "customers.import", "ไม่มีสิทธิ์นำเข้าข้อมูล")) return true;
     if (!["queued", "running", "paused"].includes(job.status)) {
       json(res, 409, { ok: false, error: "งานนำเข้าไม่ได้อยู่ในสถานะทำงาน", job: importJobView(job) });
       return true;
@@ -1188,6 +1382,8 @@ async function handleImportJobsApi(req, res, url) {
   }
 
   if (req.method === "GET" && parts[3] === "failed.csv") {
+    const db = await readDb();
+    if (!await requirePermission(req, res, db, "customers.import", "ไม่มีสิทธิ์ดาวน์โหลดไฟล์นำเข้า")) return true;
     const failedRows = (job.failedRows || []).map(item => ({
       rowNumber: item.rowNumber || "",
       error: item.error || "",
@@ -2499,8 +2695,41 @@ async function handleApi(req, res) {
     if (handled !== false) return;
   }
 
+  if (req.method === "GET" && url.pathname === "/api/permissions") {
+    const db = await readDb();
+    const currentUser = await requireOwner(req, res, db);
+    if (!currentUser) return;
+    return json(res, 200, {
+      ok: true,
+      catalog: PERMISSION_GROUPS,
+      recommended: RECOMMENDED_ROLE_PERMISSIONS,
+      rolePermissions: normalizedRolePermissions(db.settings || {})
+    });
+  }
+
+  if (req.method === "PUT" && url.pathname === "/api/permissions") {
+    const db = await readDb();
+    const currentUser = await requireOwner(req, res, db);
+    if (!currentUser) return;
+    const body = await readBody(req);
+    const next = sanitizeRolePermissions(body.rolePermissions || body.permissions || {});
+    const patch = { rolePermissions: next };
+    if (typeof persistSettingsPatch === "function") {
+      await persistSettingsPatch(patch);
+    } else {
+      db.settings = { ...(db.settings || {}), ...patch };
+      await writeDb(db);
+    }
+    return json(res, 200, {
+      ok: true,
+      catalog: PERMISSION_GROUPS,
+      recommended: RECOMMENDED_ROLE_PERMISSIONS,
+      rolePermissions: next
+    });
+  }
+
   if (req.method === "PUT" && url.pathname === "/api/settings/finance") {
-    if (!await requireAdmin(req, res)) return;
+    if (!await requirePermission(req, res, null, "reports.costs", "ไม่มีสิทธิ์แก้ไขต้นทุนและการเงิน")) return;
     const body = await readBody(req);
     const patch = {};
     if (body.productCosts !== undefined) {
@@ -2532,7 +2761,7 @@ async function handleApi(req, res) {
   }
 
   if (req.method === "GET" && url.pathname === "/api/products/image-storage/dry-run") {
-    if (!await requireAdmin(req, res)) return;
+    if (!await requirePermission(req, res, null, "products.edit", "ไม่มีสิทธิ์จัดการสินค้า")) return;
     const startedAt = Date.now();
     const settings = await readProductSettingsForSave();
     const products = normalizeProductRecords(settings.products);
@@ -2552,7 +2781,7 @@ async function handleApi(req, res) {
   }
 
   if (req.method === "POST" && url.pathname === "/api/products/image-storage/migrate") {
-    if (!await requireAdmin(req, res)) return;
+    if (!await requirePermission(req, res, null, "products.edit", "ไม่มีสิทธิ์จัดการสินค้า")) return;
     if (typeof uploadProductImageObject !== "function" || typeof verifyPublicProductImageUrl !== "function") {
       return json(res, 501, { ok: false, error: "Product image storage is not configured for this database provider." });
     }
@@ -2613,7 +2842,7 @@ async function handleApi(req, res) {
   }
 
   if (req.method === "GET" && url.pathname === "/api/products/image-storage/verify") {
-    if (!await requireAdmin(req, res)) return;
+    if (!await requirePermission(req, res, null, "products.view", "ไม่มีสิทธิ์ดูสินค้า")) return;
     const settings = await readProductSettingsForSave();
     const products = normalizeProductRecords(settings.products);
     const storageBaseUrl = typeof productImagePublicBaseUrl === "function" ? productImagePublicBaseUrl() : "";
@@ -2646,7 +2875,7 @@ async function handleApi(req, res) {
   }
 
   if (req.method === "POST" && url.pathname === "/api/products/image-storage/rollback") {
-    if (!await requireAdmin(req, res)) return;
+    if (!await requirePermission(req, res, null, "products.edit", "ไม่มีสิทธิ์จัดการสินค้า")) return;
     const body = await readBody(req);
     if (body.confirm !== "ROLLBACK_PRODUCT_IMAGES" || !Array.isArray(body.products)) {
       return json(res, 400, { ok: false, error: "Rollback requires confirm=ROLLBACK_PRODUCT_IMAGES and products backup." });
@@ -2669,7 +2898,7 @@ async function handleApi(req, res) {
   }
 
   if (req.method === "POST" && url.pathname === "/api/products") {
-    if (!await requireAdmin(req, res)) return;
+    if (!await requirePermission(req, res, null, "products.edit", "ไม่มีสิทธิ์เพิ่มสินค้า")) return;
     const body = await readBody(req);
     const readStartedAt = Date.now();
     const settings = await readProductSettingsForSave();
@@ -2741,7 +2970,7 @@ async function handleApi(req, res) {
   }
 
   if (req.method === "PUT" && /^\/api\/products\/[^/]+$/.test(url.pathname)) {
-    if (!await requireAdmin(req, res)) return;
+    if (!await requirePermission(req, res, null, "products.edit", "ไม่มีสิทธิ์แก้ไขสินค้า")) return;
     const productId = decodeURIComponent(url.pathname.split("/").pop() || "");
     const body = await readBody(req);
     const readStartedAt = Date.now();
@@ -2814,16 +3043,31 @@ async function handleApi(req, res) {
       }
     }
     const enriched = enrichDb(db, date);
+    const currentPermissions = permissionPayloadForRole(currentUser.role, enriched.settings || {});
+    if (!hasPermission(currentUser, enriched, "orders.view")) enriched.orders = [];
+    if (!hasPermission(currentUser, enriched, "customers.view")) enriched.customers = [];
+    if (!hasPermission(currentUser, enriched, "products.view")) {
+      enriched.settings = { ...(enriched.settings || {}), products: [], productCosts: [] };
+    }
+    if (!hasPermission(currentUser, enriched, "reports.costs")) {
+      enriched.settings = { ...(enriched.settings || {}), productCosts: [], additionalCosts: [] };
+    }
+    if (!hasPermission(currentUser, enriched, "reports.finance")) {
+      enriched.settings = { ...(enriched.settings || {}), adCostRecords: [] };
+    }
     return json(res, 200, {
       ...enriched,
       settings: publicSettings(enriched.settings),
-      users: ["Owner", "Admin"].includes(currentUser.role) ? enriched.users.map(publicUser) : [currentUser],
+      users: currentUser.role === "Owner" ? enriched.users.map(publicUser) : [currentUser],
       currentUser,
+      currentPermissions,
+      permissionCatalog: currentUser.role === "Owner" ? PERMISSION_GROUPS : [],
       summary: buildSummary(enriched, date)
     });
   }
 
   if (req.method === "GET" && url.pathname === "/api/marketing-performance") {
+    if (!await requirePermission(req, res, db, "reports.finance", "ไม่มีสิทธิ์ดูรายงานการเงิน")) return;
     const date = String(url.searchParams.get("date") || "").trim();
     const month = String(url.searchParams.get("month") || "").trim();
     return json(res, 200, {
@@ -2836,6 +3080,7 @@ async function handleApi(req, res) {
   }
 
   if (req.method === "POST" && url.pathname === "/api/customer-sources") {
+    if (!await requirePermission(req, res, db, "system.business", "ไม่มีสิทธิ์ตั้งค่าธุรกิจ")) return;
     const body = await readBody(req);
     const name = String(body.name || "").trim();
     if (!name) return json(res, 400, { ok: false, error: "กรุณาระบุชื่อแหล่งที่มา" });
@@ -2858,6 +3103,7 @@ async function handleApi(req, res) {
   }
 
   if (req.method === "POST" && url.pathname === "/api/ad-costs") {
+    if (!await requirePermission(req, res, db, "reports.finance", "ไม่มีสิทธิ์จัดการค่าโฆษณา")) return;
     const body = await readBody(req);
     const record = normalizeAdCostInput(db, body);
     if (!record) {
@@ -2878,6 +3124,7 @@ async function handleApi(req, res) {
     const index = db.settings.adCostRecords.findIndex(record => record.id === id);
     if (index === -1) return json(res, 404, { ok: false, error: "ไม่พบรายการค่าโฆษณา" });
     if (req.method === "PUT") {
+      if (!await requirePermission(req, res, db, "reports.finance", "ไม่มีสิทธิ์จัดการค่าโฆษณา")) return;
       const body = await readBody(req);
       const record = normalizeAdCostInput(db, body, db.settings.adCostRecords[index]);
       if (!record) return json(res, 400, { ok: false, error: "ข้อมูลค่าโฆษณาไม่ครบ" });
@@ -2886,6 +3133,7 @@ async function handleApi(req, res) {
       return json(res, 200, { ok: true, record });
     }
     if (req.method === "DELETE") {
+      if (!await requirePermission(req, res, db, "reports.finance", "ไม่มีสิทธิ์จัดการค่าโฆษณา")) return;
       const [record] = db.settings.adCostRecords.splice(index, 1);
       await writeDb(db);
       return json(res, 200, { ok: true, record });
@@ -2893,6 +3141,7 @@ async function handleApi(req, res) {
   }
 
   if (req.method === "POST" && url.pathname === "/api/ad-platforms") {
+    if (!await requirePermission(req, res, db, "reports.finance", "ไม่มีสิทธิ์จัดการแพลตฟอร์มโฆษณา")) return;
     const body = await readBody(req);
     const name = String(body.name || "").trim();
     if (!name) return json(res, 400, { ok: false, error: "กรุณาระบุชื่อแพลตฟอร์ม" });
@@ -2918,6 +3167,7 @@ async function handleApi(req, res) {
     const index = platforms.findIndex(platform => platform.id === id);
     if (index === -1) return json(res, 404, { ok: false, error: "ไม่พบแพลตฟอร์ม" });
     if (req.method === "PUT") {
+      if (!await requirePermission(req, res, db, "reports.finance", "ไม่มีสิทธิ์จัดการแพลตฟอร์มโฆษณา")) return;
       const body = await readBody(req);
       const name = String(body.name ?? platforms[index].name).trim();
       if (!name) return json(res, 400, { ok: false, error: "กรุณาระบุชื่อแพลตฟอร์ม" });
@@ -2934,6 +3184,7 @@ async function handleApi(req, res) {
       return json(res, 200, { ok: true, platform: platforms[index] });
     }
     if (req.method === "DELETE") {
+      if (!await requirePermission(req, res, db, "reports.finance", "ไม่มีสิทธิ์จัดการแพลตฟอร์มโฆษณา")) return;
       const [platform] = platforms.splice(index, 1);
       db.settings.adPlatforms = platforms;
       await writeDb(db);
@@ -2959,7 +3210,7 @@ async function handleApi(req, res) {
   }
 
   if (req.method === "GET" && url.pathname === "/api/line-debug") {
-    if (!await requireAdmin(req, res, db)) return;
+    if (!await requirePermission(req, res, db, "system.integrations", "ไม่มีสิทธิ์ดูข้อมูลเชื่อมต่อ")) return;
     const limit = Math.max(1, Math.min(100, Number(url.searchParams.get("limit") || 50)));
     const rows = (db.lineMessages || [])
       .map(lineDebugFromMessage)
@@ -2969,10 +3220,12 @@ async function handleApi(req, res) {
   }
 
   if (req.method === "POST" && url.pathname === "/api/customers") {
+    if (!await requirePermission(req, res, db, "customers.edit", "ไม่มีสิทธิ์เพิ่มลูกค้า")) return;
     return json(res, 409, { ok: false, error: "สร้างลูกค้าแยกเดี่ยวไม่ได้ กรุณาสร้างผ่านออเดอร์" });
   }
 
   if (req.method === "PUT" && url.pathname.startsWith("/api/customers/")) {
+    if (!await requirePermission(req, res, db, "customers.edit", "ไม่มีสิทธิ์แก้ไขลูกค้า")) return;
     const id = url.pathname.split("/").pop();
     const body = await readBody(req);
     const customer = db.customers.find(item => item.id === id);
@@ -2990,6 +3243,7 @@ async function handleApi(req, res) {
   }
 
   if (req.method === "DELETE" && url.pathname.startsWith("/api/customers/")) {
+    if (!await requirePermission(req, res, db, "customers.delete", "ไม่มีสิทธิ์ลบลูกค้า")) return;
     const id = url.pathname.split("/").pop();
     const customer = db.customers.find(item => item.id === id);
     if (!customer) return json(res, 404, { ok: false, error: "ไม่พบลูกค้า" });
@@ -3001,6 +3255,7 @@ async function handleApi(req, res) {
   }
 
   if (req.method === "POST" && url.pathname === "/api/orders") {
+    if (!await requirePermission(req, res, db, "orders.create", "ไม่มีสิทธิ์เพิ่มออเดอร์")) return;
     const body = await readBody(req);
     let order;
     try {
@@ -3034,6 +3289,17 @@ async function handleApi(req, res) {
   if (req.method === "PUT" && url.pathname.startsWith("/api/orders/")) {
     const id = url.pathname.split("/").pop();
     const body = await readBody(req);
+    const bodyKeys = Object.keys(body || {});
+    const statusOnly = bodyKeys.length > 0 && bodyKeys.every(key => [
+      "status",
+      "vipCardStatus",
+      "vip_card_status",
+      "note",
+      "selectedDate",
+      "clientMutationId"
+    ].includes(key));
+    const orderPermission = statusOnly ? "orders.status" : "orders.edit";
+    if (!await requirePermission(req, res, db, orderPermission, "ไม่มีสิทธิ์แก้ไขออเดอร์")) return;
     const order = db.orders.find(item => item.id === id);
     if (!order) return json(res, 404, { ok: false, error: "ไม่พบออเดอร์" });
     const previousOrder = { ...order };
@@ -3107,6 +3373,7 @@ async function handleApi(req, res) {
   }
 
   if (req.method === "DELETE" && url.pathname.startsWith("/api/orders/")) {
+    if (!await requirePermission(req, res, db, "orders.delete", "ไม่มีสิทธิ์ลบออเดอร์")) return;
     const id = url.pathname.split("/").pop();
     const orderIndex = db.orders.findIndex(item => item.id === id);
     if (orderIndex === -1) return json(res, 404, { ok: false, error: "ไม่พบออเดอร์" });
@@ -3123,6 +3390,7 @@ async function handleApi(req, res) {
   }
 
   if (req.method === "POST" && url.pathname === "/api/import") {
+    if (!await requirePermission(req, res, db, "customers.import", "ไม่มีสิทธิ์นำเข้าข้อมูล")) return;
     const body = await readBody(req);
     const type = body.type || "csv";
     const content = body.content || "";
@@ -3165,12 +3433,14 @@ async function handleApi(req, res) {
   }
 
   if (req.method === "POST" && url.pathname === "/api/csv-preview") {
+    if (!await requirePermission(req, res, db, "customers.import", "ไม่มีสิทธิ์นำเข้าข้อมูล")) return;
     const body = await readBody(req);
     const prepared = prepareCsvImport(body.content || "", db);
     return json(res, 200, { ok: true, ...prepared });
   }
 
   if (req.method === "POST" && url.pathname === "/api/parse-preview") {
+    if (!await requirePermission(req, res, db, "customers.import", "ไม่มีสิทธิ์นำเข้าข้อมูล")) return;
     const body = await readBody(req);
     const content = body.content || "";
     const rows = parseLineImportContent(content, db.settings.defaultJarPrice)
@@ -3229,7 +3499,7 @@ async function handleApi(req, res) {
   }
 
   if (req.method === "POST" && url.pathname === "/api/line/mock") {
-    if (!await requireAdmin(req, res, db)) return;
+    if (!await requirePermission(req, res, db, "system.integrations", "ไม่มีสิทธิ์ทดสอบ LINE")) return;
     const body = await readBody(req);
     const rawText = String(body.text || body.content || "คุณทดสอบ โทร 0891234567 2 กระปุก รวม 1500 บาท #ทดสอบ");
     db.lineMessages = db.lineMessages || [];
@@ -3252,9 +3522,24 @@ async function handleApi(req, res) {
   }
 
   if (req.method === "PUT" && url.pathname === "/api/settings") {
-    const currentUser = await requireAdmin(req, res, db);
+    const currentUser = await requirePermission(req, res, db, "system.business", "ไม่มีสิทธิ์แก้ไขการตั้งค่าธุรกิจ");
     if (!currentUser) return;
     const body = await readBody(req);
+    const hasIntegrationPatch = [
+      "lineChannelId",
+      "lineChannelSecret",
+      "lineChannelAccessToken",
+      "lineGroupId",
+      "openaiModel",
+      "lineWebhookEnabled"
+    ].some(key => Object.prototype.hasOwnProperty.call(body, key));
+    if (hasIntegrationPatch && !hasPermission(currentUser, db, "system.integrations")) {
+      return json(res, 403, { ok: false, error: "ไม่มีสิทธิ์แก้ไขการเชื่อมต่อระบบ" });
+    }
+    const hasFinancePatch = ["productCosts", "additionalCosts"].some(key => Object.prototype.hasOwnProperty.call(body, key));
+    if (hasFinancePatch && !hasPermission(currentUser, db, "reports.costs")) {
+      return json(res, 403, { ok: false, error: "ไม่มีสิทธิ์แก้ไขต้นทุนและการเงิน" });
+    }
     const hasVipThresholdPatch = [
       "vipThreshold",
       "vvipThreshold",
@@ -3310,7 +3595,8 @@ async function handleApi(req, res) {
         : Boolean(body.lineWebhookEnabled),
       staffCanExport: body.staffCanExport === undefined
         ? Boolean(db.settings.staffCanExport)
-        : Boolean(body.staffCanExport)
+        : Boolean(body.staffCanExport),
+      rolePermissions: sanitizeRolePermissions(db.settings.rolePermissions || {})
     };
     await writeDb(db);
     return json(res, 200, { ok: true, settings: publicSettings(db.settings) }, {
@@ -3320,7 +3606,7 @@ async function handleApi(req, res) {
   }
 
   if (req.method === "POST" && url.pathname === "/api/products") {
-    if (!await requireAdmin(req, res, db)) return;
+    if (!await requirePermission(req, res, db, "products.edit", "ไม่มีสิทธิ์เพิ่มสินค้า")) return;
     const body = await readBody(req);
     const incoming = normalizeProductRecords([body])[0];
     if (!incoming?.name) return json(res, 400, { ok: false, error: "กรุณาระบุชื่อสินค้า" });
@@ -3390,7 +3676,7 @@ async function handleApi(req, res) {
   }
 
   if (req.method === "PUT" && /^\/api\/products\/[^/]+$/.test(url.pathname)) {
-    if (!await requireAdmin(req, res, db)) return;
+    if (!await requirePermission(req, res, db, "products.edit", "ไม่มีสิทธิ์แก้ไขสินค้า")) return;
     const productId = decodeURIComponent(url.pathname.split("/").pop() || "");
     const body = await readBody(req);
     const products = normalizeProductRecords(db.settings.products);
@@ -3433,7 +3719,7 @@ async function handleApi(req, res) {
   }
 
   if (req.method === "POST" && /^\/api\/products\/[^/]+\/archive$/.test(url.pathname)) {
-    if (!await requireAdmin(req, res, db)) return;
+    if (!await requirePermission(req, res, db, "products.delete", "ไม่มีสิทธิ์ลบสินค้า")) return;
     const parts = url.pathname.split("/");
     const productId = decodeURIComponent(parts[parts.length - 2] || "");
     const products = normalizeProductRecords(db.settings.products);
@@ -3451,7 +3737,7 @@ async function handleApi(req, res) {
   }
 
   if (req.method === "PUT" && url.pathname === "/api/followup-rules") {
-    if (!await requireAdmin(req, res, db)) return;
+    if (!await requirePermission(req, res, db, "system.business", "ไม่มีสิทธิ์ตั้งค่าการติดตาม")) return;
     const body = await readBody(req);
     const daysPerUnit = Math.max(1, Number(body.daysPerUnit || db.settings.followUpDaysPerUnit || 15));
     db.settings = {
@@ -3469,7 +3755,7 @@ async function handleApi(req, res) {
   }
 
   if (req.method === "POST" && url.pathname === "/api/team") {
-    if (!await requireAdmin(req, res, db)) return;
+    if (!await requireOwner(req, res, db)) return;
     const body = await readBody(req);
     const role = normalizeUserRole(body.role);
     if (!canManageUser(currentUser, null, role)) {
@@ -3499,7 +3785,7 @@ async function handleApi(req, res) {
   }
 
   if (req.method === "PUT" && url.pathname.startsWith("/api/team/")) {
-    if (!await requireAdmin(req, res, db)) return;
+    if (!await requireOwner(req, res, db)) return;
     const id = url.pathname.split("/").pop();
     const body = await readBody(req);
     const user = db.users.find(item => item.id === id);
@@ -3540,7 +3826,7 @@ async function handleApi(req, res) {
   }
 
   if (req.method === "DELETE" && url.pathname.startsWith("/api/team/")) {
-    if (!await requireAdmin(req, res, db)) return;
+    if (!await requireOwner(req, res, db)) return;
     const id = url.pathname.split("/").pop();
     const user = db.users.find(item => item.id === id);
     if (!user) return json(res, 404, { ok: false, error: "ไม่พบผู้ใช้" });
@@ -3560,12 +3846,13 @@ async function handleApi(req, res) {
   }
 
   if (req.method === "GET" && url.pathname.startsWith("/api/export/")) {
-    if (!(["Owner", "Admin"].includes(currentUser.role) || db.settings.staffCanExport)) {
-      return json(res, 403, { ok: false, error: "ต้องใช้สิทธิ์ Owner/Admin หรือเปิด Staff Export" });
-    }
+    const type = url.pathname.split("/").pop();
+    const exportPermission = type === "orders"
+      ? "orders.export"
+      : type === "customers" ? "customers.export" : "reports.export";
+    if (!await requirePermission(req, res, db, exportPermission, "ไม่มีสิทธิ์ส่งออกข้อมูล")) return;
     const date = url.searchParams.get("date") || toDateOnly();
     const enriched = enrichDb(db, date);
-    const type = url.pathname.split("/").pop();
     if (type === "customers") {
       return csvResponse(res, "customers.csv", enriched.customers.map(customer => ({
         id: customer.id,
@@ -3649,7 +3936,7 @@ async function handleApi(req, res) {
   }
 
   if (req.method === "GET" && url.pathname === "/api/backup") {
-    if (!await requireAdmin(req, res, db)) return;
+    if (!await requirePermission(req, res, db, "system.danger", "ไม่มีสิทธิ์สำรองข้อมูล")) return;
     res.writeHead(200, {
       "Content-Type": "application/json; charset=utf-8",
       "Content-Disposition": "attachment; filename=\"zomin-backup.json\"",
@@ -3660,6 +3947,7 @@ async function handleApi(req, res) {
   }
 
   if (req.method === "POST" && url.pathname === "/api/tags") {
+    if (!await requirePermission(req, res, db, "customers.edit", "ไม่มีสิทธิ์แก้ไขลูกค้า")) return;
     const body = await readBody(req);
     const tags = splitTags(body.name || body.tags);
     if (!tags.length) return json(res, 400, { ok: false, error: "กรุณาใส่ชื่อ Tag" });
@@ -3669,6 +3957,7 @@ async function handleApi(req, res) {
   }
 
   if (req.method === "POST" && url.pathname === "/api/contact-log") {
+    if (!await requirePermission(req, res, db, "customers.edit", "ไม่มีสิทธิ์บันทึกการติดต่อลูกค้า")) return;
     const body = await readBody(req);
     const customer = db.customers.find(item => item.id === body.customerId);
     if (!customer) return json(res, 404, { ok: false, error: "ไม่พบลูกค้า" });
@@ -3695,6 +3984,14 @@ async function handleApi(req, res) {
 async function appHandler(req, res) {
   try {
     if (req.url.startsWith("/api/")) return await handleApi(req, res);
+    const pathname = new URL(req.url, `http://${req.headers.host || "localhost"}`).pathname;
+    if (["/settings/users", "/team"].includes(pathname)) {
+      const db = await readDb();
+      const sessionUser = getCurrentUser(req);
+      const currentUser = currentUserFromDb(sessionUser, db);
+      if (!currentUser) return text(res, 401, "Unauthorized");
+      if (currentUser.role !== "Owner") return text(res, 403, "Forbidden");
+    }
     return serveStatic(req, res);
   } catch (error) {
     return json(res, 500, { ok: false, error: error.message || "Server error" });

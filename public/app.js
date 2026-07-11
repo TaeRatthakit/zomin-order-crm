@@ -123,8 +123,29 @@ const app = {
   stateRequestSequence: 0,
   stateRefreshInFlight: false,
   lastStateLoadedAt: 0,
-  currentUserRefreshInFlight: false
+  currentUserRefreshInFlight: false,
+  settingsUsersTab: "members",
+  permissionRole: "Admin",
+  permissionCatalog: [],
+  rolePermissionsDraft: null,
+  recommendedRolePermissions: null,
+  permissionsSavePending: false
 };
+
+const ROLE_PERMISSION_DEFAULTS = {
+  Admin: {},
+  Staff: {}
+};
+
+function currentPermissions() {
+  if (isOwner()) return new Proxy({}, { get: () => true });
+  return app.data?.currentPermissions || {};
+}
+
+function can(permission) {
+  if (isOwner()) return true;
+  return Boolean(currentPermissions()[permission]);
+}
 
 function readCachedMobileProfile() {
   return null;
@@ -144,9 +165,11 @@ function mergeCachedMobileProfile(user) {
 
 const adminViews = new Set([
   "settingsStore", "settingsFinance", "settingsCustomers", "settingsLineHub",
-  "settingsUsers", "settingsImportExport", "settingsSubscription",
+  "settingsImportExport", "settingsSubscription",
   "settingsFollowup", "settingsVip", "settingsLine", "lineDebug", "team"
 ]);
+
+const ownerViews = new Set(["settingsUsers", "team"]);
 
 function isAdmin() {
   return ["Owner", "Admin"].includes(app.currentUser?.role);
@@ -173,10 +196,19 @@ function isLastActiveOwner(user) {
 }
 
 function canExportData() {
-  return isAdmin() || Boolean(app.data?.settings?.staffCanExport);
+  return can("orders.export") || can("customers.export") || can("reports.export");
 }
 
 function canAccessView(view) {
+  if (ownerViews.has(view)) return isOwner();
+  if (view === "orders") return can("orders.view");
+  if (view === "customers" || view === "settingsCustomers") return can("customers.view");
+  if (view === "products") return can("products.view");
+  if (view === "reports") return can("reports.sales") || can("reports.costs") || can("reports.profit") || can("reports.finance");
+  if (view === "settingsFinance") return can("reports.costs") || can("reports.finance");
+  if (view === "settingsStore" || view === "settingsFollowup" || view === "settingsVip") return can("system.business");
+  if (view === "settingsLineHub" || view === "settingsLine" || view === "lineDebug") return can("system.integrations");
+  if (view === "settingsImportExport") return can("customers.import") || canExportData() || can("system.danger");
   if (adminViews.has(view)) return isAdmin();
   return true;
 }
@@ -1990,7 +2022,7 @@ function customerRow(customer) {
       <td data-label="จัดการ">
         <div class="table-actions">
           <button class="button ghost compact-action" type="button" data-open-customer="${escapeHtml(customer.id)}">ดู</button>
-          ${customer.purchaseCount === 0 ? `<button class="button danger compact-action" type="button" data-delete-customer="${escapeHtml(customer.id)}">ลบ</button>` : ""}
+          ${can("customers.delete") && customer.purchaseCount === 0 ? `<button class="button danger compact-action" type="button" data-delete-customer="${escapeHtml(customer.id)}">ลบ</button>` : ""}
         </div>
       </td>
     </tr>
@@ -2192,8 +2224,8 @@ function orderCard(order) {
       <td data-label="จัดการ">
         <div class="table-actions">
           <button class="button ghost compact-action" type="button" data-open-customer="${escapeHtml(order.customerId)}">ดู</button>
-          <button class="button secondary compact-action" type="button" data-edit-order="${escapeHtml(order.id)}">แก้ไข</button>
-          <button class="button danger compact-action" type="button" data-delete-order="${escapeHtml(order.id)}">ลบ</button>
+          ${can("orders.edit") ? `<button class="button secondary compact-action" type="button" data-edit-order="${escapeHtml(order.id)}">แก้ไข</button>` : ""}
+          ${can("orders.delete") ? `<button class="button danger compact-action" type="button" data-delete-order="${escapeHtml(order.id)}">ลบ</button>` : ""}
         </div>
       </td>
     </tr>
@@ -2207,7 +2239,7 @@ function orderTable(orders) {
         <span class="orders-empty-icon" aria-hidden="true">${iconSvg("clipboard")}</span>
         <strong>ไม่พบออเดอร์ในมุมมองนี้</strong>
         <p>ลองเปลี่ยนวันที่ ค้นหาด้วยคำอื่น หรือเปิดแสดงออเดอร์ทั้งหมด</p>
-        <button class="button primary" type="button" data-open-order>+ เพิ่มออเดอร์</button>
+        ${can("orders.create") ? `<button class="button primary" type="button" data-open-order>+ เพิ่มออเดอร์</button>` : ""}
       </div>
     `;
   }
@@ -3056,6 +3088,34 @@ function renderMobileBusinessMain() {
   const totalSales = orders.reduce((sum, order) => sum + Number(order.amount || 0), 0);
   const todayPerformance = marketingPerformanceForPeriod({ date: todayISO() });
   const todayFinance = profitBreakdownForOrders(orders.filter(order => order.date === todayISO()));
+  const dataCards = [
+    can("customers.view") ? `<button class="mobile-business-data-card purple" type="button" data-business-page="customers">
+      ${mobileBusinessIcon("users")}
+      <span><strong>จัดการลูกค้า</strong><small>เพิ่ม แก้ไข และดูข้อมูลลูกค้า</small><b>${money(customers.length)} ราย</b></span>
+    </button>` : "",
+    can("products.view") ? `<button class="mobile-business-data-card orange" type="button" data-business-page="products">
+      ${mobileBusinessIcon("box")}
+      <span><strong>จัดการสินค้า</strong><small>เพิ่ม แก้ไข และจัดการสินค้า</small><b>${money(products.length)} รายการ</b></span>
+    </button>` : "",
+    can("reports.costs") ? `<button class="mobile-business-data-card green finance-feature-card" type="button" data-business-page="finance">
+      ${mobileBusinessIcon("chart")}
+      <span><strong>ต้นทุนและกำไร</strong><small>คำนวณต้นทุนและกำไรของสินค้า</small><b>กำไรวันนี้ ฿ ${money(todayFinance.profitBeforeAds)}</b></span>
+    </button>` : "",
+    can("reports.finance") ? `<button class="mobile-business-data-card blue ad-feature-card" type="button" data-business-page="advertising">
+      ${mobileBusinessIcon("megaphone")}
+      <span><i class="mobile-business-new-badge">ใหม่</i><strong>ค่าโฆษณา</strong><small>จัดการค่าโฆษณาและวิเคราะห์ผลลัพธ์</small><b>ใช้ไปวันนี้ ฿ ${money(todayPerformance.adCost)}</b></span>
+    </button>` : "",
+    can("reports.finance") ? `<button class="mobile-business-data-card pink ad-feature-card" type="button" data-business-page="marketingPerformance">
+      ${mobileBusinessIcon("chart")}
+      <span><i class="mobile-business-new-badge">ใหม่</i><strong>Dashboard Marketing Performance</strong><small>ดูภาพรวมประสิทธิภาพการตลาด</small><b>ROAS ${marketingNumber(todayPerformance.roas)}</b></span>
+    </button>` : ""
+  ].join("");
+  const settingsRows = [
+    can("system.business") ? mobileBusinessMenuRow("system", "ตั้งค่าระบบ", "ข้อมูลธุรกิจและการทำงานของระบบ", "settings", "blue") : "",
+    mobileBusinessMenuRow("notifications", "การแจ้งเตือน", "ดูการแจ้งเตือนจากข้อมูลล่าสุด", "bell", "orange"),
+    mobileBusinessMenuRow("security", "ความปลอดภัย", "ข้อมูลบัญชีและความปลอดภัย", "flag", "green"),
+    isOwner() ? mobileBusinessMenuRow("roles", "ผู้ใช้งานและสิทธิ์", "จัดการผู้ใช้และสิทธิ์การเข้าถึงระบบ", "users", "cyan") : ""
+  ].join("");
   return `
     <section class="mobile-business-page">
       ${renderMobileSetupCard()}
@@ -3063,36 +3123,14 @@ function renderMobileBusinessMain() {
       <section class="mobile-business-section">
         <h2>จัดการข้อมูล</h2>
         <div class="mobile-business-data-grid">
-          <button class="mobile-business-data-card purple" type="button" data-business-page="customers">
-            ${mobileBusinessIcon("users")}
-            <span><strong>จัดการลูกค้า</strong><small>เพิ่ม แก้ไข และดูข้อมูลลูกค้า</small><b>${money(customers.length)} ราย</b></span>
-          </button>
-          <button class="mobile-business-data-card orange" type="button" data-business-page="products">
-            ${mobileBusinessIcon("box")}
-            <span><strong>จัดการสินค้า</strong><small>เพิ่ม แก้ไข และจัดการสินค้า</small><b>${money(products.length)} รายการ</b></span>
-          </button>
-          <button class="mobile-business-data-card green finance-feature-card" type="button" data-business-page="finance">
-            ${mobileBusinessIcon("chart")}
-            <span><strong>ต้นทุนและกำไร</strong><small>คำนวณต้นทุนและกำไรของสินค้า</small><b>กำไรวันนี้ ฿ ${money(todayFinance.profitBeforeAds)}</b></span>
-          </button>
-          <button class="mobile-business-data-card blue ad-feature-card" type="button" data-business-page="advertising">
-            ${mobileBusinessIcon("megaphone")}
-            <span><i class="mobile-business-new-badge">ใหม่</i><strong>ค่าโฆษณา</strong><small>จัดการค่าโฆษณาและวิเคราะห์ผลลัพธ์</small><b>ใช้ไปวันนี้ ฿ ${money(todayPerformance.adCost)}</b></span>
-          </button>
-          <button class="mobile-business-data-card pink ad-feature-card" type="button" data-business-page="marketingPerformance">
-            ${mobileBusinessIcon("chart")}
-            <span><i class="mobile-business-new-badge">ใหม่</i><strong>Dashboard Marketing Performance</strong><small>ดูภาพรวมประสิทธิภาพการตลาด</small><b>ROAS ${marketingNumber(todayPerformance.roas)}</b></span>
-          </button>
+          ${dataCards}
         </div>
       </section>
 
       <section class="mobile-business-section">
         <h2>การตั้งค่า</h2>
         <div class="mobile-business-menu-list">
-          ${mobileBusinessMenuRow("system", "ตั้งค่าระบบ", "ข้อมูลธุรกิจและการทำงานของระบบ", "settings", "blue")}
-          ${mobileBusinessMenuRow("notifications", "การแจ้งเตือน", "ดูการแจ้งเตือนจากข้อมูลล่าสุด", "bell", "orange")}
-          ${mobileBusinessMenuRow("security", "ความปลอดภัย", "ข้อมูลบัญชีและความปลอดภัย", "flag", "green")}
-          ${mobileBusinessMenuRow("roles", "การจัดการสิทธิ์ / ผู้ใช้งาน", "จัดการผู้ใช้และสิทธิ์การเข้าถึงระบบ", "users", "cyan")}
+          ${settingsRows}
         </div>
       </section>
 
@@ -3277,7 +3315,7 @@ function renderMobileBusinessProductDetail() {
           <div><span>ค่าใช้จ่ายเพิ่มเติมรวม</span><strong>${money(breakdown.additionalCosts)} บาท</strong></div>
           <div><span>จำนวนออเดอร์</span><strong>${money(relatedOrders.length)} ออเดอร์</strong></div>
         </div>
-        <button class="button primary mobile-business-full-button" type="button" data-edit-product="${escapeHtml(product.id)}">แก้ไขสินค้า</button>
+        ${can("products.edit") ? `<button class="button primary mobile-business-full-button" type="button" data-edit-product="${escapeHtml(product.id)}">แก้ไขสินค้า</button>` : ""}
       </article>
     </section>
   `;
@@ -3591,6 +3629,7 @@ function renderMobileBusinessSecurity() {
 }
 
 function renderMobileBusinessRoles() {
+  if (!isOwner()) return renderMobileBusinessMain();
   const users = app.data.users || [];
   const editingUser = app.editingUserId && app.editingUserId !== "__new"
     ? users.find(user => user.id === app.editingUserId)
@@ -3606,19 +3645,27 @@ function renderMobileBusinessRoles() {
       </section>
     `;
   }
+  ensurePermissionEditorLoaded();
+  const activeTab = app.settingsUsersTab || "members";
   return `
     <section class="mobile-business-page mobile-business-subpage">
-      ${mobileBusinessHeader("การจัดการสิทธิ์ / ผู้ใช้งาน", "ผู้ใช้งานและสิทธิ์ที่มีอยู่ในระบบ", "users")}
-      <button class="button primary mobile-business-full-button" type="button" data-add-user>${iconSvg("users")} เพิ่มผู้ใช้งาน</button>
-      <div class="mobile-business-user-list">
-        ${users.map(user => `
-          <button class="mobile-business-user" type="button" data-mobile-edit-user="${escapeHtml(user.id)}">
-            <span class="mobile-business-avatar">${escapeHtml(initials(user.name))}</span>
-            <span><strong>${escapeHtml(user.name)}</strong><small>${escapeHtml(user.username || "ไม่มีชื่อเข้าใช้งาน")}</small><em>${escapeHtml(userRoleLabel(user.role))}</em></span>
-            <b>${userStatusLabel(user)}</b>
-          </button>
-        `).join("") || mobileBusinessEmpty("ยังไม่มีผู้ใช้งาน", "ไม่พบข้อมูลผู้ใช้จากระบบ")}
+      ${mobileBusinessHeader("ผู้ใช้งานและสิทธิ์", "จัดการสมาชิกและกำหนดสิทธิ์การเข้าถึงระบบ", "users")}
+      <div class="settings-user-tabs mobile">
+        <button type="button" class="${activeTab === "members" ? "active" : ""}" data-settings-users-tab="members">${iconSvg("users")} สมาชิก</button>
+        <button type="button" class="${activeTab === "permissions" ? "active" : ""}" data-settings-users-tab="permissions">${iconSvg("settings")} สิทธิ์การเข้าถึง</button>
       </div>
+      ${activeTab === "permissions" ? renderPermissionsPanel({ mobile: true }) : `
+        <button class="button primary mobile-business-full-button" type="button" data-add-user>${iconSvg("users")} เพิ่มผู้ใช้งาน</button>
+        <div class="mobile-business-user-list">
+          ${users.map(user => `
+            <button class="mobile-business-user" type="button" data-mobile-edit-user="${escapeHtml(user.id)}">
+              <span class="mobile-business-avatar">${escapeHtml(initials(user.name))}</span>
+              <span><strong>${escapeHtml(user.name)}</strong><small>${escapeHtml(user.username || "ไม่มีชื่อเข้าใช้งาน")}</small><em>${escapeHtml(userRoleLabel(user.role))}</em></span>
+              <b>${userStatusLabel(user)}</b>
+            </button>
+          `).join("") || mobileBusinessEmpty("ยังไม่มีผู้ใช้งาน", "ไม่พบข้อมูลผู้ใช้จากระบบ")}
+        </div>
+      `}
     </section>
   `;
 }
@@ -3679,7 +3726,7 @@ function renderMobileBusinessBackup() {
           <div><span>สินค้า</span><strong>${money(productRowsData().length)} รายการ</strong></div>
           <div><span>ผู้ใช้งาน</span><strong>${money((app.data.users || []).length)} ราย</strong></div>
         </div>
-        <a class="button primary mobile-business-full-button" href="/api/backup" target="_blank" rel="noreferrer">ดาวน์โหลดข้อมูลสำรอง</a>
+        ${can("system.danger") ? `<a class="button primary mobile-business-full-button" href="/api/backup" target="_blank" rel="noreferrer">ดาวน์โหลดข้อมูลสำรอง</a>` : ""}
       </article>
       ${mobileBusinessEmpty("ยังไม่มีประวัติการสำรองข้อมูล", "ระบบปัจจุบันมีเฉพาะการดาวน์โหลดข้อมูลล่าสุด")}
     </section>
@@ -3717,6 +3764,12 @@ function renderSettings() {
 
 function setBusinessManagementPage(page, options = {}) {
   const nextPage = page || "main";
+  if (["roles", "users", "userEditor"].includes(nextPage) && !isOwner()) {
+    app.mobileBusinessPage = "main";
+    showToast("หน้านี้สำหรับ Owner เท่านั้น", "error");
+    renderSettings();
+    return;
+  }
   const previousPage = app.mobileBusinessPage || "main";
   if (previousPage === "main" && nextPage !== "main") saveBusinessManagementScrollPosition();
   const shouldRestoreScroll = previousPage !== "main" && nextPage === "main";
@@ -3872,15 +3925,15 @@ function mobileOrderActionMenu(order) {
   if (app.mobileOrderMenuId !== order.id) return "";
   return `
     <div class="mobile-order-action-menu" data-mobile-order-menu>
-      <button type="button" data-edit-order="${escapeHtml(order.id)}">
+      ${can("orders.edit") ? `<button type="button" data-edit-order="${escapeHtml(order.id)}">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 16-.8 4 4-.8L19 7.4 16.6 5 4 16Z"/><path d="m14.8 6.8 2.4 2.4"/></svg>
         <span>แก้ไข</span>
-      </button>
-      <span class="mobile-order-menu-divider"></span>
-      <button class="delete" type="button" data-delete-order="${escapeHtml(order.id)}">
+      </button>` : ""}
+      ${can("orders.edit") && can("orders.delete") ? `<span class="mobile-order-menu-divider"></span>` : ""}
+      ${can("orders.delete") ? `<button class="delete" type="button" data-delete-order="${escapeHtml(order.id)}">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="m19 6-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
         <span>ลบ</span>
-      </button>
+      </button>` : ""}
     </div>
   `;
 }
@@ -3979,10 +4032,10 @@ function renderMobileOrders(selectedDate) {
         }).join("") || `<div class="mobile-orders-empty">ไม่พบออเดอร์ที่ค้นหา 🔍</div>`}
       </div>
 
-      <button class="mobile-add-order" type="button" data-open-order aria-label="เพิ่มออเดอร์">
+      ${can("orders.create") ? `<button class="mobile-add-order" type="button" data-open-order aria-label="เพิ่มออเดอร์">
         <span>+</span>
         <small>เพิ่มออเดอร์</small>
-      </button>
+      </button>` : ""}
     </section>
   `;
 }
@@ -4026,7 +4079,7 @@ function renderOrders() {
             <input type="checkbox" data-orders-show-all ${app.ordersShowAll ? "checked" : ""}>
             <span>แสดงทั้งหมด</span>
           </label>
-          <button class="button primary" data-open-order>+ เพิ่มออเดอร์</button>
+          ${can("orders.create") ? `<button class="button primary" data-open-order>+ เพิ่มออเดอร์</button>` : ""}
         </div>
       </div>
       <div class="workspace-stat-grid">
@@ -4335,9 +4388,9 @@ function renderProducts() {
                   <td data-label="สถานะ"><span class="badge ${product.computedStatus === "พร้อมขาย" ? "vip" : product.computedStatus === "ใกล้หมด" ? "risk" : product.computedStatus === "เหลือน้อย" ? "lost" : "normal"}">${escapeHtml(product.computedStatus)}</span></td>
                   <td data-label="จัดการ">
                     <div class="table-actions">
-                      <button class="button ghost compact-action" type="button" data-edit-product="${escapeHtml(product.id)}">✎</button>
+                      ${can("products.edit") ? `<button class="button ghost compact-action" type="button" data-edit-product="${escapeHtml(product.id)}">✎</button>` : ""}
                       <button class="button ghost compact-action" type="button" data-product-details="${escapeHtml(product.id)}">⋯</button>
-                      <button class="button danger compact-action" type="button" data-archive-product="${escapeHtml(product.id)}">🗑</button>
+                      ${can("products.delete") ? `<button class="button danger compact-action" type="button" data-archive-product="${escapeHtml(product.id)}">🗑</button>` : ""}
                     </div>
                   </td>
                 </tr>
@@ -4992,11 +5045,11 @@ function renderMore() {
             <p>ดาวน์โหลดข้อมูลสำหรับสำรองหรือย้ายไป production database</p>
           </div>
           <div class="inline">
-            <a class="button secondary" href="/api/export/customers">Customers CSV</a>
-            <a class="button secondary" href="/api/export/orders">Orders CSV</a>
-            <a class="button secondary" href="/api/export/followups">Follow-up CSV</a>
-            <a class="button secondary" href="/api/export/vip">VIP CSV</a>
-            ${isAdmin() ? `<a class="button ghost" href="/api/backup">JSON Backup</a>` : ""}
+            ${can("customers.export") ? `<a class="button secondary" href="/api/export/customers">Customers CSV</a>` : ""}
+            ${can("orders.export") ? `<a class="button secondary" href="/api/export/orders">Orders CSV</a>` : ""}
+            ${can("reports.export") ? `<a class="button secondary" href="/api/export/followups">Follow-up CSV</a>` : ""}
+            ${can("reports.export") ? `<a class="button secondary" href="/api/export/vip">VIP CSV</a>` : ""}
+            ${can("system.danger") ? `<a class="button ghost" href="/api/backup">JSON Backup</a>` : ""}
           </div>
         </div>
       ` : ""}
@@ -6771,25 +6824,132 @@ function renderSettingsLineHub() {
   );
 }
 
+function permissionsRoleOptions(selectedRole = app.permissionRole || "Admin") {
+  return ["Admin", "Staff"].map(role => `
+    <option value="${role}" ${selectedRole === role ? "selected" : ""}>${role}</option>
+  `).join("");
+}
+
+function permissionMatrix() {
+  return app.rolePermissionsDraft || { Owner: {}, Admin: {}, Staff: {} };
+}
+
+async function ensurePermissionEditorLoaded() {
+  if (!isOwner() || app.rolePermissionsDraft) return;
+  try {
+    const payload = await api("/api/permissions");
+    app.permissionCatalog = payload.catalog || [];
+    app.rolePermissionsDraft = payload.rolePermissions || {};
+    app.recommendedRolePermissions = payload.recommended || null;
+    ROLE_PERMISSION_DEFAULTS.Admin = payload.recommended?.Admin || {};
+    ROLE_PERMISSION_DEFAULTS.Staff = payload.recommended?.Staff || {};
+    render();
+  } catch (error) {
+    showToast(error.message || "โหลดสิทธิ์ไม่สำเร็จ", "error");
+  }
+}
+
+function permissionToggle(role, key, checked, disabled = false) {
+  return `
+    <label class="permission-switch" title="${disabled ? "Owner เปิดสิทธิ์เต็มเสมอ" : ""}">
+      <input type="checkbox" data-permission-toggle data-role="${escapeHtml(role)}" data-permission="${escapeHtml(key)}" ${checked ? "checked" : ""} ${disabled ? "disabled" : ""}>
+      <span class="settings-switch-ui"></span>
+    </label>
+  `;
+}
+
+function renderPermissionRows({ mobile = false } = {}) {
+  const catalog = app.permissionCatalog?.length ? app.permissionCatalog : app.data?.permissionCatalog || [];
+  const matrix = permissionMatrix();
+  const selectedRole = app.permissionRole || "Admin";
+  if (!catalog.length || !matrix.Admin || !matrix.Staff) {
+    return `<article class="panel stack panel-premium permission-loading">กำลังโหลดสิทธิ์...</article>`;
+  }
+  if (mobile) {
+    return `
+      <div class="mobile-permission-groups">
+        ${catalog.map(group => `
+          <section class="mobile-permission-card">
+            <header><span>${iconSvg(group.icon || "settings")}</span><strong>${escapeHtml(group.label)}</strong></header>
+            ${group.permissions.map(([key, label, description]) => `
+              <div class="mobile-permission-row">
+                <span><b>${escapeHtml(label)}</b><small>${escapeHtml(description)}</small></span>
+                ${permissionToggle(selectedRole, key, Boolean(matrix[selectedRole]?.[key]))}
+              </div>
+            `).join("")}
+          </section>
+        `).join("")}
+      </div>
+    `;
+  }
+  return `
+    <div class="permission-table-wrap">
+      <table class="permission-table">
+        <thead>
+          <tr>
+            <th>หมวดหมู่ / ฟีเจอร์</th>
+            <th class="owner-col">Owner<br><small>สิทธิ์เต็ม</small></th>
+            <th>Admin<br><small>กำหนดสิทธิ์ได้</small></th>
+            <th>Staff<br><small>กำหนดสิทธิ์ได้</small></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${catalog.map(group => `
+            <tr class="permission-group-row"><td colspan="4">${iconSvg(group.icon || "settings")} ${escapeHtml(group.label)}</td></tr>
+            ${group.permissions.map(([key, label, description]) => `
+              <tr>
+                <td><strong>${escapeHtml(label)}</strong><small>${escapeHtml(description)}</small></td>
+                <td class="owner-col"><span class="permission-locked">เปิดเสมอ</span></td>
+                <td>${permissionToggle("Admin", key, Boolean(matrix.Admin?.[key]))}</td>
+                <td>${permissionToggle("Staff", key, Boolean(matrix.Staff?.[key]))}</td>
+              </tr>
+            `).join("")}
+          `).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function renderPermissionsPanel({ mobile = false } = {}) {
+  const selectedRole = app.permissionRole || "Admin";
+  return `
+    <section class="${mobile ? "mobile-permissions-panel" : "permissions-panel panel panel-premium"}">
+      <div class="permission-toolbar">
+        <label>เลือก Role เพื่อกำหนดสิทธิ์
+          <select data-permission-role>${permissionsRoleOptions(selectedRole)}</select>
+        </label>
+        <div class="permission-actions">
+          <button class="button primary" type="button" data-permission-enable-all>เปิดทั้งหมด</button>
+          <button class="button ghost" type="button" data-permission-disable-all>ปิดทั้งหมด</button>
+          <button class="button ghost" type="button" data-permission-restore-defaults>กลับค่าแนะนำ</button>
+        </div>
+      </div>
+      ${renderPermissionRows({ mobile })}
+      <div class="${mobile ? "mobile-permission-save" : "settings-submit-bar permission-save-bar"}">
+        <button class="button primary" type="button" data-save-permissions>${app.permissionsSavePending ? "กำลังบันทึก..." : "บันทึกการตั้งค่า"}</button>
+      </div>
+    </section>
+  `;
+}
+
 function renderSettingsUsers() {
-  const settings = app.data.settings;
+  if (!isOwner()) {
+    els.content.innerHTML = `<section class="section"><article class="panel panel-premium">403 Forbidden</article></section>`;
+    return;
+  }
+  ensurePermissionEditorLoaded();
+  const activeTab = app.settingsUsersTab || "members";
   els.content.innerHTML = settingsSubpageShell(
     "Users & Permissions",
     "ผู้ใช้งานและสิทธิ์",
-    "กำหนดสิทธิ์การส่งออกข้อมูลและจัดการทีมงาน",
+    "จัดการสมาชิกและกำหนดสิทธิ์การเข้าถึงระบบ",
     `
-      <form class="panel stack panel-premium settings-subpage-form" id="settingsForm">
-        <label class="settings-switch">
-          <span>Staff สามารถ Export ข้อมูลได้</span>
-          <input name="staffCanExport" type="checkbox" ${settings.staffCanExport ? "checked" : ""}>
-          <span class="settings-switch-ui"></span>
-        </label>
-        <div class="settings-submit-bar">
-          <button class="button ghost" type="button" data-reset-settings>ยกเลิก</button>
-          <button class="button primary" type="submit">บันทึกการตั้งค่า</button>
-        </div>
-      </form>
-      ${renderTeamManagementPanels()}
+      <div class="settings-user-tabs">
+        <button type="button" class="${activeTab === "members" ? "active" : ""}" data-settings-users-tab="members">${iconSvg("users")} สมาชิก</button>
+        <button type="button" class="${activeTab === "permissions" ? "active" : ""}" data-settings-users-tab="permissions">${iconSvg("settings")} สิทธิ์การเข้าถึง</button>
+      </div>
+      ${activeTab === "permissions" ? renderPermissionsPanel() : renderTeamManagementPanels()}
     `
   );
 }
@@ -6804,9 +6964,9 @@ function renderSettingsImportExport() {
       <form class="panel stack panel-premium settings-subpage-form" id="settingsForm">
         <input name="daysPerUnit" type="hidden" value="${daysPerUnit}">
         <div class="settings-action-grid settings-action-grid-column">
-          <button class="button ghost" type="button" data-view-shortcut="import">นำเข้าข้อมูล</button>
-          <button class="button ghost" type="button" data-view-shortcut="reports">ส่งออกข้อมูล</button>
-          <a class="button ghost" href="/api/backup" target="_blank" rel="noreferrer">สำรองข้อมูล</a>
+          ${can("customers.import") ? `<button class="button ghost" type="button" data-view-shortcut="import">นำเข้าข้อมูล</button>` : ""}
+          ${canExportData() ? `<button class="button ghost" type="button" data-view-shortcut="reports">ส่งออกข้อมูล</button>` : ""}
+          ${can("system.danger") ? `<a class="button ghost" href="/api/backup" target="_blank" rel="noreferrer">สำรองข้อมูล</a>` : ""}
         </div>
         <div class="settings-submit-bar">
           <button class="button ghost" type="button" data-reset-settings>ยกเลิก</button>
@@ -8212,6 +8372,7 @@ document.addEventListener("click", async event => {
 
   const editProductButton = event.target.closest("[data-edit-product]");
   if (editProductButton) {
+    if (!can("products.edit")) return showToast("ไม่มีสิทธิ์แก้ไขสินค้า", "error");
     const product = productRowsData().find(item => item.id === editProductButton.dataset.editProduct);
     if (product) openProductDialog(product);
   }
@@ -8224,6 +8385,7 @@ document.addEventListener("click", async event => {
 
   const archiveProductButton = event.target.closest("[data-archive-product]");
   if (archiveProductButton) {
+    if (!can("products.delete")) return showToast("ไม่มีสิทธิ์ลบสินค้า", "error");
     const productId = archiveProductButton.dataset.archiveProduct;
     const product = productRowsData().find(item => item.id === productId);
     if (product?.derived) {
@@ -8349,6 +8511,81 @@ document.addEventListener("click", async event => {
     return;
   }
 
+  const settingsUsersTab = event.target.closest("[data-settings-users-tab]");
+  if (settingsUsersTab) {
+    app.settingsUsersTab = settingsUsersTab.dataset.settingsUsersTab || "members";
+    render();
+    return;
+  }
+
+  const permissionRoleSelect = event.target.closest("[data-permission-role]");
+  if (permissionRoleSelect) {
+    app.permissionRole = permissionRoleSelect.value === "Staff" ? "Staff" : "Admin";
+    render();
+    return;
+  }
+
+  const permissionToggleInput = event.target.closest("[data-permission-toggle]");
+  if (permissionToggleInput) {
+    const role = permissionToggleInput.dataset.role === "Staff" ? "Staff" : "Admin";
+    const key = permissionToggleInput.dataset.permission || "";
+    app.rolePermissionsDraft = app.rolePermissionsDraft || { Admin: {}, Staff: {} };
+    app.rolePermissionsDraft[role] = { ...(app.rolePermissionsDraft[role] || {}), [key]: permissionToggleInput.checked };
+    return;
+  }
+
+  const setSelectedRolePermissions = value => {
+    const role = app.permissionRole === "Staff" ? "Staff" : "Admin";
+    const catalog = app.permissionCatalog?.length ? app.permissionCatalog : app.data?.permissionCatalog || [];
+    app.rolePermissionsDraft = app.rolePermissionsDraft || { Admin: {}, Staff: {} };
+    const next = { ...(app.rolePermissionsDraft[role] || {}) };
+    catalog.flatMap(group => group.permissions || []).forEach(([key]) => {
+      next[key] = value;
+    });
+    app.rolePermissionsDraft[role] = next;
+    render();
+  };
+
+  if (event.target.closest("[data-permission-enable-all]")) {
+    setSelectedRolePermissions(true);
+    return;
+  }
+
+  if (event.target.closest("[data-permission-disable-all]")) {
+    setSelectedRolePermissions(false);
+    return;
+  }
+
+  if (event.target.closest("[data-permission-restore-defaults]")) {
+    const role = app.permissionRole === "Staff" ? "Staff" : "Admin";
+    app.rolePermissionsDraft = app.rolePermissionsDraft || { Admin: {}, Staff: {} };
+    app.rolePermissionsDraft[role] = { ...((app.recommendedRolePermissions || ROLE_PERMISSION_DEFAULTS)[role] || {}) };
+    render();
+    return;
+  }
+
+  if (event.target.closest("[data-save-permissions]")) {
+    if (app.permissionsSavePending) return;
+    app.permissionsSavePending = true;
+    render();
+    try {
+      const payload = await api("/api/permissions", {
+        method: "PUT",
+        body: JSON.stringify({ rolePermissions: app.rolePermissionsDraft || {} })
+      });
+      app.rolePermissionsDraft = payload.rolePermissions || app.rolePermissionsDraft;
+      app.recommendedRolePermissions = payload.recommended || app.recommendedRolePermissions;
+      showToast("บันทึกสิทธิ์การเข้าถึงแล้ว");
+      await loadState();
+    } catch (error) {
+      showToast(error.message || "บันทึกสิทธิ์ไม่สำเร็จ", "error");
+    } finally {
+      app.permissionsSavePending = false;
+      render();
+    }
+    return;
+  }
+
   if (event.target.closest("[data-user-editor-back]")) {
     app.editingUserId = "";
     setBusinessManagementPage("roles");
@@ -8453,7 +8690,10 @@ document.addEventListener("click", async event => {
     document.body.classList.remove("sidebar-open");
   }
 
-  if (event.target.closest("[data-open-order]") && app.view === "orders") openOrderDialog();
+  if (event.target.closest("[data-open-order]") && app.view === "orders") {
+    if (!can("orders.create")) return showToast("ไม่มีสิทธิ์เพิ่มออเดอร์", "error");
+    openOrderDialog();
+  }
 
   const mobileOrderActions = event.target.closest("[data-mobile-order-actions]");
   if (mobileOrderActions && app.view === "orders" && isMobileViewport()) {
@@ -8493,12 +8733,16 @@ document.addEventListener("click", async event => {
 
   const editOrderButton = event.target.closest("[data-edit-order]");
   if (editOrderButton) {
+    if (!can("orders.edit")) return showToast("ไม่มีสิทธิ์แก้ไขออเดอร์", "error");
     const order = app.data.orders.find(item => item.id === editOrderButton.dataset.editOrder);
     if (order) openOrderDialog(order);
   }
 
   const deleteOrderButton = event.target.closest("[data-delete-order]");
-  if (deleteOrderButton) openDeleteOrderDialog(deleteOrderButton.dataset.deleteOrder);
+  if (deleteOrderButton) {
+    if (!can("orders.delete")) return showToast("ไม่มีสิทธิ์ลบออเดอร์", "error");
+    openDeleteOrderDialog(deleteOrderButton.dataset.deleteOrder);
+  }
 
   if (
     app.view === "orders"
@@ -8510,7 +8754,10 @@ document.addEventListener("click", async event => {
   }
 
   const deleteCustomerButton = event.target.closest("[data-delete-customer]");
-  if (deleteCustomerButton) openDeleteCustomerDialog(deleteCustomerButton.dataset.deleteCustomer);
+  if (deleteCustomerButton) {
+    if (!can("customers.delete")) return showToast("ไม่มีสิทธิ์ลบลูกค้า", "error");
+    openDeleteCustomerDialog(deleteCustomerButton.dataset.deleteCustomer);
+  }
 
   if (event.target.closest("[data-logout]")) els.logoutDialog.showModal();
 
@@ -8820,6 +9067,18 @@ document.addEventListener("input", event => {
 });
 
 document.addEventListener("change", event => {
+  if (event.target?.matches?.("[data-permission-role]")) {
+    app.permissionRole = event.target.value === "Staff" ? "Staff" : "Admin";
+    render();
+    return;
+  }
+  if (event.target?.matches?.("[data-permission-toggle]")) {
+    const role = event.target.dataset.role === "Staff" ? "Staff" : "Admin";
+    const key = event.target.dataset.permission || "";
+    app.rolePermissionsDraft = app.rolePermissionsDraft || { Admin: {}, Staff: {} };
+    app.rolePermissionsDraft[role] = { ...(app.rolePermissionsDraft[role] || {}), [key]: event.target.checked };
+    return;
+  }
   if (elementId(event.target?.form) === "teamForm") {
     setTeamSaveState(event.target.form, "idle");
   }
@@ -9015,10 +9274,19 @@ document.addEventListener("submit", async event => {
     }
 
     if (currentFormId === "orderForm") {
+      const isEdit = Boolean(app.editingOrderId);
+      if (!can(isEdit ? "orders.edit" : "orders.create")) {
+        showToast(isEdit ? "ไม่มีสิทธิ์แก้ไขออเดอร์" : "ไม่มีสิทธิ์เพิ่มออเดอร์", "error");
+        return;
+      }
       await submitOrder(form);
     }
 
     if (currentFormId === "productForm") {
+      if (!can("products.edit")) {
+        showToast("ไม่มีสิทธิ์บันทึกสินค้า", "error");
+        return;
+      }
       if (app.productSavePending) return;
       setProductSaveState(true);
       const data = Object.fromEntries(new FormData(form).entries());
@@ -9052,6 +9320,10 @@ document.addEventListener("submit", async event => {
     }
 
     if (currentFormId === "deleteOrderForm" && app.deletingOrderId) {
+      if (!can("orders.delete")) {
+        showToast("ไม่มีสิทธิ์ลบออเดอร์", "error");
+        return;
+      }
       const snapshot = cloneUiState();
       const deletingOrder = app.data.orders.find(order => order.id === app.deletingOrderId);
       const optimisticMutation = {
@@ -9077,6 +9349,10 @@ document.addEventListener("submit", async event => {
     }
 
     if (currentFormId === "deleteCustomerForm" && app.deletingCustomerId) {
+      if (!can("customers.delete")) {
+        showToast("ไม่มีสิทธิ์ลบลูกค้า", "error");
+        return;
+      }
       await api(`/api/customers/${encodeURIComponent(app.deletingCustomerId)}`, {
         method: "DELETE"
       });
@@ -9088,6 +9364,10 @@ document.addEventListener("submit", async event => {
     }
 
     if (currentFormId === "deleteUserForm" && app.deletingUserId) {
+      if (!isOwner()) {
+        showToast("เฉพาะ Owner เท่านั้นที่ลบผู้ใช้งานได้", "error");
+        return;
+      }
       await api(`/api/team/${encodeURIComponent(app.deletingUserId)}`, {
         method: "DELETE"
       });
@@ -9115,6 +9395,10 @@ document.addEventListener("submit", async event => {
     }
 
     if (currentFormId === "teamForm") {
+      if (!isOwner()) {
+        showToast("เฉพาะ Owner เท่านั้นที่จัดการผู้ใช้งานได้", "error");
+        return;
+      }
       if (app.teamSavePending) return;
       app.teamSavePending = true;
       setTeamSaveState(form, "saving");
@@ -9151,6 +9435,10 @@ document.addEventListener("submit", async event => {
     }
 
     if (currentFormId === "tagsForm") {
+      if (!can("customers.edit")) {
+        showToast("ไม่มีสิทธิ์แก้ไขลูกค้า", "error");
+        return;
+      }
       const data = Object.fromEntries(new FormData(form).entries());
       await api("/api/tags", {
         method: "POST",
@@ -9162,6 +9450,10 @@ document.addEventListener("submit", async event => {
     }
 
     if (currentFormId === "adCostForm") {
+      if (!can("reports.finance")) {
+        showToast("ไม่มีสิทธิ์จัดการค่าโฆษณา", "error");
+        return;
+      }
       const data = Object.fromEntries(new FormData(form).entries());
       const product = productRowsData().find(item => item.id === data.productId);
       const platform = normalizeAdPlatforms().find(item => item.id === data.platformId);
@@ -9182,6 +9474,10 @@ document.addEventListener("submit", async event => {
     }
 
     if (currentFormId === "adPlatformForm") {
+      if (!can("reports.finance")) {
+        showToast("ไม่มีสิทธิ์จัดการแพลตฟอร์มโฆษณา", "error");
+        return;
+      }
       const data = Object.fromEntries(new FormData(form).entries());
       data.enabled = form.elements.enabled.checked;
       const id = String(data.id || "");
@@ -9199,6 +9495,10 @@ document.addEventListener("submit", async event => {
     if (currentFormId === "settingsForm") {
       const settingsSaveButton = form.querySelector("[data-settings-save]");
       if (settingsSaveButton) {
+        if (!can("reports.costs")) {
+          showToast("ไม่มีสิทธิ์แก้ไขต้นทุนและการเงิน", "error");
+          return;
+        }
         if (app.settingsSavePending) return;
         app.settingsSavePending = true;
         setSettingsSaveState("saving", settingsSaveButton);
@@ -9218,6 +9518,10 @@ document.addEventListener("submit", async event => {
         showToast("บันทึกต้นทุนและค่าใช้จ่ายแล้ว");
         app.settingsSavePending = false;
         renderSettings();
+        return;
+      }
+      if (!can("system.business")) {
+        showToast("ไม่มีสิทธิ์แก้ไขการตั้งค่าธุรกิจ", "error");
         return;
       }
       const data = Object.fromEntries(new FormData(form).entries());
@@ -9255,6 +9559,10 @@ document.addEventListener("submit", async event => {
     }
 
     if (currentFormId === "settingsVipForm") {
+      if (!can("system.business")) {
+        showToast("ไม่มีสิทธิ์แก้ไขการตั้งค่าธุรกิจ", "error");
+        return;
+      }
       const data = Object.fromEntries(new FormData(form).entries());
       await api("/api/settings", {
         method: "PUT",
@@ -9288,6 +9596,10 @@ document.addEventListener("submit", async event => {
     }
 
     if (currentFormId === "vipThresholdForm") {
+      if (!can("system.business")) {
+        showToast("ไม่มีสิทธิ์แก้ไขการตั้งค่าธุรกิจ", "error");
+        return;
+      }
       const data = Object.fromEntries(new FormData(form).entries());
       await api("/api/settings", {
         method: "PUT",
@@ -9298,6 +9610,10 @@ document.addEventListener("submit", async event => {
     }
 
     if (currentFormId === "settingsLineForm") {
+      if (!can("system.integrations")) {
+        showToast("ไม่มีสิทธิ์แก้ไขการเชื่อมต่อระบบ", "error");
+        return;
+      }
       const data = Object.fromEntries(new FormData(form).entries());
       data.lineWebhookEnabled = form.elements.lineWebhookEnabled.checked;
       await api("/api/settings", {
@@ -9309,6 +9625,10 @@ document.addEventListener("submit", async event => {
     }
 
     if (currentFormId === "rulesForm") {
+      if (!can("system.business")) {
+        showToast("ไม่มีสิทธิ์ตั้งค่าการติดตาม", "error");
+        return;
+      }
       const data = Object.fromEntries(new FormData(form).entries());
       await api("/api/followup-rules", {
         method: "PUT",
@@ -9319,6 +9639,10 @@ document.addEventListener("submit", async event => {
     }
 
     if (currentFormId === "contactForm") {
+      if (!can("customers.edit")) {
+        showToast("ไม่มีสิทธิ์บันทึกการติดต่อลูกค้า", "error");
+        return;
+      }
       const data = Object.fromEntries(new FormData(form).entries());
       await api("/api/contact-log", {
         method: "POST",
@@ -9330,6 +9654,10 @@ document.addEventListener("submit", async event => {
     }
 
     if (currentFormId === "customerEditForm") {
+      if (!can("customers.edit")) {
+        showToast("ไม่มีสิทธิ์แก้ไขลูกค้า", "error");
+        return;
+      }
       const data = Object.fromEntries(new FormData(form).entries());
       await api(`/api/customers/${encodeURIComponent(data.customerId)}`, {
         method: "PUT",
