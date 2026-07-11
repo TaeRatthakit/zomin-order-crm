@@ -4148,7 +4148,6 @@ function mobileOpportunityStatus(row) {
 
 function mobileOpportunityCustomerCard(row) {
   const { customer, lastOrder } = row;
-  const orderNumber = lastOrder?.orderNumber || lastOrder?.id || "-";
   const lastPurchase = lastOrder
     ? `${lastOrder.items || "สินค้า"} ${money(lastOrder.jars || 0)} กระปุก (${formatShortDate(lastOrder.date)})`
     : "ยังไม่มีข้อมูลการซื้อ";
@@ -4159,7 +4158,7 @@ function mobileOpportunityCustomerCard(row) {
         <div class="mobile-opportunity-identity">
           <strong>${escapeHtml(customer.name || "-")}</strong>
           <span>${escapeHtml(customer.phone || "-")}${row.socialName ? ` · ${escapeHtml(row.socialName)}` : ""}</span>
-          <small><b>#${escapeHtml(orderNumber)}</b> ${escapeHtml(lastPurchase)}</small>
+          <small>${escapeHtml(lastPurchase)}</small>
         </div>
         <div class="mobile-opportunity-due">
           ${mobileOpportunityStatus(row)}
