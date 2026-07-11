@@ -5754,6 +5754,7 @@ function reportAcquisitionChannelRows(orders = []) {
     if (!key) continue;
     const orderOption = customerSourceOptionFromOrder(order);
     const option = optionMap.get(key) || orderOption || normalizedCustomerSourceOption({ key, name: key.replace(/_/g, " ") });
+    if (!option) continue;
     if (!channelMap.has(key)) {
       channelMap.set(key, {
         ...option,
