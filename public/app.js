@@ -2045,6 +2045,18 @@ function activeCustomerGroup() {
   return groups.find(group => group.id === app.customerGroupFilter) || groups[0];
 }
 
+function resetCustomerManagementState(options = {}) {
+  app.customerSearchDraft = "";
+  app.filters.q = "";
+  if (options.resetGroup) app.customerGroupFilter = "all";
+}
+
+function applyCustomerSearchValue(value = "") {
+  const query = String(value || "").trim();
+  app.customerSearchDraft = query;
+  app.filters.q = query;
+}
+
 function customerSearchMatches(customer, q) {
   if (!q) return true;
   return [
@@ -2077,7 +2089,7 @@ function validateVipThresholdValues({ vip, vvip, superVip }) {
 }
 
 function renderCustomerManagementContent({ includeHero = true, extraClass = "" } = {}) {
-  if (!app.customerSearchDraft) app.customerSearchDraft = app.filters.q || "";
+  app.customerSearchDraft = app.filters.q || app.customerSearchDraft || "";
   if (!customerGroupDefinitions().some(group => group.id === app.customerGroupFilter)) app.customerGroupFilter = "all";
   const customers = sortByPriority(applyCustomerFilters());
   const allCustomers = app.data.customers || [];
@@ -3705,6 +3717,7 @@ function setBusinessManagementPage(page, options = {}) {
   const previousPage = app.mobileBusinessPage || "main";
   if (previousPage === "main" && nextPage !== "main") saveBusinessManagementScrollPosition();
   const shouldRestoreScroll = previousPage !== "main" && nextPage === "main";
+  if (previousPage === "customers" && nextPage !== "customers") resetCustomerManagementState({ resetGroup: true });
   app.mobileBusinessPage = nextPage;
   if (nextPage !== "security") app.securityDetailKey = "";
   renderSettings();
@@ -7313,6 +7326,12 @@ function setView(view) {
     showToast("เมนูนี้ต้องใช้สิทธิ์ Owner/Admin");
     return;
   }
+  if (["customers", "settingsCustomers"].includes(app.view) && !["customers", "settingsCustomers"].includes(view)) {
+    resetCustomerManagementState({ resetGroup: true });
+  }
+  if (app.view === "settings" && app.mobileBusinessPage === "customers" && view !== "settings") {
+    resetCustomerManagementState({ resetGroup: true });
+  }
   if (view !== "settings") clearBusinessManagementScrollRestore();
   app.mobileOrderMenuId = "";
   app.view = view;
@@ -7327,6 +7346,12 @@ async function setMobileNavView(view) {
   if (!canAccessView(view)) {
     showToast("เมนูนี้ต้องใช้สิทธิ์ Owner/Admin");
     return;
+  }
+  if (["customers", "settingsCustomers"].includes(app.view) && !["customers", "settingsCustomers"].includes(view)) {
+    resetCustomerManagementState({ resetGroup: true });
+  }
+  if (app.view === "settings" && app.mobileBusinessPage === "customers" && view !== "settings") {
+    resetCustomerManagementState({ resetGroup: true });
   }
   if (view !== "settings") clearBusinessManagementScrollRestore();
 
@@ -7372,7 +7397,9 @@ async function setMobileNavView(view) {
 function syncViewFromLocation(event = null) {
   const nextView = routeFromLocation();
   const previousBusinessPage = app.mobileBusinessPage || "main";
+  const wasCustomerManagement = app.view === "customers" || app.view === "settingsCustomers" || (app.view === "settings" && previousBusinessPage === "customers");
   if (!app.currentUser && nextView !== "login") {
+    if (wasCustomerManagement) resetCustomerManagementState({ resetGroup: true });
     clearBusinessManagementScrollRestore();
     app.mobileBusinessPage = "main";
     app.view = "login";
@@ -7381,6 +7408,7 @@ function syncViewFromLocation(event = null) {
     return;
   }
   if (app.currentUser && nextView === "login") {
+    if (wasCustomerManagement) resetCustomerManagementState({ resetGroup: true });
     clearBusinessManagementScrollRestore();
     app.mobileBusinessPage = "main";
     app.view = "dashboard";
@@ -7389,6 +7417,7 @@ function syncViewFromLocation(event = null) {
     return;
   }
   if (!canAccessView(nextView)) {
+    if (wasCustomerManagement) resetCustomerManagementState({ resetGroup: true });
     clearBusinessManagementScrollRestore();
     app.mobileBusinessPage = "main";
     app.view = "settings";
@@ -7400,9 +7429,11 @@ function syncViewFromLocation(event = null) {
   if (nextView === "settings" && event?.type === "popstate") {
     const nextBusinessPage = event.state?.businessManagementPage || "main";
     if (previousBusinessPage === "main" && nextBusinessPage !== "main") saveBusinessManagementScrollPosition();
+    if (previousBusinessPage === "customers" && nextBusinessPage !== "customers") resetCustomerManagementState({ resetGroup: true });
     app.mobileBusinessPage = nextBusinessPage;
     if (nextBusinessPage !== "security") app.securityDetailKey = "";
   } else if (nextView !== "settings") {
+    if (wasCustomerManagement && !["customers", "settingsCustomers"].includes(nextView)) resetCustomerManagementState({ resetGroup: true });
     clearBusinessManagementScrollRestore();
     app.mobileBusinessPage = "main";
   }
@@ -8194,14 +8225,14 @@ document.addEventListener("click", async event => {
   const customerGroupFilter = event.target.closest("[data-customer-group-filter]");
   if (customerGroupFilter) {
     app.customerGroupFilter = customerGroupFilter.dataset.customerGroupFilter || "all";
+    applyCustomerSearchValue("");
     renderCustomerManagementCurrentView();
     return;
   }
 
   if (event.target.closest("[data-customer-search]")) {
     const searchInput = document.querySelector("[data-customer-search-input]");
-    app.customerSearchDraft = searchInput?.value ?? app.customerSearchDraft;
-    app.filters.q = app.customerSearchDraft.trim();
+    applyCustomerSearchValue(searchInput?.value ?? app.customerSearchDraft);
     renderCustomerManagementCurrentView();
     return;
   }
@@ -8433,6 +8464,10 @@ document.addEventListener("input", event => {
   const customerSearchInput = event.target.closest("[data-customer-search-input]");
   if (customerSearchInput) {
     app.customerSearchDraft = customerSearchInput.value;
+    if (!customerSearchInput.value.trim() && app.filters.q) {
+      applyCustomerSearchValue("");
+      renderCustomerManagementCurrentView();
+    }
   }
 
   const opportunitySearch = event.target.closest("[data-mobile-opportunity-search] input[name='q']");
@@ -8509,8 +8544,7 @@ document.addEventListener("keydown", event => {
   }
   if (event.target?.matches?.("[data-customer-search-input]")) {
     event.preventDefault();
-    app.customerSearchDraft = event.target.value;
-    app.filters.q = app.customerSearchDraft.trim();
+    applyCustomerSearchValue(event.target.value);
     renderCustomerManagementCurrentView();
   }
 });
