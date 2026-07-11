@@ -4706,6 +4706,7 @@ function optimisticOrderFromForm(data, orderId, clientMutationId) {
     sourceChannel: data.sourceChannel ?? existing?.sourceChannel ?? "",
     socialName: data.socialName ?? existing?.socialName ?? "",
     originSource: data.originSource ?? existing?.originSource ?? "",
+    originSourceOther: data.originSourceOther ?? existing?.originSourceOther ?? "",
     freeGift: data.freeGift ?? existing?.freeGift ?? "",
     productId: data.productId ?? existing?.productId ?? "",
     packageId: data.packageId ?? existing?.packageId ?? "",
@@ -5585,60 +5586,100 @@ function reportDelta(currentValue, previousValue) {
 }
 
 const REPORT_ACQUISITION_CHANNELS = [
-  { name: "Facebook", color: "#1769e8", icon: "f" },
-  { name: "LINE", color: "#06c755", icon: "LINE" },
-  { name: "Phone Order", color: "#f59e0b", icon: "☎" },
-  { name: "Customer Referral", color: "#f43f5e", icon: "REF" }
+  { key: "facebook", name: "Facebook", color: "#1769e8", icon: "f" },
+  { key: "line", name: "LINE", color: "#06c755", icon: "LINE" },
+  { key: "phone", name: "Phone Order", color: "#f59e0b", icon: "☎" },
+  { key: "referral", name: "Customer Referral", color: "#f43f5e", icon: "REF" },
+  { key: "tiktok", name: "TikTok", color: "#22d3ee", icon: "TT" },
+  { key: "shopee", name: "Shopee", color: "#fb5a2a", icon: "SP" },
+  { key: "lazada", name: "Lazada", color: "#7c3aed", icon: "LZ" },
+  { key: "instagram", name: "Instagram", color: "#e1306c", icon: "IG" },
+  { key: "website", name: "Website", color: "#38bdf8", icon: "WWW" },
+  { key: "walk_in", name: "Walk-in", color: "#84cc16", icon: "IN" },
+  { key: "other", name: "Other", color: "#94a3b8", icon: "OTH" }
 ];
 
-function reportAcquisitionChannelName(order = {}) {
-  const raw = String(order.originSource || order.origin_source || "").trim();
-  const normalized = raw.toLowerCase();
+const CUSTOMER_SOURCE_CHANNELS = REPORT_ACQUISITION_CHANNELS;
+const CUSTOMER_SOURCE_KEYS = new Set(CUSTOMER_SOURCE_CHANNELS.map(channel => channel.key));
+
+function normalizeCustomerSourceKey(value = "") {
+  const raw = String(value || "").trim();
+  const normalized = raw.toLowerCase().replace(/[\s-]+/g, "_");
   if (!raw || raw === MISSING_CHANNEL_LABEL) return "";
+  if (CUSTOMER_SOURCE_KEYS.has(normalized)) return normalized;
   if (
     normalized.includes("facebook") ||
-    normalized.includes("fb") ||
+    normalized === "fb" ||
     raw.includes("เฟส") ||
     raw.includes("เพจ") ||
     raw.includes("ไลฟ์") ||
     normalized.includes("inbox")
-  ) return "Facebook";
-  if (normalized.includes("line") || raw.includes("ไลน์")) return "LINE";
-  if (raw.includes("โทร") || normalized.includes("phone") || normalized.includes("call") || normalized.includes("tel")) return "Phone Order";
+  ) return "facebook";
+  if (normalized.includes("line") || normalized.includes("line_oa") || raw.includes("ไลน์")) return "line";
+  if (normalized.includes("tiktok") || normalized.includes("tik_tok") || raw.includes("ติ๊กต็อก")) return "tiktok";
+  if (normalized.includes("shopee") || raw.includes("ช้อปปี้") || raw.includes("ช็อปปี้")) return "shopee";
+  if (normalized.includes("lazada") || raw.includes("ลาซาด้า")) return "lazada";
+  if (normalized.includes("instagram") || normalized === "ig" || raw.includes("อินสตาแกรม")) return "instagram";
+  if (normalized.includes("website") || normalized.includes("web") || raw.includes("เว็บไซต์")) return "website";
+  if (normalized.includes("walk_in") || normalized.includes("walkin") || raw.includes("หน้าร้าน")) return "walk_in";
+  if (raw.includes("โทร") || normalized.includes("phone") || normalized.includes("call") || normalized.includes("tel")) return "phone";
   if (
     raw.includes("บอกต่อ") ||
     raw.includes("แนะนำ") ||
     normalized.includes("referral") ||
     normalized.includes("refer") ||
     normalized.includes("word of mouth")
-  ) return "Customer Referral";
+  ) return "referral";
+  if (normalized === "other" || raw.includes("อื่น")) return "other";
   return "";
 }
 
-function reportChannelIcon(channel) {
-  if (channel === "Facebook") return "f";
-  if (channel === "LINE") return "LINE";
-  if (channel === "Phone Order") return "☎";
-  if (channel === "Customer Referral") return "REF";
-  return "●";
+function customerSourceOtherText(order = {}) {
+  return String(order.originSourceOther || order.origin_source_other || "").trim();
+}
+
+function customerSourceKeyForOrder(order = {}) {
+  const raw = String(order.originSource || order.origin_source || "").trim();
+  const key = normalizeCustomerSourceKey(raw);
+  if (key) return key;
+  return raw ? "other" : "";
 }
 
 function reportAcquisitionChannelRows(orders = []) {
-  const channelMap = new Map(REPORT_ACQUISITION_CHANNELS.map(channel => [
-    channel.name,
+  const channelMap = new Map(CUSTOMER_SOURCE_CHANNELS.map(channel => [
+    channel.key,
     { ...channel, revenue: 0, count: 0, percent: 0 }
   ]));
   for (const order of orders) {
-    const name = reportAcquisitionChannelName(order);
-    if (!channelMap.has(name)) continue;
-    const row = channelMap.get(name);
+    const key = customerSourceKeyForOrder(order);
+    if (!key) continue;
+    const row = channelMap.get(CUSTOMER_SOURCE_KEYS.has(key) ? key : "other");
     row.revenue += Number(order.amount || 0);
     row.count += 1;
   }
   const totalCount = [...channelMap.values()].reduce((sum, row) => sum + row.count, 0);
   const totalRevenue = [...channelMap.values()].reduce((sum, row) => sum + row.revenue, 0);
-  const rows = REPORT_ACQUISITION_CHANNELS.map(channel => {
-    const row = channelMap.get(channel.name);
+  const sortedRows = [...channelMap.values()]
+    .filter(row => row.count > 0)
+    .sort((a, b) => (b.count - a.count) || (b.revenue - a.revenue));
+  const visibleLimit = sortedRows.length > 6 ? 5 : 6;
+  let rows = sortedRows.slice(0, visibleLimit);
+  const remainder = sortedRows.slice(visibleLimit);
+  if (remainder.length) {
+    rows = [
+      ...rows,
+      {
+        key: "other_channels",
+        name: "Other Channels",
+        color: "#64748b",
+        icon: "••",
+        count: remainder.reduce((sum, row) => sum + row.count, 0),
+        revenue: remainder.reduce((sum, row) => sum + row.revenue, 0),
+        percent: 0
+      }
+    ];
+  }
+  rows = rows.map(row => {
     return {
       ...row,
       percent: totalCount ? (row.count / totalCount) * 100 : 0
@@ -5777,20 +5818,22 @@ function renderMobileReports(selectedDate, selectedMonth) {
               </div>
             </div>
             <div class="mobile-report-channel-legend">
-              <div class="sales-channel-head" aria-hidden="true">
-                <span>ช่องทาง</span>
-                <span>ออเดอร์</span>
-                <span>%</span>
-                <span>ยอดขาย</span>
-              </div>
-              ${channelRows.map(row => `
-                <div class="mobile-report-channel-row" style="--channel-color:${row.color};">
-                  <span class="report-channel-name"><i style="--channel-color:${row.color}">${escapeHtml(row.icon || reportChannelIcon(row.name))}</i><span><b>${escapeHtml(row.name)}</b><small>${money(row.count)} ออเดอร์</small></span></span>
-                  <em>${money(row.count)}</em>
-                  <span>${row.percent.toFixed(1)}%</span>
-                  <strong>฿${money(row.revenue)}</strong>
+              ${channelRows.length ? `
+                <div class="sales-channel-head" aria-hidden="true">
+                  <span>ช่องทาง</span>
+                  <span>ออเดอร์</span>
+                  <span>%</span>
+                  <span>ยอดขาย</span>
                 </div>
-              `).join("")}
+                ${channelRows.map(row => `
+                  <div class="mobile-report-channel-row" style="--channel-color:${row.color};">
+                    <span class="report-channel-name"><i style="--channel-color:${row.color}">${escapeHtml(row.icon)}</i><span><b>${escapeHtml(row.name)}</b><small>${money(row.count)} ออเดอร์</small></span></span>
+                    <em>${money(row.count)}</em>
+                    <span>${row.percent.toFixed(1)}%</span>
+                    <strong>฿${money(row.revenue)}</strong>
+                  </div>
+                `).join("")}
+              ` : `<div class="mobile-report-empty sales-channel-empty">ยังไม่มีข้อมูล Customer Source ในเดือนนี้</div>`}
             </div>
           </div>
         </section>
@@ -7480,13 +7523,22 @@ async function submitOrder(form) {
   if (app.orderSavePending) return;
   setOrderSaveState(true);
   const data = Object.fromEntries(new FormData(form).entries());
+  const selectedOriginSource = normalizeCustomerSourceKey(data.originSourceChoice);
+  const originSourceOther = String(data.originSourceOther || "").trim();
+  if (selectedOriginSource === "other" && !originSourceOther) {
+    setOrderSaveState(false);
+    showToast("กรุณาระบุแหล่งที่มาอื่น");
+    els.orderForm.elements.originSourceOther?.focus();
+    return;
+  }
   if (String(data.date || "").includes("T")) {
     const [datePart, timePart] = String(data.date).split("T");
     data.date = datePart;
     data.time = timePart || "";
   }
   const preservedOriginSource = String(form.dataset.originSourceValue || "").trim();
-  data.originSource = String(data.originSourceChoice || "").trim() || preservedOriginSource;
+  data.originSource = selectedOriginSource || normalizeCustomerSourceKey(preservedOriginSource) || "";
+  data.originSourceOther = data.originSource === "other" ? originSourceOther || preservedOriginSource : "";
   delete data.originSourceChoice;
   applyQuantityMatchedOrderPackage(data);
   const orderId = app.editingOrderId;
@@ -7712,10 +7764,13 @@ function openOrderDialog(order = null) {
     Object.entries(fields).forEach(([name, value]) => {
       if (els.orderForm.elements[name]) els.orderForm.elements[name].value = value ?? "";
     });
-    const knownOriginSources = ["Facebook", "LINE", "โทรเข้า", "ลูกค้าบอกต่อ"];
     const originSource = String(order.originSource || "");
-    els.orderForm.elements.originSourceChoice.value = knownOriginSources.includes(originSource) ? originSource : "";
-    if (originSource && !knownOriginSources.includes(originSource)) {
+    const originSourceKey = customerSourceKeyForOrder(order);
+    els.orderForm.elements.originSourceChoice.value = CUSTOMER_SOURCE_KEYS.has(originSourceKey) ? originSourceKey : "";
+    els.orderForm.elements.originSourceOther.value = originSourceKey === "other"
+      ? customerSourceOtherText(order) || originSource
+      : "";
+    if (originSource && originSourceKey === "other") {
       els.orderForm.dataset.originSourceValue = originSource;
     }
   } else {
@@ -7742,12 +7797,20 @@ function openOrderDialog(order = null) {
     els.orderForm.elements.sourceChannel.placeholder = "เลือกหรือพิมพ์ช่องทางการสั่งซื้อ";
     els.orderForm.elements.freeGift.placeholder = "เช่น แถม 1 กระปุก, ค่าส่งฟรี";
   }
+  syncOriginSourceFields();
   els.orderDialog.showModal();
   if (isMobileViewport() && app.view === "orders") restoreMobileOrdersScrollPosition();
 }
 
 function syncOriginSourceFields() {
-  return;
+  const choice = normalizeCustomerSourceKey(els.orderForm.elements.originSourceChoice?.value || "");
+  const otherField = els.orderForm.querySelector("[data-origin-source-other-field]");
+  const otherInput = els.orderForm.elements.originSourceOther;
+  if (!otherField || !otherInput) return;
+  const isOther = choice === "other";
+  otherField.hidden = !isOther;
+  otherInput.required = isOther;
+  if (!isOther) otherInput.value = "";
 }
 
 async function copyText(text) {
@@ -8544,7 +8607,7 @@ document.addEventListener("change", event => {
   if (elementId(event.target?.form) === "teamForm") {
     setTeamSaveState(event.target.form, "idle");
   }
-  if (event.target === els.orderForm.elements.originSourceChoice) syncOriginSourceFields();
+  if (event.target?.name === "originSourceChoice" && event.target.form === els.orderForm) syncOriginSourceFields();
   if (event.target === els.orderForm.elements.productId) {
     const product = selectedOrderPackageProduct();
     if (product) els.orderForm.elements.items.value = product.name;

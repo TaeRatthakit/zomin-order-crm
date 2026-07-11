@@ -719,6 +719,61 @@ function orderChannel(order = {}) {
   return channel || "";
 }
 
+const CUSTOMER_SOURCE_KEYS = new Set([
+  "facebook",
+  "line",
+  "phone",
+  "referral",
+  "tiktok",
+  "shopee",
+  "lazada",
+  "instagram",
+  "website",
+  "walk_in",
+  "other"
+]);
+
+function normalizeCustomerSourceKey(value = "") {
+  const raw = String(value || "").trim();
+  const normalized = raw.toLowerCase().replace(/[\s-]+/g, "_");
+  if (!raw) return "";
+  if (CUSTOMER_SOURCE_KEYS.has(normalized)) return normalized;
+  if (
+    normalized.includes("facebook") ||
+    normalized === "fb" ||
+    raw.includes("เฟส") ||
+    raw.includes("เพจ") ||
+    raw.includes("ไลฟ์") ||
+    normalized.includes("inbox")
+  ) return "facebook";
+  if (normalized.includes("line") || normalized.includes("line_oa") || raw.includes("ไลน์")) return "line";
+  if (normalized.includes("tiktok") || normalized.includes("tik_tok") || raw.includes("ติ๊กต็อก")) return "tiktok";
+  if (normalized.includes("shopee") || raw.includes("ช้อปปี้") || raw.includes("ช็อปปี้")) return "shopee";
+  if (normalized.includes("lazada") || raw.includes("ลาซาด้า")) return "lazada";
+  if (normalized.includes("instagram") || normalized === "ig" || raw.includes("อินสตาแกรม")) return "instagram";
+  if (normalized.includes("website") || normalized.includes("web") || raw.includes("เว็บไซต์")) return "website";
+  if (normalized.includes("walk_in") || normalized.includes("walkin") || raw.includes("หน้าร้าน")) return "walk_in";
+  if (raw.includes("โทร") || normalized.includes("phone") || normalized.includes("call") || normalized.includes("tel")) return "phone";
+  if (
+    raw.includes("บอกต่อ") ||
+    raw.includes("แนะนำ") ||
+    normalized.includes("referral") ||
+    normalized.includes("refer") ||
+    normalized.includes("word_of_mouth")
+  ) return "referral";
+  if (normalized === "other" || raw.includes("อื่น")) return "other";
+  return "";
+}
+
+function normalizeOrderOriginSource(sourceValue = "", otherValue = "") {
+  const raw = String(sourceValue || "").trim();
+  const key = normalizeCustomerSourceKey(raw);
+  const other = String(otherValue || "").trim();
+  if (!raw && !other) return { originSource: "", originSourceOther: "" };
+  if (key && key !== "other") return { originSource: key, originSourceOther: "" };
+  return { originSource: "other", originSourceOther: other || raw };
+}
+
 function normalizeDuplicateText(value) {
   return normalizeImportText(value).toLowerCase();
 }
@@ -1449,6 +1504,10 @@ function addOrder(db, payload) {
     payload.vipCardStatus || payload.vip_card_status || (previousVipCardSent ? "ส่งบัตรแล้ว" : "ยังไม่ได้ส่งบัตร")
   ).trim();
   const sourceChannel = orderChannel(payload);
+  const originSource = normalizeOrderOriginSource(
+    payload.originSource || payload.origin_source || "",
+    payload.originSourceOther || payload.origin_source_other || ""
+  );
   const vipDiscountFlag = previousVipCardSent && /ไลน์บริษัท|line company|บริษัท/i.test(sourceChannel)
     ? "ลูกค้ามีบัตร VIP และสั่งผ่านไลน์บริษัท: รองรับส่วนลด VIP กระปุกละ 10 บาท"
     : "";
@@ -1468,7 +1527,8 @@ function addOrder(db, payload) {
     source: isPlaceholderChannel(payload.source) ? "" : String(payload.source || sourceChannel || "").trim(),
     sourceChannel,
     alternatePhone: String(payload.alternatePhone || payload.alternate_phone || "").trim(),
-    originSource: String(payload.originSource || payload.origin_source || "").trim(),
+    originSource: originSource.originSource,
+    originSourceOther: originSource.originSourceOther,
     lineMessageId: normalizeImportText(payload.lineMessageId || payload.line_message_id || ""),
     duplicateFingerprint: duplicateFingerprint(payload),
     socialName: String(payload.socialName || payload.social_name || "").trim(),
@@ -2167,6 +2227,7 @@ function normalizeImportRow(row, defaultJarPrice) {
     "บัตร vip",
     "เคยได้บัตรvipแล้วหรือยัง"
   ));
+  const originSource = normalizeOrderOriginSource(get("origin_source", "origin source", "ลูกค้ามาจาก", "มาจาก", "แหล่งที่มา"));
   return {
     items: get("items", "product", "product_name", "สินค้า") || "Growup",
     orderNumber,
@@ -2190,7 +2251,8 @@ function normalizeImportRow(row, defaultJarPrice) {
       "facebook",
       "line"
     ),
-    originSource: get("origin_source", "origin source", "ลูกค้ามาจาก", "มาจาก", "แหล่งที่มา"),
+    originSource: originSource.originSource,
+    originSourceOther: originSource.originSourceOther,
     freeGift: get("free_gift", "free gift", "ของแถมที่ลูกค้าได้", "ของแถม", "แถม"),
     vipCardStatus: !vipValue
       ? ""
@@ -2198,7 +2260,7 @@ function normalizeImportRow(row, defaultJarPrice) {
         ? "ส่งบัตรแล้ว"
         : vipValue,
     note: get("note", "หมายเหตุ", "remark", "remarks"),
-    rawText: JSON.stringify({ ...row, __orderNumber: orderNumber, __alternatePhone: get("alternate_phone", "alternate phone", "secondary phone", "เบอร์โทรสำรอง", "เบอร์สำรอง", "โทรสำรอง"), __originSource: get("origin_source", "origin source", "ลูกค้ามาจาก", "มาจาก", "แหล่งที่มา") })
+    rawText: JSON.stringify({ ...row, __orderNumber: orderNumber, __alternatePhone: get("alternate_phone", "alternate phone", "secondary phone", "เบอร์โทรสำรอง", "เบอร์สำรอง", "โทรสำรอง"), __originSource: originSource.originSource, __originSourceOther: originSource.originSourceOther })
   };
 }
 
@@ -2916,6 +2978,12 @@ async function handleApi(req, res) {
       customer.tags = splitTags(body.tags);
       db.tags = Array.from(new Set([...(db.tags || []), ...(customer.tags || [])]));
     }
+    const nextOriginSource = body.originSource !== undefined || body.origin_source !== undefined || body.originSourceOther !== undefined || body.origin_source_other !== undefined
+      ? normalizeOrderOriginSource(
+        body.originSource ?? body.origin_source ?? order.originSource,
+        body.originSourceOther ?? body.origin_source_other ?? order.originSourceOther
+      )
+      : { originSource: order.originSource, originSourceOther: order.originSourceOther || "" };
     Object.assign(order, {
       orderNumber: body.orderNumber !== undefined ? normalizeImportText(body.orderNumber) : order.orderNumber,
       items: body.items !== undefined ? normalizeProductNameForMatching(body.items) : order.items,
@@ -2928,7 +2996,8 @@ async function handleApi(req, res) {
       source: body.sourceChannel ?? order.source,
       sourceChannel: body.sourceChannel ?? order.sourceChannel,
       alternatePhone: body.alternatePhone ?? order.alternatePhone,
-      originSource: body.originSource ?? order.originSource,
+      originSource: nextOriginSource.originSource,
+      originSourceOther: nextOriginSource.originSourceOther,
       socialName: body.socialName ?? order.socialName,
       freeGift: body.freeGift ?? order.freeGift,
       productId: body.productId !== undefined ? String(body.productId || "") : String(order.productId || ""),
@@ -3467,6 +3536,7 @@ async function handleApi(req, res) {
         vip_discount_flag: order.vipDiscountFlag || "",
         tags: (order.tags || []).join("|"),
         origin_source: order.originSource || "",
+        origin_source_other: order.originSourceOther || "",
         note: order.note || ""
       })));
     }

@@ -74,6 +74,25 @@ function normalizeVipStatus(value) {
   return text;
 }
 
+function normalizeCustomerSource(value) {
+  const raw = cellText(value);
+  const normalized = raw.toLowerCase().replace(/[\s-]+/g, "_");
+  const known = ["facebook", "line", "phone", "referral", "tiktok", "shopee", "lazada", "instagram", "website", "walk_in", "other"];
+  if (!raw) return { originSource: "", originSourceOther: "" };
+  if (known.includes(normalized)) return { originSource: normalized, originSourceOther: normalized === "other" ? raw : "" };
+  if (normalized.includes("facebook") || normalized === "fb" || raw.includes("เฟส") || raw.includes("เพจ") || raw.includes("ไลฟ์")) return { originSource: "facebook", originSourceOther: "" };
+  if (normalized.includes("line") || raw.includes("ไลน์")) return { originSource: "line", originSourceOther: "" };
+  if (normalized.includes("tiktok") || normalized.includes("tik_tok") || raw.includes("ติ๊กต็อก")) return { originSource: "tiktok", originSourceOther: "" };
+  if (normalized.includes("shopee") || raw.includes("ช้อปปี้") || raw.includes("ช็อปปี้")) return { originSource: "shopee", originSourceOther: "" };
+  if (normalized.includes("lazada") || raw.includes("ลาซาด้า")) return { originSource: "lazada", originSourceOther: "" };
+  if (normalized.includes("instagram") || normalized === "ig" || raw.includes("อินสตาแกรม")) return { originSource: "instagram", originSourceOther: "" };
+  if (normalized.includes("website") || normalized.includes("web") || raw.includes("เว็บไซต์")) return { originSource: "website", originSourceOther: "" };
+  if (normalized.includes("walk_in") || normalized.includes("walkin") || raw.includes("หน้าร้าน")) return { originSource: "walk_in", originSourceOther: "" };
+  if (raw.includes("โทร") || normalized.includes("phone") || normalized.includes("call") || normalized.includes("tel")) return { originSource: "phone", originSourceOther: "" };
+  if (raw.includes("บอกต่อ") || raw.includes("แนะนำ") || normalized.includes("referral") || normalized.includes("refer")) return { originSource: "referral", originSourceOther: "" };
+  return { originSource: "other", originSourceOther: raw };
+}
+
 function matchField(headerValue) {
   const normalized = normalizeHeader(headerValue);
   if (!normalized) return null;
@@ -175,6 +194,7 @@ function normalizePreparedRows(rows, defaultJarPrice) {
     const jars = Number.isFinite(jarsValue) && jarsValue > 0 ? jarsValue : 1;
     const amountValue = parseNumber(value("amount"));
     const orderNumber = value("orderNumber");
+    const origin = normalizeCustomerSource(value("originSource"));
     const normalized = {
       rowNumber: headerRowIndex + rowOffset + 2,
       orderNumber,
@@ -190,7 +210,8 @@ function normalizePreparedRows(rows, defaultJarPrice) {
       freeGift: value("freeGift"),
       vipCardStatus: normalizeVipStatus(value("vipCardStatus")),
       tags: value("tags"),
-      originSource: value("originSource"),
+      originSource: origin.originSource,
+      originSourceOther: origin.originSourceOther,
       note: value("note"),
       items: value("items") || "Growup",
       source: "Import"
@@ -199,7 +220,8 @@ function normalizePreparedRows(rows, defaultJarPrice) {
       ...Object.fromEntries(headerRow.map((header, index) => [cellText(header), cellText(row[index])])),
       __orderNumber: normalized.orderNumber || "",
       __alternatePhone: normalized.alternatePhone || "",
-      __originSource: normalized.originSource || ""
+      __originSource: normalized.originSource || "",
+      __originSourceOther: normalized.originSourceOther || ""
     });
     if (!normalized.name || !normalized.phone || !normalized.date) invalidRows += 1;
     else readyRows += 1;

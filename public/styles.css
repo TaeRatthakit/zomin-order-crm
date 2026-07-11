@@ -16574,6 +16574,10 @@ body.mobile-orders-view #orderDialog.grow-modal .form-grid.grow-modal-body {
   font-weight: 750;
 }
 
+.grow-modal [data-origin-source-other-field][hidden] {
+  display: none !important;
+}
+
 .grow-modal input,
 .grow-modal select,
 .grow-modal textarea,
