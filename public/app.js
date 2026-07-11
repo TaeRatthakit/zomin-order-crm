@@ -5584,10 +5584,17 @@ function reportDelta(currentValue, previousValue) {
   return { text: "0%", tone: "flat" };
 }
 
-function reportChannelName(order = {}) {
-  const raw = displayOrderChannel(order);
-  const normalized = String(raw || "").toLowerCase();
-  if (!raw || raw === MISSING_CHANNEL_LABEL) return "ไม่ระบุช่องทาง";
+const REPORT_ACQUISITION_CHANNELS = [
+  { name: "Facebook", color: "#1769e8", icon: "f" },
+  { name: "LINE OA", color: "#8f45f7", icon: "LINE" },
+  { name: "Phone Order", color: "#10c86f", icon: "☎" },
+  { name: "Customer Referral", color: "#ff9f0a", icon: "REF" }
+];
+
+function reportAcquisitionChannelName(order = {}) {
+  const raw = String(order.originSource || order.origin_source || "").trim();
+  const normalized = raw.toLowerCase();
+  if (!raw || raw === MISSING_CHANNEL_LABEL) return "";
   if (
     normalized.includes("facebook") ||
     normalized.includes("fb") ||
@@ -5597,15 +5604,47 @@ function reportChannelName(order = {}) {
     normalized.includes("inbox")
   ) return "Facebook";
   if (normalized.includes("line") || raw.includes("ไลน์")) return "LINE OA";
-  if (raw.includes("โทร") || normalized.includes("phone") || normalized.includes("call") || normalized.includes("tel")) return "โทรสั่ง";
-  return raw;
+  if (raw.includes("โทร") || normalized.includes("phone") || normalized.includes("call") || normalized.includes("tel")) return "Phone Order";
+  if (
+    raw.includes("บอกต่อ") ||
+    raw.includes("แนะนำ") ||
+    normalized.includes("referral") ||
+    normalized.includes("refer") ||
+    normalized.includes("word of mouth")
+  ) return "Customer Referral";
+  return "";
 }
 
 function reportChannelIcon(channel) {
   if (channel === "Facebook") return "f";
   if (channel === "LINE OA") return "LINE";
-  if (channel === "โทรสั่ง") return "☎";
+  if (channel === "Phone Order") return "☎";
+  if (channel === "Customer Referral") return "REF";
   return "●";
+}
+
+function reportAcquisitionChannelRows(orders = []) {
+  const channelMap = new Map(REPORT_ACQUISITION_CHANNELS.map(channel => [
+    channel.name,
+    { ...channel, revenue: 0, count: 0, percent: 0 }
+  ]));
+  for (const order of orders) {
+    const name = reportAcquisitionChannelName(order);
+    if (!channelMap.has(name)) continue;
+    const row = channelMap.get(name);
+    row.revenue += Number(order.amount || 0);
+    row.count += 1;
+  }
+  const totalCount = [...channelMap.values()].reduce((sum, row) => sum + row.count, 0);
+  const totalRevenue = [...channelMap.values()].reduce((sum, row) => sum + row.revenue, 0);
+  const rows = REPORT_ACQUISITION_CHANNELS.map(channel => {
+    const row = channelMap.get(channel.name);
+    return {
+      ...row,
+      percent: totalCount ? (row.count / totalCount) * 100 : 0
+    };
+  });
+  return { rows, totalCount, totalRevenue };
 }
 
 function mobileReportKpiCard({ label, value, suffix = "", comparison, tone, icon }) {
@@ -5644,24 +5683,10 @@ function renderMobileReports(selectedDate, selectedMonth) {
   const monthMarketing = marketingPerformanceForPeriod({ month: selectedMonth });
   const previousMonthMarketing = marketingPerformanceForPeriod({ month: previousMonth });
 
-  const channelMap = new Map();
-  for (const order of monthOrders) {
-    const name = reportChannelName(order);
-    if (!channelMap.has(name)) channelMap.set(name, { name, revenue: 0, count: 0 });
-    const row = channelMap.get(name);
-    row.revenue += Number(order.amount || 0);
-    row.count += 1;
-  }
-  const channelColors = ["#1769e8", "#10c86f", "#ff9f0a", "#8f45f7", "#ff337d", "#aab4c4"];
-  const channelRows = [...channelMap.values()]
-    .sort((a, b) => b.revenue - a.revenue)
-    .map((row, index) => ({
-      ...row,
-      color: channelColors[index % channelColors.length],
-      percent: monthSales ? (row.revenue / monthSales) * 100 : 0
-    }));
+  const channelSummary = reportAcquisitionChannelRows(monthOrders);
+  const channelRows = channelSummary.rows;
   let gradientOffset = 0;
-  const donutGradient = channelRows.length && monthSales
+  const donutGradient = channelSummary.totalCount
     ? channelRows.map(row => {
       const start = gradientOffset;
       gradientOffset += row.percent;
@@ -5739,24 +5764,33 @@ function renderMobileReports(selectedDate, selectedMonth) {
           ${monthCards.map(mobileReportKpiCard).join("")}
         </div>
 
-        <section class="mobile-report-card channel-report-card">
+        <section class="mobile-report-card channel-report-card sales-channel-report-card">
           <h2>ช่องทางการขาย <small>(${escapeHtml(reportMonthLabel(selectedMonth))})</small></h2>
           <div class="mobile-report-channel-layout">
-            <div class="mobile-report-donut" style="--report-donut:${donutGradient};">
+            <div class="mobile-report-donut sales-channel-donut" style="--report-donut:${donutGradient};">
               <div>
                 <span>ยอดขายรวม</span>
-                <strong>฿${money(monthSales)}</strong>
+                <strong>฿${money(channelSummary.totalRevenue)}</strong>
                 <small>บาท</small>
+                <span>ออเดอร์รวม</span>
+                <small>${money(channelSummary.totalCount)} ออเดอร์</small>
               </div>
             </div>
             <div class="mobile-report-channel-legend">
+              <div class="sales-channel-head" aria-hidden="true">
+                <span>ช่องทาง</span>
+                <span>ออเดอร์</span>
+                <span>%</span>
+                <span>ยอดขาย</span>
+              </div>
               ${channelRows.map(row => `
-                <div class="mobile-report-channel-row">
-                  <span class="report-channel-name"><i style="--channel-color:${row.color}">${escapeHtml(reportChannelIcon(row.name))}</i>${escapeHtml(row.name)}</span>
+                <div class="mobile-report-channel-row" style="--channel-color:${row.color};">
+                  <span class="report-channel-name"><i style="--channel-color:${row.color}">${escapeHtml(row.icon || reportChannelIcon(row.name))}</i><span><b>${escapeHtml(row.name)}</b><small>${money(row.count)} ออเดอร์</small></span></span>
+                  <em>${money(row.count)}</em>
                   <span>${row.percent.toFixed(1)}%</span>
                   <strong>฿${money(row.revenue)}</strong>
                 </div>
-              `).join("") || `<div class="mobile-report-empty">ยังไม่มีข้อมูลช่องทางในเดือนนี้</div>`}
+              `).join("")}
             </div>
           </div>
         </section>
@@ -5807,17 +5841,6 @@ function renderMobileReports(selectedDate, selectedMonth) {
           </div>
         </section>
 
-        <section class="mobile-report-card mobile-report-order-channel-card">
-          <h2>ช่องทางขาย <small>(จำนวนออเดอร์ ${escapeHtml(reportMonthLabel(selectedMonth))})</small></h2>
-          <div class="mobile-report-order-channel-list">
-            ${channelRows.map(row => `
-              <div>
-                <span class="report-channel-name"><i style="--channel-color:${row.color}">${escapeHtml(reportChannelIcon(row.name))}</i>${escapeHtml(row.name)}</span>
-                <strong>${money(row.count)} ออเดอร์</strong>
-              </div>
-            `).join("") || `<div class="mobile-report-empty">ยังไม่มีออเดอร์ในเดือนนี้</div>`}
-          </div>
-        </section>
       </div>
     </section>
   `;
