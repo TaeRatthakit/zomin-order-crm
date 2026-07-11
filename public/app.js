@@ -29,6 +29,11 @@ const routeToView = {
   "/settings/store": "settingsStore",
   "/settings/finance": "settingsFinance",
   "/settings/customers": "settingsCustomers",
+  "/settings/goals": "settingsGoals",
+  "/settings/ai": "settingsAi",
+  "/settings/notifications": "settingsNotifications",
+  "/settings/display": "settingsDisplay",
+  "/settings/integrations": "settingsIntegrations",
   "/settings/line": "settingsLineHub",
   "/settings/users": "settingsUsers",
   "/settings/import-export": "settingsImportExport",
@@ -125,6 +130,8 @@ const app = {
   lastStateLoadedAt: 0,
   currentUserRefreshInFlight: false,
   settingsUsersTab: "members",
+  lineSecretVisible: false,
+  lineTokenVisible: false,
   permissionRole: "Admin",
   permissionCatalog: [],
   rolePermissionsDraft: null,
@@ -166,7 +173,8 @@ function mergeCachedMobileProfile(user) {
 }
 
 const adminViews = new Set([
-  "settingsStore", "settingsFinance", "settingsCustomers", "settingsLineHub",
+  "settingsStore", "settingsFinance", "settingsCustomers", "settingsGoals",
+  "settingsAi", "settingsNotifications", "settingsDisplay", "settingsIntegrations", "settingsLineHub",
   "settingsImportExport", "settingsSubscription",
   "settingsFollowup", "settingsVip", "settingsLine", "lineDebug", "team"
 ]);
@@ -208,7 +216,7 @@ function canAccessView(view) {
   if (view === "products") return can("products.view");
   if (view === "reports") return can("reports.sales") || can("reports.costs") || can("reports.profit") || can("reports.finance");
   if (view === "settingsFinance") return can("reports.costs") || can("reports.finance");
-  if (view === "settingsStore" || view === "settingsFollowup" || view === "settingsVip") return can("system.business");
+  if (["settingsStore", "settingsGoals", "settingsAi", "settingsNotifications", "settingsDisplay", "settingsFollowup", "settingsVip"].includes(view)) return can("system.business");
   if (view === "settingsLineHub" || view === "settingsLine" || view === "lineDebug") return can("system.integrations");
   if (view === "settingsImportExport") return can("customers.import") || canExportData() || can("system.danger");
   if (adminViews.has(view)) return isAdmin();
@@ -350,6 +358,13 @@ function iconSvg(name) {
     clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
     alert: '<circle cx="12" cy="12" r="9"/><path d="M12 8v5"/><path d="M12 16h.01"/>',
     wallet: '<path d="M4 7.5h13.5A2.5 2.5 0 0 1 20 10v8a2 2 0 0 1-2 2H5a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3h11v3.5"/><path d="M16 12h5v4h-5a2 2 0 0 1 0-4Z"/>',
+    bot: '<rect x="5" y="7" width="14" height="12" rx="4"/><path d="M12 3v4"/><path d="M9 13h.01"/><path d="M15 13h.01"/><path d="M9 17h6"/><path d="M3 12h2"/><path d="M19 12h2"/>',
+    palette: '<circle cx="13.5" cy="6.5" r=".5"/><circle cx="17.5" cy="10.5" r=".5"/><circle cx="8.5" cy="7.5" r=".5"/><circle cx="6.5" cy="12.5" r=".5"/><path d="M12 3a9 9 0 0 0 0 18h1.5a2.5 2.5 0 0 0 0-5H12a2 2 0 0 1 0-4h2a7 7 0 0 0 0-14z"/>',
+    link: '<path d="M10 13a5 5 0 0 0 7.07 0l2.12-2.12a5 5 0 0 0-7.07-7.07L11 4.93"/><path d="M14 11a5 5 0 0 0-7.07 0L4.8 13.12a5 5 0 0 0 7.07 7.07L13 19.07"/>',
+    copy: '<rect x="9" y="9" width="11" height="11" rx="2"/><rect x="4" y="4" width="11" height="11" rx="2"/>',
+    eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
+    play: '<circle cx="12" cy="12" r="9"/><path d="m10 8 6 4-6 4z"/>',
+    external: '<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>',
     chat: '<path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/><path d="M8 11h.01"/><path d="M12 11h.01"/><path d="M16 11h.01"/>',
     send: '<path d="M22 2 11 13"/><path d="m22 2-7 20-4-9-9-4z"/>',
     flag: '<path d="M4 21V5"/><path d="M4 5h11l-1.5 4L15 13H4"/>',
@@ -400,6 +415,7 @@ const els = {
   profileDialog: document.querySelector("#profileDialog"),
   profileForm: document.querySelector("#profileForm"),
   profileAvatarPreview: document.querySelector("#profileAvatarPreview"),
+  lineVideoDialog: document.querySelector("#lineVideoDialog"),
   customerDialog: document.querySelector("#customerDialog"),
   customerDetail: document.querySelector("#customerDetail"),
   dialogCustomerName: document.querySelector("#dialogCustomerName"),
@@ -1317,8 +1333,14 @@ function dashboardActionCard({ title, reason, revenue, action, targetView, icon,
   `;
 }
 
+function safeBusinessName(value, fallback = "Growup") {
+  const text = String(value ?? "").trim();
+  if (!text || text.toLowerCase() === "undefined" || text.toLowerCase() === "null") return fallback;
+  return text;
+}
+
 function brandName() {
-  return app.data?.settings?.businessName || "Growup";
+  return safeBusinessName(app.data?.settings?.businessName, "Growup");
 }
 
 function last7DaysSales() {
@@ -3330,7 +3352,7 @@ function renderMobileBusinessSystem() {
       ${mobileBusinessHeader("ตั้งค่าระบบ", "ตั้งค่าข้อมูลธุรกิจและการทำงานของระบบ", "settings")}
       <form class="mobile-business-form" id="settingsForm">
         <input name="daysPerUnit" type="hidden" value="${Math.max(1, Number(settings.followUpDaysPerUnit || 15))}">
-        <label>ชื่อธุรกิจ<input name="businessName" value="${escapeHtml(settings.businessName || "Growup Pilot")}"></label>
+        <label>ชื่อธุรกิจ<input name="businessName" value="${escapeHtml(safeBusinessName(settings.businessName, ""))}" placeholder="Growup Pilot"></label>
         <label>ประเภทธุรกิจ<input value="${escapeHtml(settings.businessType || "")}" placeholder="ยังไม่ได้ระบุ" disabled></label>
         <label>ราคาต่อชิ้นเริ่มต้น (บาท)<input name="defaultJarPrice" type="number" min="0" value="${Number(settings.defaultJarPrice || 0)}"></label>
         <p class="mobile-business-form-note">ประเภทธุรกิจยังไม่มีแหล่งข้อมูลสำหรับบันทึก ระบบจึงแสดงสถานะว่างอย่างปลอดภัย</p>
@@ -3761,7 +3783,7 @@ function renderMobileBusinessManagement() {
 }
 
 function renderSettings() {
-  renderMobileBusinessManagement();
+  renderSettingsMenu();
 }
 
 function setBusinessManagementPage(page, options = {}) {
@@ -6470,13 +6492,13 @@ function settingsSectionTitle(index, title, subtitle, icon = "◈") {
 }
 
 const settingsMenuItems = [
-  { view: "settingsStore", index: 1, title: "Store Information", titleTh: "ข้อมูลร้านค้า", description: "ข้อมูลพื้นฐานของร้าน ราคาเริ่มต้น และข้อความดูแลลูกค้า", icon: "⌂" },
-  { view: "settingsFinance", index: 2, title: "Finance", titleTh: "การเงิน", description: "ต้นทุนสินค้า ต้นทุนเพิ่มเติม และสรุปกำไรของวันนี้", icon: "◫" },
-  { view: "settingsCustomers", index: 3, title: "Customers", titleTh: "ลูกค้า", description: "Follow-up อัตโนมัติและเกณฑ์ VIP ของลูกค้า", icon: "◎" },
-  { view: "settingsLineHub", index: 4, title: "LINE OA", titleTh: "LINE OA", description: "เชื่อมต่อ LINE OA, Webhook และข้อมูลการเข้าถึง", icon: "◉" },
-  { view: "settingsUsers", index: 5, title: "Users & Permissions", titleTh: "ผู้ใช้งานและสิทธิ์", description: "สิทธิ์การเข้าถึงระบบและการจัดการทีมงาน", icon: "◌" },
-  { view: "settingsImportExport", index: 6, title: "Import / Export", titleTh: "นำเข้า / ส่งออก", description: "นำเข้าข้อมูล ส่งออกข้อมูล และสำรองข้อมูล", icon: "⇅" },
-  { view: "settingsSubscription", index: 7, title: "Subscription", titleTh: "แพ็กเกจ", description: "แพ็กเกจปัจจุบันและการใช้งานในอนาคต", icon: "♛" }
+  { view: "settingsStore", title: "Business Information", titleTh: "ข้อมูลธุรกิจ", description: "ชื่อธุรกิจ, โลโก้, ประเภทธุรกิจ, ที่อยู่ และข้อมูลติดต่อ", icon: "briefcase", tone: "purple" },
+  { view: "settingsGoals", title: "Business Goals", titleTh: "เป้าหมายธุรกิจ", description: "ตั้งเป้าหมายรายได้, กำไร, ออเดอร์ และลูกค้า", icon: "flag", tone: "pink" },
+  { view: "settingsFinance", title: "Finance", titleTh: "การเงิน", description: "สกุลเงิน, การปัดเศษ และค่าใช้จ่ายเริ่มต้น", icon: "wallet", tone: "green" },
+  { view: "settingsAi", title: "AI", titleTh: "AI", description: "การวิเคราะห์และการแจ้งเตือนอัจฉริยะ", icon: "bot", tone: "blue" },
+  { view: "settingsNotifications", title: "Notifications", titleTh: "การแจ้งเตือน", description: "ตั้งค่าการแจ้งเตือนผ่านแอป, อีเมล และ LINE", icon: "bell", tone: "orange" },
+  { view: "settingsDisplay", title: "Display", titleTh: "การแสดงผล", description: "ธีม, ภาษา, รูปแบบวันที่และตัวเลข", icon: "palette", tone: "amber" },
+  { view: "settingsIntegrations", title: "Integrations", titleTh: "การเชื่อมต่อ", description: "เชื่อมต่อบริการภายนอก เช่น LINE, Facebook, Google และอื่นๆ", icon: "link", tone: "cyan" }
 ];
 
 function settingsSubpageShell(kicker, title, description, inner) {
@@ -6491,6 +6513,36 @@ function settingsSubpageShell(kicker, title, description, inner) {
         </div>
       </div>
       ${inner}
+    </section>
+  `;
+}
+
+function settingsIcon(name) {
+  return iconSvg(name);
+}
+
+function renderSettingsMenu() {
+  els.content.innerHTML = `
+    <section class="section saas-page settings-page settings-premium-page settings-menu-workspace grow-settings-shell">
+      <div class="settings-subpage-header settings-main-header">
+        <button class="subpage-back settings-inline-back" type="button" data-view-shortcut="settings" aria-label="กลับไปหน้าจัดการธุรกิจ">${iconSvg("arrow")}</button>
+        <div class="page-identity-copy">
+          <h2>ตั้งค่า</h2>
+          <p>จัดการการตั้งค่าของระบบและธุรกิจของคุณ</p>
+        </div>
+      </div>
+      <div class="settings-menu-list grow-settings-list">
+        ${settingsMenuItems.map(item => `
+          <button class="settings-menu-item grow-settings-row ${escapeHtml(item.tone)}" type="button" data-view-shortcut="${escapeHtml(item.view)}">
+            <span class="settings-menu-icon" aria-hidden="true">${settingsIcon(item.icon)}</span>
+            <span class="settings-menu-copy">
+              <strong>${escapeHtml(item.titleTh)}</strong>
+              <small>${escapeHtml(item.description)}</small>
+            </span>
+            <span class="settings-menu-chevron" aria-hidden="true">${iconSvg("arrow")}</span>
+          </button>
+        `).join("")}
+      </div>
     </section>
   `;
 }
@@ -6713,7 +6765,7 @@ function renderSettingsStore() {
     "ข้อมูลพื้นฐานของร้าน ราคาเริ่มต้น และข้อความดูแลลูกค้า",
     `
       <form class="panel stack panel-premium settings-subpage-form" id="settingsForm">
-        <label>ชื่อธุรกิจ<input name="businessName" value="${escapeHtml(settings.businessName || "Growup Pilot")}"></label>
+        <label>ชื่อธุรกิจ<input name="businessName" value="${escapeHtml(safeBusinessName(settings.businessName, ""))}" placeholder="Growup Pilot"></label>
         <label>ราคาต่อกระปุกเริ่มต้น (บาท)<input name="defaultJarPrice" type="number" min="0" value="${Number(settings.defaultJarPrice || 750)}"></label>
         <label>Template ข้อความลูกค้าปกติ<textarea name="normalTemplate">${escapeHtml(templates.normal || "")}</textarea></label>
         <label>Template ข้อความ VIP<textarea name="vipTemplate">${escapeHtml(templates.vip || "")}</textarea></label>
@@ -6807,6 +6859,186 @@ function renderSettingsCustomers() {
   `;
 }
 
+function renderSettingsGoals() {
+  const selectedMonth = String(app.data.summary?.selectedDate || todayISO()).slice(0, 7);
+  const monthSales = (app.data.orders || [])
+    .filter(order => String(order.date || "").startsWith(selectedMonth))
+    .reduce((sum, order) => sum + Number(order.amount || 0), 0);
+  els.content.innerHTML = settingsSubpageShell(
+    "Business Goals",
+    "เป้าหมายธุรกิจ",
+    "ติดตามเป้าหมายจากข้อมูลออเดอร์จริงโดยไม่สร้างตัวเลขจำลอง",
+    `
+      <div class="settings-simple-grid">
+        <article class="settings-detail-panel">
+          <span>ยอดขายเดือนนี้</span>
+          <strong>${money(monthSales)} บาท</strong>
+          <p>คำนวณจากออเดอร์จริงในเดือน ${escapeHtml(selectedMonth)}</p>
+        </article>
+        <article class="settings-detail-panel">
+          <span>สถานะเป้าหมาย</span>
+          <strong>ยังไม่ได้ตั้งค่า</strong>
+          <p>ยังไม่มีแหล่งข้อมูลเป้าหมายในระบบ จึงไม่แสดงค่าเป้าหมายปลอม</p>
+        </article>
+      </div>
+    `
+  );
+}
+
+function renderSettingsAi() {
+  const settings = app.data.settings || {};
+  const hasAi = Boolean(settings.openaiApiKeyConfigured);
+  els.content.innerHTML = settingsSubpageShell(
+    "AI",
+    "AI",
+    "การวิเคราะห์และการแจ้งเตือนอัจฉริยะ",
+    `
+      <form class="panel stack panel-premium settings-subpage-form settings-ai-form" id="settingsForm">
+        <input name="daysPerUnit" type="hidden" value="${Math.max(1, Number(settings.followUpDaysPerUnit || 15))}">
+        <div class="settings-status-card ${hasAi ? "connected" : ""}">
+          <span class="settings-status-icon">${iconSvg("bot")}</span>
+          <div>
+            <strong>${hasAi ? "เชื่อมต่อ AI แล้ว" : "ยังไม่ได้เชื่อมต่อ AI API"}</strong>
+            <p>${hasAi ? "ระบบใช้ AI สำหรับช่วยวิเคราะห์ข้อความและข้อมูลธุรกิจ" : "ระบบยังใช้คำแนะนำ fallback อย่างปลอดภัย"}</p>
+          </div>
+        </div>
+        <label>OpenAI Model<input name="openaiModel" value="${escapeHtml(settings.openaiModel || "gpt-4.1-mini")}" ${settings.openaiApiKeyFromEnv ? "readonly" : ""}></label>
+        <div class="settings-submit-bar">
+          <button class="button ghost" type="button" data-reset-settings>ยกเลิก</button>
+          <button class="button primary" type="submit">บันทึกการตั้งค่า</button>
+        </div>
+      </form>
+    `
+  );
+}
+
+function renderSettingsNotifications() {
+  const items = liveNotificationItems();
+  els.content.innerHTML = settingsSubpageShell(
+    "Notifications",
+    "การแจ้งเตือน",
+    "รายการแจ้งเตือนจากข้อมูลธุรกิจล่าสุด",
+    `
+      <div class="settings-notification-list">
+        ${items.map(item => `
+          <article class="settings-detail-panel settings-notification-card">
+            <span>${escapeHtml(item.type || "notification")}</span>
+            <strong>${escapeHtml(item.title)}</strong>
+            <p>${escapeHtml(item.detail)}</p>
+          </article>
+        `).join("") || `<div class="empty-state">ยังไม่มีการแจ้งเตือนจากข้อมูลจริง</div>`}
+      </div>
+    `
+  );
+}
+
+function renderSettingsDisplay() {
+  els.content.innerHTML = settingsSubpageShell(
+    "Display",
+    "การแสดงผล",
+    "ธีม, ภาษา, รูปแบบวันที่และตัวเลข",
+    `
+      <div class="settings-simple-grid">
+        <article class="settings-detail-panel">
+          <span>Theme</span>
+          <strong>Dark</strong>
+          <p>ใช้ธีม Growup Pilot dark ตามระบบปัจจุบัน</p>
+        </article>
+        <article class="settings-detail-panel">
+          <span>Language</span>
+          <strong>ไทย</strong>
+          <p>ข้อความหลักของระบบยังคงภาษาไทยตามหน้าเดิม</p>
+        </article>
+        <article class="settings-detail-panel">
+          <span>Date & Number</span>
+          <strong>รูปแบบระบบ</strong>
+          <p>แสดงวันที่และตัวเลขผ่าน formatter เดิมของแอป</p>
+        </article>
+      </div>
+    `
+  );
+}
+
+function integrationConnected(service) {
+  const settings = app.data.settings || {};
+  if (service === "line") return Boolean(settings.lineChannelId || settings.lineChannelSecretConfigured || settings.lineChannelAccessTokenConfigured || settings.lineWebhookEnabled);
+  if (service === "openai") return Boolean(settings.openaiApiKeyConfigured);
+  return false;
+}
+
+function integrationCard({ service, name, description, icon, view }) {
+  const connected = integrationConnected(service);
+  return `
+    <article class="integration-card ${connected ? "is-connected" : ""}">
+      <button class="integration-card-open" type="button" data-view-shortcut="${escapeHtml(view)}" aria-label="เปิด ${escapeHtml(name)}">${iconSvg("arrow")}</button>
+      <span class="integration-logo ${escapeHtml(service)}" aria-hidden="true">${escapeHtml(icon)}</span>
+      <div class="integration-copy">
+        <h3>${escapeHtml(name)}</h3>
+        <p>${escapeHtml(description)}</p>
+      </div>
+      <div class="integration-card-footer">
+        <span class="integration-status ${connected ? "connected" : "idle"}">${connected ? "เชื่อมต่อแล้ว" : "ไม่ได้เชื่อมต่อ"}</span>
+        <button class="button ${connected ? "ghost" : "secondary"} compact-action" type="button" data-view-shortcut="${escapeHtml(view)}">${connected ? "จัดการ" : "เชื่อมต่อ"}</button>
+      </div>
+    </article>
+  `;
+}
+
+function integrationGroup(title, services) {
+  return `
+    <section class="integration-group">
+      <h2>${escapeHtml(title)}</h2>
+      <div class="integration-grid">
+        ${services.length ? services.map(integrationCard).join("") : `<div class="empty-state">ยังไม่มีบริการที่เชื่อมต่อจริงในหมวดนี้</div>`}
+      </div>
+    </section>
+  `;
+}
+
+function renderSettingsIntegrations() {
+  els.content.innerHTML = settingsSubpageShell(
+    "Integrations",
+    "การเชื่อมต่อ",
+    "เชื่อมต่อบริการภายนอกเพื่อเพิ่มประสิทธิภาพการทำงาน",
+    `
+      <div class="integrations-page">
+        ${integrationGroup("ช่องทางการสื่อสาร", [
+          { service: "line", name: "LINE OA", description: "เชื่อมต่อกับ LINE Official Account เพื่อรับออเดอร์และส่งข้อความ", icon: "LINE", view: "settingsLineHub" }
+        ])}
+        ${integrationGroup("การจัดการข้อมูล", [])}
+        ${integrationGroup("AI & เครื่องมืออัจฉริยะ", [
+          { service: "openai", name: "OpenAI", description: "เชื่อมต่อเพื่อใช้งาน AI วิเคราะห์ข้อมูลและสร้างคำแนะนำ", icon: "AI", view: "settingsAi" }
+        ])}
+        <article class="integration-help-card">
+          <span>${iconSvg("alert")}</span>
+          <div>
+            <strong>วิธีเชื่อมต่อ</strong>
+            <p>คลิก “เชื่อมต่อ” หรือ “จัดการ” ในบริการที่มีอยู่จริง ระบบจะไม่แสดงสถานะเชื่อมต่อหากยังไม่มี credential ในระบบ</p>
+          </div>
+        </article>
+      </div>
+    `
+  );
+}
+
+function maskedSecret(configured) {
+  return configured ? "••••••••••••••••••••••••" : "";
+}
+
+function lineSecretInput(name, label, configured, fromEnv, visible, placeholder) {
+  const value = visible ? "" : (configured ? "__configured__" : "");
+  return `
+    <label class="line-credential-field">${escapeHtml(label)}
+      <span class="line-input-action">
+        <input name="${escapeHtml(name)}" type="${visible ? "text" : "password"}" autocomplete="new-password" value="${escapeHtml(value)}" placeholder="${escapeHtml(placeholder)}" ${fromEnv ? "readonly" : ""} data-line-secret-field="${escapeHtml(name)}">
+        <button class="icon-button line-secret-toggle" type="button" data-toggle-line-secret="${escapeHtml(name)}" aria-label="${visible ? "ซ่อน" : "แสดง"} ${escapeHtml(label)}">${iconSvg("eye")}</button>
+        <button class="button ghost compact-action" type="button" data-copy-line-field="${escapeHtml(name)}" ${configured ? "" : "disabled"}>${iconSvg("copy")} คัดลอก</button>
+      </span>
+      <small>${fromEnv ? "ตั้งค่าไว้ใน Environment แล้ว" : configured ? "มีค่าเดิมอยู่แล้ว เว้นว่างไว้เพื่อคงค่าเดิม" : "ยังไม่ได้ตั้งค่า"}</small>
+    </label>
+  `;
+}
+
 function renderSettingsLineHub() {
   const settings = app.data.settings;
   const lineSecretHelp = settings.lineChannelSecretConfigured
@@ -6815,31 +7047,106 @@ function renderSettingsLineHub() {
   const lineTokenHelp = settings.lineChannelAccessTokenConfigured
     ? settings.lineChannelAccessTokenFromEnv ? "ตั้งค่าไว้ใน Vercel Environment แล้ว" : "มีค่าเดิมอยู่แล้ว เว้นว่างไว้เพื่อคงค่าเดิม"
     : "ยังไม่ได้ตั้งค่า";
+  const connected = integrationConnected("line");
   els.content.innerHTML = settingsSubpageShell(
     "LINE OA",
     "LINE OA",
-    "เชื่อม LINE OA, ควบคุม Webhook และข้อมูลการเข้าถึง",
+    "เชื่อมต่อบัญชี LINE Official Account เพื่อรับข้อความและออเดอร์อัตโนมัติ",
     `
-      <form class="panel stack panel-premium settings-subpage-form" id="settingsForm">
-        <label>LINE Group ID<input name="lineGroupId" value="${escapeHtml(settings.lineGroupId || "")}" ${settings.lineGroupIdFromEnv ? "readonly" : ""}></label>
-        <label>LINE Channel ID<input name="lineChannelId" value="${escapeHtml(settings.lineChannelId || "")}" ${settings.lineChannelIdFromEnv ? "readonly" : ""}></label>
-        <label>LINE Channel Secret<input name="lineChannelSecret" type="password" autocomplete="new-password" placeholder="${escapeHtml(lineSecretHelp)}"></label>
-        <label>LINE Channel Access Token<textarea name="lineChannelAccessToken" autocomplete="off" placeholder="${escapeHtml(lineTokenHelp)}"></textarea></label>
-        <label class="settings-switch">
-          <span>เปิดใช้งาน LINE Webhook</span>
-          <input name="lineWebhookEnabled" type="checkbox" ${settings.lineWebhookEnabled ? "checked" : ""}>
-          <span class="settings-switch-ui"></span>
-        </label>
-        <label>Webhook URL<input value="${escapeHtml(`${location.origin}/api/line/webhook`)}" readonly></label>
-        <div class="inline">
-          <button class="button primary" type="button" data-test-webhook>ทดสอบ Webhook</button>
-          <button class="button ghost" type="button" data-copy-webhook>คัดลอก URL</button>
-        </div>
-        <div class="settings-submit-bar">
-          <button class="button ghost" type="button" data-reset-settings>ยกเลิก</button>
-          <button class="button primary" type="submit">บันทึกการตั้งค่า</button>
-        </div>
-      </form>
+      <div class="line-oa-page">
+        <article class="line-tutorial-card">
+          <div class="line-video-thumb" aria-hidden="true">
+            <span class="integration-logo line">LINE</span>
+            <i>${iconSvg("play")}</i>
+          </div>
+          <div>
+            <h3>คู่มือเชื่อมต่อ LINE OA</h3>
+            <p>ดูวิดีโอหรืออ่านคู่มือแบบย่อก่อนกรอก Channel ID, Secret และ Long-lived Channel Access Token</p>
+          </div>
+          <div class="line-tutorial-actions">
+            <button class="button primary" type="button" data-open-line-video>${iconSvg("play")} Watch Video</button>
+            <button class="button ghost" type="button" data-scroll-line-guide>Text Guide</button>
+          </div>
+        </article>
+        <section class="line-oa-shell">
+          <form class="panel stack panel-premium settings-subpage-form line-oa-form" id="settingsForm">
+            <div class="line-status-row">
+              <div>
+                <span>สถานะการเชื่อมต่อ</span>
+                <strong class="${connected ? "connected" : ""}">${connected ? "เชื่อมต่อแล้ว" : "ยังไม่ได้เชื่อมต่อ"}</strong>
+                <p>${connected ? "ระบบพบข้อมูลการเชื่อมต่อ LINE OA ใน settings ปัจจุบัน" : "กรอกข้อมูลจาก LINE Developers Console เพื่อเริ่มเชื่อมต่อ"}</p>
+              </div>
+              <button class="button danger" type="button" data-disconnect-line ${connected ? "" : "disabled"}>ยกเลิกการเชื่อมต่อ</button>
+            </div>
+            <div class="line-form-section">
+              <h3>ข้อมูลการเชื่อมต่อ</h3>
+              <label class="line-credential-field">Channel ID
+                <span class="line-input-action">
+                  <input name="lineChannelId" value="${escapeHtml(settings.lineChannelId || "")}" ${settings.lineChannelIdFromEnv ? "readonly" : ""}>
+                  <button class="button ghost compact-action" type="button" data-copy-line-field="lineChannelId" ${settings.lineChannelId ? "" : "disabled"}>${iconSvg("copy")} คัดลอก</button>
+                </span>
+              </label>
+              ${lineSecretInput("lineChannelSecret", "Channel Secret", settings.lineChannelSecretConfigured, settings.lineChannelSecretFromEnv, app.lineSecretVisible, lineSecretHelp)}
+              ${lineSecretInput("lineChannelAccessToken", "Long-lived Channel Access Token", settings.lineChannelAccessTokenConfigured, settings.lineChannelAccessTokenFromEnv, app.lineTokenVisible, lineTokenHelp)}
+              <label class="line-credential-field">Webhook URL
+                <span class="line-input-action">
+                  <input value="${escapeHtml(`${location.origin}/api/line/webhook`)}" readonly>
+                  <button class="button ghost compact-action" type="button" data-copy-webhook>${iconSvg("copy")} คัดลอก</button>
+                </span>
+              </label>
+              <label class="line-credential-field">LINE Group ID
+                <span class="line-input-action">
+                  <input name="lineGroupId" value="${escapeHtml(settings.lineGroupId || "")}" ${settings.lineGroupIdFromEnv ? "readonly" : ""} placeholder="ไม่บังคับ">
+                  <button class="button ghost compact-action" type="button" data-copy-line-field="lineGroupId" ${settings.lineGroupId ? "" : "disabled"}>${iconSvg("copy")} คัดลอก</button>
+                </span>
+              </label>
+            </div>
+            <div class="line-form-section line-automation-section">
+              <h3>การตั้งค่า</h3>
+              <label class="settings-switch">
+                <span><strong>รับข้อความจาก LINE</strong><small>รับข้อความและออเดอร์จากลูกค้าใน LINE OA</small></span>
+                <input name="lineWebhookEnabled" type="checkbox" ${settings.lineWebhookEnabled ? "checked" : ""}>
+                <span class="settings-switch-ui"></span>
+              </label>
+              <label class="settings-switch">
+                <span><strong>แจ้งเตือนออเดอร์ใหม่</strong><small>ใช้สถานะ Webhook เดียวกับระบบ LINE เดิม</small></span>
+                <input type="checkbox" ${settings.lineWebhookEnabled ? "checked" : ""} disabled>
+                <span class="settings-switch-ui"></span>
+              </label>
+              <label class="settings-switch">
+                <span><strong>ดึงข้อมูลลูกค้าอัตโนมัติ</strong><small>ใช้ LINE parsing และ customer sync เดิมเมื่อมีข้อความเข้า</small></span>
+                <input type="checkbox" ${settings.lineWebhookEnabled ? "checked" : ""} disabled>
+                <span class="settings-switch-ui"></span>
+              </label>
+              <label class="settings-switch">
+                <span><strong>สร้างออเดอร์อัตโนมัติ</strong><small>สร้างออเดอร์จากข้อความที่ parse ได้ตาม logic เดิม</small></span>
+                <input type="checkbox" ${settings.lineWebhookEnabled ? "checked" : ""} disabled>
+                <span class="settings-switch-ui"></span>
+              </label>
+            </div>
+            <div class="line-form-actions settings-submit-bar">
+              <button class="button primary" type="button" data-test-webhook>ทดสอบการเชื่อมต่อ</button>
+              <span></span>
+              <button class="button ghost" type="button" data-reset-settings>ยกเลิก</button>
+              <button class="button primary" type="submit">บันทึกการตั้งค่า</button>
+            </div>
+          </form>
+          <aside class="line-guide-card" id="lineTextGuide">
+            <h3>วิธีเชื่อมต่อ LINE OA</h3>
+            <ol>
+              <li><span>1</span><p>ไปที่ LINE Developers Console สร้าง Provider และ Channel (Messaging API)</p></li>
+              <li><span>2</span><p>คัดลอก Channel ID และ Channel Secret จากหน้า Channel Settings</p></li>
+              <li><span>3</span><p>วางข้อมูลในช่องด้านซ้าย แล้วกดปุ่ม “บันทึกการตั้งค่า”</p></li>
+              <li><span>4</span><p>เปิด Webhook และอนุญาตการเข้าถึงบัญชี LINE OA</p></li>
+            </ol>
+            <a href="https://developers.line.biz/console/" target="_blank" rel="noreferrer">ดูคู่มือการเชื่อมต่อ ${iconSvg("external")}</a>
+          </aside>
+        </section>
+        <article class="line-capability-card">
+          <span>${iconSvg("alert")}</span>
+          <p><strong>เมื่อเชื่อมต่อสำเร็จ ระบบจะสามารถ:</strong> รับข้อความและออเดอร์จากลูกค้า, บันทึกข้อมูลลูกค้าอัตโนมัติ, แจ้งเตือนออเดอร์ใหม่ และตอบกลับข้อความอัตโนมัติเมื่อมีการตั้งค่า</p>
+        </article>
+      </div>
     `
   );
 }
@@ -7733,6 +8040,11 @@ function render(options = {}) {
     settingsStore: renderSettingsStore,
     settingsFinance: renderSettingsFinance,
     settingsCustomers: renderSettingsCustomers,
+    settingsGoals: renderSettingsGoals,
+    settingsAi: renderSettingsAi,
+    settingsNotifications: renderSettingsNotifications,
+    settingsDisplay: renderSettingsDisplay,
+    settingsIntegrations: renderSettingsIntegrations,
     settingsLineHub: renderSettingsLineHub,
     settingsUsers: renderSettingsUsers,
     settingsImportExport: renderSettingsImportExport,
@@ -8863,12 +9175,50 @@ document.addEventListener("click", async event => {
   const copyButton = event.target.closest("[data-copy]");
   if (copyButton) copyText(copyButton.dataset.copy);
 
+  const copyLineFieldButton = event.target.closest("[data-copy-line-field]");
+  if (copyLineFieldButton) {
+    const fieldName = copyLineFieldButton.dataset.copyLineField;
+    const field = document.querySelector(`[name="${CSS.escape(fieldName)}"]`);
+    const value = String(field?.value || "");
+    if (!value || value === "__configured__") {
+      showToast("ไม่สามารถคัดลอกค่าเดิมที่ถูกซ่อนไว้ได้", "error");
+    } else {
+      copyText(value);
+    }
+    return;
+  }
+
   if (event.target.closest("[data-copy-webhook]")) {
     copyText(`${location.origin}/api/line/webhook`);
   }
 
+  const toggleLineSecret = event.target.closest("[data-toggle-line-secret]");
+  if (toggleLineSecret) {
+    const fieldName = toggleLineSecret.dataset.toggleLineSecret;
+    if (fieldName === "lineChannelSecret") app.lineSecretVisible = !app.lineSecretVisible;
+    if (fieldName === "lineChannelAccessToken") app.lineTokenVisible = !app.lineTokenVisible;
+    render();
+    return;
+  }
+
+  if (event.target.closest("[data-open-line-video]")) {
+    els.lineVideoDialog?.showModal();
+    return;
+  }
+
+  if (event.target.closest("[data-close-line-video]")) {
+    els.lineVideoDialog?.close();
+    return;
+  }
+
+  if (event.target.closest("[data-scroll-line-guide]")) {
+    document.querySelector("#lineTextGuide")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+
   if (event.target.closest("[data-reset-settings]")) {
-    renderSettings();
+    render();
+    return;
   }
 
   if (event.target.closest("[data-add-additional-cost]")) {
@@ -8913,6 +9263,31 @@ document.addEventListener("click", async event => {
     });
     showToast(`Webhook mock สำเร็จ ${payload.parsedOrders || 0} ออเดอร์`);
     await loadState();
+  }
+
+  if (event.target.closest("[data-disconnect-line]")) {
+    if (!can("system.integrations")) return showToast("ไม่มีสิทธิ์แก้ไขการเชื่อมต่อระบบ", "error");
+    const confirmed = await showConfirmDialog({
+      title: "ยกเลิกการเชื่อมต่อ LINE OA?",
+      message: "ระบบจะล้างข้อมูลการเชื่อมต่อ LINE OA ที่บันทึกไว้ และปิด Webhook",
+      confirmText: "ยกเลิกการเชื่อมต่อ"
+    });
+    if (!confirmed) return;
+    await api("/api/settings", {
+      method: "PUT",
+      body: JSON.stringify({
+        lineChannelId: "",
+        lineChannelSecret: "__clear__",
+        lineChannelAccessToken: "__clear__",
+        lineGroupId: "",
+        lineWebhookEnabled: false
+      })
+    });
+    app.lineSecretVisible = false;
+    app.lineTokenVisible = false;
+    showToast("ยกเลิกการเชื่อมต่อ LINE OA แล้ว");
+    await loadState();
+    return;
   }
 
   if (event.target.closest("[data-refresh-line-debug]")) {

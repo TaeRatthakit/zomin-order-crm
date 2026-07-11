@@ -1027,6 +1027,7 @@ function findExactDuplicateOrderWithin24Hours(db, payload = {}) {
 
 function secretInputValue(input, currentValue) {
   const value = String(input || "").trim();
+  if (value === "__clear__") return "";
   if (!value || value === "__configured__") return currentValue || "";
   return value;
 }
