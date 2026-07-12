@@ -15447,8 +15447,8 @@ body.desktop-app-shell:not(.login-view) .line-status-row span {
   }
 
   body.desktop-app-shell:not(.login-view) .sales-channel-report-card .mobile-report-channel-layout {
-    grid-template-columns: minmax(220px, .72fr) minmax(0, 1fr);
-    gap: 26px;
+    grid-template-columns: 214px minmax(0, 1fr);
+    gap: 22px;
   }
 
   body.desktop-app-shell:not(.login-view) .sales-channel-report-card .mobile-report-donut {
@@ -15474,9 +15474,9 @@ body.desktop-app-shell:not(.login-view) .line-status-row span {
   body.desktop-app-shell:not(.login-view) .sales-channel-report-card .sales-channel-head,
   body.desktop-app-shell:not(.login-view) .sales-channel-report-card .mobile-report-channel-row {
     display: grid;
-    grid-template-columns: minmax(148px, 1fr) 68px 74px 116px;
+    grid-template-columns: minmax(126px, 1fr) 54px 58px 90px;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
   }
 
   body.desktop-app-shell:not(.login-view) .sales-channel-report-card .sales-channel-head {
