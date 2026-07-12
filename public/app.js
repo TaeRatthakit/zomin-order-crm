@@ -6149,10 +6149,6 @@ function renderReports() {
             ${desktopReportMonthOptions.map(month => `<option value="${escapeHtml(month)}"></option>`).join("")}
           </datalist>
         </label>
-        <label class="date-picker compact card-picker" aria-label="เลือกวันที่รายงาน">
-          <span>วันที่รายงาน</span>
-          <input data-report-date type="date" value="${escapeHtml(selectedDate)}">
-        </label>
       </div>
     `);
   }
@@ -6236,9 +6232,6 @@ function renderReports() {
         <div class="panel stack panel-premium">
           <div class="card-head">
             <h2>ยอดขายรายวัน</h2>
-            <label class="date-picker compact card-picker" aria-label="เลือกวันที่รายงานยอดขายรายวัน">
-              <input data-report-date type="date" value="${escapeHtml(selectedDate)}">
-            </label>
           </div>
           <div class="bar-list">
             ${dailyRows.map(([key, value]) => `
@@ -9577,10 +9570,6 @@ document.addEventListener("change", async event => {
       app.mobileOrderMenuId = "";
       const calculationStartedAt = performance.now();
       app.data.summary = buildLocalSummary(selectedDate);
-      if (app.view === "reports") {
-        app.reportDate = selectedDate;
-        app.reportMonth = monthKey(selectedDate);
-      }
       const calculationTime = performance.now() - calculationStartedAt;
       if (els.workDateDisplay) els.workDateDisplay.textContent = formatMobileDatePill(selectedDate);
       const domStartedAt = performance.now();
@@ -9626,11 +9615,6 @@ document.addEventListener("change", async event => {
 
   if (event.target?.matches?.("[data-report-month]")) {
     app.reportMonth = event.target.value;
-    renderReports();
-  }
-
-  if (event.target?.matches?.("[data-report-date]")) {
-    app.reportDate = event.target.value;
     renderReports();
   }
 
