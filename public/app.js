@@ -72,6 +72,7 @@ const app = {
   lineDebugSummary: {},
   reportMonth: "",
   reportDate: "",
+  reportSalesChannelMonth: "",
   layoutMode: "",
   ordersShowAll: false,
   customersShowAll: false,
@@ -5947,6 +5948,103 @@ function mobileReportKpiCard({ label, value, suffix = "", comparison, tone, icon
   `;
 }
 
+function reportMonthOptions() {
+  return Array.from(new Set((app.data?.orders || []).map(order => monthKey(order.date)).filter(Boolean))).sort((a, b) => b.localeCompare(a));
+}
+
+function reportSalesChannelCardHtml(selectedMonth) {
+  const monthOrders = (app.data?.orders || []).filter(order => monthKey(order.date) === selectedMonth);
+  const channelSummary = reportAcquisitionChannelRows(monthOrders);
+  const channelRows = channelSummary.rows;
+  let gradientOffset = 0;
+  const donutGradient = channelSummary.totalCount
+    ? channelRows.map(row => {
+      const start = gradientOffset;
+      gradientOffset += row.percent;
+      return `${row.color} ${start.toFixed(2)}% ${gradientOffset.toFixed(2)}%`;
+    }).join(", ")
+    : "#253345 0% 100%";
+  const monthOptions = reportMonthOptions();
+
+  return `
+        <section class="mobile-report-card channel-report-card sales-channel-report-card" data-sales-channel-card>
+          <div class="mobile-report-card-title-row">
+            <h2>ช่องทางการขาย <small>(${escapeHtml(reportMonthRange(selectedMonth))})</small></h2>
+            <label class="date-picker compact card-picker sales-channel-month-picker" aria-label="เลือกเดือนช่องทางการขาย">
+              <input data-report-sales-channel-month type="month" value="${escapeHtml(selectedMonth)}" list="salesChannelMonthOptions">
+              <datalist id="salesChannelMonthOptions">
+                ${monthOptions.map(month => `<option value="${escapeHtml(month)}"></option>`).join("")}
+              </datalist>
+            </label>
+          </div>
+          <div class="mobile-report-channel-layout">
+            <div class="mobile-report-donut sales-channel-donut" style="--report-donut:${donutGradient};">
+              <div>
+                <span>ยอดขายรวม</span>
+                <strong>฿${money(channelSummary.totalRevenue)}</strong>
+                <small>บาท</small>
+                <span>ออเดอร์รวม</span>
+                <small>${money(channelSummary.totalCount)} ออเดอร์</small>
+              </div>
+            </div>
+            <div class="mobile-report-channel-legend">
+              ${channelRows.length ? `
+                <div class="sales-channel-head" aria-hidden="true">
+                  <span>ช่องทาง</span>
+                  <span>ออเดอร์</span>
+                  <span>%</span>
+                  <span>ยอดขาย</span>
+                </div>
+                ${channelRows.map(row => `
+                  <div class="mobile-report-channel-row" style="--channel-color:${row.color};">
+                    <span class="report-channel-name">${customerSourceIconHtml(row)}<span><b>${escapeHtml(row.name)}</b><small>${money(row.count)} ออเดอร์</small></span></span>
+                    <em>${money(row.count)}</em>
+                    <span>${row.percent.toFixed(1)}%</span>
+                    <strong>฿${money(row.revenue)}</strong>
+                  </div>
+                `).join("")}
+              ` : `<div class="mobile-report-empty sales-channel-empty">ยังไม่มีข้อมูล Customer Source ในเดือนนี้</div>`}
+            </div>
+          </div>
+        </section>
+  `;
+}
+
+function refreshSalesChannelReportCard() {
+  const card = els.content?.querySelector?.("[data-sales-channel-card]");
+  if (!card) {
+    renderReports();
+    return;
+  }
+  const selectedMonth = app.reportSalesChannelMonth || app.reportMonth || (app.data.summary?.selectedDate || todayISO()).slice(0, 7);
+  card.outerHTML = reportSalesChannelCardHtml(selectedMonth);
+}
+
+function reportBusinessSummaryHtml(selectedMonth) {
+  const orders = app.data?.orders || [];
+  const customers = app.data?.customers || [];
+  const products = normalizeProductRecords();
+  const previousMonth = reportPreviousMonth(selectedMonth);
+  const monthOrders = orders.filter(order => monthKey(order.date) === selectedMonth);
+  const previousMonthOrders = orders.filter(order => monthKey(order.date) === previousMonth);
+  const monthCustomerIds = new Set(monthOrders.map(order => order.customerId).filter(Boolean));
+  const previousMonthCustomerIds = new Set(previousMonthOrders.map(order => order.customerId).filter(Boolean));
+  const units = rows => rows.reduce((sum, order) => sum + Number(order.jars || 0), 0);
+  const sales = rows => rows.reduce((sum, order) => sum + Number(order.amount || 0), 0);
+  const cards = [
+    { label: "ออเดอร์ทั้งหมด", value: money(orders.length), suffix: "ออเดอร์", comparison: { ...reportDelta(monthOrders.length, previousMonthOrders.length), hint: "จากช่วงก่อนหน้า" }, tone: "blue", icon: "orders" },
+    { label: "ลูกค้าทั้งหมด", value: money(customers.length), suffix: "ราย", comparison: { ...reportDelta(monthCustomerIds.size, previousMonthCustomerIds.size), hint: "จากช่วงก่อนหน้า" }, tone: "green", icon: "target" },
+    { label: "สินค้าทั้งหมด", value: money(products.length), suffix: "รายการ", comparison: { ...reportDelta(products.length, products.length), hint: "จากช่วงก่อนหน้า" }, tone: "amber", icon: "box" },
+    { label: "ขายได้ทั้งหมด", value: money(units(orders)), suffix: "ชิ้น", comparison: { ...reportDelta(units(monthOrders), units(previousMonthOrders)), hint: "จากช่วงก่อนหน้า" }, tone: "blue", icon: "sales" },
+    { label: "ยอดขายรวม", value: money(sales(orders)), suffix: "บาท", comparison: { ...reportDelta(sales(monthOrders), sales(previousMonthOrders)), hint: "จากช่วงก่อนหน้า" }, tone: "blue", icon: "wallet" }
+  ];
+  return `
+        <section class="mobile-report-business-summary" aria-label="Business Summary">
+          ${cards.map(mobileReportKpiCard).join("")}
+        </section>
+  `;
+}
+
 function renderMobileReports(selectedDate, selectedMonth) {
   const orders = app.data.orders || [];
   const customers = app.data.customers || [];
@@ -5966,17 +6064,6 @@ function renderMobileReports(selectedDate, selectedMonth) {
   const yesterdayMarketing = marketingPerformanceForPeriod({ date: addDaysISO(selectedDate, -1) });
   const monthMarketing = marketingPerformanceForPeriod({ month: selectedMonth });
   const previousMonthMarketing = marketingPerformanceForPeriod({ month: previousMonth });
-
-  const channelSummary = reportAcquisitionChannelRows(monthOrders);
-  const channelRows = channelSummary.rows;
-  let gradientOffset = 0;
-  const donutGradient = channelSummary.totalCount
-    ? channelRows.map(row => {
-      const start = gradientOffset;
-      gradientOffset += row.percent;
-      return `${row.color} ${start.toFixed(2)}% ${gradientOffset.toFixed(2)}%`;
-    }).join(", ")
-    : "#253345 0% 100%";
 
   const customerIds = new Set(monthOrders.map(order => order.customerId).filter(Boolean));
   const monthCustomers = customers.filter(customer => customerIds.has(customer.id));
@@ -6035,6 +6122,9 @@ function renderMobileReports(selectedDate, selectedMonth) {
     { label: "ROAS เดือนนี้", value: marketingNumber(monthMarketing.roas), comparison: { ...reportDelta(monthMarketing.roas, previousMonthMarketing.roas), hint: "ยอดขาย ÷ ค่าโฆษณา" }, tone: "amber", icon: "chart" }
   ];
 
+  const salesChannelMonth = app.reportSalesChannelMonth || selectedMonth;
+  if (!app.reportSalesChannelMonth) app.reportSalesChannelMonth = salesChannelMonth;
+
   els.content.innerHTML = `
     <section class="section saas-page mobile-reports-page">
       <div class="mobile-reports-shell">
@@ -6048,38 +6138,7 @@ function renderMobileReports(selectedDate, selectedMonth) {
           ${monthCards.map(mobileReportKpiCard).join("")}
         </div>
 
-        <section class="mobile-report-card channel-report-card sales-channel-report-card">
-          <h2>ช่องทางการขาย <small>(${escapeHtml(reportMonthLabel(selectedMonth))})</small></h2>
-          <div class="mobile-report-channel-layout">
-            <div class="mobile-report-donut sales-channel-donut" style="--report-donut:${donutGradient};">
-              <div>
-                <span>ยอดขายรวม</span>
-                <strong>฿${money(channelSummary.totalRevenue)}</strong>
-                <small>บาท</small>
-                <span>ออเดอร์รวม</span>
-                <small>${money(channelSummary.totalCount)} ออเดอร์</small>
-              </div>
-            </div>
-            <div class="mobile-report-channel-legend">
-              ${channelRows.length ? `
-                <div class="sales-channel-head" aria-hidden="true">
-                  <span>ช่องทาง</span>
-                  <span>ออเดอร์</span>
-                  <span>%</span>
-                  <span>ยอดขาย</span>
-                </div>
-                ${channelRows.map(row => `
-                  <div class="mobile-report-channel-row" style="--channel-color:${row.color};">
-                    <span class="report-channel-name">${customerSourceIconHtml(row)}<span><b>${escapeHtml(row.name)}</b><small>${money(row.count)} ออเดอร์</small></span></span>
-                    <em>${money(row.count)}</em>
-                    <span>${row.percent.toFixed(1)}%</span>
-                    <strong>฿${money(row.revenue)}</strong>
-                  </div>
-                `).join("")}
-              ` : `<div class="mobile-report-empty sales-channel-empty">ยังไม่มีข้อมูล Customer Source ในเดือนนี้</div>`}
-            </div>
-          </div>
-        </section>
+        ${reportSalesChannelCardHtml(salesChannelMonth)}
 
         <section class="mobile-report-card">
           <h2>ลูกค้า <small>(${escapeHtml(reportMonthLabel(selectedMonth))})</small></h2>
@@ -6127,6 +6186,8 @@ function renderMobileReports(selectedDate, selectedMonth) {
           </div>
         </section>
 
+        ${reportBusinessSummaryHtml(selectedMonth)}
+
       </div>
     </section>
   `;
@@ -6137,7 +6198,7 @@ function renderReports() {
   const selectedMonth = app.reportMonth || selectedDate.slice(0, 7);
   renderMobileReports(selectedDate, selectedMonth);
   if (isMobileViewport()) return;
-  const desktopReportMonthOptions = Array.from(new Set(app.data.orders.map(order => monthKey(order.date)).filter(Boolean))).sort((a, b) => b.localeCompare(a));
+  const desktopReportMonthOptions = reportMonthOptions();
   const shell = els.content.querySelector(".mobile-reports-shell");
   if (shell) {
     shell.insertAdjacentHTML("afterbegin", `
@@ -9616,6 +9677,11 @@ document.addEventListener("change", async event => {
   if (event.target?.matches?.("[data-report-month]")) {
     app.reportMonth = event.target.value;
     renderReports();
+  }
+
+  if (event.target?.matches?.("[data-report-sales-channel-month]")) {
+    app.reportSalesChannelMonth = event.target.value || app.reportMonth || todayISO().slice(0, 7);
+    refreshSalesChannelReportCard();
   }
 
   if (event.target?.matches?.("[data-marketing-date]")) {
