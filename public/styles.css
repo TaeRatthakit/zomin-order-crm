@@ -18337,3 +18337,435 @@ body.mobile-app-shell:not(.login-view) .line-oa-form small,
 body.mobile-app-shell:not(.login-view) .line-status-row span {
   color: #aab4c3 !important;
 }
+
+/* Final Settings-only overrides. Keep after legacy desktop/mobile rules. */
+body:not(.login-view) .settings-premium-page {
+  --settings-max-width: 1180px;
+  --settings-card-bg: linear-gradient(145deg, rgba(8, 24, 39, 0.96), rgba(3, 13, 24, 0.98));
+  --settings-card-border: rgba(63, 91, 119, 0.58);
+  --settings-muted: #aab4c3;
+  --settings-text: #f5f7fb;
+  --settings-radius: 8px;
+  --settings-control-height: 42px;
+  max-width: var(--settings-max-width) !important;
+  margin-inline: auto !important;
+}
+
+body:not(.login-view) .settings-premium-page .settings-subpage-header,
+body:not(.login-view) .settings-premium-page .settings-main-header {
+  max-width: var(--settings-max-width) !important;
+  width: 100% !important;
+  display: grid !important;
+  grid-template-columns: 46px minmax(0, 1fr) !important;
+  gap: 18px !important;
+  align-items: center !important;
+  margin: 0 auto 26px !important;
+}
+
+body:not(.login-view) .settings-premium-page .settings-inline-back {
+  width: 46px !important;
+  height: 46px !important;
+  min-width: 46px !important;
+  border-radius: var(--settings-radius) !important;
+  color: var(--settings-text) !important;
+  border: 1px solid rgba(63, 91, 119, 0.54) !important;
+  background: rgba(8, 23, 38, 0.82) !important;
+}
+
+body:not(.login-view) .settings-premium-page .page-identity-copy h2 {
+  margin: 0 0 5px !important;
+  color: var(--settings-text) !important;
+  font-size: 28px !important;
+  line-height: 1.15 !important;
+  letter-spacing: 0 !important;
+}
+
+body:not(.login-view) .settings-premium-page .page-identity-copy p,
+body:not(.login-view) .settings-premium-page .page-kicker {
+  color: var(--settings-muted) !important;
+  font-size: 14px !important;
+  line-height: 1.45 !important;
+}
+
+body:not(.login-view) .grow-settings-shell,
+body:not(.login-view) .settings-unified-form,
+body:not(.login-view) .integrations-page,
+body:not(.login-view) .line-oa-page,
+body.desktop-app-shell:not(.login-view) .grow-settings-shell {
+  max-width: var(--settings-max-width) !important;
+  margin-inline: auto !important;
+  width: 100% !important;
+}
+
+body:not(.login-view) .grow-settings-list,
+body.desktop-app-shell:not(.login-view) .grow-settings-list {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  gap: 10px !important;
+  width: 100% !important;
+}
+
+body:not(.login-view) .grow-settings-row,
+body.desktop-app-shell:not(.login-view) .grow-settings-row {
+  min-height: 88px !important;
+  display: grid !important;
+  grid-template-columns: 54px minmax(0, 1fr) 24px !important;
+  gap: 18px !important;
+  align-items: center !important;
+  width: 100% !important;
+  padding: 16px 20px !important;
+  border-radius: var(--settings-radius) !important;
+  border: 1px solid var(--settings-card-border) !important;
+  background: var(--settings-card-bg) !important;
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.025) !important;
+}
+
+body:not(.login-view) .grow-settings-row .settings-menu-icon,
+body.desktop-app-shell:not(.login-view) .grow-settings-row .settings-menu-icon,
+body:not(.login-view) .settings-status-icon,
+body:not(.login-view) .settings-row-icon,
+body:not(.login-view) .integration-logo,
+body:not(.login-view) .line-video-thumb .integration-logo {
+  width: 46px !important;
+  height: 46px !important;
+  min-width: 46px !important;
+  min-height: 46px !important;
+  display: grid !important;
+  place-items: center !important;
+  border-radius: var(--settings-radius) !important;
+  border: 1px solid rgba(91, 118, 146, 0.58) !important;
+  color: var(--settings-text) !important;
+  background: rgba(7, 20, 34, 0.74) !important;
+  font-size: 12px !important;
+}
+
+body:not(.login-view) .grow-settings-row .settings-menu-icon svg,
+body:not(.login-view) .settings-status-icon svg,
+body:not(.login-view) .settings-row-icon svg {
+  width: 24px !important;
+  height: 24px !important;
+}
+
+body:not(.login-view) .grow-settings-row .settings-menu-copy strong,
+body.desktop-app-shell:not(.login-view) .grow-settings-row .settings-menu-copy strong {
+  color: var(--settings-text) !important;
+  font-size: 18px !important;
+  line-height: 1.2 !important;
+  font-weight: 800 !important;
+}
+
+body:not(.login-view) .grow-settings-row .settings-menu-copy small,
+body.desktop-app-shell:not(.login-view) .grow-settings-row .settings-menu-copy small {
+  color: var(--settings-muted) !important;
+  font-size: 14px !important;
+  line-height: 1.45 !important;
+  margin-top: 4px !important;
+}
+
+body:not(.login-view) .settings-unified-form,
+body:not(.login-view) .integrations-page,
+body:not(.login-view) .line-oa-page {
+  display: grid !important;
+  gap: 14px !important;
+}
+
+body:not(.login-view) .settings-unified-card,
+body:not(.login-view) .settings-detail-panel,
+body:not(.login-view) .settings-status-card,
+body:not(.login-view) .settings-metric-card,
+body:not(.login-view) .settings-notification-row,
+body:not(.login-view) .integration-card,
+body:not(.login-view) .integration-help-card,
+body:not(.login-view) .line-tutorial-card,
+body:not(.login-view) .line-guide-card,
+body:not(.login-view) .line-capability-card,
+body:not(.login-view) .line-oa-form {
+  border: 1px solid var(--settings-card-border) !important;
+  border-radius: var(--settings-radius) !important;
+  background: var(--settings-card-bg) !important;
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.025) !important;
+}
+
+body:not(.login-view) .settings-unified-card {
+  display: grid !important;
+  gap: 16px !important;
+  padding: 18px !important;
+}
+
+body:not(.login-view) .settings-unified-card-head h3,
+body:not(.login-view) .integration-group h2,
+body:not(.login-view) .line-tutorial-card h3,
+body:not(.login-view) .line-guide-card h3,
+body:not(.login-view) .line-oa-form h3 {
+  margin: 0 !important;
+  color: var(--settings-text) !important;
+  font-size: 16px !important;
+  line-height: 1.25 !important;
+  font-weight: 800 !important;
+}
+
+body:not(.login-view) .settings-unified-card-head p,
+body:not(.login-view) .settings-metric-card p,
+body:not(.login-view) .settings-notification-row small,
+body:not(.login-view) .integration-copy p,
+body:not(.login-view) .line-tutorial-card p,
+body:not(.login-view) .line-capability-card p,
+body:not(.login-view) .integration-help-card p {
+  color: var(--settings-muted) !important;
+  font-size: 13px !important;
+  line-height: 1.45 !important;
+}
+
+body:not(.login-view) .settings-form-grid,
+body:not(.login-view) .settings-metric-grid,
+body:not(.login-view) .settings-simple-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 14px !important;
+}
+
+body:not(.login-view) .settings-form-grid .span-2 {
+  grid-column: 1 / -1 !important;
+}
+
+body:not(.login-view) .settings-premium-page label {
+  color: var(--settings-muted) !important;
+  font-size: 13px !important;
+  line-height: 1.35 !important;
+  font-weight: 700 !important;
+}
+
+body:not(.login-view) .settings-premium-page input,
+body:not(.login-view) .settings-premium-page select,
+body:not(.login-view) .settings-premium-page textarea {
+  min-height: var(--settings-control-height) !important;
+  border-radius: var(--settings-radius) !important;
+  border: 1px solid rgba(63, 91, 119, 0.58) !important;
+  background: rgba(2, 12, 22, 0.72) !important;
+  color: var(--settings-text) !important;
+  padding: 10px 12px !important;
+  font-size: 14px !important;
+}
+
+body:not(.login-view) .settings-premium-page textarea {
+  min-height: 82px !important;
+}
+
+body:not(.login-view) .settings-premium-page .button,
+body:not(.login-view) .settings-premium-page button.button {
+  min-height: var(--settings-control-height) !important;
+  border-radius: var(--settings-radius) !important;
+}
+
+body:not(.login-view) .settings-submit-bar,
+body:not(.login-view) .line-form-actions {
+  display: flex !important;
+  justify-content: flex-end !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 0 !important;
+  border: 0 !important;
+}
+
+body:not(.login-view) .settings-business-info-layout {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) 220px !important;
+  gap: 18px !important;
+}
+
+body:not(.login-view) .settings-logo-preview {
+  display: grid !important;
+  align-content: center !important;
+  justify-items: center !important;
+  gap: 8px !important;
+  padding: 18px !important;
+  border-left: 1px solid rgba(63, 91, 119, 0.42) !important;
+  color: var(--settings-muted) !important;
+  text-align: center !important;
+}
+
+body:not(.login-view) .settings-logo-preview span {
+  width: 92px !important;
+  height: 92px !important;
+  display: grid !important;
+  place-items: center !important;
+  border-radius: 50% !important;
+  border: 1px solid rgba(91, 118, 146, 0.62) !important;
+  color: var(--settings-text) !important;
+  font-size: 24px !important;
+  font-weight: 800 !important;
+}
+
+body:not(.login-view) .settings-logo-preview strong,
+body:not(.login-view) .settings-metric-card strong,
+body:not(.login-view) .settings-detail-panel strong,
+body:not(.login-view) .settings-notification-row strong {
+  color: var(--settings-text) !important;
+}
+
+body:not(.login-view) .settings-finance-equation,
+body.desktop-app-shell:not(.login-view) .settings-finance-equation,
+body.desktop-app-shell:not(.login-view) .settings-finance-equation.ad-adjusted-equation {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 10px !important;
+  align-items: stretch !important;
+}
+
+body:not(.login-view) .settings-finance-operator {
+  display: none !important;
+}
+
+body:not(.login-view) .settings-finance-pill,
+body:not(.login-view) .settings-cost-row {
+  border-radius: var(--settings-radius) !important;
+  border: 1px solid rgba(63, 91, 119, 0.46) !important;
+  background: rgba(2, 12, 22, 0.52) !important;
+}
+
+body:not(.login-view) .settings-finance-pill strong,
+body:not(.login-view) .settings-finance-pill.sales strong,
+body:not(.login-view) .settings-finance-pill.product strong,
+body:not(.login-view) .settings-finance-pill.extra strong,
+body:not(.login-view) .settings-finance-pill.profit strong {
+  color: var(--settings-text) !important;
+}
+
+body:not(.login-view) .settings-switch-ui {
+  width: 46px !important;
+  height: 26px !important;
+  border-radius: 999px !important;
+}
+
+body:not(.login-view) .settings-switch-ui::after {
+  width: 20px !important;
+  height: 20px !important;
+}
+
+body:not(.login-view) .settings-switch input:checked + .settings-switch-ui::after {
+  transform: translateX(20px) !important;
+}
+
+body:not(.login-view) .settings-notification-list {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  gap: 10px !important;
+}
+
+body:not(.login-view) .settings-notification-row {
+  min-height: 72px !important;
+  display: grid !important;
+  grid-template-columns: 46px minmax(0, 1fr) auto !important;
+  gap: 12px !important;
+  align-items: center !important;
+  padding: 12px !important;
+}
+
+body:not(.login-view) .integration-grid {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 14px !important;
+}
+
+body:not(.login-view) .integration-card {
+  min-height: 156px !important;
+  padding: 16px !important;
+  grid-template-columns: 46px minmax(0, 1fr) !important;
+  gap: 12px !important;
+}
+
+body:not(.login-view) .line-tutorial-card {
+  grid-template-columns: 150px minmax(0, 1fr) auto !important;
+  padding: 16px !important;
+}
+
+body:not(.login-view) .line-video-thumb {
+  min-height: 88px !important;
+  border-radius: var(--settings-radius) !important;
+  border: 1px solid rgba(63, 91, 119, 0.48) !important;
+  background: rgba(2, 12, 22, 0.62) !important;
+}
+
+body:not(.login-view) .line-oa-shell {
+  grid-template-columns: minmax(0, 1fr) 320px !important;
+  gap: 14px !important;
+}
+
+body:not(.login-view) .line-status-row,
+body:not(.login-view) .line-form-section {
+  padding: 18px !important;
+}
+
+body:not(.login-view) .line-input-action {
+  grid-template-columns: minmax(0, 1fr) 42px auto !important;
+}
+
+body:not(.login-view) .line-secret-toggle {
+  width: 42px !important;
+  height: 42px !important;
+  min-width: 42px !important;
+  border-radius: var(--settings-radius) !important;
+}
+
+@media (max-width: 900px) {
+  body:not(.login-view) .settings-premium-page {
+    --settings-control-height: 44px;
+  }
+
+  body:not(.login-view) .settings-premium-page .settings-subpage-header,
+  body:not(.login-view) .settings-premium-page .settings-main-header {
+    grid-template-columns: 44px minmax(0, 1fr) !important;
+    gap: 12px !important;
+    margin-bottom: 18px !important;
+  }
+
+  body:not(.login-view) .settings-premium-page .page-identity-copy h2 {
+    font-size: 23px !important;
+  }
+
+  body:not(.login-view) .grow-settings-row,
+  body.desktop-app-shell:not(.login-view) .grow-settings-row {
+    min-height: 84px !important;
+    grid-template-columns: 46px minmax(0, 1fr) 22px !important;
+    gap: 12px !important;
+    padding: 14px !important;
+  }
+
+  body:not(.login-view) .settings-form-grid,
+  body:not(.login-view) .settings-business-info-layout,
+  body:not(.login-view) .settings-metric-grid,
+  body:not(.login-view) .settings-simple-grid,
+  body:not(.login-view) .integration-grid,
+  body:not(.login-view) .line-oa-shell,
+  body:not(.login-view) .settings-finance-equation,
+  body.desktop-app-shell:not(.login-view) .settings-finance-equation,
+  body.desktop-app-shell:not(.login-view) .settings-finance-equation.ad-adjusted-equation,
+  body:not(.login-view) .line-tutorial-card {
+    grid-template-columns: 1fr !important;
+  }
+
+  body:not(.login-view) .settings-logo-preview {
+    border-left: 0 !important;
+    border-top: 1px solid rgba(63, 91, 119, 0.42) !important;
+  }
+
+  body:not(.login-view) .settings-notification-row {
+    grid-template-columns: 46px minmax(0, 1fr) !important;
+  }
+
+  body:not(.login-view) .settings-notification-row em {
+    grid-column: 2 !important;
+  }
+
+  body:not(.login-view) .line-tutorial-actions,
+  body:not(.login-view) .settings-submit-bar,
+  body:not(.login-view) .line-form-actions {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+  }
+
+  body:not(.login-view) .settings-submit-bar .button,
+  body:not(.login-view) .line-form-actions .button {
+    width: 100% !important;
+  }
+}

@@ -6544,6 +6544,30 @@ function settingsIcon(name) {
   return iconSvg(name);
 }
 
+function settingsUnifiedCard(title, subtitle, inner, options = {}) {
+  return `
+    <article class="settings-unified-card ${escapeHtml(options.className || "")}">
+      <div class="settings-unified-card-head">
+        <div>
+          <h3>${escapeHtml(title)}</h3>
+          ${subtitle ? `<p>${escapeHtml(subtitle)}</p>` : ""}
+        </div>
+      </div>
+      ${inner}
+    </article>
+  `;
+}
+
+function settingsReadonlyMetric(label, value, detail = "") {
+  return `
+    <article class="settings-metric-card">
+      <span>${escapeHtml(label)}</span>
+      <strong>${escapeHtml(value)}</strong>
+      ${detail ? `<p>${escapeHtml(detail)}</p>` : ""}
+    </article>
+  `;
+}
+
 function settingsMenuMarkup({ embeddedInBusiness = false } = {}) {
   return `
     <section class="section saas-page settings-page settings-premium-page settings-menu-workspace grow-settings-shell">
@@ -6786,16 +6810,28 @@ function settingsAdditionalCostRows(settings) {
 function renderSettingsStore() {
   const settings = app.data.settings;
   const templates = settings.messageTemplates || {};
+  const businessInitials = initials(safeBusinessName(settings.businessName, "GP"));
   els.content.innerHTML = settingsSubpageShell(
-    "Store Information",
-    "ข้อมูลร้านค้า",
-    "ข้อมูลพื้นฐานของร้าน ราคาเริ่มต้น และข้อความดูแลลูกค้า",
+    "Business Information",
+    "ข้อมูลธุรกิจ",
+    "ชื่อธุรกิจ โลโก้ ข้อมูลพื้นฐาน และข้อความดูแลลูกค้า",
     `
-      <form class="panel stack panel-premium settings-subpage-form" id="settingsForm">
-        <label>ชื่อธุรกิจ<input name="businessName" value="${escapeHtml(safeBusinessName(settings.businessName, ""))}" placeholder="Growup Pilot"></label>
-        <label>ราคาต่อกระปุกเริ่มต้น (บาท)<input name="defaultJarPrice" type="number" min="0" value="${Number(settings.defaultJarPrice || 750)}"></label>
-        <label>Template ข้อความลูกค้าปกติ<textarea name="normalTemplate">${escapeHtml(templates.normal || "")}</textarea></label>
-        <label>Template ข้อความ VIP<textarea name="vipTemplate">${escapeHtml(templates.vip || "")}</textarea></label>
+      <form class="settings-unified-form" id="settingsForm">
+        ${settingsUnifiedCard("ข้อมูลร้านค้า", "แก้ไขข้อมูลที่ระบบใช้แสดงในหน้าเอกสารและข้อความอัตโนมัติ", `
+          <div class="settings-business-info-layout">
+            <div class="settings-form-grid">
+              <label>ชื่อธุรกิจ / ร้านค้า<input name="businessName" value="${escapeHtml(safeBusinessName(settings.businessName, ""))}" placeholder="Growup Pilot"></label>
+              <label>ราคาต่อกระปุกเริ่มต้น (บาท)<input name="defaultJarPrice" type="number" min="0" value="${Number(settings.defaultJarPrice || 750)}"></label>
+              <label class="span-2">Template ข้อความลูกค้าปกติ<textarea name="normalTemplate">${escapeHtml(templates.normal || "")}</textarea></label>
+              <label class="span-2">Template ข้อความ VIP<textarea name="vipTemplate">${escapeHtml(templates.vip || "")}</textarea></label>
+            </div>
+            <aside class="settings-logo-preview" aria-label="ตัวอย่างโลโก้ร้าน">
+              <span>${escapeHtml(businessInitials)}</span>
+              <strong>${escapeHtml(safeBusinessName(settings.businessName, "Growup Pilot"))}</strong>
+              <small>ใช้ข้อมูลเดิมของระบบ ไม่มีการเปลี่ยน flow อัปโหลดไฟล์</small>
+            </aside>
+          </div>
+        `)}
         <div class="settings-submit-bar">
           <button class="button ghost" type="button" data-reset-settings>ยกเลิก</button>
           <button class="button primary" type="submit">บันทึกการตั้งค่า</button>
@@ -6821,8 +6857,8 @@ function renderSettingsFinance() {
     "การเงิน",
     "ตั้งค่าต้นทุนสินค้าและต้นทุนเพิ่มเติมสำหรับคำนวณกำไร",
     `
-      <form class="panel stack panel-premium settings-subpage-form" id="settingsForm">
-        <div class="settings-finance-summary">
+      <form class="settings-unified-form settings-finance-form" id="settingsForm">
+        ${settingsUnifiedCard("ภาพรวมกำไร", "คำนวณจากออเดอร์และค่าใช้จ่ายจริงของวันที่เลือก", `
           <p class="settings-finance-label">สูตรการคำนวณกำไรวันนี้</p>
           <div class="settings-finance-equation">
             <div class="settings-finance-pill sales"><span>ยอดขายวันนี้</span><strong>${money(todaySales)} บาท</strong></div>
@@ -6840,22 +6876,13 @@ function renderSettingsFinance() {
             <span class="settings-finance-operator">=</span>
             <div class="settings-finance-pill profit"><span>กำไรหลังค่าโฆษณา</span><strong>${money(todayMarketing.profitAfterAds)} บาท</strong></div>
           </div>
-        </div>
-        <div class="settings-finance-block">
-          <div class="section-title section-title-actions">
-            <div>
-              <h3>ต้นทุนสินค้า</h3>
-              <p>แต่ละสินค้าใช้ Cost / กระปุก ของตัวเอง</p>
-            </div>
-          </div>
+        `, { className: "settings-finance-summary" })}
+        ${settingsUnifiedCard("ต้นทุนสินค้า", "แต่ละสินค้าใช้ Cost / กระปุก ของตัวเอง", `
           <div class="settings-cost-list">${settingsProductCostRows(settings)}</div>
-        </div>
-        <div class="settings-finance-block">
+        `, { className: "settings-finance-block" })}
+        ${settingsUnifiedCard("ต้นทุนเพิ่มเติม", "เพิ่มรายการค่าใช้จ่ายได้ไม่จำกัด และระบบจะรวมเฉพาะรายการที่เปิดใช้งาน", `
           <div class="section-title section-title-actions">
-            <div>
-              <h3>ต้นทุนเพิ่มเติม</h3>
-              <p>เพิ่มรายการค่าใช้จ่ายได้ไม่จำกัด และระบบจะรวมเฉพาะรายการที่เปิดใช้งาน</p>
-            </div>
+            <span></span>
             <button class="button primary compact-action finance-add-expense" type="button" data-add-additional-cost>+ Add</button>
           </div>
           <div class="settings-expense-helper-card">
@@ -6868,7 +6895,7 @@ function renderSettingsFinance() {
             <span>รวมต้นทุนเพิ่มเติมทั้งหมด</span>
             <strong id="additionalCostsTotal">${money(totalAdditionalCosts)} บาท</strong>
           </div>
-        </div>
+        `, { className: "settings-finance-block" })}
         <div class="settings-submit-bar">
           <button class="button ghost" type="button" data-reset-settings>ยกเลิก</button>
           <button class="button primary settings-save-button" type="submit" data-settings-save>บันทึกต้นทุนและค่าใช้จ่าย</button>
@@ -6888,25 +6915,27 @@ function renderSettingsCustomers() {
 
 function renderSettingsGoals() {
   const selectedMonth = String(app.data.summary?.selectedDate || todayISO()).slice(0, 7);
-  const monthSales = (app.data.orders || [])
-    .filter(order => String(order.date || "").startsWith(selectedMonth))
-    .reduce((sum, order) => sum + Number(order.amount || 0), 0);
+  const monthOrders = (app.data.orders || []).filter(order => String(order.date || "").startsWith(selectedMonth));
+  const monthSales = monthOrders.reduce((sum, order) => sum + Number(order.amount || 0), 0);
+  const customerIds = new Set(monthOrders.map(order => order.customerId).filter(Boolean));
   els.content.innerHTML = settingsSubpageShell(
     "Business Goals",
     "เป้าหมายธุรกิจ",
     "ติดตามเป้าหมายจากข้อมูลออเดอร์จริงโดยไม่สร้างตัวเลขจำลอง",
     `
-      <div class="settings-simple-grid">
-        <article class="settings-detail-panel">
-          <span>ยอดขายเดือนนี้</span>
-          <strong>${money(monthSales)} บาท</strong>
-          <p>คำนวณจากออเดอร์จริงในเดือน ${escapeHtml(selectedMonth)}</p>
-        </article>
-        <article class="settings-detail-panel">
-          <span>สถานะเป้าหมาย</span>
-          <strong>ยังไม่ได้ตั้งค่า</strong>
-          <p>ยังไม่มีแหล่งข้อมูลเป้าหมายในระบบ จึงไม่แสดงค่าเป้าหมายปลอม</p>
-        </article>
+      <div class="settings-unified-form">
+        ${settingsUnifiedCard("เป้าหมายรายได้", "ข้อมูลสรุปจากออเดอร์จริงในเดือนที่เลือก", `
+          <div class="settings-metric-grid">
+            ${settingsReadonlyMetric("ยอดขายเดือนนี้", `${money(monthSales)} บาท`, `เดือน ${selectedMonth}`)}
+            ${settingsReadonlyMetric("จำนวนออเดอร์", `${monthOrders.length} ออเดอร์`, "คำนวณจากออเดอร์จริง")}
+          </div>
+        `)}
+        ${settingsUnifiedCard("เป้าหมายลูกค้า", "ยังไม่มีแหล่งข้อมูลเป้าหมายในระบบ จึงไม่แสดงค่าเป้าหมายปลอม", `
+          <div class="settings-metric-grid">
+            ${settingsReadonlyMetric("ลูกค้าที่มีออเดอร์เดือนนี้", `${customerIds.size} คน`, "นับจาก customerId ในออเดอร์")}
+            ${settingsReadonlyMetric("สถานะเป้าหมาย", "ยังไม่ได้ตั้งค่า", "คง behavior เดิมและไม่สร้างข้อมูลจำลอง")}
+          </div>
+        `)}
       </div>
     `
   );
@@ -6920,16 +6949,20 @@ function renderSettingsAi() {
     "AI",
     "การวิเคราะห์และการแจ้งเตือนอัจฉริยะ",
     `
-      <form class="panel stack panel-premium settings-subpage-form settings-ai-form" id="settingsForm">
+      <form class="settings-unified-form settings-ai-form" id="settingsForm">
         <input name="daysPerUnit" type="hidden" value="${Math.max(1, Number(settings.followUpDaysPerUnit || 15))}">
-        <div class="settings-status-card ${hasAi ? "connected" : ""}">
-          <span class="settings-status-icon">${iconSvg("bot")}</span>
-          <div>
-            <strong>${hasAi ? "เชื่อมต่อ AI แล้ว" : "ยังไม่ได้เชื่อมต่อ AI API"}</strong>
-            <p>${hasAi ? "ระบบใช้ AI สำหรับช่วยวิเคราะห์ข้อความและข้อมูลธุรกิจ" : "ระบบยังใช้คำแนะนำ fallback อย่างปลอดภัย"}</p>
+        ${settingsUnifiedCard("การตั้งค่า AI และคำแนะนำ", "สถานะการเชื่อมต่อและ model ที่ระบบใช้งาน", `
+          <div class="settings-status-card ${hasAi ? "connected" : ""}">
+            <span class="settings-status-icon">${iconSvg("bot")}</span>
+            <div>
+              <strong>${hasAi ? "เชื่อมต่อ AI แล้ว" : "ยังไม่ได้เชื่อมต่อ AI API"}</strong>
+              <p>${hasAi ? "ระบบใช้ AI สำหรับช่วยวิเคราะห์ข้อความและข้อมูลธุรกิจ" : "ระบบยังใช้คำแนะนำ fallback อย่างปลอดภัย"}</p>
+            </div>
           </div>
-        </div>
-        <label>OpenAI Model<input name="openaiModel" value="${escapeHtml(settings.openaiModel || "gpt-4.1-mini")}" ${settings.openaiApiKeyFromEnv ? "readonly" : ""}></label>
+          <div class="settings-form-grid">
+            <label class="span-2">OpenAI Model<input name="openaiModel" value="${escapeHtml(settings.openaiModel || "gpt-4.1-mini")}" ${settings.openaiApiKeyFromEnv ? "readonly" : ""}></label>
+          </div>
+        `)}
         <div class="settings-submit-bar">
           <button class="button ghost" type="button" data-reset-settings>ยกเลิก</button>
           <button class="button primary" type="submit">บันทึกการตั้งค่า</button>
@@ -6946,14 +6979,21 @@ function renderSettingsNotifications() {
     "การแจ้งเตือน",
     "รายการแจ้งเตือนจากข้อมูลธุรกิจล่าสุด",
     `
-      <div class="settings-notification-list">
-        ${items.map(item => `
-          <article class="settings-detail-panel settings-notification-card">
-            <span>${escapeHtml(item.type || "notification")}</span>
-            <strong>${escapeHtml(item.title)}</strong>
-            <p>${escapeHtml(item.detail)}</p>
-          </article>
-        `).join("") || `<div class="empty-state">ยังไม่มีการแจ้งเตือนจากข้อมูลจริง</div>`}
+      <div class="settings-unified-form">
+        ${settingsUnifiedCard("การแจ้งเตือนของระบบ", "แสดงผลจากข้อมูลธุรกิจล่าสุดโดยใช้ logic เดิม", `
+          <div class="settings-notification-list">
+            ${items.map(item => `
+              <article class="settings-notification-row">
+                <span class="settings-row-icon">${iconSvg("bell")}</span>
+                <span>
+                  <strong>${escapeHtml(item.title)}</strong>
+                  <small>${escapeHtml(item.detail)}</small>
+                </span>
+                <em>${escapeHtml(item.type || "notification")}</em>
+              </article>
+            `).join("") || `<div class="empty-state">ยังไม่มีการแจ้งเตือนจากข้อมูลจริง</div>`}
+          </div>
+        `)}
       </div>
     `
   );
@@ -6965,22 +7005,14 @@ function renderSettingsDisplay() {
     "การแสดงผล",
     "ธีม, ภาษา, รูปแบบวันที่และตัวเลข",
     `
-      <div class="settings-simple-grid">
-        <article class="settings-detail-panel">
-          <span>Theme</span>
-          <strong>Dark</strong>
-          <p>ใช้ธีม Growup Pilot dark ตามระบบปัจจุบัน</p>
-        </article>
-        <article class="settings-detail-panel">
-          <span>Language</span>
-          <strong>ไทย</strong>
-          <p>ข้อความหลักของระบบยังคงภาษาไทยตามหน้าเดิม</p>
-        </article>
-        <article class="settings-detail-panel">
-          <span>Date & Number</span>
-          <strong>รูปแบบระบบ</strong>
-          <p>แสดงวันที่และตัวเลขผ่าน formatter เดิมของแอป</p>
-        </article>
+      <div class="settings-unified-form">
+        ${settingsUnifiedCard("ธีมและภาษา", "ค่าการแสดงผลปัจจุบันของระบบ", `
+          <div class="settings-metric-grid">
+            ${settingsReadonlyMetric("Theme", "Dark", "ใช้ธีม Growup Pilot dark ตามระบบปัจจุบัน")}
+            ${settingsReadonlyMetric("Language", "ไทย", "ข้อความหลักของระบบยังคงภาษาไทยตามหน้าเดิม")}
+            ${settingsReadonlyMetric("Date & Number", "รูปแบบระบบ", "แสดงผ่าน formatter เดิมของแอป")}
+          </div>
+        `)}
       </div>
     `
   );
