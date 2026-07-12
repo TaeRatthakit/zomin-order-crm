@@ -1979,14 +1979,14 @@ function formatUpsaleReply(order = {}, changes = []) {
   const giftChange = changeByKey.get("freeGift");
   const noteChange = changeByKey.get("note");
   const lines = [
-    "✅ Updated Upsell Order Successfully",
+    "✅ อัปเดตออเดอร์อัปเซลเรียบร้อยแล้ว",
     "",
-    `Order No.: ${order.orderNumber || "-"}`
+    `เลขออเดอร์: ${order.orderNumber || "-"}`
   ];
   if (quantityChange) {
     lines.push(
       "",
-      "📦 Quantity",
+      "📦 จำนวน",
       `• ${numberForChange(quantityChange.oldValue).toLocaleString("en-US")} → ${numberForChange(quantityChange.newValue).toLocaleString("en-US")}${signedDelta(quantityChange.oldValue, quantityChange.newValue)}`
     );
   }
@@ -1994,30 +1994,30 @@ function formatUpsaleReply(order = {}, changes = []) {
     const amountDelta = numberForChange(amountChange.newValue) - numberForChange(amountChange.oldValue);
     lines.push(
       "",
-      "💰 Amount",
-      `• ${numberForChange(amountChange.oldValue).toLocaleString("en-US")} → ${numberForChange(amountChange.newValue).toLocaleString("en-US")}${signedDelta(amountChange.oldValue, amountChange.newValue)}`,
+      "💰 ยอดซื้อ",
+      `• ${numberForChange(amountChange.oldValue).toLocaleString("en-US")} → ${numberForChange(amountChange.newValue).toLocaleString("en-US")} บาท${signedDelta(amountChange.oldValue, amountChange.newValue)}`,
       "",
-      "📈 Extra Sales",
-      `• ${amountDelta > 0 ? "+" : ""}${amountDelta.toLocaleString("en-US")}`
+      "📈 เพิ่มยอดขาย",
+      `• ${amountDelta > 0 ? "+" : ""}${amountDelta.toLocaleString("en-US")} บาท`
     );
   }
   if (giftChange) {
     lines.push(
       "",
-      "🎁 Gift",
+      "🎁 ของแถม",
       `• ${displayChangeValue(giftChange.oldValue)} → ${displayChangeValue(giftChange.newValue)}`
     );
   }
   if (noteChange) {
     lines.push(
       "",
-      "📝 Note",
+      "📝 หมายเหตุ",
       `• ${displayChangeValue(noteChange.newValue)}`
     );
   }
   lines.push(
     "",
-    "Growup Pilot updated the existing order and adjusted inventory using only the quantity difference."
+    "Growup Pilot ได้อัปเดตออเดอร์เดิมและปรับสต็อกเฉพาะส่วนต่างเรียบร้อยแล้ว"
   );
   return lines.join("\n");
 }
