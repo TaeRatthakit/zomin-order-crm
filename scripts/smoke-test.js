@@ -1006,6 +1006,144 @@ async function main() {
     fail(`new LINE format multi-line shipping address was not persisted: ${JSON.stringify(importedLineOrder.address)}`);
   }
 
+  const lineReplies = [];
+  const originalFetch = global.fetch;
+  const originalLineAccessToken = process.env.LINE_CHANNEL_ACCESS_TOKEN;
+  process.env.LINE_CHANNEL_ACCESS_TOKEN = "smoke-line-access-token";
+  global.fetch = async (url, options = {}) => {
+    if (String(url).startsWith("https://api.line.me/")) {
+      lineReplies.push(JSON.parse(options.body || "{}"));
+      return { ok: true, status: 200, text: async () => "", json: async () => ({}) };
+    }
+    return originalFetch(url, options);
+  };
+
+  const upsaleOrderNumber = `UPSALE-${uniqueSuffix}`;
+  const upsalePhone = `08345${uniquePhoneSuffix}`;
+  const upsaleLineText = ({ jars, amount, gift = "", note = "Original", symptoms = "ปวดเข่า" }) => [
+    "สินค้า : ACNA",
+    `เลขออเดอร์ : ${upsaleOrderNumber}`,
+    "วันที่ซื้อ : 12/7/2569",
+    "ช่องทางการสั่งซื้อ : ไลน์บริษัท",
+    "Facebook / LINE ลูกค้า : upsale-test",
+    "ชื่อลูกค้า : คุณอัปเซล ทดสอบ",
+    `เบอร์โทร : ${upsalePhone}`,
+    "ที่อยู่จัดส่ง : 123 UPSALE Road กรุงเทพฯ",
+    `จำนวน : ${jars}`,
+    `ยอดซื้อ : ${amount.toLocaleString("en-US")} บาท`,
+    ...(gift ? [`ของแถมที่ลูกค้าได้ : ${gift}`] : []),
+    "สถานะบัตร VIP : ยังไม่ได้ส่งบัตร",
+    `อาการลูกค้า : ${symptoms}`,
+    "ช่องทางการขาย : ทดสอบ",
+    `หมายเหตุ : ${note}`
+  ].join("\n");
+  const postLineEvent = (messageId, text, replyToken = "") => request("/api/line/webhook", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      events: [{
+        type: "message",
+        replyToken,
+        source: { type: "group", groupId: "smoke-test-group" },
+        message: { type: "text", id: messageId, text }
+      }]
+    })
+  });
+  const acnaStockBeforeUpsale = Number(
+    JSON.parse((await request("/api/state", { headers: { cookie } })).text)
+      .settings.products.find(product => product.id === savedAcna.id)?.stockQuantity
+  );
+  const firstUpsaleText = upsaleLineText({ jars: 6, amount: 1000 });
+  const firstUpsaleImport = await postLineEvent(`line-upsale-first-${uniqueSuffix}`, firstUpsaleText, `reply-first-${uniqueSuffix}`);
+  if (firstUpsaleImport.status !== 200 || JSON.parse(firstUpsaleImport.text).parsedOrders !== 1) {
+    fail(`first UPSALE baseline order was not imported: ${firstUpsaleImport.status} ${firstUpsaleImport.text}`);
+  }
+  let upsaleState = JSON.parse((await request("/api/state", { headers: { cookie } })).text);
+  let upsaleOrders = upsaleState.orders.filter(order => order.orderNumber === upsaleOrderNumber && order.phone === upsalePhone);
+  if (upsaleOrders.length !== 1 || upsaleOrders[0].jars !== 6 || upsaleOrders[0].amount !== 1000) {
+    fail(`first UPSALE baseline order state is wrong: ${JSON.stringify(upsaleOrders)}`);
+  }
+  let acnaAfterFirstUpsale = Number(upsaleState.settings.products.find(product => product.id === savedAcna.id)?.stockQuantity);
+  if (acnaAfterFirstUpsale !== acnaStockBeforeUpsale - 6) {
+    fail(`first UPSALE baseline stock did not deduct 6: before=${acnaStockBeforeUpsale} after=${acnaAfterFirstUpsale}`);
+  }
+
+  const updatedUpsaleText = upsaleLineText({
+    jars: 13,
+    amount: 1800,
+    gift: "Mesh Bag",
+    note: "Updated",
+    symptoms: "ปวดเข่า, นอนไม่หลับ"
+  });
+  const upsaleUpdate = await postLineEvent(`line-upsale-update-${uniqueSuffix}`, updatedUpsaleText, `reply-update-${uniqueSuffix}`);
+  if (upsaleUpdate.status !== 200 || JSON.parse(upsaleUpdate.text).parsedOrders !== 1) {
+    fail(`UPSALE update was not accepted: ${upsaleUpdate.status} ${upsaleUpdate.text}`);
+  }
+  upsaleState = JSON.parse((await request("/api/state", { headers: { cookie } })).text);
+  upsaleOrders = upsaleState.orders.filter(order => order.orderNumber === upsaleOrderNumber && order.phone === upsalePhone);
+  if (upsaleOrders.length !== 1 || upsaleOrders[0].jars !== 13 || upsaleOrders[0].amount !== 1800 || upsaleOrders[0].freeGift !== "Mesh Bag" || upsaleOrders[0].note !== "Updated") {
+    fail(`UPSALE update did not update the existing order: ${JSON.stringify(upsaleOrders)}`);
+  }
+  const acnaAfterUpsaleUpdate = Number(upsaleState.settings.products.find(product => product.id === savedAcna.id)?.stockQuantity);
+  if (acnaAfterUpsaleUpdate !== acnaStockBeforeUpsale - 13) {
+    fail(`UPSALE stock should deduct only the quantity delta: before=${acnaStockBeforeUpsale} after=${acnaAfterUpsaleUpdate}`);
+  }
+  const upsaleReplyText = lineReplies.at(-1)?.messages?.[0]?.text || "";
+  if (
+    !upsaleReplyText.includes("✅ UPSALE Order Updated")
+    || !upsaleReplyText.includes("Order No.:")
+    || !upsaleReplyText.includes("📦 Quantity")
+    || !upsaleReplyText.includes("6 → 13 (+7)")
+    || !upsaleReplyText.includes("💰 Amount")
+    || !upsaleReplyText.includes("1,000 → 1,800 (+800)")
+    || !upsaleReplyText.includes("🎁 Gift")
+    || !upsaleReplyText.includes("None → Mesh Bag")
+    || !upsaleReplyText.includes("📝 Note")
+    || !upsaleReplyText.includes("Updated")
+    || upsaleReplyText.includes("🏠 Shipping Address")
+    || upsaleReplyText.includes("💳 VIP Status")
+    || upsaleReplyText.includes("🛒 Sales Channel")
+  ) {
+    fail(`UPSALE reply did not include only changed fields: ${JSON.stringify(upsaleReplyText)}`);
+  }
+
+  const duplicateUpsaleDelivery = await postLineEvent(`line-upsale-update-${uniqueSuffix}`, updatedUpsaleText, `reply-duplicate-${uniqueSuffix}`);
+  if (duplicateUpsaleDelivery.status !== 200 || JSON.parse(duplicateUpsaleDelivery.text).parsedOrders !== 0) {
+    fail(`duplicate LINE delivery should be ignored: ${duplicateUpsaleDelivery.status} ${duplicateUpsaleDelivery.text}`);
+  }
+  upsaleState = JSON.parse((await request("/api/state", { headers: { cookie } })).text);
+  upsaleOrders = upsaleState.orders.filter(order => order.orderNumber === upsaleOrderNumber && order.phone === upsalePhone);
+  if (upsaleOrders.length !== 1) fail(`duplicate LINE delivery created an order: ${JSON.stringify(upsaleOrders)}`);
+  const acnaAfterDuplicateDelivery = Number(upsaleState.settings.products.find(product => product.id === savedAcna.id)?.stockQuantity);
+  if (acnaAfterDuplicateDelivery !== acnaAfterUpsaleUpdate) {
+    fail("duplicate LINE delivery changed stock");
+  }
+
+  const staleTimestamp = new Date(Date.now() - (25 * 60 * 60 * 1000)).toISOString();
+  const tempDb = JSON.parse(fs.readFileSync(process.env.JSON_DB_PATH, "utf8"));
+  const staleOrder = tempDb.orders.find(order => order.orderNumber === upsaleOrderNumber && order.phone === upsalePhone);
+  if (!staleOrder) fail("could not find UPSALE order to age beyond 24 hours");
+  staleOrder.createdAt = staleTimestamp;
+  staleOrder.updatedAt = staleTimestamp;
+  fs.writeFileSync(process.env.JSON_DB_PATH, `${JSON.stringify(tempDb, null, 2)}\n`, "utf8");
+
+  const staleWindowImport = await postLineEvent(`line-upsale-stale-${uniqueSuffix}`, upsaleLineText({ jars: 15, amount: 2000, note: "New after 24h" }), `reply-stale-${uniqueSuffix}`);
+  if (staleWindowImport.status !== 200 || JSON.parse(staleWindowImport.text).parsedOrders !== 1) {
+    fail(`same order number after 24h should import as new: ${staleWindowImport.status} ${staleWindowImport.text}`);
+  }
+  upsaleState = JSON.parse((await request("/api/state", { headers: { cookie } })).text);
+  upsaleOrders = upsaleState.orders.filter(order => order.orderNumber === upsaleOrderNumber && order.phone === upsalePhone);
+  if (upsaleOrders.length !== 2 || !upsaleOrders.some(order => order.jars === 15 && order.amount === 2000)) {
+    fail(`same order number after 24h did not create a new order: ${JSON.stringify(upsaleOrders)}`);
+  }
+  const acnaAfterStaleImport = Number(upsaleState.settings.products.find(product => product.id === savedAcna.id)?.stockQuantity);
+  if (acnaAfterStaleImport !== acnaStockBeforeUpsale - 28) {
+    fail(`new order after 24h should deduct full new quantity: before=${acnaStockBeforeUpsale} after=${acnaAfterStaleImport}`);
+  }
+  global.fetch = originalFetch;
+  if (originalLineAccessToken === undefined) delete process.env.LINE_CHANNEL_ACCESS_TOKEN;
+  else process.env.LINE_CHANNEL_ACCESS_TOKEN = originalLineAccessToken;
+
   const oldLinePreview = await request("/api/parse-preview", {
     method: "POST",
     headers: { cookie, "content-type": "application/json" },

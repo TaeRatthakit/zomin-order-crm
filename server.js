@@ -991,6 +991,16 @@ function duplicateFingerprint(order = {}) {
 }
 
 function parseOrderDateTime(order = {}) {
+  const updatedValue = String(order.updatedAt || order.updated_at || "").trim();
+  if (updatedValue) {
+    const updated = new Date(updatedValue);
+    if (!Number.isNaN(updated.getTime())) return updated;
+  }
+  const createdValue = String(order.createdAt || order.created_at || "").trim();
+  if (createdValue && /T/.test(createdValue)) {
+    const created = new Date(createdValue);
+    if (!Number.isNaN(created.getTime())) return created;
+  }
   const date = toDateOnly(order.date || order.order_date || "");
   if (!date) return null;
   const timeValue = String(order.time || order.order_time || "").trim();
@@ -1754,6 +1764,7 @@ function addOrder(db, payload) {
     ? "ลูกค้ามีบัตร VIP และสั่งผ่านไลน์บริษัท: รองรับส่วนลด VIP กระปุกละ 10 บาท"
     : "";
   const note = [String(payload.note || "").trim(), vipDiscountFlag].filter(Boolean).join(" | ");
+  const nowIso = new Date().toISOString();
   const order = {
     id: payload.id || uid("o"),
     customerId: customer.id,
@@ -1784,7 +1795,9 @@ function addOrder(db, payload) {
     packageExpenses: normalizePackageExpenses(payload.packageExpenses),
     vipCardStatus,
     note,
-    rawText: String(payload.rawText || "").trim()
+    rawText: String(payload.rawText || "").trim(),
+    createdAt: nowIso,
+    updatedAt: nowIso
   };
 
   applyOrderProfitSnapshot(order, db.settings || {}, "created");
@@ -1792,10 +1805,197 @@ function addOrder(db, payload) {
   return order;
 }
 
+function updateLineUpsaleOrder(db, order, payload = {}) {
+  const previousOrder = { ...order };
+  const customer = db.customers.find(item => item.id === order.customerId);
+  const previousCustomer = customer ? { ...customer, tags: [...(customer.tags || [])] } : null;
+  previousOrder.tags = previousCustomer?.tags || [];
+  const nextTags = splitTags(payload.tags);
+  try {
+    if (customer) {
+      if (payload.name) customer.name = String(payload.name).trim();
+      if (payload.address) customer.address = String(payload.address).trim();
+      if (payload.note !== undefined) customer.note = String(payload.note || "").trim();
+      if (nextTags.length) customer.tags = Array.from(new Set([...(customer.tags || []), ...nextTags]));
+    }
+    if (nextTags.length) {
+      db.tags = Array.from(new Set([...(db.tags || []), ...nextTags]));
+    }
+    const nextOriginSource = normalizeOrderOriginSource(
+      payload.originSource || payload.origin_source || order.originSource || "",
+      payload.originSourceOther || payload.origin_source_other || order.originSourceOther || ""
+    );
+    const nextSourceChannel = orderChannel(payload) || order.sourceChannel || "LINE";
+    Object.assign(order, {
+      orderNumber: normalizeImportText(payload.orderNumber || order.orderNumber),
+      items: canonicalProductNameForOrder(db.settings || {}, payload.items || payload.product || payload.productName || order.items || "Growup"),
+      customerName: normalizeImportText(payload.name || order.customerName || customer?.name || ""),
+      phone: normalizePhone(payload.phone || order.phone || customer?.phone || ""),
+      address: normalizeImportText(payload.address || order.address || customer?.address || ""),
+      date: payload.date ? toDateOnly(payload.date) : order.date,
+      jars: payload.jars !== undefined ? Number(payload.jars || 1) : Number(order.jars || 1),
+      amount: payload.amount !== undefined && payload.amount !== "" ? Number(payload.amount || 0) : Number(order.amount || 0),
+      source: isPlaceholderChannel(payload.source) ? order.source : String(payload.source || order.source || nextSourceChannel || "").trim(),
+      sourceChannel: nextSourceChannel,
+      alternatePhone: payload.alternatePhone ?? payload.alternate_phone ?? order.alternatePhone,
+      originSource: nextOriginSource.originSource,
+      originSourceOther: nextOriginSource.originSourceOther,
+      lineMessageId: normalizeImportText(payload.lineMessageId || payload.line_message_id || order.lineMessageId || ""),
+      duplicateFingerprint: duplicateFingerprint(payload),
+      socialName: String(payload.socialName || payload.social_name || order.socialName || "").trim(),
+      freeGift: String(payload.freeGift ?? payload.free_gift ?? order.freeGift ?? "").trim(),
+      productId: String(payload.productId ?? order.productId ?? "").trim(),
+      packageId: String(payload.packageId ?? order.packageId ?? "").trim(),
+      packageName: String(payload.packageName ?? order.packageName ?? "").trim(),
+      paidQuantity: payload.paidQuantity !== undefined ? Math.max(0, Number(payload.paidQuantity || 0)) : Number(order.paidQuantity || 0),
+      freeQuantity: payload.freeQuantity !== undefined ? Math.max(0, Number(payload.freeQuantity || 0)) : Number(order.freeQuantity || 0),
+      totalQuantityShipped: payload.totalQuantityShipped !== undefined
+        ? Math.max(0, Number(payload.totalQuantityShipped || 0))
+        : Number(order.totalQuantityShipped || 0),
+      packageExpenses: payload.packageExpenses !== undefined ? normalizePackageExpenses(payload.packageExpenses) : normalizePackageExpenses(order.packageExpenses),
+      vipCardStatus: String(payload.vipCardStatus || payload.vip_card_status || order.vipCardStatus || "ยังไม่ได้ส่งบัตร").trim(),
+      note: String(payload.note ?? order.note ?? "").trim(),
+      rawText: String(payload.rawText || order.rawText || "").trim(),
+      updatedAt: new Date().toISOString()
+    });
+    order.tags = customer?.tags || previousOrder.tags || [];
+    applyOrderProfitSnapshot(order, db.settings || {}, "edited");
+    const changes = collectOrderChanges(previousOrder, order);
+    delete order.tags;
+    adjustInventoryForOrderChange(db, previousOrder, order);
+    return { order, previousOrder, changes };
+  } catch (error) {
+    Object.assign(order, previousOrder);
+    delete order.tags;
+    if (customer && previousCustomer) Object.assign(customer, previousCustomer);
+    throw error;
+  }
+}
+
 function findDuplicateOrder(db, payload = {}) {
   const recentExactDuplicate = findExactDuplicateOrderWithin24Hours(db, payload);
   if (recentExactDuplicate) return recentExactDuplicate;
   return null;
+}
+
+function orderNumberKey(value) {
+  return normalizeImportText(value).toLowerCase();
+}
+
+function sameOrderCustomerIdentity(order = {}, payload = {}) {
+  const orderPhone = normalizePhone(order.phone || "");
+  const payloadPhone = normalizePhone(payload.phone || "");
+  if (orderPhone && payloadPhone && orderPhone === payloadPhone) return true;
+  const orderCustomerId = normalizeImportText(order.customerId || order.customer_id || "");
+  const payloadCustomerId = normalizeImportText(payload.customerId || payload.customer_id || "");
+  return Boolean(orderCustomerId && payloadCustomerId && orderCustomerId === payloadCustomerId);
+}
+
+function isWithinPreviousHours(dateValue, hours, now = new Date()) {
+  if (!dateValue) return false;
+  const timestamp = dateValue instanceof Date ? dateValue.getTime() : new Date(dateValue).getTime();
+  if (Number.isNaN(timestamp)) return false;
+  const current = now.getTime();
+  return timestamp <= current && timestamp >= current - (Number(hours || 0) * 60 * 60 * 1000);
+}
+
+function findLineUpsaleOrder(db, payload = {}, now = new Date()) {
+  const targetOrderNumber = orderNumberKey(payload.orderNumber || payload.order_number || "");
+  if (!targetOrderNumber) return null;
+  return (db.orders || []).find(order => {
+    if (orderNumberKey(order.orderNumber || order.order_number || "") !== targetOrderNumber) return false;
+    if (!sameOrderCustomerIdentity(order, payload)) return false;
+    return isWithinPreviousHours(parseOrderDateTime(order), 24, now);
+  }) || null;
+}
+
+function lineMessageIdFromEventMessage(message = {}) {
+  return normalizeImportText(message?.id || message?.messageId || message?.message_id || "");
+}
+
+function isDuplicateLineMessage(db, messageId = "") {
+  const normalizedId = normalizeImportText(messageId);
+  if (!normalizedId) return false;
+  const orderMatch = (db.orders || []).some(order =>
+    normalizeImportText(order.lineMessageId || order.line_message_id || "") === normalizedId
+  );
+  if (orderMatch) return true;
+  return (db.lineMessages || []).some(message => {
+    const rawMessageId = lineMessageIdFromEventMessage(message.rawEvent?.message || message.rawEvent?.rawEvent?.message || {});
+    return rawMessageId === normalizedId;
+  });
+}
+
+function valueForChange(value) {
+  if (Array.isArray(value)) return value.map(item => String(item || "").trim()).filter(Boolean).join(", ");
+  return normalizeImportText(value);
+}
+
+function numberForChange(value) {
+  const number = Number(value || 0);
+  return Number.isFinite(number) ? number : 0;
+}
+
+function collectOrderChanges(before = {}, after = {}) {
+  const specs = [
+    { key: "jars", label: "📦 Quantity", type: "number", oldValue: before.jars, newValue: after.jars },
+    { key: "amount", label: "💰 Amount", type: "money", oldValue: before.amount, newValue: after.amount },
+    { key: "freeGift", label: "🎁 Gift", oldValue: before.freeGift, newValue: after.freeGift },
+    { key: "address", label: "🏠 Shipping Address", oldValue: before.address, newValue: after.address },
+    { key: "tags", label: "🏷️ Customer Symptoms", oldValue: before.tags, newValue: after.tags },
+    { key: "vipCardStatus", label: "💳 VIP Status", oldValue: before.vipCardStatus, newValue: after.vipCardStatus },
+    { key: "sourceChannel", label: "🛒 Sales Channel", oldValue: before.sourceChannel, newValue: after.sourceChannel },
+    { key: "originSource", label: "📣 Origin Source", oldValue: before.originSource, newValue: after.originSource },
+    { key: "socialName", label: "👤 Customer Social", oldValue: before.socialName, newValue: after.socialName },
+    { key: "alternatePhone", label: "☎️ Alternate Phone", oldValue: before.alternatePhone, newValue: after.alternatePhone },
+    { key: "items", label: "🧾 Product", oldValue: before.items, newValue: after.items },
+    { key: "note", label: "📝 Note", oldValue: before.note, newValue: after.note }
+  ];
+  return specs
+    .map(spec => {
+      const oldComparable = spec.type ? numberForChange(spec.oldValue) : valueForChange(spec.oldValue);
+      const newComparable = spec.type ? numberForChange(spec.newValue) : valueForChange(spec.newValue);
+      if (oldComparable === newComparable) return null;
+      return { ...spec, oldComparable, newComparable };
+    })
+    .filter(Boolean);
+}
+
+function displayChangeValue(value) {
+  const normalized = valueForChange(value);
+  return normalized || "None";
+}
+
+function signedDelta(oldValue, newValue) {
+  const delta = numberForChange(newValue) - numberForChange(oldValue);
+  if (!delta) return "";
+  return ` (${delta > 0 ? "+" : ""}${delta.toLocaleString("en-US")})`;
+}
+
+function formatUpsaleReply(order = {}, changes = []) {
+  const lines = [
+    "✅ UPSALE Order Updated",
+    "",
+    `Order No.: ${order.orderNumber || "-"}`
+  ];
+  for (const change of changes) {
+    lines.push("", `${change.label}`);
+    if (change.type === "number" || change.type === "money") {
+      lines.push(`• ${numberForChange(change.oldValue).toLocaleString("en-US")} → ${numberForChange(change.newValue).toLocaleString("en-US")}${signedDelta(change.oldValue, change.newValue)}`);
+    } else if (change.key === "note") {
+      lines.push(`• ${displayChangeValue(change.newValue)}`);
+    } else {
+      lines.push(`• ${displayChangeValue(change.oldValue)} → ${displayChangeValue(change.newValue)}`);
+    }
+  }
+  if (!changes.length) {
+    lines.push("", "No editable fields changed.");
+  }
+  lines.push(
+    "",
+    "Growup Pilot updated the existing order and adjusted inventory using only the quantity difference."
+  );
+  return lines.join("\n");
 }
 
 function missingRequiredOrderFields(order = {}) {
@@ -2318,6 +2518,16 @@ async function handleLineWebhookEvents(db, settings, events) {
       hasPostback: Boolean(event.postback),
       hasFollow: Boolean(event.follow)
     }));
+    if (isDuplicateLineMessage(db, messageId)) {
+      debug.parser_status = "duplicate_message";
+      debug.supabase_insert_status = "skipped_duplicate_message";
+      console.log("LINE webhook duplicate delivery skipped", JSON.stringify({
+        groupId: source.groupId || "",
+        lineMessageId: messageId || ""
+      }));
+      replies.push({ replyToken, messages: [{ type: "text", text: "ℹ️ ออเดอร์นี้มีอยู่แล้วใน Growup Pilot" }] });
+      continue;
+    }
     db.lineMessages.push({
       id: uid("line"),
       receivedAt: debug.received_at,
@@ -2355,27 +2565,54 @@ async function handleLineWebhookEvents(db, settings, events) {
       continue;
     }
     try {
-      const order = addOrder(db, normalized);
-      adjustInventoryForOrderChange(db, null, order);
-      parsedOrders.push(order);
-      persistedOrders.push({
-        id: order.id,
-        lineMessageId: order.lineMessageId || "",
-        phone: order.phone || "",
-        amount: order.amount,
-        date: order.date
-      });
-      debug.parser_status = "parsed";
-      debug.supabase_insert_status = "pending_write";
-      console.log("LINE webhook order parsed", JSON.stringify({
-        groupId: source.groupId || "",
-        lineMessageId: messageId || "",
-        orderNumber: normalized.orderNumber || "",
-        phone: normalized.phone || "",
-        amount: normalized.amount,
-        date: normalized.date
-      }));
-      replies.push({ replyToken, messages: [{ type: "text", text: "✅ นำเข้าออเดอร์เรียบร้อยแล้ว\nGrowup Pilot บันทึกข้อมูลเรียบร้อย" }] });
+      const upsaleOrder = findLineUpsaleOrder(db, normalized);
+      if (upsaleOrder) {
+        const { order, changes } = updateLineUpsaleOrder(db, upsaleOrder, normalized);
+        parsedOrders.push(order);
+        persistedOrders.push({
+          id: order.id,
+          lineMessageId: order.lineMessageId || "",
+          phone: order.phone || "",
+          amount: order.amount,
+          date: order.date,
+          mode: "upsale"
+        });
+        debug.parser_status = "upsale_updated";
+        debug.supabase_insert_status = "pending_write";
+        console.log("LINE webhook upsale order updated", JSON.stringify({
+          groupId: source.groupId || "",
+          lineMessageId: messageId || "",
+          orderNumber: normalized.orderNumber || "",
+          phone: normalized.phone || "",
+          amount: normalized.amount,
+          date: normalized.date,
+          changedFields: changes.map(change => change.key)
+        }));
+        replies.push({ replyToken, messages: [{ type: "text", text: formatUpsaleReply(order, changes) }] });
+      } else {
+        const order = addOrder(db, normalized);
+        adjustInventoryForOrderChange(db, null, order);
+        parsedOrders.push(order);
+        persistedOrders.push({
+          id: order.id,
+          lineMessageId: order.lineMessageId || "",
+          phone: order.phone || "",
+          amount: order.amount,
+          date: order.date,
+          mode: "created"
+        });
+        debug.parser_status = "parsed";
+        debug.supabase_insert_status = "pending_write";
+        console.log("LINE webhook order parsed", JSON.stringify({
+          groupId: source.groupId || "",
+          lineMessageId: messageId || "",
+          orderNumber: normalized.orderNumber || "",
+          phone: normalized.phone || "",
+          amount: normalized.amount,
+          date: normalized.date
+        }));
+        replies.push({ replyToken, messages: [{ type: "text", text: "✅ นำเข้าออเดอร์เรียบร้อยแล้ว\nGrowup Pilot บันทึกข้อมูลเรียบร้อย" }] });
+      }
     } catch (error) {
       if (error.code === "ORDER_DUPLICATE") {
         debug.parser_status = "duplicate";
