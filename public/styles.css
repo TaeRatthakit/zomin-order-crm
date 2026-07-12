@@ -15221,7 +15221,7 @@ body.desktop-app-shell:not(.login-view) .line-status-row span {
   }
 
   body.desktop-app-shell:not(.login-view) .mobile-reports-shell {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1.16fr) minmax(360px, .8fr) minmax(0, 1fr);
   }
 
   body.desktop-app-shell:not(.login-view) .mobile-report-heading,
@@ -15359,10 +15359,6 @@ body.desktop-app-shell:not(.login-view) .line-status-row span {
     border-radius: 16px;
   }
 
-  body.desktop-app-shell:not(.login-view) .channel-report-card {
-    grid-column: span 2;
-  }
-
   body.desktop-app-shell:not(.login-view) .mobile-report-card h2 {
     margin: 0 0 16px;
     color: #f4f6fb;
@@ -15452,12 +15448,12 @@ body.desktop-app-shell:not(.login-view) .line-status-row span {
   }
 
   body.desktop-app-shell:not(.login-view) .sales-channel-report-card .mobile-report-channel-layout {
-    grid-template-columns: minmax(210px, .48fr) minmax(0, 1fr);
-    gap: 34px;
+    grid-template-columns: minmax(220px, .82fr) minmax(0, 1fr);
+    gap: 22px;
   }
 
   body.desktop-app-shell:not(.login-view) .sales-channel-report-card .mobile-report-donut {
-    width: min(100%, 250px);
+    width: min(100%, 245px);
   }
 
   body.desktop-app-shell:not(.login-view) .sales-channel-report-card .mobile-report-donut::after {
@@ -15493,7 +15489,7 @@ body.desktop-app-shell:not(.login-view) .line-status-row span {
   }
 
   body.desktop-app-shell:not(.login-view) .sales-channel-report-card .mobile-report-channel-legend {
-    max-height: 340px;
+    max-height: 254px;
     overflow-y: auto;
     padding-right: 6px;
   }
@@ -15506,8 +15502,8 @@ body.desktop-app-shell:not(.login-view) .line-status-row span {
   }
 
   body.desktop-app-shell:not(.login-view) .sales-channel-report-card .mobile-report-channel-row {
-    min-height: 54px;
-    padding: 8px 0;
+    min-height: 47px;
+    padding: 6px 0;
     border-bottom: 1px solid rgba(54, 88, 118, .26);
   }
 
@@ -15541,6 +15537,17 @@ body.desktop-app-shell:not(.login-view) .line-status-row span {
     color: #f4f7fb;
     font-weight: 500;
     text-overflow: ellipsis;
+  }
+
+  body.desktop-app-shell:not(.login-view) .sales-channel-report-card,
+  body.desktop-app-shell:not(.login-view) .sales-channel-report-card + .mobile-report-card,
+  body.desktop-app-shell:not(.login-view) .mobile-report-table-card {
+    min-height: 382px;
+    height: 382px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .sales-channel-report-card {
+    overflow: hidden;
   }
 
   body.desktop-app-shell:not(.login-view) .report-channel-name {
