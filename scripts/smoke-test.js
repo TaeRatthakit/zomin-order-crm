@@ -1090,17 +1090,20 @@ async function main() {
   }
   const upsaleReplyText = lineReplies.at(-1)?.messages?.[0]?.text || "";
   if (
-    !upsaleReplyText.includes("✅ UPSALE Order Updated")
+    !upsaleReplyText.includes("✅ Updated Upsell Order Successfully")
     || !upsaleReplyText.includes("Order No.:")
     || !upsaleReplyText.includes("📦 Quantity")
     || !upsaleReplyText.includes("6 → 13 (+7)")
     || !upsaleReplyText.includes("💰 Amount")
     || !upsaleReplyText.includes("1,000 → 1,800 (+800)")
+    || !upsaleReplyText.includes("📈 Extra Sales")
+    || !upsaleReplyText.includes("• +800")
     || !upsaleReplyText.includes("🎁 Gift")
     || !upsaleReplyText.includes("None → Mesh Bag")
     || !upsaleReplyText.includes("📝 Note")
-    || !upsaleReplyText.includes("Updated")
+    || !upsaleReplyText.includes("• Updated")
     || upsaleReplyText.includes("🏠 Shipping Address")
+    || upsaleReplyText.includes("🏷️ Customer Symptoms")
     || upsaleReplyText.includes("💳 VIP Status")
     || upsaleReplyText.includes("🛒 Sales Channel")
   ) {

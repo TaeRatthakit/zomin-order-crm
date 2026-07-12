@@ -1973,23 +1973,47 @@ function signedDelta(oldValue, newValue) {
 }
 
 function formatUpsaleReply(order = {}, changes = []) {
+  const changeByKey = new Map(changes.map(change => [change.key, change]));
+  const quantityChange = changeByKey.get("jars");
+  const amountChange = changeByKey.get("amount");
+  const giftChange = changeByKey.get("freeGift");
+  const noteChange = changeByKey.get("note");
   const lines = [
-    "✅ UPSALE Order Updated",
+    "✅ Updated Upsell Order Successfully",
     "",
     `Order No.: ${order.orderNumber || "-"}`
   ];
-  for (const change of changes) {
-    lines.push("", `${change.label}`);
-    if (change.type === "number" || change.type === "money") {
-      lines.push(`• ${numberForChange(change.oldValue).toLocaleString("en-US")} → ${numberForChange(change.newValue).toLocaleString("en-US")}${signedDelta(change.oldValue, change.newValue)}`);
-    } else if (change.key === "note") {
-      lines.push(`• ${displayChangeValue(change.newValue)}`);
-    } else {
-      lines.push(`• ${displayChangeValue(change.oldValue)} → ${displayChangeValue(change.newValue)}`);
-    }
+  if (quantityChange) {
+    lines.push(
+      "",
+      "📦 Quantity",
+      `• ${numberForChange(quantityChange.oldValue).toLocaleString("en-US")} → ${numberForChange(quantityChange.newValue).toLocaleString("en-US")}${signedDelta(quantityChange.oldValue, quantityChange.newValue)}`
+    );
   }
-  if (!changes.length) {
-    lines.push("", "No editable fields changed.");
+  if (amountChange) {
+    const amountDelta = numberForChange(amountChange.newValue) - numberForChange(amountChange.oldValue);
+    lines.push(
+      "",
+      "💰 Amount",
+      `• ${numberForChange(amountChange.oldValue).toLocaleString("en-US")} → ${numberForChange(amountChange.newValue).toLocaleString("en-US")}${signedDelta(amountChange.oldValue, amountChange.newValue)}`,
+      "",
+      "📈 Extra Sales",
+      `• ${amountDelta > 0 ? "+" : ""}${amountDelta.toLocaleString("en-US")}`
+    );
+  }
+  if (giftChange) {
+    lines.push(
+      "",
+      "🎁 Gift",
+      `• ${displayChangeValue(giftChange.oldValue)} → ${displayChangeValue(giftChange.newValue)}`
+    );
+  }
+  if (noteChange) {
+    lines.push(
+      "",
+      "📝 Note",
+      `• ${displayChangeValue(noteChange.newValue)}`
+    );
   }
   lines.push(
     "",
