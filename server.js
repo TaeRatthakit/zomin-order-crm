@@ -1894,6 +1894,10 @@ function parsePrimaryLineOrderForm(rawText) {
     labels: [label, ...aliases]
   }));
   const labels = fieldLabels.flatMap(field => field.labels);
+  const isFieldLabelLine = lineValue => labels.some(label => {
+    const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return new RegExp(`^${escapedLabel}\\s*(?:[:：]|$)`, "i").test(lineValue);
+  });
   const labelMap = new Map();
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index];
@@ -1910,12 +1914,13 @@ function parsePrimaryLineOrderForm(rawText) {
       return new RegExp(`^${escapedLabel}\\s*(?:[:：]|$)`, "i").test(line);
     }) || matchedField.labels[0];
     const inlineValue = line.slice(matchedLabel.length).replace(/^\s*[:：]\s*/, "").trim();
-    const nextLine = lines[index + 1] || "";
-    const nextLineIsLabel = labels.some(label => {
-      const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      return new RegExp(`^${escapedLabel}\\s*(?:[:：]|$)`, "i").test(nextLine);
-    });
-    labelMap.set(matchedField.key, inlineValue || (nextLineIsLabel ? "" : nextLine));
+    const valueLines = inlineValue ? [inlineValue] : [];
+    let cursor = index + 1;
+    while (cursor < lines.length && !isFieldLabelLine(lines[cursor])) {
+      valueLines.push(lines[cursor]);
+      cursor += 1;
+    }
+    labelMap.set(matchedField.key, valueLines.join("\n").trim());
   }
   if (!labelMap.size) return null;
   const requiredKeys = ["date", "name", "phone", "address", "jars", "amount"];

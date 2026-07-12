@@ -911,7 +911,8 @@ async function main() {
     "ชื่อลูกค้า : คุณไลน์ ทดสอบ",
     `เบอร์โทร : 08123${uniquePhoneSuffix}`,
     "เบอร์โทรสำรอง : 0891234567",
-    "ที่อยู่จัดส่ง : 99 ถนนสุขุมวิท กรุงเทพฯ",
+    "ที่อยู่จัดส่ง : 99 ถนนสุขุมวิท",
+    "แขวงคลองเตย เขตคลองเตย กรุงเทพฯ 10110",
     "",
     "จำนวนกระปุก : 3",
     "ยอดซื้อ : 2,250 บาท",
@@ -957,7 +958,8 @@ async function main() {
   if (newLineRow.date !== "2026-07-03" || newLineRow.socialName !== "line-test") {
     fail("new LINE format did not parse date or customer social");
   }
-  if (newLineRow.alternatePhone !== "0891234567" || newLineRow.address !== "99 ถนนสุขุมวิท กรุงเทพฯ") {
+  const expectedMultiLineAddress = "99 ถนนสุขุมวิท แขวงคลองเตย เขตคลองเตย กรุงเทพฯ 10110";
+  if (newLineRow.alternatePhone !== "0891234567" || newLineRow.address !== expectedMultiLineAddress) {
     fail("new LINE format did not parse alternate phone or shipping address");
   }
   if (newLineRow.jars !== 3 || newLineRow.amount !== 2250 || newLineRow.freeGift !== "แถม 1 กระปุก") {
@@ -989,6 +991,9 @@ async function main() {
   const importedLineOrder = JSON.parse(stateAfterLineImport.text).orders?.find(order => order.orderNumber === `LINE-${uniqueSuffix}`);
   if (!importedLineOrder || importedLineOrder.items !== "Zomin Plus" || importedLineOrder.orderNumber !== `LINE-${uniqueSuffix}`) {
     fail("new LINE format product was not persisted by the webhook path");
+  }
+  if (importedLineOrder.address !== expectedMultiLineAddress) {
+    fail(`new LINE format multi-line shipping address was not persisted: ${JSON.stringify(importedLineOrder.address)}`);
   }
 
   const oldLinePreview = await request("/api/parse-preview", {
