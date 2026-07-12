@@ -2,7 +2,7 @@ const mainNavItems = [
   ["dashboard", "/dashboard", "หน้าหลัก", "home"],
   ["reports", "/reports", "รายงาน", "chart"],
   ["orders", "/orders", "ออเดอร์", "clipboard"],
-  ["opportunities", "/opportunities", "โอกาสทำเงิน", "spark"],
+  ["opportunities", "/opportunities", "เพิ่มยอดขาย", "spark"],
   ["settings", "/settings", "จัดการธุรกิจ", "briefcase"]
 ];
 
@@ -650,7 +650,7 @@ function titleFor(view) {
   const titles = {
     login: "เข้าสู่ระบบ",
     dashboard: "แดชบอร์ด",
-    opportunities: "โอกาสทำเงิน",
+    opportunities: "เพิ่มยอดขาย",
     orders: "ออเดอร์",
     customers: "ลูกค้า",
     products: "สินค้า",
@@ -2455,7 +2455,7 @@ function renderMobileDashboard(viewModel) {
           ${mobileDashboardMetricCard({ label: "ยอดขายวันนี้", value: money(s.salesToday), deltaText: dashboardChangeText(s.salesToday, s.salesToday - salesDelta.diff), tone: "green", icon: "wallet" })}
           ${mobileDashboardMetricCard({ label: "ออเดอร์วันนี้", value: money(s.ordersToday || 0), deltaText: dashboardChangeText(s.ordersToday || 0, (s.ordersToday || 0) - ordersDelta.diff), tone: "amber", icon: "bag" })}
           ${mobileDashboardMetricCard({ label: "กำไรวันนี้", value: money(estimatedProfitToday), deltaText: dashboardChangeText(estimatedProfitToday, estimatedProfitToday - profitDelta.diff), tone: "violet", icon: "database" })}
-          ${mobileDashboardMetricCard({ label: "โอกาสทำเงิน", value: money(opportunityCount), deltaText: dashboardChangeText(opportunityCount, Math.max(0, opportunityCount - 1)), tone: "cyan", icon: "target" })}
+          ${mobileDashboardMetricCard({ label: "เพิ่มยอดขาย", value: money(opportunityCount), deltaText: dashboardChangeText(opportunityCount, Math.max(0, opportunityCount - 1)), tone: "cyan", icon: "target" })}
         </section>
 
         ${mobileDashboardSummaryCard(channelRows, s.salesToday || 0)}
@@ -2607,7 +2607,7 @@ function desktopReferenceQuickActions() {
     { title: "สร้างออเดอร์", detail: "สร้างออเดอร์ใหม่ได้อย่างรวดเร็ว", icon: "spark", tone: "purple", attribute: "data-open-order" },
     { title: "จัดการสินค้า", detail: "เพิ่ม แก้ไข และจัดการสินค้าในร้าน", icon: "box", tone: "orange", view: "products" },
     { title: "รายงาน", detail: "ดูรายงานและสถิติธุรกิจแบบละเอียด", icon: "chart", tone: "blue", view: "reports" },
-    { title: "โอกาสทำเงิน", detail: "ติดตามและจัดการโอกาสการขาย", icon: "spark", tone: "green", view: "opportunities" },
+    { title: "เพิ่มยอดขาย", detail: "ติดตามและจัดการโอกาสการขาย", icon: "spark", tone: "green", view: "opportunities" },
     { title: "เพิ่มลูกค้า", detail: "เพิ่มลูกค้าใหม่และติดต่ออย่างมีประสิทธิภาพ", icon: "users", tone: "violet", view: "customers" },
     { title: "การตลาด", detail: "สร้างแคมเปญและโปรโมทธุรกิจ", icon: "send", tone: "pink", view: "marketing" }
   ];
@@ -4263,7 +4263,7 @@ function renderMobileOpportunities() {
     ["closed", "ปิดการขายแล้ว", model.counts.closed]
   ];
   return `
-    <section class="mobile-opportunities-page" aria-label="โอกาสทำเงิน">
+    <section class="mobile-opportunities-page" aria-label="เพิ่มยอดขาย">
       <div class="mobile-opportunity-summary">
         <div class="purple">
           <span class="mobile-opportunity-summary-icon" aria-hidden="true">${iconSvg("users")}</span>
@@ -4306,7 +4306,7 @@ function renderMobileOpportunities() {
         <button class="mobile-opportunity-sort-button ${app.mobileOpportunitySort === "value" ? "value" : ""}" type="button" data-mobile-opportunity-sort aria-label="เรียงตาม${app.mobileOpportunitySort === "urgency" ? "มูลค่า" : "ความเร่งด่วน"}" title="ตอนนี้เรียงตาม${app.mobileOpportunitySort === "urgency" ? "ความเร่งด่วน" : "มูลค่า"}">${dashboardCardIcon("sort")}</button>
       </form>
 
-      <div class="mobile-opportunity-filter-row" role="tablist" aria-label="ตัวกรองโอกาสทำเงิน">
+      <div class="mobile-opportunity-filter-row" role="tablist" aria-label="ตัวกรองเพิ่มยอดขาย">
         ${filters.map(([id, label, count]) => `
           <button class="${app.mobileOpportunityFilter === id ? "active" : ""}" type="button" role="tab" aria-selected="${app.mobileOpportunityFilter === id}" data-mobile-opportunity-filter="${id}">
             ${label} (${money(count)})
