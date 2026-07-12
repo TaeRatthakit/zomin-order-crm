@@ -72,7 +72,6 @@ const app = {
   lineDebugSummary: {},
   reportMonth: "",
   reportDate: "",
-  reportSalesChannelMonth: "",
   layoutMode: "",
   ordersShowAll: false,
   customersShowAll: false,
@@ -5964,19 +5963,9 @@ function reportSalesChannelCardHtml(selectedMonth) {
       return `${row.color} ${start.toFixed(2)}% ${gradientOffset.toFixed(2)}%`;
     }).join(", ")
     : "#253345 0% 100%";
-  const monthOptions = reportMonthOptions();
-
   return `
         <section class="mobile-report-card channel-report-card sales-channel-report-card" data-sales-channel-card>
-          <div class="mobile-report-card-title-row">
-            <h2>ช่องทางการขาย <small>(${escapeHtml(reportMonthRange(selectedMonth))})</small></h2>
-            <label class="date-picker compact card-picker sales-channel-month-picker" aria-label="เลือกเดือนช่องทางการขาย">
-              <input data-report-sales-channel-month type="month" value="${escapeHtml(selectedMonth)}" list="salesChannelMonthOptions">
-              <datalist id="salesChannelMonthOptions">
-                ${monthOptions.map(month => `<option value="${escapeHtml(month)}"></option>`).join("")}
-              </datalist>
-            </label>
-          </div>
+          <h2>ช่องทางการขาย <small>(${escapeHtml(reportMonthRange(selectedMonth))})</small></h2>
           <div class="mobile-report-channel-layout">
             <div class="mobile-report-donut sales-channel-donut" style="--report-donut:${donutGradient};">
               <div>
@@ -6008,16 +5997,6 @@ function reportSalesChannelCardHtml(selectedMonth) {
           </div>
         </section>
   `;
-}
-
-function refreshSalesChannelReportCard() {
-  const card = els.content?.querySelector?.("[data-sales-channel-card]");
-  if (!card) {
-    renderReports();
-    return;
-  }
-  const selectedMonth = app.reportSalesChannelMonth || app.reportMonth || (app.data.summary?.selectedDate || todayISO()).slice(0, 7);
-  card.outerHTML = reportSalesChannelCardHtml(selectedMonth);
 }
 
 function reportBusinessSummaryHtml(selectedMonth) {
@@ -6122,9 +6101,6 @@ function renderMobileReports(selectedDate, selectedMonth) {
     { label: "ROAS เดือนนี้", value: marketingNumber(monthMarketing.roas), comparison: { ...reportDelta(monthMarketing.roas, previousMonthMarketing.roas), hint: "ยอดขาย ÷ ค่าโฆษณา" }, tone: "amber", icon: "chart" }
   ];
 
-  const salesChannelMonth = app.reportSalesChannelMonth || selectedMonth;
-  if (!app.reportSalesChannelMonth) app.reportSalesChannelMonth = salesChannelMonth;
-
   els.content.innerHTML = `
     <section class="section saas-page mobile-reports-page">
       <div class="mobile-reports-shell">
@@ -6138,7 +6114,7 @@ function renderMobileReports(selectedDate, selectedMonth) {
           ${monthCards.map(mobileReportKpiCard).join("")}
         </div>
 
-        ${reportSalesChannelCardHtml(salesChannelMonth)}
+        ${reportSalesChannelCardHtml(selectedMonth)}
 
         <section class="mobile-report-card">
           <h2>ลูกค้า <small>(${escapeHtml(reportMonthLabel(selectedMonth))})</small></h2>
@@ -9677,11 +9653,6 @@ document.addEventListener("change", async event => {
   if (event.target?.matches?.("[data-report-month]")) {
     app.reportMonth = event.target.value;
     renderReports();
-  }
-
-  if (event.target?.matches?.("[data-report-sales-channel-month]")) {
-    app.reportSalesChannelMonth = event.target.value || app.reportMonth || todayISO().slice(0, 7);
-    refreshSalesChannelReportCard();
   }
 
   if (event.target?.matches?.("[data-marketing-date]")) {

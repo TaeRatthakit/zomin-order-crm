@@ -281,18 +281,6 @@ body.mobile-app-shell:not(.login-view) .line-status-row span {
     margin: 0;
   }
 
-  body.mobile-reports-view .sales-channel-month-picker {
-    flex: 0 0 auto;
-  }
-
-  body.mobile-reports-view .sales-channel-month-picker input {
-    width: 128px;
-    min-height: 34px;
-    padding: 0 8px;
-    border-radius: 10px;
-    font-size: 12px;
-  }
-
   body.mobile-reports-view .mobile-report-channel-layout {
     display: grid;
     grid-template-columns: minmax(116px, 0.85fr) minmax(0, 1.15fr);
@@ -712,6 +700,23 @@ body.mobile-app-shell:not(.login-view) .line-status-row span {
     border-radius: 18px;
     background: rgba(4, 13, 24, 0.42);
     box-shadow: 0 0 22px rgba(130, 42, 255, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  }
+
+  body.mobile-reports-view .mobile-report-business-summary .mobile-report-kpi > strong {
+    display: grid;
+    justify-items: center;
+    gap: 3px;
+    font-size: clamp(13px, 3.4vw, 15px);
+    line-height: 1.08;
+    white-space: normal;
+    text-overflow: clip;
+  }
+
+  body.mobile-reports-view .mobile-report-business-summary .mobile-report-kpi > strong small {
+    display: block;
+    margin-left: 0;
+    font-size: 8px;
+    line-height: 1.1;
   }
 }
 
@@ -15378,14 +15383,6 @@ body.desktop-app-shell:not(.login-view) .line-status-row span {
     margin: 0;
   }
 
-  body.desktop-app-shell:not(.login-view) .sales-channel-month-picker input {
-    width: 142px;
-    min-height: 34px;
-    padding: 0 8px;
-    border-radius: 10px;
-    font-size: 12px;
-  }
-
   body.desktop-app-shell:not(.login-view) .mobile-report-channel-layout {
     display: grid;
     grid-template-columns: minmax(180px, .55fr) minmax(0, 1fr);
@@ -15448,12 +15445,12 @@ body.desktop-app-shell:not(.login-view) .line-status-row span {
   }
 
   body.desktop-app-shell:not(.login-view) .sales-channel-report-card .mobile-report-channel-layout {
-    grid-template-columns: minmax(220px, .82fr) minmax(0, 1fr);
-    gap: 22px;
+    grid-template-columns: minmax(200px, .78fr) minmax(0, 1fr);
+    gap: 24px;
   }
 
   body.desktop-app-shell:not(.login-view) .sales-channel-report-card .mobile-report-donut {
-    width: min(100%, 245px);
+    width: min(100%, 220px);
   }
 
   body.desktop-app-shell:not(.login-view) .sales-channel-report-card .mobile-report-donut::after {
@@ -15475,9 +15472,9 @@ body.desktop-app-shell:not(.login-view) .line-status-row span {
   body.desktop-app-shell:not(.login-view) .sales-channel-report-card .sales-channel-head,
   body.desktop-app-shell:not(.login-view) .sales-channel-report-card .mobile-report-channel-row {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 78px 72px 122px;
+    grid-template-columns: minmax(128px, 1fr) 66px 70px 112px;
     align-items: center;
-    gap: 14px;
+    gap: 12px;
   }
 
   body.desktop-app-shell:not(.login-view) .sales-channel-report-card .sales-channel-head {
@@ -15488,8 +15485,12 @@ body.desktop-app-shell:not(.login-view) .line-status-row span {
     font-weight: 800;
   }
 
+  body.desktop-app-shell:not(.login-view) .sales-channel-report-card .sales-channel-head span:first-child {
+    white-space: nowrap;
+  }
+
   body.desktop-app-shell:not(.login-view) .sales-channel-report-card .mobile-report-channel-legend {
-    max-height: 254px;
+    max-height: 224px;
     overflow-y: auto;
     padding-right: 6px;
   }
@@ -15502,8 +15503,8 @@ body.desktop-app-shell:not(.login-view) .line-status-row span {
   }
 
   body.desktop-app-shell:not(.login-view) .sales-channel-report-card .mobile-report-channel-row {
-    min-height: 47px;
-    padding: 6px 0;
+    min-height: 46px;
+    padding: 5px 0;
     border-bottom: 1px solid rgba(54, 88, 118, .26);
   }
 
@@ -15539,11 +15540,42 @@ body.desktop-app-shell:not(.login-view) .line-status-row span {
     text-overflow: ellipsis;
   }
 
+  body.desktop-app-shell:not(.login-view) .sales-channel-report-card .report-channel-name i {
+    width: 32px;
+    height: 32px;
+    flex-basis: 32px;
+    border-radius: 9px;
+    font-size: 14px;
+    box-shadow: 0 8px 18px color-mix(in srgb, var(--channel-color, #2f87ff) 24%, transparent);
+  }
+
+  body.desktop-app-shell:not(.login-view) .sales-channel-report-card .report-channel-name i .nav-icon,
+  body.desktop-app-shell:not(.login-view) .sales-channel-report-card .report-channel-name i .metric-icon-svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .sales-channel-report-card .source-icon-facebook {
+    background: #1877f2 !important;
+  }
+
+  body.desktop-app-shell:not(.login-view) .sales-channel-report-card .source-icon-phone {
+    background: #ff9f1a !important;
+  }
+
+  body.desktop-app-shell:not(.login-view) .sales-channel-report-card .source-icon-line {
+    background: #06c755 !important;
+  }
+
+  body.desktop-app-shell:not(.login-view) .sales-channel-report-card .source-icon-crm {
+    background: #22d3c5 !important;
+  }
+
   body.desktop-app-shell:not(.login-view) .sales-channel-report-card,
   body.desktop-app-shell:not(.login-view) .sales-channel-report-card + .mobile-report-card,
   body.desktop-app-shell:not(.login-view) .mobile-report-table-card {
-    min-height: 382px;
-    height: 382px;
+    min-height: 320px;
+    height: 320px;
   }
 
   body.desktop-app-shell:not(.login-view) .sales-channel-report-card {
