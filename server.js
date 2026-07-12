@@ -2588,7 +2588,9 @@ async function handleLineWebhookEvents(db, settings, events) {
           date: normalized.date,
           changedFields: changes.map(change => change.key)
         }));
-        replies.push({ replyToken, messages: [{ type: "text", text: formatUpsaleReply(order, changes) }] });
+        const upsaleReplyText = formatUpsaleReply(order, changes);
+        debug.reply_text = upsaleReplyText;
+        replies.push({ replyToken, messages: [{ type: "text", text: upsaleReplyText }] });
       } else {
         const order = addOrder(db, normalized);
         adjustInventoryForOrderChange(db, null, order);
