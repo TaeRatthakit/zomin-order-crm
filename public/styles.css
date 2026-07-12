@@ -15580,8 +15580,53 @@ body.desktop-app-shell:not(.login-view) .line-status-row span {
     height: 320px;
   }
 
-  body.desktop-app-shell:not(.login-view) .sales-channel-report-card {
+  body.desktop-app-shell:not(.login-view) .sales-channel-report-card,
+  body.desktop-app-shell:not(.login-view) .sales-channel-report-card + .mobile-report-card {
     overflow: hidden;
+  }
+
+  body.desktop-app-shell:not(.login-view) .sales-channel-report-card + .mobile-report-card .mobile-report-customer-grid {
+    gap: 8px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .sales-channel-report-card + .mobile-report-card .mobile-report-customer-stat,
+  body.desktop-app-shell:not(.login-view) .sales-channel-report-card + .mobile-report-card .mobile-report-vip-card {
+    gap: 5px;
+    padding: 11px 12px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .sales-channel-report-card + .mobile-report-card .customer-stat-icon {
+    width: 30px;
+    height: 30px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .sales-channel-report-card + .mobile-report-card .mobile-report-customer-stat > span:nth-child(2) {
+    font-size: 13px;
+    line-height: 1.22;
+  }
+
+  body.desktop-app-shell:not(.login-view) .sales-channel-report-card + .mobile-report-card .mobile-report-customer-stat strong,
+  body.desktop-app-shell:not(.login-view) .sales-channel-report-card + .mobile-report-card .mobile-report-vip-grid strong {
+    font-size: 20px;
+    line-height: 1.05;
+  }
+
+  body.desktop-app-shell:not(.login-view) .sales-channel-report-card + .mobile-report-card .mobile-report-customer-stat > small,
+  body.desktop-app-shell:not(.login-view) .sales-channel-report-card + .mobile-report-card .mobile-report-customer-stat .report-trend {
+    font-size: 12px;
+    line-height: 1.1;
+  }
+
+  body.desktop-app-shell:not(.login-view) .sales-channel-report-card + .mobile-report-card .mobile-report-vip-card {
+    margin-top: 8px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .sales-channel-report-card + .mobile-report-card .mobile-report-vip-title {
+    font-size: 13px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .sales-channel-report-card + .mobile-report-card .mobile-report-vip-grid {
+    gap: 4px;
   }
 
   body.desktop-app-shell:not(.login-view) .report-channel-name {
