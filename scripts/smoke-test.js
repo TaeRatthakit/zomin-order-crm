@@ -329,7 +329,7 @@ async function main() {
     "เบอร์โทรสำรอง : 0891234567",
     `ที่อยู่จัดส่ง : 99 Test Road ${suffix}`,
     "",
-    "จำนวนกระปุก : 1",
+    "จำนวน : 1",
     "ยอดซื้อ : 750 บาท",
     "",
     "สถานะบัตร VIP : ยังไม่ได้ส่งบัตร",
@@ -914,7 +914,7 @@ async function main() {
     "ที่อยู่จัดส่ง : 99 ถนนสุขุมวิท",
     "แขวงคลองเตย เขตคลองเตย กรุงเทพฯ 10110",
     "",
-    "จำนวนกระปุก : 3",
+    "จำนวน : 3",
     "ยอดซื้อ : 2,250 บาท",
     "ของแถมที่ลูกค้าได้ : แถม 1 กระปุก",
     "",
@@ -964,6 +964,16 @@ async function main() {
   }
   if (newLineRow.jars !== 3 || newLineRow.amount !== 2250 || newLineRow.freeGift !== "แถม 1 กระปุก") {
     fail("new LINE format did not parse quantity, amount, or free gift");
+  }
+  const oldQuantityLabelPreview = await request("/api/parse-preview", {
+    method: "POST",
+    headers: { cookie, "content-type": "application/json" },
+    body: JSON.stringify({ content: newLineOrderText.replace("จำนวน : 3", "จำนวนกระปุก : 3") })
+  });
+  if (oldQuantityLabelPreview.status !== 200) fail(`old quantity LINE label preview returned ${oldQuantityLabelPreview.status}`);
+  const oldQuantityLabelRow = JSON.parse(oldQuantityLabelPreview.text).rows?.[0];
+  if (oldQuantityLabelRow?.jars !== newLineRow.jars) {
+    fail(`old and new LINE quantity labels produced different values: ${JSON.stringify({ old: oldQuantityLabelRow?.jars, next: newLineRow.jars })}`);
   }
   if (newLineRow.vipCardStatus !== "ส่งบัตรแล้ว" || newLineRow.originSource !== "ลูกค้าบอกต่อ" || newLineRow.note !== "โทรก่อนส่ง") {
     fail("new LINE format did not parse VIP, source, or note");
@@ -1018,6 +1028,9 @@ async function main() {
   const oldLineRow = JSON.parse(oldLinePreview.text).rows?.[0];
   if (!oldLineRow || oldLineRow.orderNumber !== `OLD-${uniqueSuffix}` || oldLineRow.items) {
     fail("legacy LINE format without สินค้า is no longer compatible");
+  }
+  if (oldLineRow.jars !== 2) {
+    fail(`legacy LINE quantity label did not parse จำนวนกระปุก: ${JSON.stringify(oldLineRow)}`);
   }
   if (oldLineRow.socialName) fail("blank LINE field consumed the next Thai label");
 
