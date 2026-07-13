@@ -17537,6 +17537,7 @@ body.modal-scroll-locked {
 
 #customerDialog.grow-modal-large {
   width: min(1184px, calc(100vw - 28px));
+  height: min(1328px, calc(100dvh - 20px));
   margin: 10px auto auto;
   max-height: calc(100dvh - 20px);
 }
@@ -17547,6 +17548,7 @@ body.modal-scroll-locked {
 
 #customerDialog .grow-modal-shell {
   border-radius: 14px;
+  height: 100%;
   max-height: calc(100dvh - 20px);
 }
 
@@ -17566,6 +17568,8 @@ body.modal-scroll-locked {
   position: relative;
   display: grid;
   gap: 12px;
+  min-height: 100%;
+  box-sizing: border-box;
   padding: 20px 24px 14px;
   color: #f8fbff;
   background:
@@ -17648,7 +17652,7 @@ body.modal-scroll-locked {
 }
 
 .customer-ref-main {
-  padding-top: 22px;
+  padding-top: 14px;
   min-width: 0;
 }
 
@@ -17678,7 +17682,7 @@ body.modal-scroll-locked {
 
 .customer-ref-ready {
   width: fit-content;
-  margin-top: 10px;
+  margin-top: 8px;
   padding: 6px 14px;
   border-radius: 7px;
   background: rgba(0, 142, 59, 0.72);
@@ -17688,7 +17692,7 @@ body.modal-scroll-locked {
 }
 
 .customer-ref-phone {
-  margin-top: 15px;
+  margin-top: 11px;
   display: flex;
   align-items: center;
   gap: 14px;
@@ -17716,7 +17720,7 @@ body.modal-scroll-locked {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 28px;
-  margin-top: 22px;
+  margin-top: 17px;
 }
 
 .customer-ref-meta-grid > div {
@@ -17954,7 +17958,7 @@ body.modal-scroll-locked {
 }
 
 .customer-ref-call-grid {
-  min-height: 74px;
+  min-height: 82px;
   display: grid;
   grid-template-columns: 1.2fr 80px 1.2fr 1.2fr 1.2fr;
   align-items: center;
@@ -18047,7 +18051,8 @@ body.modal-scroll-locked {
 }
 
 .customer-ref-follow-form {
-  padding: 18px;
+  min-height: 188px;
+  padding: 22px 18px 14px;
   display: grid;
   gap: 14px;
 }
@@ -18927,8 +18932,13 @@ body.mobile-orders-view #orderDialog.grow-modal .form-grid.grow-modal-body {
   #productDialog.grow-modal,
   #customerDialog.grow-modal {
     width: min(94vw, 440px);
+    height: auto;
     max-width: 94vw;
     margin-bottom: max(8px, env(safe-area-inset-bottom));
+  }
+
+  #customerDialog .grow-modal-shell {
+    height: auto;
   }
 
   .customer-detail-top,
