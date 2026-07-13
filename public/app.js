@@ -87,6 +87,9 @@ const app = {
   mobileOpportunitySearchDraft: "",
   mobileOpportunitySearch: "",
   mobileOpportunitySort: "urgency",
+  mobileOpportunityChatDone: new Set(),
+  mobileOpportunityCrmCompleted: new Set(),
+  pendingOpportunityCrmCustomerId: "",
   orderSavePending: false,
   filters: {
     q: "",
@@ -4157,19 +4160,20 @@ function mobileOpportunityData() {
         socialName,
         days: diffDaysISO(selectedDate, customer.followUpDate),
         value: Number(lastOrder?.amount || 0),
-        crmCompletedToday: (customer.contactLogs || []).some(log => log.date === selectedDate)
+        crmCompletedToday: app.mobileOpportunityCrmCompleted.has(customer.id) || (customer.contactLogs || []).some(log => log.date === selectedDate)
       };
     });
-  const dueRows = rows.filter(row => row.days <= 0);
+  const activeRows = rows.filter(row => !row.crmCompletedToday);
+  const dueRows = activeRows.filter(row => row.days <= 0);
   return {
     selectedDate,
     rows,
     dueRows,
     closedRevenue: ordersToday.reduce((sum, order) => sum + Number(order.amount || 0), 0),
     counts: {
-      today: rows.filter(row => row.days === 0).length,
-      overdue: rows.filter(row => row.days < 0).length,
-      vip: rows.filter(row => row.customer.vipLevel && row.customer.vipLevel !== "NORMAL").length,
+      today: activeRows.filter(row => row.days === 0).length,
+      overdue: activeRows.filter(row => row.days < 0).length,
+      vip: activeRows.filter(row => row.customer.vipLevel && row.customer.vipLevel !== "NORMAL").length,
       closed: rows.filter(row => row.crmCompletedToday).length
     }
   };
@@ -4179,9 +4183,9 @@ function mobileOpportunityRows(model) {
   const query = app.mobileOpportunitySearch.trim().toLocaleLowerCase("th");
   const filtered = model.rows.filter(row => {
     const filterMatches = {
-      today: row.days === 0,
-      overdue: row.days < 0,
-      vip: row.customer.vipLevel && row.customer.vipLevel !== "NORMAL",
+      today: !row.crmCompletedToday && row.days === 0,
+      overdue: !row.crmCompletedToday && row.days < 0,
+      vip: !row.crmCompletedToday && row.customer.vipLevel && row.customer.vipLevel !== "NORMAL",
       closed: row.crmCompletedToday
     }[app.mobileOpportunityFilter];
     if (!filterMatches) return false;
@@ -4216,6 +4220,7 @@ function mobileOpportunityStatus(row) {
 
 function mobileOpportunityCustomerCard(row) {
   const { customer, lastOrder } = row;
+  const chatDone = app.mobileOpportunityChatDone.has(customer.id);
   const lastPurchase = lastOrder
     ? `${lastOrder.items || "สินค้า"} ${money(lastOrder.jars || 0)} กระปุก (${formatShortDate(lastOrder.date)})`
     : "ยังไม่มีข้อมูลการซื้อ";
@@ -4238,8 +4243,12 @@ function mobileOpportunityCustomerCard(row) {
         </div>
       </div>
       <div class="mobile-opportunity-actions">
+        ${customer.phone
+          ? `<a class="call" href="tel:${escapeHtml(customer.phone)}">${iconSvg("phone")} โทร</a>`
+          : `<button class="call" type="button" disabled>${iconSvg("phone")} โทร</button>`}
+        <button class="chat ${chatDone ? "done" : ""}" type="button" data-mobile-opportunity-chat="${escapeHtml(customer.id)}">${iconSvg(chatDone ? "check" : "chat")} ${chatDone ? "แชทหาลูกค้าแล้ว" : "แชทหาลูกค้า"}</button>
         <button class="save" type="button" data-open-customer="${escapeHtml(customer.id)}">${iconSvg("clipboard")} บันทึกผล</button>
-        <button class="reschedule" type="button" data-open-customer="${escapeHtml(customer.id)}">${iconSvg("user-check")} CRMเรียบร้อยแล้ว</button>
+        <button class="reschedule" type="button" data-open-crm-customer="${escapeHtml(customer.id)}">${iconSvg("user-check")} CRMเรียบร้อยแล้ว</button>
       </div>
     </article>
   `;
@@ -9232,8 +9241,29 @@ document.addEventListener("click", async event => {
     renderFollowup();
   }
 
+  const opportunityChatButton = event.target.closest("[data-mobile-opportunity-chat]");
+  if (opportunityChatButton && app.view === "opportunities") {
+    const customerId = opportunityChatButton.dataset.mobileOpportunityChat;
+    if (app.mobileOpportunityChatDone.has(customerId)) {
+      app.mobileOpportunityChatDone.delete(customerId);
+    } else {
+      app.mobileOpportunityChatDone.add(customerId);
+    }
+    renderOpportunities();
+    return;
+  }
+
+  const crmCustomerButton = event.target.closest("[data-open-crm-customer]");
+  if (crmCustomerButton && app.view === "opportunities") {
+    app.pendingOpportunityCrmCustomerId = crmCustomerButton.dataset.openCrmCustomer || "";
+    const customer = app.data.customers.find(item => item.id === app.pendingOpportunityCrmCustomerId);
+    if (customer) renderCustomerDetail(customer);
+    return;
+  }
+
   const customerButton = event.target.closest("[data-open-customer]");
   if (customerButton) {
+    app.pendingOpportunityCrmCustomerId = "";
     const customer = app.data.customers.find(item => item.id === customerButton.dataset.openCustomer);
     if (customer) renderCustomerDetail(customer);
   }
@@ -10146,13 +10176,20 @@ document.addEventListener("submit", async event => {
         return;
       }
       const data = Object.fromEntries(new FormData(form).entries());
-      await api("/api/contact-log", {
+      const result = await api("/api/contact-log", {
         method: "POST",
         body: JSON.stringify(data)
       });
+      if (app.view === "opportunities" && data.customerId === app.pendingOpportunityCrmCustomerId) {
+        app.mobileOpportunityCrmCompleted.add(data.customerId);
+        const customer = app.data.customers.find(item => item.id === data.customerId);
+        if (customer && result.log) customer.contactLogs = [result.log, ...(customer.contactLogs || [])];
+      }
       showToast("บันทึกการติดต่อแล้ว");
       els.customerDialog.close();
+      if (app.view === "opportunities") renderOpportunities();
       await loadState();
+      app.pendingOpportunityCrmCustomerId = "";
     }
 
     if (currentFormId === "customerEditForm") {

@@ -12710,7 +12710,7 @@ body.desktop-app-shell:not(.login-view) .line-status-row span {
 
   body.mobile-opportunities-view .mobile-opportunity-actions {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 7px;
     padding: 0 9px 9px;
   }
@@ -12736,6 +12736,11 @@ body.desktop-app-shell:not(.login-view) .line-status-row span {
   body.mobile-opportunities-view .mobile-opportunity-actions .save {
     border-color: rgba(38, 125, 184, 0.48);
     color: #4baaff;
+  }
+
+  body.mobile-opportunities-view .mobile-opportunity-actions .chat {
+    border-color: rgba(139, 49, 207, 0.52);
+    color: #bd4dff;
   }
 
   body.mobile-opportunities-view .mobile-opportunity-actions .reschedule {
