@@ -16034,7 +16034,7 @@ body.desktop-app-shell:not(.login-view) .line-status-row span {
 
   body.desktop-app-shell:not(.login-view) .mobile-opportunity-actions {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 9px;
     padding: 0 16px 14px;
   }
@@ -16056,6 +16056,11 @@ body.desktop-app-shell:not(.login-view) .line-status-row span {
   body.desktop-app-shell:not(.login-view) .mobile-opportunity-actions .save {
     border-color: rgba(38, 125, 184, .48);
     color: #4baaff;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-opportunity-actions .chat {
+    border-color: rgba(139, 49, 207, .52);
+    color: #bd4dff;
   }
 
   body.desktop-app-shell:not(.login-view) .mobile-opportunity-actions .reschedule {
@@ -16568,6 +16573,11 @@ body.desktop-app-shell:not(.login-view) .line-status-row span {
   body.desktop-app-shell:not(.login-view) .mobile-opportunity-actions .save {
     border-color: rgba(38, 125, 184, 0.48);
     color: #4baaff;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-opportunity-actions .chat {
+    border-color: rgba(139, 49, 207, 0.52);
+    color: #bd4dff;
   }
 
   body.desktop-app-shell:not(.login-view) .mobile-opportunity-actions .reschedule {
