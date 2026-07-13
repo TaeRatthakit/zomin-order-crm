@@ -4251,7 +4251,11 @@ function opportunitySelectedDate() {
 }
 
 function opportunityChatCompleted(customer, selectedDate = opportunitySelectedDate()) {
-  return (customer.contactLogs || []).some(log => log.date === selectedDate && log.result === OPPORTUNITY_CHAT_RESULT);
+  return (customer.contactLogs || []).some(log =>
+    log.customerId === customer.id &&
+    log.date === selectedDate &&
+    log.result === OPPORTUNITY_CHAT_RESULT
+  );
 }
 
 function opportunityCrmCompleted(customer, selectedDate = opportunitySelectedDate()) {
@@ -9556,15 +9560,21 @@ document.addEventListener("click", async event => {
           staff: app.currentUser?.name || app.currentUser?.username || ""
         })
       });
-      const savedLog = result.log || {
+      const savedLog = {
+        ...(result.log || {}),
         customerId,
-        date: selectedDate,
-        result: OPPORTUNITY_CHAT_RESULT,
-        note: OPPORTUNITY_CHAT_NOTE,
-        staff: app.currentUser?.name || app.currentUser?.username || ""
+        date: result.log?.date || selectedDate,
+        result: result.log?.result || OPPORTUNITY_CHAT_RESULT,
+        note: result.log?.note || OPPORTUNITY_CHAT_NOTE,
+        staff: result.log?.staff || app.currentUser?.name || app.currentUser?.username || ""
       };
       if (!opportunityChatCompleted(customer, selectedDate)) {
-        customer.contactLogs = [savedLog, ...(customer.contactLogs || [])];
+        customer.contactLogs = [
+          savedLog,
+          ...(customer.contactLogs || []).filter(log =>
+            !(log.customerId === customerId && log.date === selectedDate && log.result === OPPORTUNITY_CHAT_RESULT)
+          )
+        ];
       }
       customer.lastContactDate = savedLog.date;
       customer.lastContactNote = savedLog.note || customer.lastContactNote || "";
