@@ -90,6 +90,9 @@ const app = {
   mobileOpportunitySearch: "",
   mobileOpportunitySort: "urgency",
   pendingOpportunityCrmCustomerId: "",
+  opportunityChatPendingIds: new Set(),
+  customerCallEndingIds: new Set(),
+  customerContactSavingIds: new Set(),
   orderSavePending: false,
   filters: {
     q: "",
@@ -4266,6 +4269,26 @@ function opportunityCrmCompleted(customer, selectedDate = opportunitySelectedDat
   );
 }
 
+function upsertCustomerContactLog(customer, log) {
+  if (!customer || !log) return;
+  const normalized = {
+    ...log,
+    customerId: log.customerId || log.customer_id || customer.id,
+    date: log.date || log.contact_date || todayISO(),
+    result: log.result || "โทรติด",
+    note: log.note || "",
+    staff: log.staff || log.contacted_by || "",
+    nextFollowUpDate: log.nextFollowUpDate || log.next_follow_up_date || "",
+    createdAt: log.createdAt || log.created_at || new Date().toISOString()
+  };
+  customer.contactLogs = [
+    normalized,
+    ...(customer.contactLogs || []).filter(item => item.id !== normalized.id)
+  ];
+  customer.lastContactDate = normalized.date;
+  customer.lastContactNote = normalized.note || customer.lastContactNote || "";
+}
+
 function mobileOpportunityData() {
   const selectedDate = opportunitySelectedDate();
   const ordersToday = app.data.orders.filter(order => order.date === selectedDate);
@@ -4344,6 +4367,7 @@ function mobileOpportunityStatus(row) {
 function mobileOpportunityCustomerCard(row) {
   const { customer, lastOrder } = row;
   const chatDone = opportunityChatCompleted(customer);
+  const chatPending = app.opportunityChatPendingIds.has(customer.id);
   const lastPurchase = lastOrder
     ? `${lastOrder.items || "สินค้า"} ${money(lastOrder.jars || 0)} กระปุก (${formatShortDate(lastOrder.date)})`
     : "ยังไม่มีข้อมูลการซื้อ";
@@ -4369,7 +4393,7 @@ function mobileOpportunityCustomerCard(row) {
         ${customer.phone
           ? `<a class="call" href="tel:${escapeHtml(customer.phone)}">${iconSvg("phone")} โทร</a>`
           : `<button class="call" type="button" disabled>${iconSvg("phone")} โทร</button>`}
-        <button class="chat ${chatDone ? "done" : ""}" type="button" data-mobile-opportunity-chat="${escapeHtml(customer.id)}">${iconSvg(chatDone ? "check" : "chat")} ${chatDone ? "แชทหาลูกค้าแล้ว" : "แชทหาลูกค้า"}</button>
+        <button class="chat ${chatDone ? "done" : ""}" type="button" data-mobile-opportunity-chat="${escapeHtml(customer.id)}" ${chatPending ? "disabled" : ""}>${iconSvg(chatDone ? "check" : "chat")} ${chatPending ? "กำลังบันทึก..." : chatDone ? "แชทหาลูกค้าแล้ว" : "แชทหาลูกค้า"}</button>
         <button class="save" type="button" data-open-customer="${escapeHtml(customer.id)}">${iconSvg("clipboard")} บันทึกผล</button>
       </div>
     </article>
@@ -7838,56 +7862,72 @@ async function saveCustomerContact(container, crmCompletedSubmit = false) {
     return;
   }
   const data = formLikeData(container);
-  const customer = app.data.customers.find(item => item.id === data.customerId);
-  const nextTags = splitTags(data.tags ?? customer?.tags ?? []);
-  const currentTags = customerSymptomTags(customer || {});
-  const tagsChanged = JSON.stringify(nextTags) !== JSON.stringify(currentTags);
-  const conversationNote = String(data.conversationNote || "").trim();
-  const extraNote = String(data.extraNote || "").trim();
-  data.note = [conversationNote, extraNote].filter(Boolean).join("\n");
-  delete data.conversationNote;
-  delete data.extraNote;
-  delete data.tags;
-  if (customer && tagsChanged) {
-    const customerResult = await api(`/api/customers/${encodeURIComponent(customer.id)}`, {
-      method: "PUT",
-      body: JSON.stringify({ tags: nextTags.join(", ") })
-    });
-    if (customerResult.customer) {
-      Object.assign(customer, customerResult.customer);
-      for (const order of customer.orders || []) order.tags = customerResult.customer.tags || [];
-      for (const order of app.data.orders || []) {
-        if (order.customerId === customer.id) order.tags = customerResult.customer.tags || [];
-      }
-      app.data.tags = Array.from(new Set([...(app.data.tags || []), ...(customerResult.customer.tags || [])])).sort((a, b) => a.localeCompare(b, "th"));
-    }
-  }
-  const isOpportunityCrmSave = app.view === "opportunities" && data.customerId === app.pendingOpportunityCrmCustomerId;
-  if (isOpportunityCrmSave) data.date = app.data.summary?.selectedDate || todayISO();
-  if (crmCompletedSubmit && app.view === "opportunities") {
-    data.date = app.data.summary?.selectedDate || todayISO();
-    data.result = "CRMเรียบร้อยแล้ว";
-  }
-  const result = await api("/api/contact-log", {
-    method: "POST",
-    body: JSON.stringify(data)
+  const pendingKey = `${data.customerId || ""}:${crmCompletedSubmit ? "crm" : "save"}`;
+  if (app.customerContactSavingIds.has(pendingKey)) return;
+  app.customerContactSavingIds.add(pendingKey);
+  const submitButtons = [...container.querySelectorAll("[data-submit-contact]")];
+  submitButtons.forEach(button => {
+    button.disabled = true;
+    button.dataset.originalText = button.dataset.originalText || button.textContent;
   });
-  if (isOpportunityCrmSave) {
-    const currentCustomer = app.data.customers.find(item => item.id === data.customerId);
-    if (currentCustomer && result.log) {
-      currentCustomer.contactLogs = [result.log, ...(currentCustomer.contactLogs || [])];
-      currentCustomer.lastContactDate = result.log.date;
-      currentCustomer.lastContactNote = result.log.note || "";
+  if (crmCompletedSubmit) {
+    const crmButton = container.querySelector('[data-submit-contact="crm"]');
+    if (crmButton) crmButton.textContent = "กำลังบันทึก...";
+  }
+  const customer = app.data.customers.find(item => item.id === data.customerId);
+  try {
+    const nextTags = splitTags(data.tags ?? customer?.tags ?? []);
+    const currentTags = customerSymptomTags(customer || {});
+    const tagsChanged = JSON.stringify(nextTags) !== JSON.stringify(currentTags);
+    const conversationNote = String(data.conversationNote || "").trim();
+    const extraNote = String(data.extraNote || "").trim();
+    data.note = [conversationNote, extraNote].filter(Boolean).join("\n");
+    delete data.conversationNote;
+    delete data.extraNote;
+    delete data.tags;
+    if (customer && tagsChanged) {
+      const customerResult = await api(`/api/customers/${encodeURIComponent(customer.id)}`, {
+        method: "PUT",
+        body: JSON.stringify({ tags: nextTags.join(", ") })
+      });
+      if (customerResult.customer) {
+        Object.assign(customer, customerResult.customer);
+        for (const order of customer.orders || []) order.tags = customerResult.customer.tags || [];
+        for (const order of app.data.orders || []) {
+          if (order.customerId === customer.id) order.tags = customerResult.customer.tags || [];
+        }
+        app.data.tags = Array.from(new Set([...(app.data.tags || []), ...(customerResult.customer.tags || [])])).sort((a, b) => a.localeCompare(b, "th"));
+      }
     }
+    const isOpportunityCrmSave = app.view === "opportunities" && data.customerId === app.pendingOpportunityCrmCustomerId;
+    if (isOpportunityCrmSave) data.date = app.data.summary?.selectedDate || todayISO();
+    if (crmCompletedSubmit && app.view === "opportunities") {
+      data.date = app.data.summary?.selectedDate || todayISO();
+      data.result = "CRMเรียบร้อยแล้ว";
+    }
+    const result = await api("/api/contact-log", {
+      method: "POST",
+      body: JSON.stringify(data)
+    });
+    if (customer && result.log) upsertCustomerContactLog(customer, result.log);
+    showToast("บันทึกการติดต่อแล้ว");
+    els.customerDialog.close();
+    if (app.view === "opportunities") {
+      if (crmCompletedSubmit) app.mobileOpportunityFilter = "closed";
+      renderOpportunities();
+    } else {
+      await loadState();
+    }
+    app.pendingOpportunityCrmCustomerId = "";
+  } catch (error) {
+    showToast(error.message || "บันทึกไม่สำเร็จ", "error");
+  } finally {
+    app.customerContactSavingIds.delete(pendingKey);
+    submitButtons.forEach(button => {
+      button.disabled = false;
+      if (button.dataset.originalText) button.textContent = button.dataset.originalText;
+    });
   }
-  showToast("บันทึกการติดต่อแล้ว");
-  els.customerDialog.close();
-  if (app.view === "opportunities") {
-    if (crmCompletedSubmit) app.mobileOpportunityFilter = "closed";
-    renderOpportunities();
-  }
-  await loadState();
-  app.pendingOpportunityCrmCustomerId = "";
 }
 
 function renderCustomerDetail(customer) {
@@ -9535,31 +9575,43 @@ document.addEventListener("click", async event => {
     const activeCall = app.activeCustomerCall;
     const customer = app.data.customers.find(item => item.id === endCallButton.dataset.endCustomerCall);
     if (!activeCall || !customer || activeCall.customerId !== customer.id) return;
+    if (app.customerCallEndingIds.has(customer.id)) return;
+    app.customerCallEndingIds.add(customer.id);
+    endCallButton.disabled = true;
+    endCallButton.dataset.originalText = endCallButton.dataset.originalText || endCallButton.textContent;
+    endCallButton.textContent = "กำลังบันทึก...";
     const end = new Date();
     const endParts = bangkokDateTimeParts(end);
     const durationSeconds = Math.max(0, Math.floor((end.getTime() - activeCall.startedAtMs) / 1000));
-    await api("/api/contact-log", {
-      method: "POST",
-      body: JSON.stringify({
-        customerId: customer.id,
-        date: endParts.date,
-        result: "โทรติด",
-        note: callLogNote({
-          startIso: activeCall.startIso,
-          endIso: end.toISOString(),
-          durationSeconds,
-          note: `นัดติดตาม ${formatShortDate(customer.followUpDate)}`
-        }),
-        staff: app.currentUser?.name || "",
-        nextFollowUpDate: customer.followUpDate || ""
-      })
-    });
-    app.activeCustomerCall = null;
-    stopCustomerCallTimer();
-    showToast("บันทึกเวลาโทรแล้ว");
-    await loadState();
-    const refreshedCustomer = app.data.customers.find(item => item.id === customer.id);
-    if (refreshedCustomer) renderCustomerDetail(refreshedCustomer);
+    try {
+      const result = await api("/api/contact-log", {
+        method: "POST",
+        body: JSON.stringify({
+          customerId: customer.id,
+          date: endParts.date,
+          result: "โทรติด",
+          note: callLogNote({
+            startIso: activeCall.startIso,
+            endIso: end.toISOString(),
+            durationSeconds,
+            note: `นัดติดตาม ${formatShortDate(customer.followUpDate)}`
+          }),
+          staff: app.currentUser?.name || "",
+          nextFollowUpDate: customer.followUpDate || ""
+        })
+      });
+      upsertCustomerContactLog(customer, result.log);
+      app.activeCustomerCall = null;
+      stopCustomerCallTimer();
+      showToast("บันทึกเวลาโทรแล้ว");
+      renderCustomerDetail(customer);
+    } catch (error) {
+      endCallButton.disabled = false;
+      if (endCallButton.dataset.originalText) endCallButton.textContent = endCallButton.dataset.originalText;
+      showToast(error.message || "บันทึกไม่สำเร็จ", "error");
+    } finally {
+      app.customerCallEndingIds.delete(customer.id);
+    }
     return;
   }
 
@@ -9576,6 +9628,23 @@ document.addEventListener("click", async event => {
     const selectedDate = opportunitySelectedDate();
     const customer = app.data.customers.find(item => item.id === customerId);
     if (!customer || opportunityChatCompleted(customer, selectedDate)) return;
+    if (app.opportunityChatPendingIds.has(customerId)) return;
+    app.opportunityChatPendingIds.add(customerId);
+    const previousLogs = [...(customer.contactLogs || [])];
+    const previousLastContactDate = customer.lastContactDate || "";
+    const previousLastContactNote = customer.lastContactNote || "";
+    const optimisticLog = {
+      id: `optimistic_chat_${customerId}_${Date.now()}`,
+      customerId,
+      date: selectedDate,
+      result: OPPORTUNITY_CHAT_RESULT,
+      note: OPPORTUNITY_CHAT_NOTE,
+      staff: app.currentUser?.name || app.currentUser?.username || "",
+      createdAt: new Date().toISOString(),
+      optimistic: true
+    };
+    upsertCustomerContactLog(customer, optimisticLog);
+    renderOpportunities();
     try {
       const result = await api("/api/contact-log", {
         method: "POST",
@@ -9595,19 +9664,18 @@ document.addEventListener("click", async event => {
         note: result.log?.note || OPPORTUNITY_CHAT_NOTE,
         staff: result.log?.staff || app.currentUser?.name || app.currentUser?.username || ""
       };
-      if (!opportunityChatCompleted(customer, selectedDate)) {
-        customer.contactLogs = [
-          savedLog,
-          ...(customer.contactLogs || []).filter(log =>
-            !(log.customerId === customerId && log.date === selectedDate && log.result === OPPORTUNITY_CHAT_RESULT)
-          )
-        ];
-      }
-      customer.lastContactDate = savedLog.date;
-      customer.lastContactNote = savedLog.note || customer.lastContactNote || "";
+      customer.contactLogs = (customer.contactLogs || []).filter(log => log.id !== optimisticLog.id);
+      upsertCustomerContactLog(customer, savedLog);
       renderOpportunities();
     } catch (error) {
+      customer.contactLogs = previousLogs;
+      customer.lastContactDate = previousLastContactDate;
+      customer.lastContactNote = previousLastContactNote;
+      renderOpportunities();
       showToast(error.message || "บันทึกไม่สำเร็จ", "error");
+    } finally {
+      app.opportunityChatPendingIds.delete(customerId);
+      renderOpportunities();
     }
     return;
   }
