@@ -7864,6 +7864,10 @@ async function saveCustomerContact(container, crmCompletedSubmit = false) {
   }
   const isOpportunityCrmSave = app.view === "opportunities" && data.customerId === app.pendingOpportunityCrmCustomerId;
   if (isOpportunityCrmSave) data.date = app.data.summary?.selectedDate || todayISO();
+  if (crmCompletedSubmit && app.view === "opportunities") {
+    data.date = app.data.summary?.selectedDate || todayISO();
+    data.result = "CRMเรียบร้อยแล้ว";
+  }
   const result = await api("/api/contact-log", {
     method: "POST",
     body: JSON.stringify(data)
