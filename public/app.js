@@ -89,7 +89,6 @@ const app = {
   mobileOpportunitySearchDraft: "",
   mobileOpportunitySearch: "",
   mobileOpportunitySort: "urgency",
-  mobileOpportunityChatDone: new Set(),
   pendingOpportunityCrmCustomerId: "",
   orderSavePending: false,
   filters: {
@@ -4243,8 +4242,19 @@ function renderSearch() {
   `;
 }
 
+const OPPORTUNITY_CHAT_RESULT = "แชทหาลูกค้าแล้ว";
+const OPPORTUNITY_CHAT_NOTE = "Opportunity chat completed";
+
+function opportunitySelectedDate() {
+  return app.data?.summary?.selectedDate || els.workDate?.value || todayISO();
+}
+
+function opportunityChatCompleted(customer, selectedDate = opportunitySelectedDate()) {
+  return (customer.contactLogs || []).some(log => log.date === selectedDate && log.result === OPPORTUNITY_CHAT_RESULT);
+}
+
 function mobileOpportunityData() {
-  const selectedDate = app.data.summary?.selectedDate || todayISO();
+  const selectedDate = opportunitySelectedDate();
   const ordersToday = app.data.orders.filter(order => order.date === selectedDate);
   const rows = app.data.customers
     .filter(customer => customer.followUpDate)
@@ -4320,7 +4330,7 @@ function mobileOpportunityStatus(row) {
 
 function mobileOpportunityCustomerCard(row) {
   const { customer, lastOrder } = row;
-  const chatDone = app.mobileOpportunityChatDone.has(customer.id);
+  const chatDone = opportunityChatCompleted(customer);
   const lastPurchase = lastOrder
     ? `${lastOrder.items || "สินค้า"} ${money(lastOrder.jars || 0)} กระปุก (${formatShortDate(lastOrder.date)})`
     : "ยังไม่มีข้อมูลการซื้อ";
@@ -9439,12 +9449,29 @@ document.addEventListener("click", async event => {
   const opportunityChatButton = event.target.closest("[data-mobile-opportunity-chat]");
   if (opportunityChatButton && app.view === "opportunities") {
     const customerId = opportunityChatButton.dataset.mobileOpportunityChat;
-    if (app.mobileOpportunityChatDone.has(customerId)) {
-      app.mobileOpportunityChatDone.delete(customerId);
-    } else {
-      app.mobileOpportunityChatDone.add(customerId);
+    const selectedDate = opportunitySelectedDate();
+    const customer = app.data.customers.find(item => item.id === customerId);
+    if (!customer || opportunityChatCompleted(customer, selectedDate)) return;
+    try {
+      const result = await api("/api/contact-log", {
+        method: "POST",
+        body: JSON.stringify({
+          customerId,
+          date: selectedDate,
+          result: OPPORTUNITY_CHAT_RESULT,
+          note: OPPORTUNITY_CHAT_NOTE,
+          staff: app.currentUser?.name || app.currentUser?.username || ""
+        })
+      });
+      if (result.log) {
+        customer.contactLogs = [result.log, ...(customer.contactLogs || [])];
+        customer.lastContactDate = result.log.date;
+        customer.lastContactNote = result.log.note || customer.lastContactNote || "";
+      }
+      renderOpportunities();
+    } catch (error) {
+      showToast(error.message || "บันทึกไม่สำเร็จ", "error");
     }
-    renderOpportunities();
     return;
   }
 
