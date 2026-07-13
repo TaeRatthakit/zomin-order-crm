@@ -88,7 +88,6 @@ const app = {
   mobileOpportunitySearch: "",
   mobileOpportunitySort: "urgency",
   mobileOpportunityChatDone: new Set(),
-  mobileOpportunityCrmCompleted: new Set(),
   pendingOpportunityCrmCustomerId: "",
   orderSavePending: false,
   filters: {
@@ -4160,7 +4159,7 @@ function mobileOpportunityData() {
         socialName,
         days: diffDaysISO(selectedDate, customer.followUpDate),
         value: Number(lastOrder?.amount || 0),
-        crmCompletedToday: app.mobileOpportunityCrmCompleted.has(customer.id) || (customer.contactLogs || []).some(log => log.date === selectedDate)
+        crmCompletedToday: (customer.contactLogs || []).some(log => log.date === selectedDate)
       };
     });
   const activeRows = rows.filter(row => !row.crmCompletedToday);
@@ -7688,6 +7687,9 @@ function renderLineDebug() {
 
 function renderCustomerDetail(customer) {
   els.dialogCustomerName.textContent = customer.name;
+  const opportunityCrmDate = app.view === "opportunities" && app.pendingOpportunityCrmCustomerId === customer.id
+    ? (app.data.summary?.selectedDate || todayISO())
+    : "";
   els.customerDetail.innerHTML = `
     <div class="customer-detail-hero">
       <div class="avatar large">${escapeHtml(initials(customer.name))}</div>
@@ -7736,7 +7738,7 @@ function renderCustomerDetail(customer) {
           <div class="contact-form-section">
             <h3>บันทึกการติดต่อ</h3>
             <div class="contact-primary-grid">
-              <label>วันที่ติดต่อ<input name="date" type="date" value="${dateInputValue(customer.lastContactDate)}"></label>
+              <label>วันที่ติดต่อ<input name="date" type="date" value="${opportunityCrmDate || dateInputValue(customer.lastContactDate)}"></label>
               <label>ผลลัพธ์
                 <select name="result">
                   ${["โทรติด", "ไม่รับ", "สนใจ", "ยังไม่หมด", "สั่งซื้อแล้ว", "โทรใหม่"].map(result => `<option>${result}</option>`).join("")}
@@ -10176,14 +10178,19 @@ document.addEventListener("submit", async event => {
         return;
       }
       const data = Object.fromEntries(new FormData(form).entries());
+      const isOpportunityCrmSave = app.view === "opportunities" && data.customerId === app.pendingOpportunityCrmCustomerId;
+      if (isOpportunityCrmSave) data.date = app.data.summary?.selectedDate || todayISO();
       const result = await api("/api/contact-log", {
         method: "POST",
         body: JSON.stringify(data)
       });
-      if (app.view === "opportunities" && data.customerId === app.pendingOpportunityCrmCustomerId) {
-        app.mobileOpportunityCrmCompleted.add(data.customerId);
+      if (isOpportunityCrmSave) {
         const customer = app.data.customers.find(item => item.id === data.customerId);
-        if (customer && result.log) customer.contactLogs = [result.log, ...(customer.contactLogs || [])];
+        if (customer && result.log) {
+          customer.contactLogs = [result.log, ...(customer.contactLogs || [])];
+          customer.lastContactDate = result.log.date;
+          customer.lastContactNote = result.log.note || "";
+        }
       }
       showToast("บันทึกการติดต่อแล้ว");
       els.customerDialog.close();
