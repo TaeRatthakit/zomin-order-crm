@@ -7907,6 +7907,7 @@ function renderCustomerDetail(customer) {
         </div>
         <div class="customer-ref-divider"></div>
         <div class="customer-ref-social">
+          <div class="customer-ref-customer-name"><span>ชื่อลูกค้า</span><strong>${escapeHtml(customer.name)}</strong></div>
           <div class="customer-ref-info-line address">${iconSvg("pin")}<span>ที่อยู่</span><strong>${escapeHtml(customer.address || "-")}</strong></div>
           <div class="customer-ref-social-name">
             <span>ชื่อ</span>
