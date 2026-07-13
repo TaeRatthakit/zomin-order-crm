@@ -698,6 +698,12 @@ function contactResultLabel(result = "") {
   return text;
 }
 
+function localizedContactNote(note = "") {
+  return String(note || "")
+    .replace(/\bFollow up\b/gi, "นัดติดตาม")
+    .replace(/\bPhone Connected\b/g, "โทรติด");
+}
+
 function dateInputValue(dateValue) {
   return dateValue || todayISO();
 }
@@ -7788,9 +7794,9 @@ function renderCustomerDetail(customer) {
   const activeCall = app.activeCustomerCall?.customerId === customer.id ? app.activeCustomerCall : null;
   const latestCall = (customer.contactLogs || []).find(log => callNoteMeta(log.note));
   const latestCallMeta = latestCall ? callNoteMeta(latestCall.note) : null;
-  const latestCallNote = latestCallMeta?.displayNote || latestCall?.note || "";
+  const latestCallNote = localizedContactNote(latestCallMeta?.displayNote || latestCall?.note || "");
   const lastContactNoteMeta = callNoteMeta(customer.lastContactNote || "");
-  const cleanLastContactNote = lastContactNoteMeta?.displayNote || customer.lastContactNote || latestCallNote || "";
+  const cleanLastContactNote = localizedContactNote(lastContactNoteMeta?.displayNote || customer.lastContactNote || latestCallNote || "");
   const recentSocialName = customer.facebookName || customer.lineName || customer.socialName
     || customer.orders?.slice().reverse().find(order => order.socialName)?.socialName
     || "";
@@ -7870,7 +7876,7 @@ function renderCustomerDetail(customer) {
         <h3>${iconSvg("clipboard")}บันทึกการติดตาม</h3>
         <div class="customer-ref-follow-grid">
           <label>ผลลัพธ์<select name="result"><option value="">เลือกผลลัพธ์</option>${["โทรติด", "ไม่รับ", "สนใจ", "ยังไม่หมด", "สั่งซื้อแล้ว", "โทรใหม่"].map(result => `<option>${result}</option>`).join("")}</select></label>
-          <label>นัดครั้งต่อไป<input name="nextFollowUpDate" type="date" value="${escapeHtml(customer.followUpDate || "")}"></label>
+          <label>นัดครั้งต่อไป<input type="text" value="${formatDatePill(customer.followUpDate)}"><input name="nextFollowUpDate" type="hidden" value="${escapeHtml(customer.followUpDate || "")}"></label>
           <label>เวลา<input name="time" type="text" value="10:00"></label>
           <label>หมายเหตุ<input name="note" value="${escapeHtml(cleanLastContactNote)}" placeholder="บันทึกหมายเหตุ..."></label>
           <input name="date" type="hidden" value="${opportunityCrmDate || dateInputValue(customer.lastContactDate)}">
@@ -7893,7 +7899,7 @@ function renderCustomerDetail(customer) {
                   <div>
                     <strong>${escapeHtml(contactResultLabel(log.result))}</strong>
                     ${meta ? `<b>${formatCallDuration(meta.durationSeconds)}</b>` : ""}
-                    <p>${escapeHtml(meta?.displayNote || log.note || "-")}</p>
+                    <p>${escapeHtml(localizedContactNote(meta?.displayNote || log.note || "-"))}</p>
                     ${log.nextFollowUpDate ? `<p>นัดติดตาม ${formatShortDate(log.nextFollowUpDate)}</p>` : ""}
                   </div>
                   <time>${formatShortDate(log.date)}<br>โดย ${escapeHtml(log.staff || "-")}</time>
