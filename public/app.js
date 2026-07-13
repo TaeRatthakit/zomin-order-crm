@@ -9583,6 +9583,29 @@ document.addEventListener("click", async event => {
     const end = new Date();
     const endParts = bangkokDateTimeParts(end);
     const durationSeconds = Math.max(0, Math.floor((end.getTime() - activeCall.startedAtMs) / 1000));
+    const previousLogs = [...(customer.contactLogs || [])];
+    const previousLastContactDate = customer.lastContactDate || "";
+    const previousLastContactNote = customer.lastContactNote || "";
+    const optimisticCallLog = {
+      id: `optimistic_call_${customer.id}_${Date.now()}`,
+      customerId: customer.id,
+      date: endParts.date,
+      result: "โทรติด",
+      note: callLogNote({
+        startIso: activeCall.startIso,
+        endIso: end.toISOString(),
+        durationSeconds,
+        note: `นัดติดตาม ${formatShortDate(customer.followUpDate)}`
+      }),
+      staff: app.currentUser?.name || "",
+      nextFollowUpDate: customer.followUpDate || "",
+      createdAt: new Date().toISOString(),
+      optimistic: true
+    };
+    upsertCustomerContactLog(customer, optimisticCallLog);
+    app.activeCustomerCall = null;
+    stopCustomerCallTimer();
+    renderCustomerDetail(customer);
     try {
       const result = await api("/api/contact-log", {
         method: "POST",
@@ -9600,14 +9623,19 @@ document.addEventListener("click", async event => {
           nextFollowUpDate: customer.followUpDate || ""
         })
       });
+      customer.contactLogs = (customer.contactLogs || []).filter(log => log.id !== optimisticCallLog.id);
       upsertCustomerContactLog(customer, result.log);
-      app.activeCustomerCall = null;
-      stopCustomerCallTimer();
       showToast("บันทึกเวลาโทรแล้ว");
       renderCustomerDetail(customer);
     } catch (error) {
+      customer.contactLogs = previousLogs;
+      customer.lastContactDate = previousLastContactDate;
+      customer.lastContactNote = previousLastContactNote;
+      app.activeCustomerCall = activeCall;
       endCallButton.disabled = false;
       if (endCallButton.dataset.originalText) endCallButton.textContent = endCallButton.dataset.originalText;
+      renderCustomerDetail(customer);
+      startCustomerCallTimer();
       showToast(error.message || "บันทึกไม่สำเร็จ", "error");
     } finally {
       app.customerCallEndingIds.delete(customer.id);
