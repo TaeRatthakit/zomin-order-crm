@@ -7812,6 +7812,23 @@ function formLikeData(container) {
   }, {});
 }
 
+function customerSymptomTags(customer = {}) {
+  const customerTags = splitTags(customer.tags || []);
+  if (customerTags.length) return customerTags;
+  const orderTags = (customer.orders || []).find(order => splitTags(order.tags || []).length)?.tags || [];
+  return splitTags(orderTags);
+}
+
+function premiumRevenueIcon() {
+  return `
+    <svg class="customer-ref-revenue-bag" viewBox="0 0 64 64" aria-hidden="true">
+      <path d="M15 23h34l-3 32H18L15 23Z" fill="currentColor"/>
+      <path d="M23 23c0-8 4-13 9-13s9 5 9 13" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"/>
+      <path d="M20 27h24l-2 24H18.8L20 27Z" fill="rgba(255,255,255,0.18)"/>
+    </svg>
+  `;
+}
+
 async function saveCustomerContact(container, crmCompletedSubmit = false) {
   if (!can("customers.edit")) {
     showToast("ไม่มีสิทธิ์บันทึกการติดต่อลูกค้า", "error");
@@ -7820,7 +7837,7 @@ async function saveCustomerContact(container, crmCompletedSubmit = false) {
   const data = formLikeData(container);
   const customer = app.data.customers.find(item => item.id === data.customerId);
   const nextTags = splitTags(data.tags ?? customer?.tags ?? []);
-  const currentTags = splitTags(customer?.tags || []);
+  const currentTags = customerSymptomTags(customer || {});
   const tagsChanged = JSON.stringify(nextTags) !== JSON.stringify(currentTags);
   const conversationNote = String(data.conversationNote || "").trim();
   const extraNote = String(data.extraNote || "").trim();
@@ -7835,6 +7852,10 @@ async function saveCustomerContact(container, crmCompletedSubmit = false) {
     });
     if (customerResult.customer) {
       Object.assign(customer, customerResult.customer);
+      for (const order of customer.orders || []) order.tags = customerResult.customer.tags || [];
+      for (const order of app.data.orders || []) {
+        if (order.customerId === customer.id) order.tags = customerResult.customer.tags || [];
+      }
       app.data.tags = Array.from(new Set([...(app.data.tags || []), ...(customerResult.customer.tags || [])])).sort((a, b) => a.localeCompare(b, "th"));
     }
   }
@@ -7879,15 +7900,12 @@ function renderCustomerDetail(customer) {
   const facebookName = customer.facebookName || recentSocialName || "-";
   const lineName = customer.lineName || recentSocialName || "-";
   const socialDisplayName = facebookName !== "-" ? facebookName : lineName;
-  const symptomValue = (customer.tags || []).join("\n");
+  const symptomValue = customerSymptomTags(customer).join("\n");
   const callElapsed = activeCall ? Math.floor((Date.now() - activeCall.startedAtMs) / 1000) : 0;
   const followupBadge = compactFollowupLabel(customer);
   const latestOrders = customer.orders.slice().reverse().slice(0, 3);
   const contactLogs = customer.contactLogs || [];
   const totalRevenue = money(customer.totalSpent);
-  const crmSubmitButton = app.view === "opportunities" && app.pendingOpportunityCrmCustomerId === customer.id
-    ? `<button class="customer-ref-crm-save" type="button" data-submit-contact="crm">${iconSvg("check")}CRM เรียบร้อยแล้ว</button>`
-    : "";
   els.customerDetail.innerHTML = `
     <section class="customer-ref-detail">
       <div class="customer-ref-header">
@@ -7962,7 +7980,7 @@ function renderCustomerDetail(customer) {
         <h3>${iconSvg("clipboard")}บันทึกการติดตาม</h3>
         <div class="customer-ref-follow-grid">
           <div class="customer-ref-follow-left">
-            <label>อาการลูกค้า (ดึงมาจากการเพิ่มออเดอร์)
+            <label>อาการลูกค้า
               <textarea name="tags" rows="3" placeholder="ระบุอาการลูกค้า...">${escapeHtml(symptomValue)}</textarea>
             </label>
             <small>แก้ไขแล้วจะอัปเดตให้หน้าเพิ่มออเดอร์โดยอัตโนมัติ</small>
@@ -7981,7 +7999,7 @@ function renderCustomerDetail(customer) {
         </div>
         <div class="customer-ref-follow-actions">
           <button class="customer-ref-follow-save" type="button" data-submit-contact="save">บันทึกการติดตาม</button>
-          ${crmSubmitButton}
+          <button class="customer-ref-crm-save" type="button" data-submit-contact="crm">${iconSvg("check")}CRM เรียบร้อยแล้ว</button>
         </div>
       </div>
 
@@ -8025,7 +8043,7 @@ function renderCustomerDetail(customer) {
       </div>
 
       <div class="customer-ref-kpis">
-        <article class="gold"><span class="customer-ref-kpi-icon">${iconSvg("bag")}</span><div><span>ยอดซื้อรวม</span><strong>${totalRevenue} บาท</strong></div></article>
+        <article class="gold"><span class="customer-ref-kpi-icon">${premiumRevenueIcon()}</span><div><span>ยอดซื้อรวม</span><strong>${totalRevenue} บาท</strong></div></article>
         <article><span class="customer-ref-kpi-icon">${iconSvg("bag")}</span><div><span>จำนวนออเดอร์</span><strong>${customer.purchaseCount} ครั้ง</strong></div></article>
         <article><span class="customer-ref-kpi-icon">${iconSvg("calendar")}</span><div><span>ซื้อครั้งล่าสุด</span><strong>${formatShortDate(customer.lastPurchaseDate)}</strong></div></article>
         <article><span class="customer-ref-kpi-icon">${iconSvg("spark")}</span><div><span>นัดครั้งต่อไป</span><strong>${formatShortDate(customer.followUpDate)}</strong>${followupBadge ? `<em>${escapeHtml(followupBadge)}</em>` : ""}</div></article>
