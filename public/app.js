@@ -70,6 +70,8 @@ const app = {
   data: null,
   lineDebugRows: [],
   lineDebugSummary: {},
+  activeCustomerCall: null,
+  activeCustomerCallTimer: null,
   reportMonth: "",
   reportDate: "",
   layoutMode: "",
@@ -352,6 +354,9 @@ function iconSvg(name) {
     users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
     "user-check": '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="m16 11 2 2 4-5"/>',
     clipboard: '<rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M8 11h8"/><path d="M8 16h6"/>',
+    bag: '<path d="M6 8h12l-1 13H7L6 8Z"/><path d="M9 8a3 3 0 0 1 6 0"/>',
+    pin: '<path d="M12 21s7-4.5 7-11a7 7 0 1 0-14 0c0 6.5 7 11 7 11Z"/><circle cx="12" cy="10" r="2.5"/>',
+    calendar: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4"/><path d="M8 3v4"/><path d="M3 11h18"/><path d="M8 15h.01"/><path d="M12 15h.01"/><path d="M16 15h.01"/>',
     bell: '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>',
     spark: '<path d="M12 3 9.5 9.5 3 12l6.5 2.5L12 21l2.5-6.5L21 12l-6.5-2.5z"/>',
     box: '<path d="M21 8.5 12 13 3 8.5"/><path d="M3 8.5 12 3l9 5.5v7L12 21l-9-5.5z"/><path d="M12 13v8"/>',
@@ -601,6 +606,80 @@ function formatDateTime(dateValue) {
     second: "2-digit",
     hourCycle: "h23"
   }).format(date);
+}
+
+function bangkokDateTimeParts(dateValue = new Date()) {
+  const date = dateValue instanceof Date ? dateValue : new Date(dateValue);
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Bangkok",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23"
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
+  return {
+    date: `${values.year}-${values.month}-${values.day}`,
+    time: `${values.hour}:${values.minute}:${values.second}`
+  };
+}
+
+function formatCallDuration(totalSeconds) {
+  const seconds = Math.max(0, Math.floor(Number(totalSeconds || 0)));
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const remain = seconds % 60;
+  if (hours) return `${hours} ชม. ${minutes} นาที ${remain} วินาที`;
+  if (minutes) return `${minutes} นาที ${remain} วินาที`;
+  return `${remain} วินาที`;
+}
+
+function formatCallTimer(totalSeconds) {
+  const seconds = Math.max(0, Math.floor(Number(totalSeconds || 0)));
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const remain = seconds % 60;
+  return hours
+    ? `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(remain).padStart(2, "0")}`
+    : `${String(minutes).padStart(2, "0")}:${String(remain).padStart(2, "0")}`;
+}
+
+function callNoteMeta(note = "") {
+  const text = String(note || "");
+  const match = text.match(/\[call:start=([^;\]]+);end=([^;\]]+);duration=(\d+)s\]/);
+  if (!match) return null;
+  return {
+    start: match[1],
+    end: match[2],
+    durationSeconds: Number(match[3] || 0),
+    displayNote: text.replace(match[0], "").trim()
+  };
+}
+
+function callLogNote({ startIso, endIso, durationSeconds, note }) {
+  return `[call:start=${startIso};end=${endIso};duration=${Math.max(0, Math.floor(durationSeconds))}s] ${String(note || "").trim()}`.trim();
+}
+
+function stopCustomerCallTimer() {
+  if (app.activeCustomerCallTimer) {
+    window.clearInterval(app.activeCustomerCallTimer);
+    app.activeCustomerCallTimer = null;
+  }
+}
+
+function refreshCustomerCallTimer() {
+  const timer = document.querySelector("[data-call-live-timer]");
+  if (!timer || !app.activeCustomerCall) return;
+  timer.textContent = formatCallTimer((Date.now() - app.activeCustomerCall.startedAtMs) / 1000);
+}
+
+function startCustomerCallTimer() {
+  stopCustomerCallTimer();
+  refreshCustomerCallTimer();
+  app.activeCustomerCallTimer = window.setInterval(refreshCustomerCallTimer, 1000);
 }
 
 function dateInputValue(dateValue) {
@@ -7690,39 +7769,73 @@ function renderCustomerDetail(customer) {
   const opportunityCrmDate = app.view === "opportunities" && app.pendingOpportunityCrmCustomerId === customer.id
     ? (app.data.summary?.selectedDate || todayISO())
     : "";
+  const activeCall = app.activeCustomerCall?.customerId === customer.id ? app.activeCustomerCall : null;
+  const latestCall = (customer.contactLogs || []).find(log => callNoteMeta(log.note));
+  const latestCallMeta = latestCall ? callNoteMeta(latestCall.note) : null;
+  const recentSocialName = customer.facebookName || customer.lineName || customer.socialName
+    || customer.orders?.slice().reverse().find(order => order.socialName)?.socialName
+    || "";
+  const facebookName = customer.facebookName || recentSocialName || "-";
+  const lineName = customer.lineName || recentSocialName || "-";
+  const callElapsed = activeCall ? Math.floor((Date.now() - activeCall.startedAtMs) / 1000) : 0;
   els.customerDetail.innerHTML = `
-    <div class="customer-detail-hero">
-      <div class="avatar large">${escapeHtml(initials(customer.name))}</div>
-      <div>
-        <h2>${escapeHtml(customer.name)}</h2>
-        <div class="inline">${vipBadge(customer.vipLevel)} ${badge(customer.status)}</div>
-        <p>${escapeHtml(customer.phone)}</p>
+    <section class="customer-detail-redesign">
+      <div class="customer-detail-top">
+        <div class="customer-profile-block">
+          <div class="customer-illustration-avatar" aria-hidden="true">${escapeHtml(initials(customer.name))}</div>
+          <div class="customer-profile-copy">
+            <div class="customer-title-row">
+              <h2>${escapeHtml(customer.name)}</h2>
+              ${vipBadge(customer.vipLevel)}
+            </div>
+            <div class="inline">${badge(customer.status)}</div>
+            <p class="customer-phone-line">${iconSvg("phone")} <strong>${escapeHtml(customer.phone)}</strong></p>
+            <div class="customer-date-row">
+              <span>${iconSvg("calendar")} ติดต่อล่าสุด<br><b>${formatShortDate(customer.lastContactDate)}</b></span>
+              <span>${iconSvg("calendar")} นัดครั้งต่อไป<br><b>${formatShortDate(customer.followUpDate)}</b></span>
+            </div>
+          </div>
+        </div>
+        <div class="customer-social-fields">
+          <div class="customer-address-row"><span>${iconSvg("pin")}</span><p><b>ที่อยู่</b>${escapeHtml(customer.address || "-")}</p></div>
+          <div class="customer-social-row"><span class="social-pill facebook">f</span><p><b>Facebook Customer Name</b>${escapeHtml(facebookName)}</p></div>
+          <div class="customer-social-row"><span class="social-pill line">LINE</span><p><b>LINE Customer Name</b>${escapeHtml(lineName)}</p></div>
+        </div>
       </div>
-    </div>
-    <div class="detail-actions">
-      <a class="button primary" href="tel:${escapeHtml(customer.phone)}">โทร</a>
-      <button class="button ghost" type="button" data-copy="${escapeHtml(customer.phone)}">คัดลอกเบอร์</button>
-      <button class="button secondary" type="button" data-copy="${escapeHtml(makeMessage(customer))}">คัดลอกข้อความทัก</button>
+
+      <div class="customer-call-actions">
+        ${activeCall ? `
+          <div class="customer-calling-strip">
+            <span class="call-dot"></span>
+            <div><strong>Calling...</strong><small>สายนี้กำลังจับเวลา</small></div>
+            <b data-call-live-timer>${formatCallTimer(callElapsed)}</b>
+          </div>
+          <button class="button danger customer-end-call" type="button" data-end-customer-call="${escapeHtml(customer.id)}">${iconSvg("phone")} End Call</button>
+        ` : `
+          <button class="button primary" type="button" data-start-customer-call="${escapeHtml(customer.id)}">${iconSvg("phone")} Start Call</button>
+        `}
+        <button class="button ghost" type="button" data-copy="${escapeHtml(customer.phone)}">${iconSvg("copy")} Copy Number</button>
       ${customer.purchaseCount === 0 ? `
         <button class="button danger" type="button" data-delete-customer="${escapeHtml(customer.id)}">ลบลูกค้า</button>
       ` : ""}
-    </div>
-    <div class="detail-grid grow-modal-section-grid">
-      <div class="panel stack detail-card grow-modal-section">
-        <div class="mini-stats">
-          <div class="mini-stat"><span>ซื้อทั้งหมด</span><strong>${customer.purchaseCount} ครั้ง</strong></div>
-          <div class="mini-stat"><span>รวม</span><strong>${customer.totalJars} กระปุก</strong></div>
-          <div class="mini-stat mini-stat-primary"><span>ยอดสะสม</span><strong>${money(customer.totalSpent)} บาท</strong></div>
-          <div class="mini-stat"><span>Customer Score</span><strong>${money(customer.customerScore)}</strong></div>
+      </div>
+
+      <div class="customer-call-summary grow-modal-section">
+        <div class="customer-section-head">
+          <h3>${iconSvg("phone")} รายละเอียดการโทรครั้งล่าสุด</h3>
+          ${latestCallMeta ? `<button class="button ghost compact-action" type="button">Edit Time (Special Case)</button>` : ""}
         </div>
-        <div class="mini-stats">
-          <div class="mini-stat"><span>ซื้อครั้งแรก</span><strong>${formatShortDate(customer.firstPurchaseDate)}</strong></div>
-          <div class="mini-stat"><span>ซื้อล่าสุด</span><strong>${formatShortDate(customer.lastPurchaseDate)}</strong></div>
-          <div class="mini-stat"><span>ควรทักอีก</span><strong>${formatShortDate(customer.followUpDate)}</strong></div>
-          <div class="mini-stat"><span>กระปุกล่าสุด</span><strong>${customer.lastJars}</strong></div>
+        <div class="customer-call-summary-grid">
+          <div><span>Start Time</span><strong>${latestCallMeta ? formatDateTime(latestCallMeta.start) : "-"}</strong></div>
+          <div><span>End Time</span><strong>${latestCallMeta ? formatDateTime(latestCallMeta.end) : "-"}</strong></div>
+          <div><span>Total Call Duration</span><strong>${latestCallMeta ? formatCallDuration(latestCallMeta.durationSeconds) : "-"}</strong></div>
+          <div><span>Recorded By</span><strong>${escapeHtml(latestCall?.staff || "-")}</strong></div>
         </div>
-        <div class="info-card"><span>เบอร์</span><strong>${escapeHtml(customer.phone)}</strong></div>
-        <div class="info-card"><span>ที่อยู่จัดส่ง</span><strong>${escapeHtml(customer.address || "-")}</strong></div>
+      </div>
+
+      <div class="customer-lower-grid">
+        <div class="panel stack detail-card grow-modal-section">
+          <div class="customer-section-head"><h3>บันทึกการติดตาม</h3></div>
         <form class="stack grow-modal-section nested-form" id="customerEditForm">
           <input type="hidden" name="customerId" value="${customer.id}">
           <label>อาการลูกค้า
@@ -7760,37 +7873,48 @@ function renderCustomerDetail(customer) {
           </div>
           <button class="button primary" type="submit">บันทึกการติดต่อ</button>
         </form>
-      </div>
-      <div class="panel stack detail-card grow-modal-section">
-        <h3>ประวัติออเดอร์</h3>
-        <div class="timeline">
-          ${customer.orders.slice().reverse().map(order => `
-            <div class="timeline-item">
-              <strong>${formatShortDate(order.date)} · ${escapeHtml(order.items || "-")} · ${order.jars} กระปุก · ${money(order.amount)} บาท</strong>
-              <span class="muted">ช่องทางการสั่งซื้อ ${escapeHtml(displayOrderChannel(order))}</span>
-              <span class="muted">เบอร์สำรอง ${escapeHtml(order.alternatePhone || "-")} · ช่องทางการขาย ${escapeHtml(order.originSource || "-")}</span>
-              <span class="muted">Facebook / LINE ลูกค้า ${escapeHtml(order.socialName || "-")} · ของแถม ${escapeHtml(order.freeGift || "-")}</span>
-              <span class="muted">บัตร VIP ${escapeHtml(order.vipCardStatus || "-")}</span>
-              <span class="muted">อาการลูกค้า ${escapeHtml((order.tags || []).join(", ") || "-")} · หมายเหตุ ${escapeHtml(order.note || "-")}</span>
-              ${order.vipCardReminder ? `<span class="muted">${escapeHtml(order.vipCardReminder)}</span>` : ""}
-              ${order.vipDiscountFlag ? `<span class="muted">${escapeHtml(order.vipDiscountFlag)}</span>` : ""}
-            </div>
-          `).join("")}
         </div>
-        <h3>ประวัติการติดต่อ</h3>
-        <div class="timeline">
-          ${(customer.contactLogs || []).map(log => `
-            <div class="timeline-item">
-              <strong>${formatShortDate(log.date)} · ${escapeHtml(log.result || "-")}</strong>
-              <span class="muted">${escapeHtml(log.note || "-")}</span>
-              <span class="muted">ผู้ติดต่อ ${escapeHtml(log.staff || "-")}${log.nextFollowUpDate ? ` · นัด ${formatShortDate(log.nextFollowUpDate)}` : ""}</span>
-            </div>
-          `).join("") || `<div class="empty-state">ยังไม่มีประวัติการติดต่อ</div>`}
+        <div class="panel stack detail-card grow-modal-section">
+          <div class="customer-section-head"><h3>ประวัติออเดอร์</h3></div>
+          <div class="customer-order-list">
+            ${customer.orders.slice().reverse().slice(0, 5).map(order => `
+              <div class="customer-order-row">
+                <div><strong>${formatShortDate(order.date)}</strong><span>${escapeHtml(order.items || "-")} · ${order.jars} กระปุก</span></div>
+                <div><b>${money(order.amount)} บาท</b><small>${escapeHtml(order.id || "")}</small></div>
+              </div>
+            `).join("") || `<div class="empty-state">ยังไม่มีประวัติออเดอร์</div>`}
+          </div>
         </div>
       </div>
-    </div>
+
+      <div class="customer-history-grid">
+        <div class="panel stack detail-card grow-modal-section">
+          <div class="customer-section-head"><h3>ประวัติการติดต่อ</h3></div>
+          <div class="timeline customer-contact-timeline">
+            ${(customer.contactLogs || []).map(log => {
+              const meta = callNoteMeta(log.note);
+              return `
+                <div class="timeline-item">
+                  <strong>${escapeHtml(log.result || "-")}</strong>
+                  ${meta ? `<b class="call-duration-line">${formatCallDuration(meta.durationSeconds)}</b>` : ""}
+                  <span class="muted">${escapeHtml(meta?.displayNote || log.note || "-")}</span>
+                  <span class="muted">${formatShortDate(log.date)} · โดย ${escapeHtml(log.staff || "-")}${log.nextFollowUpDate ? ` · Follow up ${formatShortDate(log.nextFollowUpDate)}` : ""}</span>
+                </div>
+              `;
+            }).join("") || `<div class="empty-state">ยังไม่มีประวัติการติดต่อ</div>`}
+          </div>
+        </div>
+        <div class="customer-kpi-grid">
+          <article class="customer-kpi-card premium-gold">${iconSvg("bag")}<span>Total Revenue</span><strong>${money(customer.totalSpent)} บาท</strong></article>
+          <article class="customer-kpi-card">${iconSvg("clipboard")}<span>Total Orders</span><strong>${customer.purchaseCount} ครั้ง</strong></article>
+          <article class="customer-kpi-card">${iconSvg("calendar")}<span>Last Purchase</span><strong>${formatShortDate(customer.lastPurchaseDate)}</strong></article>
+          <article class="customer-kpi-card">${iconSvg("spark")}<span>Next Follow-up</span><strong>${formatShortDate(customer.followUpDate)}</strong></article>
+        </div>
+      </div>
+    </section>
   `;
   els.customerDialog.showModal();
+  if (activeCall) startCustomerCallTimer();
 }
 
 function openProductDialog(product = null) {
@@ -9243,6 +9367,56 @@ document.addEventListener("click", async event => {
     renderFollowup();
   }
 
+  const startCallButton = event.target.closest("[data-start-customer-call]");
+  if (startCallButton) {
+    const customer = app.data.customers.find(item => item.id === startCallButton.dataset.startCustomerCall);
+    if (!customer) return;
+    const now = new Date();
+    app.activeCustomerCall = {
+      customerId: customer.id,
+      startedAtMs: now.getTime(),
+      startIso: now.toISOString()
+    };
+    renderCustomerDetail(customer);
+    startCustomerCallTimer();
+    window.location.href = `tel:${customer.phone}`;
+    return;
+  }
+
+  const endCallButton = event.target.closest("[data-end-customer-call]");
+  if (endCallButton) {
+    if (!can("customers.edit")) return showToast("ไม่มีสิทธิ์บันทึกการติดต่อลูกค้า", "error");
+    const activeCall = app.activeCustomerCall;
+    const customer = app.data.customers.find(item => item.id === endCallButton.dataset.endCustomerCall);
+    if (!activeCall || !customer || activeCall.customerId !== customer.id) return;
+    const end = new Date();
+    const endParts = bangkokDateTimeParts(end);
+    const durationSeconds = Math.max(0, Math.floor((end.getTime() - activeCall.startedAtMs) / 1000));
+    await api("/api/contact-log", {
+      method: "POST",
+      body: JSON.stringify({
+        customerId: customer.id,
+        date: endParts.date,
+        result: "Phone Connected",
+        note: callLogNote({
+          startIso: activeCall.startIso,
+          endIso: end.toISOString(),
+          durationSeconds,
+          note: `Follow up ${formatShortDate(customer.followUpDate)}`
+        }),
+        staff: app.currentUser?.name || "",
+        nextFollowUpDate: customer.followUpDate || ""
+      })
+    });
+    app.activeCustomerCall = null;
+    stopCustomerCallTimer();
+    showToast("บันทึกเวลาโทรแล้ว");
+    await loadState();
+    const refreshedCustomer = app.data.customers.find(item => item.id === customer.id);
+    if (refreshedCustomer) renderCustomerDetail(refreshedCustomer);
+    return;
+  }
+
   const opportunityChatButton = event.target.closest("[data-mobile-opportunity-chat]");
   if (opportunityChatButton && app.view === "opportunities") {
     const customerId = opportunityChatButton.dataset.mobileOpportunityChat;
@@ -9494,6 +9668,10 @@ document.addEventListener("click", async event => {
   }
   if (event.target.closest("[data-close-product-detail]")) els.productDetailDialog.close();
 
+});
+
+els.customerDialog?.addEventListener("close", () => {
+  if (!app.activeCustomerCall) stopCustomerCallTimer();
 });
 
 els.confirmDialog?.addEventListener("cancel", event => {

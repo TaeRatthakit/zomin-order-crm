@@ -17536,7 +17536,279 @@ body.modal-scroll-locked {
 }
 
 #customerDialog.grow-modal-large {
-  width: min(860px, calc(100vw - 32px));
+  width: min(1120px, calc(100vw - 32px));
+}
+
+.customer-detail-redesign {
+  display: grid;
+  gap: 14px;
+}
+
+.customer-detail-top,
+.customer-lower-grid,
+.customer-history-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
+  gap: 16px;
+}
+
+.customer-profile-block,
+.customer-social-fields,
+.customer-call-actions,
+.customer-call-summary,
+.customer-kpi-card,
+.customer-order-row {
+  border: 1px solid var(--grow-modal-border-soft);
+  background: linear-gradient(135deg, rgba(11, 18, 38, 0.92), rgba(6, 11, 24, 0.78));
+}
+
+.customer-profile-block {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr);
+  gap: 20px;
+  align-items: center;
+  padding: 18px;
+  border-radius: 22px;
+}
+
+.customer-illustration-avatar {
+  width: 142px;
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  border: 2px solid rgba(168, 85, 247, 0.82);
+  background: radial-gradient(circle at 50% 34%, rgba(255, 233, 214, 0.98) 0 21%, transparent 22%),
+    radial-gradient(circle at 50% 82%, rgba(139, 92, 246, 0.88) 0 36%, transparent 37%),
+    linear-gradient(135deg, rgba(30, 41, 59, 0.98), rgba(15, 23, 42, 0.92));
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 34px;
+  font-weight: 900;
+  box-shadow: 0 0 24px rgba(168, 85, 247, 0.28);
+}
+
+.customer-profile-copy,
+.customer-social-fields,
+.customer-call-summary,
+.customer-kpi-card {
+  display: grid;
+  gap: 10px;
+}
+
+.customer-title-row,
+.customer-section-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.customer-section-head {
+  justify-content: space-between;
+}
+
+.customer-title-row {
+  flex-wrap: wrap;
+}
+
+.customer-title-row h2,
+.customer-section-head h3 {
+  margin: 0;
+  color: var(--grow-modal-text);
+}
+
+.customer-section-head h3 {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.customer-phone-line,
+.customer-date-row,
+.customer-address-row,
+.customer-social-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin: 0;
+  color: var(--grow-modal-muted);
+}
+
+.customer-date-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.customer-date-row span,
+.customer-address-row,
+.customer-social-row {
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.customer-date-row b,
+.customer-social-row b,
+.customer-address-row b {
+  display: block;
+  color: var(--grow-modal-text);
+  font-weight: 800;
+}
+
+.customer-social-fields,
+.customer-call-summary {
+  padding: 16px;
+  border-radius: 22px;
+}
+
+.social-pill {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  color: #fff;
+  font-weight: 900;
+  font-size: 12px;
+  flex: 0 0 auto;
+}
+
+.social-pill.facebook {
+  background: #1455c8;
+  font-size: 20px;
+}
+
+.social-pill.line {
+  background: #06c755;
+}
+
+.customer-call-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 0.65fr);
+  gap: 14px;
+  padding: 12px;
+  border-radius: 16px;
+}
+
+.customer-calling-strip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(0, 128, 64, 0.42), rgba(6, 78, 59, 0.18));
+  color: #d1fae5;
+}
+
+.customer-calling-strip small {
+  display: block;
+  color: rgba(209, 250, 229, 0.72);
+}
+
+.customer-calling-strip b {
+  margin-left: auto;
+  color: #22c55e;
+  font-size: 20px;
+}
+
+.call-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: #22c55e;
+  box-shadow: 0 0 18px rgba(34, 197, 94, 0.8);
+}
+
+.customer-end-call {
+  background: linear-gradient(135deg, #b91c1c, #ef4444) !important;
+  color: #fff !important;
+}
+
+.customer-call-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.customer-call-summary-grid div {
+  padding: 12px;
+  border-radius: 14px;
+  background: rgba(2, 6, 23, 0.42);
+}
+
+.customer-call-summary-grid span,
+.customer-kpi-card span,
+.customer-order-row span,
+.customer-order-row small {
+  color: var(--grow-modal-muted);
+}
+
+.customer-call-summary-grid strong,
+.customer-kpi-card strong {
+  display: block;
+  margin-top: 5px;
+  color: var(--grow-modal-text);
+}
+
+.customer-order-list {
+  display: grid;
+  gap: 10px;
+}
+
+.customer-order-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px;
+  border-radius: 14px;
+}
+
+.customer-order-row span,
+.customer-order-row small,
+.call-duration-line {
+  display: block;
+}
+
+.customer-contact-timeline .timeline-item {
+  border-left-color: rgba(168, 85, 247, 0.6);
+}
+
+.call-duration-line {
+  color: #22c55e;
+}
+
+.customer-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.customer-kpi-card {
+  min-height: 112px;
+  padding: 16px;
+  border-radius: 16px;
+}
+
+.customer-kpi-card .nav-icon {
+  width: 34px;
+  height: 34px;
+  color: #c084fc;
+  filter: drop-shadow(0 0 10px rgba(168, 85, 247, 0.42));
+}
+
+.customer-kpi-card strong {
+  font-size: 22px;
+}
+
+.customer-kpi-card.premium-gold {
+  border-color: rgba(245, 158, 11, 0.78);
+  background: radial-gradient(circle at 18% 24%, rgba(253, 224, 71, 0.25), transparent 32%),
+    linear-gradient(135deg, rgba(92, 56, 8, 0.82), rgba(11, 18, 38, 0.92));
+  box-shadow: 0 0 24px rgba(245, 158, 11, 0.24);
+}
+
+.customer-kpi-card.premium-gold .nav-icon,
+.customer-kpi-card.premium-gold strong {
+  color: #fbbf24;
 }
 
 .grow-modal::backdrop {
@@ -18162,6 +18434,25 @@ body.mobile-orders-view #orderDialog.grow-modal .form-grid.grow-modal-body {
     width: min(94vw, 440px);
     max-width: 94vw;
     margin-bottom: max(8px, env(safe-area-inset-bottom));
+  }
+
+  .customer-detail-top,
+  .customer-lower-grid,
+  .customer-history-grid,
+  .customer-call-summary-grid,
+  .customer-call-actions,
+  .customer-kpi-grid,
+  .customer-date-row {
+    grid-template-columns: 1fr;
+  }
+
+  .customer-profile-block {
+    grid-template-columns: 92px minmax(0, 1fr);
+  }
+
+  .customer-illustration-avatar {
+    width: 92px;
+    font-size: 24px;
   }
 
   .grow-modal .grow-modal-shell,
