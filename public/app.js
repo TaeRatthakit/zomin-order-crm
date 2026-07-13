@@ -9463,11 +9463,18 @@ document.addEventListener("click", async event => {
           staff: app.currentUser?.name || app.currentUser?.username || ""
         })
       });
-      if (result.log) {
-        customer.contactLogs = [result.log, ...(customer.contactLogs || [])];
-        customer.lastContactDate = result.log.date;
-        customer.lastContactNote = result.log.note || customer.lastContactNote || "";
+      const savedLog = result.log || {
+        customerId,
+        date: selectedDate,
+        result: OPPORTUNITY_CHAT_RESULT,
+        note: OPPORTUNITY_CHAT_NOTE,
+        staff: app.currentUser?.name || app.currentUser?.username || ""
+      };
+      if (!opportunityChatCompleted(customer, selectedDate)) {
+        customer.contactLogs = [savedLog, ...(customer.contactLogs || [])];
       }
+      customer.lastContactDate = savedLog.date;
+      customer.lastContactNote = savedLog.note || customer.lastContactNote || "";
       renderOpportunities();
     } catch (error) {
       showToast(error.message || "บันทึกไม่สำเร็จ", "error");
