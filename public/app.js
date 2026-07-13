@@ -8792,6 +8792,8 @@ function openOrderDialog(order = null) {
   els.orderSubmitButton.textContent = order ? "บันทึกการแก้ไข" : "บันทึกออเดอร์";
   refreshCustomerSourceSelect();
   if (order) {
+    const orderCustomer = app.data.customers.find(customer => customer.id === order.customerId);
+    const orderCustomerTags = customerSymptomTags(orderCustomer || {});
     const fields = {
       items: order.items,
       orderNumber: order.orderNumber,
@@ -8806,7 +8808,7 @@ function openOrderDialog(order = null) {
       amount: order.amount,
       freeGift: order.freeGift,
       vipCardStatus: order.vipCardStatus,
-      tags: (order.tags || []).join(", "),
+      tags: (orderCustomerTags.length ? orderCustomerTags : splitTags(order.tags || [])).join(", "),
       note: order.note
     };
     Object.entries(fields).forEach(([name, value]) => {
