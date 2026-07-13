@@ -4242,18 +4242,26 @@ async function handleApi(req, res) {
     const body = await readBody(req);
     const customer = db.customers.find(item => item.id === body.customerId);
     if (!customer) return json(res, 404, { ok: false, error: "ไม่พบลูกค้า" });
-    customer.lastContactDate = toDateOnly(body.date || new Date());
-    customer.lastContactNote = String(body.note || "").trim();
+    const logDate = toDateOnly(body.date || new Date());
+    const logResult = String(body.result || "โทรติด").trim();
+    const logNote = String(body.note || "").trim();
+    db.contactLogs = db.contactLogs || [];
+    if (logResult === "แชทหาลูกค้าแล้ว") {
+      const existing = db.contactLogs.find(log => log.customerId === customer.id && log.date === logDate && log.result === logResult);
+      if (existing) return json(res, 200, { ok: true, customer, log: existing, duplicate: true });
+    }
+    customer.lastContactDate = logDate;
+    customer.lastContactNote = logNote;
     const log = {
       id: uid("log"),
       customerId: customer.id,
-      date: toDateOnly(body.date || new Date()),
-      result: String(body.result || "โทรติด").trim(),
-      note: String(body.note || "").trim(),
+      date: logDate,
+      result: logResult,
+      note: logNote,
       staff: String(body.staff || body.staffName || "").trim(),
-      nextFollowUpDate: toDateOnly(body.nextFollowUpDate || "")
+      nextFollowUpDate: toDateOnly(body.nextFollowUpDate || ""),
+      createdAt: new Date().toISOString()
     };
-    db.contactLogs = db.contactLogs || [];
     db.contactLogs.push(log);
     await writeDb(db);
     return json(res, 200, { ok: true, customer, log });
