@@ -12603,7 +12603,7 @@ body.desktop-app-shell:not(.login-view) .line-status-row span {
   body.mobile-opportunities-view .mobile-opportunity-customer-main {
     min-width: 0;
     display: grid;
-    grid-template-columns: 44px minmax(0, 1.55fr) minmax(66px, .7fr) minmax(72px, .8fr) 17px;
+    grid-template-columns: 44px minmax(0, 1.55fr) minmax(66px, .7fr) minmax(72px, .8fr);
     align-items: center;
     gap: 7px;
     padding: 12px 9px 10px;
@@ -12710,7 +12710,7 @@ body.desktop-app-shell:not(.login-view) .line-status-row span {
 
   body.mobile-opportunities-view .mobile-opportunity-actions {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 7px;
     padding: 0 9px 9px;
   }
