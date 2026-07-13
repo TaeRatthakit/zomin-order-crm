@@ -700,7 +700,8 @@ function contactResultLabel(result = "") {
 function localizedContactNote(note = "") {
   return String(note || "")
     .replace(/\bFollow up\b/gi, "นัดติดตาม")
-    .replace(/\bPhone Connected\b/g, "โทรติด");
+    .replace(/\bPhone Connected\b/g, "โทรติด")
+    .replace(/\bOpportunity chat completed\b/gi, "แชทหาลูกค้าแล้ว");
 }
 
 function dateInputValue(dateValue) {
