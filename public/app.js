@@ -4259,7 +4259,11 @@ function opportunityChatCompleted(customer, selectedDate = opportunitySelectedDa
 }
 
 function opportunityCrmCompleted(customer, selectedDate = opportunitySelectedDate()) {
-  return (customer.contactLogs || []).some(log => log.date === selectedDate && log.result !== OPPORTUNITY_CHAT_RESULT);
+  return (customer.contactLogs || []).some(log =>
+    log.customerId === customer.id &&
+    log.date === selectedDate &&
+    log.result === "CRMเรียบร้อยแล้ว"
+  );
 }
 
 function mobileOpportunityData() {
