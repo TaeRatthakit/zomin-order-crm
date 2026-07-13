@@ -4367,7 +4367,6 @@ function mobileOpportunityCustomerCard(row) {
           : `<button class="call" type="button" disabled>${iconSvg("phone")} โทร</button>`}
         <button class="chat ${chatDone ? "done" : ""}" type="button" data-mobile-opportunity-chat="${escapeHtml(customer.id)}">${iconSvg(chatDone ? "check" : "chat")} ${chatDone ? "แชทหาลูกค้าแล้ว" : "แชทหาลูกค้า"}</button>
         <button class="save" type="button" data-open-customer="${escapeHtml(customer.id)}">${iconSvg("clipboard")} บันทึกผล</button>
-        <button class="reschedule" type="button" data-open-crm-customer="${escapeHtml(customer.id)}">${iconSvg("user-check")} CRMเรียบร้อยแล้ว</button>
       </div>
     </article>
   `;
