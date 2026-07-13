@@ -348,6 +348,7 @@ function iconSvg(name) {
   const icons = {
     home: '<path d="m3 10 9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M9 20v-6h6v6"/>',
     users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+    "user-check": '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="m16 11 2 2 4-5"/>',
     clipboard: '<rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M8 11h8"/><path d="M8 16h6"/>',
     bell: '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>',
     spark: '<path d="M12 3 9.5 9.5 3 12l6.5 2.5L12 21l2.5-6.5L21 12l-6.5-2.5z"/>',
@@ -4142,7 +4143,6 @@ function renderSearch() {
 function mobileOpportunityData() {
   const selectedDate = app.data.summary?.selectedDate || todayISO();
   const ordersToday = app.data.orders.filter(order => order.date === selectedDate);
-  const closedCustomerIds = new Set(ordersToday.map(order => order.customerId));
   const rows = app.data.customers
     .filter(customer => customer.followUpDate)
     .map(customer => {
@@ -4157,7 +4157,7 @@ function mobileOpportunityData() {
         socialName,
         days: diffDaysISO(selectedDate, customer.followUpDate),
         value: Number(lastOrder?.amount || 0),
-        closedToday: closedCustomerIds.has(customer.id)
+        crmCompletedToday: (customer.contactLogs || []).some(log => log.date === selectedDate)
       };
     });
   const dueRows = rows.filter(row => row.days <= 0);
@@ -4170,7 +4170,7 @@ function mobileOpportunityData() {
       today: rows.filter(row => row.days === 0).length,
       overdue: rows.filter(row => row.days < 0).length,
       vip: rows.filter(row => row.customer.vipLevel && row.customer.vipLevel !== "NORMAL").length,
-      closed: rows.filter(row => row.closedToday).length
+      closed: rows.filter(row => row.crmCompletedToday).length
     }
   };
 }
@@ -4182,7 +4182,7 @@ function mobileOpportunityRows(model) {
       today: row.days === 0,
       overdue: row.days < 0,
       vip: row.customer.vipLevel && row.customer.vipLevel !== "NORMAL",
-      closed: row.closedToday
+      closed: row.crmCompletedToday
     }[app.mobileOpportunityFilter];
     if (!filterMatches) return false;
     if (!query) return true;
@@ -4236,14 +4236,10 @@ function mobileOpportunityCustomerCard(row) {
           <span>โอกาสปิดยอด</span>
           <strong>฿ ${money(row.value)}</strong>
         </div>
-        <button class="mobile-opportunity-chevron" type="button" data-open-customer="${escapeHtml(customer.id)}" aria-label="ดูรายละเอียด ${escapeHtml(customer.name)}">${dashboardCardIcon("chevron")}</button>
       </div>
       <div class="mobile-opportunity-actions">
-        ${customer.phone
-          ? `<a class="call" href="tel:${escapeHtml(customer.phone)}">${iconSvg("chat")} โทร</a>`
-          : `<button class="call" type="button" disabled>โทร</button>`}
         <button class="save" type="button" data-open-customer="${escapeHtml(customer.id)}">${iconSvg("clipboard")} บันทึกผล</button>
-        <button class="reschedule" type="button" data-open-customer="${escapeHtml(customer.id)}">${dashboardCardIcon("calendar")} เลื่อนติดตาม</button>
+        <button class="reschedule" type="button" data-open-customer="${escapeHtml(customer.id)}">${iconSvg("user-check")} CRMเรียบร้อยแล้ว</button>
       </div>
     </article>
   `;
@@ -4260,7 +4256,7 @@ function renderMobileOpportunities() {
     ["today", "ควรโทรวันนี้", model.counts.today],
     ["overdue", "เลยกำหนดแล้ว", model.counts.overdue],
     ["vip", "ลูกค้า VIP", model.counts.vip],
-    ["closed", "ปิดการขายแล้ว", model.counts.closed]
+    ["closed", "CRMเรียบร้อยแล้ว", model.counts.closed]
   ];
   return `
     <section class="mobile-opportunities-page" aria-label="เพิ่มยอดขาย">
@@ -4289,7 +4285,7 @@ function renderMobileOpportunities() {
               iconSvg("chat"),
               dashboardCardIcon("calendar"),
               iconSvg("stars"),
-              dashboardCardIcon("bag")
+              iconSvg("user-check")
             ][index]}</span>
             <span>${label}</span>
             <strong>${money(count)} <small>ราย</small></strong>
