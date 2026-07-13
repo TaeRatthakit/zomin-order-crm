@@ -7789,6 +7789,8 @@ function renderCustomerDetail(customer) {
   const latestCall = (customer.contactLogs || []).find(log => callNoteMeta(log.note));
   const latestCallMeta = latestCall ? callNoteMeta(latestCall.note) : null;
   const latestCallNote = latestCallMeta?.displayNote || latestCall?.note || "";
+  const lastContactNoteMeta = callNoteMeta(customer.lastContactNote || "");
+  const cleanLastContactNote = lastContactNoteMeta?.displayNote || customer.lastContactNote || latestCallNote || "";
   const recentSocialName = customer.facebookName || customer.lineName || customer.socialName
     || customer.orders?.slice().reverse().find(order => order.socialName)?.socialName
     || "";
@@ -7808,13 +7810,13 @@ function renderCustomerDetail(customer) {
       </div>
 
       <div class="customer-ref-profile">
-        <div class="customer-ref-avatar" aria-hidden="true">${escapeHtml(initials(customer.name))}</div>
+        <div class="customer-ref-avatar" aria-hidden="true"></div>
         <div class="customer-ref-main">
           <div class="customer-ref-name-row">
             <h1>${escapeHtml(customer.name)}</h1>
             ${vipBadge(customer.vipLevel)}
           </div>
-          <div class="customer-ref-ready">${escapeHtml(customer.status || "พร้อมซื้อ")}</div>
+          <div class="customer-ref-ready">พร้อมซื้อ</div>
           <div class="customer-ref-phone">${iconSvg("phone")}<strong>${escapeHtml(customer.phone)}</strong><button type="button" data-copy="${escapeHtml(customer.phone)}">${iconSvg("copy")}</button></div>
           <div class="customer-ref-meta-grid">
             <div>${iconSvg("calendar")}<span>ติดต่อล่าสุด</span><strong>${formatShortDate(customer.lastContactDate)}${latestCall ? ` ${formatDateTime(latestCallMeta?.end || customer.lastContactDate).split(" ").slice(-1)[0]}` : ""}</strong><small>โทรติด โดย ${escapeHtml(latestCall?.staff || app.currentUser?.name || "-")}</small></div>
@@ -7869,8 +7871,8 @@ function renderCustomerDetail(customer) {
         <div class="customer-ref-follow-grid">
           <label>ผลลัพธ์<select name="result"><option value="">เลือกผลลัพธ์</option>${["โทรติด", "ไม่รับ", "สนใจ", "ยังไม่หมด", "สั่งซื้อแล้ว", "โทรใหม่"].map(result => `<option>${result}</option>`).join("")}</select></label>
           <label>นัดครั้งต่อไป<input name="nextFollowUpDate" type="date" value="${escapeHtml(customer.followUpDate || "")}"></label>
-          <label>เวลา<input name="time" type="time" value="10:00"></label>
-          <label>หมายเหตุ<input name="note" value="${escapeHtml(customer.lastContactNote || latestCallNote || "")}" placeholder="บันทึกหมายเหตุ..."></label>
+          <label>เวลา<input name="time" type="text" value="10:00"></label>
+          <label>หมายเหตุ<input name="note" value="${escapeHtml(cleanLastContactNote)}" placeholder="บันทึกหมายเหตุ..."></label>
           <input name="date" type="hidden" value="${opportunityCrmDate || dateInputValue(customer.lastContactDate)}">
           <input name="staff" type="hidden" value="${escapeHtml(app.currentUser?.name || "")}">
         </div>
