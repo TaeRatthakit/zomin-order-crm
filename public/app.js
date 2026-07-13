@@ -7800,6 +7800,63 @@ function renderLineDebug() {
   });
 }
 
+function formLikeData(container) {
+  return [...container.querySelectorAll("input[name], select[name], textarea[name]")].reduce((data, field) => {
+    data[field.name] = field.value;
+    return data;
+  }, {});
+}
+
+async function saveCustomerContact(container, crmCompletedSubmit = false) {
+  if (!can("customers.edit")) {
+    showToast("ไม่มีสิทธิ์บันทึกการติดต่อลูกค้า", "error");
+    return;
+  }
+  const data = formLikeData(container);
+  const customer = app.data.customers.find(item => item.id === data.customerId);
+  const nextTags = splitTags(data.tags ?? customer?.tags ?? []);
+  const currentTags = splitTags(customer?.tags || []);
+  const tagsChanged = JSON.stringify(nextTags) !== JSON.stringify(currentTags);
+  const conversationNote = String(data.conversationNote || "").trim();
+  const extraNote = String(data.extraNote || "").trim();
+  data.note = [conversationNote, extraNote].filter(Boolean).join("\n");
+  delete data.conversationNote;
+  delete data.extraNote;
+  delete data.tags;
+  if (customer && tagsChanged) {
+    const customerResult = await api(`/api/customers/${encodeURIComponent(customer.id)}`, {
+      method: "PUT",
+      body: JSON.stringify({ tags: nextTags.join(", ") })
+    });
+    if (customerResult.customer) {
+      Object.assign(customer, customerResult.customer);
+      app.data.tags = Array.from(new Set([...(app.data.tags || []), ...(customerResult.customer.tags || [])])).sort((a, b) => a.localeCompare(b, "th"));
+    }
+  }
+  const isOpportunityCrmSave = app.view === "opportunities" && data.customerId === app.pendingOpportunityCrmCustomerId;
+  if (isOpportunityCrmSave) data.date = app.data.summary?.selectedDate || todayISO();
+  const result = await api("/api/contact-log", {
+    method: "POST",
+    body: JSON.stringify(data)
+  });
+  if (isOpportunityCrmSave) {
+    const currentCustomer = app.data.customers.find(item => item.id === data.customerId);
+    if (currentCustomer && result.log) {
+      currentCustomer.contactLogs = [result.log, ...(currentCustomer.contactLogs || [])];
+      currentCustomer.lastContactDate = result.log.date;
+      currentCustomer.lastContactNote = result.log.note || "";
+    }
+  }
+  showToast("บันทึกการติดต่อแล้ว");
+  els.customerDialog.close();
+  if (app.view === "opportunities") {
+    if (crmCompletedSubmit) app.mobileOpportunityFilter = "closed";
+    renderOpportunities();
+  }
+  await loadState();
+  app.pendingOpportunityCrmCustomerId = "";
+}
+
 function renderCustomerDetail(customer) {
   els.dialogCustomerName.textContent = customer.name;
   const opportunityCrmDate = app.view === "opportunities" && app.pendingOpportunityCrmCustomerId === customer.id
@@ -7816,11 +7873,16 @@ function renderCustomerDetail(customer) {
     || "";
   const facebookName = customer.facebookName || recentSocialName || "-";
   const lineName = customer.lineName || recentSocialName || "-";
+  const socialDisplayName = facebookName !== "-" ? facebookName : lineName;
+  const symptomValue = (customer.tags || []).join("\n");
   const callElapsed = activeCall ? Math.floor((Date.now() - activeCall.startedAtMs) / 1000) : 0;
   const followupBadge = compactFollowupLabel(customer);
   const latestOrders = customer.orders.slice().reverse().slice(0, 3);
   const contactLogs = customer.contactLogs || [];
   const totalRevenue = money(customer.totalSpent);
+  const crmSubmitButton = app.view === "opportunities" && app.pendingOpportunityCrmCustomerId === customer.id
+    ? `<button class="customer-ref-crm-save" type="button" data-submit-contact="crm">${iconSvg("check")}CRM เรียบร้อยแล้ว</button>`
+    : "";
   els.customerDetail.innerHTML = `
     <section class="customer-ref-detail">
       <div class="customer-ref-header">
@@ -7846,8 +7908,12 @@ function renderCustomerDetail(customer) {
         <div class="customer-ref-divider"></div>
         <div class="customer-ref-social">
           <div class="customer-ref-info-line address">${iconSvg("pin")}<span>ที่อยู่</span><strong>${escapeHtml(customer.address || "-")}</strong></div>
-          <div class="customer-ref-info-line">${customerSourceIconHtml({ key: "facebook", name: "Facebook" })}<span>ชื่อ Facebook ลูกค้า</span><strong>${escapeHtml(facebookName)}</strong></div>
-          <div class="customer-ref-info-line">${customerSourceIconHtml({ key: "line", name: "LINE" })}<span>ชื่อ LINE ลูกค้า</span><strong>${escapeHtml(lineName)}</strong></div>
+          <div class="customer-ref-social-name">
+            <span>ชื่อ</span>
+            ${customerSourceIconHtml({ key: "facebook", name: "Facebook" })}
+            ${customerSourceIconHtml({ key: "line", name: "LINE" })}
+            <strong>ลูกค้า : ${escapeHtml(socialDisplayName)}</strong>
+          </div>
         </div>
       </div>
 
@@ -7885,19 +7951,33 @@ function renderCustomerDetail(customer) {
         </div>
       </div>
 
-      <form class="customer-ref-follow-form" id="contactForm">
+      <div class="customer-ref-follow-form" id="contactForm">
         <input type="hidden" name="customerId" value="${customer.id}">
         <h3>${iconSvg("clipboard")}บันทึกการติดตาม</h3>
         <div class="customer-ref-follow-grid">
-          <label>ผลลัพธ์<select name="result"><option value="">เลือกผลลัพธ์</option>${["โทรติด", "ไม่รับ", "สนใจ", "ยังไม่หมด", "สั่งซื้อแล้ว", "โทรใหม่"].map(result => `<option>${result}</option>`).join("")}</select></label>
-          <label>นัดครั้งต่อไป<input type="text" value="${formatDatePill(customer.followUpDate)}"><input name="nextFollowUpDate" type="hidden" value="${escapeHtml(customer.followUpDate || "")}"></label>
-          <label>เวลา<input name="time" type="text" value="10:00"></label>
-          <label>หมายเหตุ<input name="note" value="${escapeHtml(cleanLastContactNote)}" placeholder="บันทึกหมายเหตุ..."></label>
+          <div class="customer-ref-follow-left">
+            <label>อาการลูกค้า (ดึงมาจากการเพิ่มออเดอร์)
+              <textarea name="tags" rows="3" placeholder="ระบุอาการลูกค้า...">${escapeHtml(symptomValue)}</textarea>
+            </label>
+            <small>แก้ไขแล้วจะอัปเดตให้หน้าเพิ่มออเดอร์โดยอัตโนมัติ</small>
+          </div>
+          <label class="customer-ref-talk-detail">รายละเอียดการคุยล่าสุด
+            <textarea name="conversationNote" rows="3" placeholder="รายละเอียดการคุยล่าสุด...">${escapeHtml(cleanLastContactNote)}</textarea>
+          </label>
+          <div class="customer-ref-follow-right">
+            <label>ผลลัพธ์การโทร<select name="result">${["โทรติด", "ไม่รับ", "สนใจ", "ยังไม่หมด", "สั่งซื้อแล้ว", "โทรใหม่"].map(result => `<option>${result}</option>`).join("")}</select></label>
+            <label>นัดครั้งต่อไป<input type="text" value="${formatDatePill(customer.followUpDate)}"><input name="nextFollowUpDate" type="hidden" value="${escapeHtml(customer.followUpDate || "")}"></label>
+            <label>เวลา<input name="time" type="text" value="10:00"></label>
+            <label class="customer-ref-extra-note">หมายเหตุเพิ่มเติม (ถ้ามี)<input name="extraNote" value="" placeholder="บันทึกหมายเหตุ..."></label>
+          </div>
           <input name="date" type="hidden" value="${opportunityCrmDate || dateInputValue(customer.lastContactDate)}">
           <input name="staff" type="hidden" value="${escapeHtml(app.currentUser?.name || "")}">
         </div>
-        <button class="customer-ref-follow-save" type="submit">บันทึกการติดตาม</button>
-      </form>
+        <div class="customer-ref-follow-actions">
+          <button class="customer-ref-follow-save" type="button" data-submit-contact="save">บันทึกการติดตาม</button>
+          ${crmSubmitButton}
+        </div>
+      </div>
 
       <div class="customer-ref-history-grid">
         <section class="customer-ref-panel customer-ref-contact-history">
@@ -9450,6 +9530,13 @@ document.addEventListener("click", async event => {
     return;
   }
 
+  const contactSubmitButton = event.target.closest("[data-submit-contact]");
+  if (contactSubmitButton) {
+    const container = contactSubmitButton.closest("#contactForm");
+    if (container) await saveCustomerContact(container, contactSubmitButton.dataset.submitContact === "crm");
+    return;
+  }
+
   const opportunityChatButton = event.target.closest("[data-mobile-opportunity-chat]");
   if (opportunityChatButton && app.view === "opportunities") {
     const customerId = opportunityChatButton.dataset.mobileOpportunityChat;
@@ -10408,30 +10495,7 @@ document.addEventListener("submit", async event => {
     }
 
     if (currentFormId === "contactForm") {
-      if (!can("customers.edit")) {
-        showToast("ไม่มีสิทธิ์บันทึกการติดต่อลูกค้า", "error");
-        return;
-      }
-      const data = Object.fromEntries(new FormData(form).entries());
-      const isOpportunityCrmSave = app.view === "opportunities" && data.customerId === app.pendingOpportunityCrmCustomerId;
-      if (isOpportunityCrmSave) data.date = app.data.summary?.selectedDate || todayISO();
-      const result = await api("/api/contact-log", {
-        method: "POST",
-        body: JSON.stringify(data)
-      });
-      if (isOpportunityCrmSave) {
-        const customer = app.data.customers.find(item => item.id === data.customerId);
-        if (customer && result.log) {
-          customer.contactLogs = [result.log, ...(customer.contactLogs || [])];
-          customer.lastContactDate = result.log.date;
-          customer.lastContactNote = result.log.note || "";
-        }
-      }
-      showToast("บันทึกการติดต่อแล้ว");
-      els.customerDialog.close();
-      if (app.view === "opportunities") renderOpportunities();
-      await loadState();
-      app.pendingOpportunityCrmCustomerId = "";
+      await saveCustomerContact(form, event.submitter?.dataset?.submitContact === "crm");
     }
 
     if (currentFormId === "customerEditForm") {

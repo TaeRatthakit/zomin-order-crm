@@ -18311,6 +18311,547 @@ body.modal-scroll-locked {
   font-weight: 900;
 }
 
+#customerDialog.grow-modal-large {
+  width: min(1346px, calc(100vw - 20px));
+  height: min(1169px, calc(100dvh - 20px));
+  margin: 10px auto auto;
+  max-width: none;
+  max-height: calc(100dvh - 20px);
+}
+
+#customerDialog .grow-modal-shell {
+  border-radius: 8px;
+}
+
+.customer-ref-detail {
+  --ref-panel: rgba(7, 16, 34, 0.72);
+  --ref-line: rgba(96, 116, 158, 0.24);
+  --ref-purple: #a832ff;
+  --ref-green: #00e846;
+  --ref-muted: rgba(232, 238, 255, 0.72);
+  gap: 10px;
+  grid-template-rows: 36px 190px 56px 164px 288px 260px 84px;
+  padding: 18px 24px 10px;
+  background:
+    radial-gradient(circle at 12% 7%, rgba(100, 34, 218, 0.38), transparent 17%),
+    radial-gradient(circle at 76% 8%, rgba(14, 165, 233, 0.12), transparent 25%),
+    linear-gradient(135deg, #020b18 0%, #031225 48%, #03101f 100%);
+  font-family: inherit;
+}
+
+.customer-ref-header {
+  height: 36px;
+}
+
+.customer-ref-header h2 {
+  font-size: 22px;
+  font-weight: 850;
+}
+
+.customer-ref-back {
+  width: 24px;
+  height: 24px;
+}
+
+.customer-ref-back .nav-icon {
+  width: 24px;
+  height: 24px;
+  stroke-width: 2.6;
+}
+
+.customer-ref-close {
+  width: 44px;
+  height: 44px;
+  border-color: rgba(122, 143, 184, 0.42);
+  border-radius: 8px;
+  background: rgba(4, 12, 26, 0.58);
+  font-size: 46px;
+}
+
+.customer-ref-profile {
+  grid-template-columns: 212px 392px 1px minmax(0, 1fr);
+  gap: 22px;
+  min-height: 190px;
+  padding: 0 14px 8px;
+}
+
+.customer-ref-avatar {
+  width: 190px;
+  height: 190px;
+  border-width: 2px;
+  border-color: #7f22e5;
+  background:
+    radial-gradient(circle at 50% 30%, #f4c7ae 0 20%, transparent 21%),
+    radial-gradient(ellipse at 50% 49%, #18101b 0 32%, transparent 33%),
+    radial-gradient(circle at 50% 91%, #f8fafc 0 32%, transparent 33%),
+    linear-gradient(145deg, #151d31, #0a1021);
+  box-shadow: 0 0 0 1px rgba(154, 72, 255, 0.2), 0 0 38px rgba(100, 34, 218, 0.42);
+}
+
+.customer-ref-main {
+  padding-top: 6px;
+}
+
+.customer-ref-name-row {
+  gap: 16px;
+}
+
+.customer-ref-name-row h1 {
+  max-width: 360px;
+  font-size: 27px;
+  line-height: 1.18;
+  font-weight: 900;
+}
+
+.customer-ref-name-row .badge {
+  min-height: 30px;
+  padding: 0 13px;
+  border-radius: 7px;
+  font-size: 16px;
+}
+
+.customer-ref-ready {
+  margin-top: 8px;
+  padding: 5px 13px;
+  border-radius: 6px;
+  background: rgba(0, 112, 48, 0.74);
+  color: #16ff64;
+  font-size: 16px;
+}
+
+.customer-ref-phone {
+  margin-top: 13px;
+  gap: 13px;
+}
+
+.customer-ref-phone strong {
+  font-size: 22px;
+  font-weight: 650;
+}
+
+.customer-ref-phone .nav-icon {
+  width: 23px;
+  height: 23px;
+}
+
+.customer-ref-phone button .nav-icon {
+  width: 20px;
+  height: 20px;
+}
+
+.customer-ref-meta-grid {
+  gap: 26px;
+  margin-top: 18px;
+}
+
+.customer-ref-meta-grid > div {
+  grid-template-columns: 22px minmax(0, 1fr);
+  column-gap: 9px;
+}
+
+.customer-ref-meta-grid span {
+  font-size: 14px;
+}
+
+.customer-ref-meta-grid strong {
+  font-size: 16px;
+  line-height: 1.25;
+}
+
+.customer-ref-meta-grid small {
+  font-size: 14px;
+}
+
+.customer-ref-date-chip {
+  padding: 4px 9px;
+  border-radius: 5px;
+  font-size: 13px;
+}
+
+.customer-ref-divider {
+  background: rgba(96, 116, 158, 0.22);
+}
+
+.customer-ref-social {
+  gap: 18px;
+  padding-top: 3px;
+}
+
+.customer-ref-info-line {
+  grid-template-columns: 46px minmax(0, 1fr);
+  column-gap: 16px;
+}
+
+.customer-ref-info-line > span {
+  grid-column: 2;
+  font-size: 16px;
+  font-weight: 850;
+}
+
+.customer-ref-info-line > strong {
+  grid-column: 2;
+  font-size: 17px;
+  line-height: 1.52;
+  font-weight: 600;
+}
+
+.customer-ref-info-line.address > .nav-icon {
+  grid-row: 1 / span 2;
+  width: 38px;
+  height: 38px;
+  color: #a832ff;
+  stroke-width: 2.3;
+}
+
+.customer-ref-social-name {
+  height: 66px;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 0 18px;
+  border: 1px solid rgba(168, 50, 255, 0.82);
+  border-radius: 6px;
+  background: rgba(4, 13, 28, 0.76);
+  color: #fff;
+  font-size: 20px;
+  font-weight: 850;
+}
+
+.customer-ref-social-name .customer-source-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  font-size: 9px;
+}
+
+.customer-ref-social-name .source-icon-facebook {
+  font-size: 26px;
+}
+
+.customer-ref-social-name strong {
+  font-size: 20px;
+  font-weight: 750;
+}
+
+.customer-ref-actions {
+  gap: 14px;
+  padding: 0;
+}
+
+.customer-ref-primary-action,
+.customer-ref-copy-action,
+.customer-ref-end-call,
+.customer-ref-follow-save,
+.customer-ref-crm-save {
+  min-height: 56px;
+  border-radius: 6px;
+  font-size: 22px;
+  font-weight: 850;
+}
+
+.customer-ref-primary-action,
+.customer-ref-follow-save,
+.customer-ref-crm-save {
+  background: linear-gradient(135deg, #7b20e9 0%, #5a12c8 100%);
+}
+
+.customer-ref-copy-action {
+  background: rgba(8, 18, 37, 0.78);
+  border-color: rgba(111, 131, 172, 0.38);
+}
+
+.customer-ref-call-card {
+  height: 164px;
+  min-height: 164px;
+  margin: 0;
+  border-radius: 7px;
+  background: linear-gradient(135deg, rgba(5, 16, 34, 0.9), rgba(5, 14, 29, 0.88));
+}
+
+.customer-ref-card-title {
+  height: 50px;
+  padding: 0 14px 0 18px;
+}
+
+.customer-ref-card-title h3,
+.customer-ref-follow-form h3,
+.customer-ref-panel h3 {
+  font-size: 20px;
+}
+
+.customer-ref-green-icon {
+  width: 28px;
+  height: 28px;
+}
+
+.customer-ref-green-icon .nav-icon {
+  width: 17px;
+  height: 17px;
+}
+
+.customer-ref-card-title button,
+.customer-ref-call-foot button {
+  min-height: 38px;
+  border-color: rgba(168, 50, 255, 0.72);
+  border-radius: 7px;
+  color: #bf38ff;
+  background: rgba(7, 14, 30, 0.52);
+  font-size: 15px;
+}
+
+.customer-ref-call-grid {
+  min-height: 80px;
+  grid-template-columns: 1.25fr 78px 1.25fr 1.25fr 1.25fr;
+  padding: 0 20px;
+}
+
+.customer-ref-call-grid div {
+  min-height: 54px;
+  padding-left: 34px;
+}
+
+.customer-ref-call-grid span {
+  font-size: 14px;
+}
+
+.customer-ref-call-grid strong {
+  font-size: 19px;
+}
+
+.customer-ref-call-foot {
+  height: 34px;
+  padding: 0 18px;
+}
+
+.customer-ref-follow-form {
+  height: 288px;
+  min-height: 288px;
+  padding: 16px 14px 8px;
+  grid-template-rows: 24px 182px 40px;
+  gap: 10px;
+  border-radius: 7px;
+  background: linear-gradient(135deg, rgba(5, 16, 34, 0.92), rgba(5, 14, 29, 0.84));
+}
+
+.customer-ref-follow-grid {
+  grid-template-columns: 410px 386px minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+  height: 182px;
+  overflow: hidden;
+}
+
+.customer-ref-follow-grid label {
+  gap: 3px;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 13px;
+  font-weight: 750;
+  line-height: 1.18;
+}
+
+.customer-ref-follow-left,
+.customer-ref-follow-right {
+  display: grid;
+  gap: 3px;
+}
+
+.customer-ref-follow-left small {
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 13px;
+}
+
+.customer-ref-follow-right {
+  grid-template-columns: 1fr 1fr;
+  column-gap: 26px;
+  row-gap: 2px;
+  padding-left: 18px;
+  border-left: 1px solid rgba(96, 116, 158, 0.14);
+}
+
+.customer-ref-follow-right label:first-child,
+.customer-ref-follow-right .customer-ref-extra-note {
+  grid-column: 1 / -1;
+}
+
+.customer-ref-follow-grid input,
+.customer-ref-follow-grid select,
+.customer-ref-follow-grid textarea {
+  width: 100%;
+  border: 1px solid rgba(110, 130, 174, 0.36);
+  border-radius: 6px;
+  background: rgba(3, 10, 23, 0.72);
+  color: #fff;
+  font: inherit;
+  font-size: 16px;
+}
+
+.customer-ref-follow-grid input,
+.customer-ref-follow-grid select {
+  height: 30px;
+  padding: 0 12px;
+}
+
+.customer-ref-follow-grid textarea {
+  min-height: 78px;
+  height: 98px;
+  resize: vertical;
+  padding: 10px 14px;
+  line-height: 1.42;
+}
+
+.customer-ref-talk-detail textarea {
+  border-color: rgba(168, 50, 255, 0.78);
+}
+
+.customer-ref-follow-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  align-items: center;
+}
+
+.customer-ref-follow-actions:has(.customer-ref-follow-save:only-child),
+.customer-ref-follow-actions:not(:has(.customer-ref-crm-save)) {
+  grid-template-columns: 1fr;
+}
+
+.customer-ref-follow-save,
+.customer-ref-crm-save {
+  width: 100%;
+  min-height: 40px;
+  font-size: 19px;
+}
+
+.customer-ref-crm-save {
+  border: 1px solid rgba(0, 196, 86, 0.58);
+  background: rgba(0, 72, 42, 0.34);
+  color: #f7fff9;
+  box-shadow: inset 0 0 18px rgba(0, 196, 86, 0.1);
+}
+
+.customer-ref-crm-save .nav-icon {
+  width: 17px;
+  height: 17px;
+  color: #00ff68;
+  stroke-width: 2.6;
+}
+
+.customer-ref-history-grid {
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.customer-ref-panel {
+  height: 260px;
+  min-height: 260px;
+  padding: 10px 16px 8px;
+  border-radius: 7px;
+}
+
+.customer-ref-timeline {
+  margin-top: 8px;
+  padding-left: 44px;
+}
+
+.customer-ref-timeline article {
+  min-height: 72px;
+  grid-template-columns: minmax(0, 1fr) 140px;
+}
+
+.customer-ref-timeline-icon {
+  width: 29px;
+  height: 29px;
+  left: -47px;
+}
+
+.customer-ref-timeline strong {
+  font-size: 16px;
+}
+
+.customer-ref-timeline b,
+.customer-ref-timeline p,
+.customer-ref-timeline time {
+  font-size: 14px;
+}
+
+.customer-ref-order-list {
+  margin-top: 6px;
+}
+
+.customer-ref-order-list article {
+  min-height: 68px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: transparent;
+}
+
+.customer-ref-order-list strong {
+  font-size: 16px;
+}
+
+.customer-ref-order-list span,
+.customer-ref-order-list small {
+  font-size: 15px;
+}
+
+.customer-ref-order-list em {
+  margin-bottom: 2px;
+  padding: 2px 8px;
+  border-radius: 5px;
+  font-size: 13px;
+}
+
+.customer-ref-history-more {
+  height: 34px;
+  margin-top: 3px;
+  font-size: 18px;
+  border: 0;
+  background: transparent;
+}
+
+.customer-ref-kpis {
+  height: 84px;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
+  gap: 10px;
+  padding-top: 2px;
+  border-top: 0;
+}
+
+.customer-ref-kpis article {
+  height: 84px;
+  min-height: 84px;
+  padding: 12px 28px;
+  gap: 26px;
+  border-radius: 7px;
+}
+
+.customer-ref-kpi-icon {
+  width: 58px;
+  height: 58px;
+}
+
+.customer-ref-kpi-icon .nav-icon {
+  width: 52px;
+  height: 52px;
+  stroke-width: 1.9;
+}
+
+.customer-ref-kpis article span {
+  font-size: 16px;
+}
+
+.customer-ref-kpis article strong {
+  font-size: 26px;
+  line-height: 1.08;
+}
+
+.customer-ref-kpis article em {
+  margin-left: 0;
+  margin-top: 3px;
+  padding: 3px 9px;
+  font-size: 14px;
+}
+
 .grow-modal::backdrop {
   background:
     radial-gradient(circle at 50% 18%, rgba(156, 72, 255, 0.2), transparent 32%),
