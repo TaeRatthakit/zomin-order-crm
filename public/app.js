@@ -4253,6 +4253,10 @@ function opportunityChatCompleted(customer, selectedDate = opportunitySelectedDa
   return (customer.contactLogs || []).some(log => log.date === selectedDate && log.result === OPPORTUNITY_CHAT_RESULT);
 }
 
+function opportunityCrmCompleted(customer, selectedDate = opportunitySelectedDate()) {
+  return (customer.contactLogs || []).some(log => log.date === selectedDate && log.result !== OPPORTUNITY_CHAT_RESULT);
+}
+
 function mobileOpportunityData() {
   const selectedDate = opportunitySelectedDate();
   const ordersToday = app.data.orders.filter(order => order.date === selectedDate);
@@ -4270,7 +4274,7 @@ function mobileOpportunityData() {
         socialName,
         days: diffDaysISO(selectedDate, customer.followUpDate),
         value: Number(lastOrder?.amount || 0),
-        crmCompletedToday: (customer.contactLogs || []).some(log => log.date === selectedDate)
+        crmCompletedToday: opportunityCrmCompleted(customer, selectedDate)
       };
     });
   const activeRows = rows.filter(row => !row.crmCompletedToday);
