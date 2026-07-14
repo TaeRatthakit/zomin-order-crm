@@ -11746,7 +11746,7 @@ body.desktop-app-shell:not(.login-view) .line-status-row span {
   body.mobile-orders-view .mobile-orders-list-head,
   body.mobile-orders-view .mobile-order-row {
     display: grid;
-    grid-template-columns: 26px 66px minmax(0, 1fr) 58px 82px 16px;
+    grid-template-columns: 26px 66px minmax(0, 1fr) 58px 82px 58px;
     align-items: center;
     min-width: 0;
   }
@@ -11909,59 +11909,34 @@ body.desktop-app-shell:not(.login-view) .line-status-row span {
     white-space: nowrap;
   }
 
-  body.mobile-orders-view .mobile-order-chevron {
-    width: 18px;
-    height: 34px;
-    padding: 0;
-    border: 0;
-    background: transparent;
-    color: #a33bff;
-    font-size: 30px;
-    font-weight: 300;
-    line-height: 1;
-  }
-
-  body.mobile-orders-view .mobile-order-action-menu {
-    position: absolute;
-    top: 47px;
-    right: 0;
-    z-index: 50;
-    width: 125px;
-    padding: 0 14px;
-    border: 1px solid rgba(113, 127, 151, 0.34);
-    border-radius: 13px;
-    background: linear-gradient(145deg, rgba(22, 35, 52, 0.98), rgba(12, 23, 37, 0.98));
-    box-shadow: 0 18px 34px rgba(0, 0, 0, 0.48);
-  }
-
-  body.mobile-orders-view .mobile-order-action-menu button {
-    width: 100%;
-    height: 52px;
+  body.mobile-orders-view .mobile-order-row-actions {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 0;
-    border: 0;
-    background: transparent;
-    color: #b799ff;
-    font-size: 15px;
-    text-align: left;
+    justify-content: flex-end;
+    gap: 4px;
   }
 
-  body.mobile-orders-view .mobile-order-action-menu button.delete {
+  body.mobile-orders-view .mobile-order-action-button {
+    width: 27px;
+    height: 34px;
+    padding: 0;
+    border: 1px solid rgba(137, 92, 255, 0.28);
+    border-radius: 8px;
+    background: rgba(125, 67, 255, 0.1);
+    color: #b799ff;
+    display: grid;
+    place-items: center;
+  }
+
+  body.mobile-orders-view .mobile-order-action-button.delete {
+    border-color: rgba(255, 77, 88, 0.28);
+    background: rgba(255, 77, 88, 0.09);
     color: #ff4d58;
   }
 
-  body.mobile-orders-view .mobile-order-action-menu svg {
-    width: 23px;
-    height: 23px;
-    flex: 0 0 auto;
-  }
-
-  body.mobile-orders-view .mobile-order-menu-divider {
-    display: block;
-    height: 1px;
-    background: rgba(139, 153, 176, 0.25);
+  body.mobile-orders-view .mobile-order-action-button svg {
+    width: 17px;
+    height: 17px;
   }
 
   body.mobile-orders-view .mobile-orders-empty {

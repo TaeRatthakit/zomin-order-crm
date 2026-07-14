@@ -85,7 +85,6 @@ const app = {
   ordersFilterDraft: "",
   mobileOrdersDateOnly: true,
   mobileOrdersDescending: true,
-  mobileOrderMenuId: "",
   mobileOrdersScrollTop: 0,
   mobileOpportunityFilter: "",
   mobileOpportunitySearchDraft: "",
@@ -2379,7 +2378,6 @@ function orderCard(order) {
       <td data-label="สถานะ">${badge(order.status === "NEW" ? "NEW" : order.vipLevel)}</td>
       <td data-label="จัดการ">
         <div class="table-actions">
-          <button class="button ghost compact-action" type="button" data-open-customer="${escapeHtml(order.customerId)}">ดู</button>
           ${can("orders.edit") ? `<button class="button secondary compact-action" type="button" data-edit-order="${escapeHtml(order.id)}">แก้ไข</button>` : ""}
           ${can("orders.delete") ? `<button class="button danger compact-action" type="button" data-delete-order="${escapeHtml(order.id)}">ลบ</button>` : ""}
         </div>
@@ -4071,23 +4069,6 @@ function mobileOrderRows(selectedDate) {
   return rows;
 }
 
-function mobileOrderActionMenu(order) {
-  if (app.mobileOrderMenuId !== order.id) return "";
-  return `
-    <div class="mobile-order-action-menu" data-mobile-order-menu>
-      ${can("orders.edit") ? `<button type="button" data-edit-order="${escapeHtml(order.id)}">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 16-.8 4 4-.8L19 7.4 16.6 5 4 16Z"/><path d="m14.8 6.8 2.4 2.4"/></svg>
-        <span>แก้ไข</span>
-      </button>` : ""}
-      ${can("orders.edit") && can("orders.delete") ? `<span class="mobile-order-menu-divider"></span>` : ""}
-      ${can("orders.delete") ? `<button class="delete" type="button" data-delete-order="${escapeHtml(order.id)}">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="m19 6-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
-        <span>ลบ</span>
-      </button>` : ""}
-    </div>
-  `;
-}
-
 function mobileOrdersScrollElement() {
   return document.querySelector(".mobile-orders-list");
 }
@@ -4107,27 +4088,6 @@ function restoreMobileOrdersScrollPosition() {
   };
   restore();
   requestAnimationFrame(restore);
-}
-
-function closeMobileOrderActionMenu() {
-  const menu = document.querySelector("[data-mobile-order-menu]");
-  menu?.closest(".mobile-order-row")?.classList.remove("menu-open");
-  menu?.remove();
-  app.mobileOrderMenuId = "";
-}
-
-function toggleMobileOrderActionMenu(orderId, button) {
-  rememberMobileOrdersScrollPosition();
-  const shouldOpen = app.mobileOrderMenuId !== orderId;
-  closeMobileOrderActionMenu();
-  if (!shouldOpen) return;
-  const order = app.data.orders.find(item => item.id === orderId);
-  const row = button.closest(".mobile-order-row");
-  if (!order || !row) return;
-  app.mobileOrderMenuId = orderId;
-  row.classList.add("menu-open");
-  row.insertAdjacentHTML("beforeend", mobileOrderActionMenu(order));
-  restoreMobileOrdersScrollPosition();
 }
 
 function renderMobileOrders(selectedDate) {
@@ -4162,7 +4122,7 @@ function renderMobileOrders(selectedDate) {
           const customerName = order.customerName || customer?.name || "ไม่ระบุชื่อลูกค้า";
           const phone = order.phone || customer?.phone || "-";
           return `
-            <article class="mobile-order-row ${app.mobileOrderMenuId === order.id ? "menu-open" : ""}">
+            <article class="mobile-order-row">
               <span class="mobile-order-sequence">${index + 1}</span>
               <strong class="mobile-order-number">${escapeHtml(mobileOrderNumber(order))}</strong>
               <span class="mobile-order-customer">
@@ -4175,8 +4135,14 @@ function renderMobileOrders(selectedDate) {
                 <small>${escapeHtml(String(order.time || "09:00").slice(0, 5))}</small>
               </span>
               <strong class="mobile-order-total">฿ ${escapeHtml(mobileOrderMoney(order.amount))}</strong>
-              <button class="mobile-order-chevron" type="button" data-mobile-order-actions="${escapeHtml(order.id)}" aria-label="จัดการ ${escapeHtml(mobileOrderNumber(order))}">›</button>
-              ${mobileOrderActionMenu(order)}
+              <span class="mobile-order-row-actions" aria-label="จัดการ ${escapeHtml(mobileOrderNumber(order))}">
+                ${can("orders.edit") ? `<button class="mobile-order-action-button" type="button" data-edit-order="${escapeHtml(order.id)}" aria-label="แก้ไข ${escapeHtml(mobileOrderNumber(order))}">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 16-.8 4 4-.8L19 7.4 16.6 5 4 16Z"/><path d="m14.8 6.8 2.4 2.4"/></svg>
+                </button>` : ""}
+                ${can("orders.delete") ? `<button class="mobile-order-action-button delete" type="button" data-delete-order="${escapeHtml(order.id)}" aria-label="ลบ ${escapeHtml(mobileOrderNumber(order))}">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="m19 6-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+                </button>` : ""}
+              </span>
             </article>
           `;
         }).join("") || `<div class="mobile-orders-empty">ไม่พบออเดอร์ที่ค้นหา 🔍</div>`}
@@ -8780,7 +8746,6 @@ function setView(view) {
     resetCustomerManagementState({ resetGroup: true });
   }
   if (!isSettingsHierarchyView(view)) clearBusinessManagementScrollRestore();
-  app.mobileOrderMenuId = "";
   app.view = view;
   clearTimeout(app.importPollTimer);
   navigateToView(view);
@@ -8794,7 +8759,6 @@ function showSettingsNavigationPage({ replaceHistory = false } = {}) {
     showToast("เมนูนี้ต้องใช้สิทธิ์ Owner/Admin");
     return;
   }
-  app.mobileOrderMenuId = "";
   app.view = "settings";
   app.mobileBusinessPage = "system";
   clearTimeout(app.importPollTimer);
@@ -8824,7 +8788,6 @@ async function setMobileNavView(view) {
   let renderEndedAt = 0;
   let activeNavSyncedAt = 0;
 
-  app.mobileOrderMenuId = "";
   app.view = view;
   clearTimeout(app.importPollTimer);
   navigateToView(view);
@@ -8990,7 +8953,6 @@ async function submitOrder(form) {
 
 function openDeleteOrderDialog(orderId) {
   app.deletingOrderId = orderId;
-  app.mobileOrderMenuId = "";
   const order = app.data.orders.find(item => item.id === orderId);
   if (els.mobileDeleteOrderNumber) {
     els.mobileDeleteOrderNumber.textContent = order ? mobileOrderNumber(order) : "-";
@@ -9146,7 +9108,6 @@ function readOrderPackageExpenses() {
 function openOrderDialog(order = null) {
   if (isMobileViewport() && app.view === "orders") {
     rememberMobileOrdersScrollPosition();
-    closeMobileOrderActionMenu();
   }
   app.editingOrderId = order?.id || "";
   setOrderSaveState(false);
@@ -9775,25 +9736,16 @@ document.addEventListener("click", async event => {
     openOrderDialog();
   }
 
-  const mobileOrderActions = event.target.closest("[data-mobile-order-actions]");
-  if (mobileOrderActions && app.view === "orders" && isMobileViewport()) {
-    const orderId = mobileOrderActions.dataset.mobileOrderActions;
-    toggleMobileOrderActionMenu(orderId, mobileOrderActions);
-    return;
-  }
-
   if (event.target.closest("[data-mobile-orders-filter]") && app.view === "orders" && isMobileViewport()) {
     const searchInput = document.querySelector("[data-order-filter='q']");
     app.ordersFilterDraft = searchInput?.value ?? app.ordersFilterDraft;
     app.ordersFilterQ = app.ordersFilterDraft;
-    app.mobileOrderMenuId = "";
     renderOrders();
     return;
   }
 
   if (event.target.closest("[data-mobile-orders-sort]") && app.view === "orders" && isMobileViewport()) {
     app.mobileOrdersDescending = !app.mobileOrdersDescending;
-    app.mobileOrderMenuId = "";
     renderOrders();
     return;
   }
@@ -9822,15 +9774,6 @@ document.addEventListener("click", async event => {
   if (deleteOrderButton) {
     if (!can("orders.delete")) return showToast("ไม่มีสิทธิ์ลบออเดอร์", "error");
     openDeleteOrderDialog(deleteOrderButton.dataset.deleteOrder);
-  }
-
-  if (
-    app.view === "orders"
-    && isMobileViewport()
-    && app.mobileOrderMenuId
-    && !event.target.closest("[data-mobile-order-menu]")
-  ) {
-    closeMobileOrderActionMenu();
   }
 
   const deleteCustomerButton = event.target.closest("[data-delete-customer]");
@@ -10479,7 +10422,6 @@ document.addEventListener("change", async event => {
       app.ordersFilterQ = "";
       app.ordersFilterDraft = "";
       app.mobileOrdersDateOnly = true;
-      app.mobileOrderMenuId = "";
       const calculationStartedAt = performance.now();
       app.data.summary = buildLocalSummary(selectedDate);
       const calculationTime = performance.now() - calculationStartedAt;
