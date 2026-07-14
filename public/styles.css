@@ -7455,6 +7455,16 @@ small,
     background: linear-gradient(100deg, rgba(6, 20, 34, 0.96), rgba(3, 16, 27, 0.94));
   }
 
+  .mobile-business-menu-row:is(button):hover {
+    border-color: color-mix(in srgb, currentColor 36%, rgba(43, 119, 166, 0.2));
+    background: linear-gradient(100deg, color-mix(in srgb, currentColor 8%, rgba(6, 20, 34, 0.96)), rgba(3, 16, 27, 0.96));
+    transform: translateY(-1px);
+  }
+
+  .mobile-business-info-row {
+    margin: 0;
+  }
+
   .mobile-business-menu-row.orange { color: var(--mb-orange); }
   .mobile-business-menu-row.purple { color: var(--mb-purple); }
   .mobile-business-menu-row.green { color: var(--mb-green); }

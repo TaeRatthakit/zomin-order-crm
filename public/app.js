@@ -3130,6 +3130,16 @@ function mobileBusinessMenuRow(page, title, description, icon, tone) {
   `;
 }
 
+function mobileBusinessInfoRow(title, value, icon, tone) {
+  return `
+    <article class="mobile-business-menu-row mobile-business-info-row ${escapeHtml(tone)}">
+      ${mobileBusinessIcon(icon)}
+      <span><strong>${escapeHtml(title)}</strong><small>${escapeHtml(value)}</small></span>
+      <span class="mobile-business-chevron" aria-hidden="true">${iconSvg("arrow")}</span>
+    </article>
+  `;
+}
+
 function mobileSetupWizardState() {
   const products = normalizeProductRecords();
   const productCosts = normalizeProductCostEntries(app.data.settings || {});
@@ -3245,7 +3255,6 @@ function renderMobileBusinessMain() {
   const orders = app.data.orders || [];
   const products = productRowsData();
   const startDate = mobileBusinessStartDate();
-  const totalSales = orders.reduce((sum, order) => sum + Number(order.amount || 0), 0);
   const todayPerformance = marketingPerformanceForPeriod({ date: todayISO() });
   const todayFinance = profitBreakdownForOrders(orders.filter(order => order.date === todayISO()));
   const dataCards = [
@@ -3296,22 +3305,16 @@ function renderMobileBusinessMain() {
 
       <section class="mobile-business-section">
         <h2>เครื่องมือธุรกิจ</h2>
-        <div class="mobile-business-tools-grid">
-          <button class="mobile-business-tool purple" type="button" data-business-page="goals">${mobileBusinessIcon("flag")}<strong>เป้าหมายยอดขาย</strong><small>ตั้งเป้าหมายและติดตามความสำเร็จ</small><b>ดูรายงาน</b></button>
-          <button class="mobile-business-tool orange" type="button" data-business-page="analytics">${mobileBusinessIcon("chart")}<strong>วิเคราะห์ธุรกิจ</strong><small>วิเคราะห์ข้อมูลและแนวโน้มธุรกิจ</small><b>ดูรายงาน</b></button>
-          <button class="mobile-business-tool blue" type="button" data-business-page="import">${mobileBusinessIcon("upload")}<strong>นำเข้าออเดอร์</strong><small>นำเข้าออเดอร์จากไฟล์ CSV หรือ Excel</small><b>นำเข้า</b></button>
-          <button class="mobile-business-tool green" type="button" data-business-page="backup">${mobileBusinessIcon("clipboard")}<strong>สำรองข้อมูล</strong><small>สำรองและกู้คืนข้อมูลธุรกิจ</small><b>สำรองข้อมูล</b></button>
+        <div class="mobile-business-menu-list">
+          ${mobileBusinessMenuRow("import", "นำเข้าออเดอร์", "นำเข้าออเดอร์จากไฟล์ CSV หรือ Excel", "upload", "blue")}
+          ${mobileBusinessMenuRow("backup", "สำรองข้อมูล", "สำรองและกู้คืนข้อมูลธุรกิจ", "clipboard", "green")}
         </div>
       </section>
 
       <section class="mobile-business-section">
         <h2>ข้อมูลการใช้งาน</h2>
-        <div class="mobile-business-usage-grid">
-          <article class="purple">${mobileBusinessIcon("clipboard")}<span>วันที่เริ่มใช้งาน</span><strong>${startDate ? formatDate(startDate) : "ไม่มีข้อมูล"}</strong></article>
-          <article class="blue">${mobileBusinessIcon("chart")}<span>ออเดอร์ทั้งหมด</span><strong>${money(orders.length)}</strong><small>ออเดอร์</small></article>
-          <article class="green">${mobileBusinessIcon("users")}<span>ลูกค้าทั้งหมด</span><strong>${money(customers.length)}</strong><small>ราย</small></article>
-          <article class="orange">${mobileBusinessIcon("box")}<span>สินค้าทั้งหมด</span><strong>${money(products.length)}</strong><small>รายการ</small></article>
-          <article class="cyan">${mobileBusinessIcon("briefcase")}<span>ยอดขายรวม</span><strong>${money(totalSales)}</strong><small>บาท</small></article>
+        <div class="mobile-business-menu-list">
+          ${mobileBusinessInfoRow("วันที่เริ่มใช้งาน", startDate ? formatDate(startDate) : "ไม่มีข้อมูล", "clipboard", "purple")}
         </div>
       </section>
     </section>
