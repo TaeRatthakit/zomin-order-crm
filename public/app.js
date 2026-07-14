@@ -2967,10 +2967,14 @@ function mobileBusinessIcon(name) {
   return `<span class="mobile-business-icon" aria-hidden="true">${iconSvg(name)}</span>`;
 }
 
-function mobileBusinessHeader(title, description, icon = "briefcase") {
+function mobileBusinessHeader(title, description, icon = "briefcase", options = {}) {
+  const backAttrs = options.settingsBack
+    ? `data-settings-back="${escapeHtml(options.settingsBack)}"`
+    : `data-business-page="${escapeHtml(options.businessPage || "main")}"`;
+  const backLabel = options.backLabel || "กลับหน้าจัดการธุรกิจ";
   return `
     <header class="mobile-business-subhead">
-      <button class="mobile-business-back" type="button" data-business-page="main" aria-label="กลับหน้าจัดการธุรกิจ">${iconSvg("arrow")}</button>
+      <button class="mobile-business-back" type="button" ${backAttrs} aria-label="${escapeHtml(backLabel)}">${iconSvg("arrow")}</button>
       ${mobileBusinessIcon(icon)}
       <div>
         <h2>${escapeHtml(title)}</h2>
@@ -6696,17 +6700,29 @@ const settingsMenuItems = [
 function settingsSubpageShell(kicker, title, description, inner, options = {}) {
   const backView = options.backView || "settingsNavigation";
   const backLabel = options.backLabel || "กลับไปหน้าตั้งค่า";
+  const icon = options.icon || ({
+    "Business Information": "briefcase",
+    "ข้อมูลธุรกิจ": "briefcase",
+    "Business Goals": "flag",
+    "เป้าหมายธุรกิจ": "flag",
+    "AI": "bot",
+    "Notifications": "bell",
+    "การแจ้งเตือน": "bell",
+    "Display": "palette",
+    "การแสดงผล": "palette",
+    "Integrations": "link",
+    "การเชื่อมต่อ": "link",
+    "LINE OA": "link",
+    "Google Drive": "link",
+    "Facebook": "flag",
+    "ผู้ใช้งานและสิทธิ์": "users"
+  }[kicker] || "settings");
   return `
-    <section class="section saas-page settings-page settings-premium-page settings-subpage">
-      <div class="settings-subpage-header">
-        <button class="subpage-back settings-inline-back" type="button" data-settings-back="${escapeHtml(backView)}" aria-label="${escapeHtml(backLabel)}">←</button>
-        <div class="page-identity-copy">
-          <span class="page-kicker">${escapeHtml(kicker)}</span>
-          <h2>${escapeHtml(title)}</h2>
-          <p>${escapeHtml(description)}</p>
-        </div>
+    <section class="mobile-business-page mobile-business-subpage settings-shared-page settings-subpage">
+      ${mobileBusinessHeader(title, description, icon, { settingsBack: backView, backLabel })}
+      <div class="settings-shared-content">
+        ${inner}
       </div>
-      ${inner}
     </section>
   `;
 }
@@ -6755,14 +6771,10 @@ function settingsToggle(name, title, subtitle, checked, options = {}) {
 
 function settingsMenuMarkup({ embeddedInBusiness = false } = {}) {
   return `
-    <section class="section saas-page settings-page settings-premium-page settings-menu-workspace grow-settings-shell">
-      <div class="settings-subpage-header settings-main-header">
-        <button class="subpage-back settings-inline-back" type="button" ${embeddedInBusiness ? 'data-business-page="main"' : 'data-view-shortcut="settings"'} aria-label="กลับไปหน้าจัดการธุรกิจ">${iconSvg("arrow")}</button>
-        <div class="page-identity-copy">
-          <h2>ตั้งค่า</h2>
-          <p>จัดการการตั้งค่าของระบบและธุรกิจของคุณ</p>
-        </div>
-      </div>
+    <section class="mobile-business-page mobile-business-subpage settings-shared-page settings-menu-workspace grow-settings-shell">
+      ${mobileBusinessHeader("ตั้งค่า", "จัดการการตั้งค่าของระบบและธุรกิจของคุณ", "settings", embeddedInBusiness
+        ? { businessPage: "main", backLabel: "กลับไปหน้าจัดการธุรกิจ" }
+        : { settingsBack: "settingsNavigation", backLabel: "กลับไปหน้าจัดการธุรกิจ" })}
       <div class="settings-menu-list grow-settings-list">
         ${settingsMenuItems.map(item => `
           <button class="settings-menu-item grow-settings-row ${escapeHtml(item.tone)}" type="button" data-view-shortcut="${escapeHtml(item.view)}">
@@ -7016,8 +7028,8 @@ function renderSettingsStore() {
               <label class="span-2">ที่อยู่ธุรกิจ<textarea name="businessAddress" required>${escapeHtml(profile.address || settings.businessAddress || "")}</textarea></label>
               <label>เบอร์โทรศัพท์<input name="businessPhone" inputmode="tel" value="${escapeHtml(profile.phone || settings.businessPhone || "")}" placeholder="081-234-5678"></label>
               <label>อีเมล<input name="businessEmail" type="email" value="${escapeHtml(profile.email || settings.businessEmail || "")}" placeholder="info@growuppilot.com"></label>
-              <label class="span-2">Template ข้อความลูกค้าปกติ<textarea name="normalTemplate">${escapeHtml(templates.normal || "")}</textarea></label>
-              <label class="span-2">Template ข้อความ VIP<textarea name="vipTemplate">${escapeHtml(templates.vip || "")}</textarea></label>
+              <label class="span-2">แม่แบบข้อความลูกค้าปกติ<textarea name="normalTemplate">${escapeHtml(templates.normal || "")}</textarea></label>
+              <label class="span-2">แม่แบบข้อความ VIP<textarea name="vipTemplate">${escapeHtml(templates.vip || "")}</textarea></label>
             </div>
             <aside class="settings-logo-preview" aria-label="ตัวอย่างโลโก้ร้าน">
               <span class="settings-logo-frame">${logo ? `<img src="${escapeHtml(logo)}" alt="${escapeHtml(profile.name || settings.businessName || "Business logo")}">` : escapeHtml(businessInitials)}</span>
@@ -7025,7 +7037,7 @@ function renderSettingsStore() {
               <input type="hidden" name="businessLogoUrl" value="${escapeHtml(profile.logoUrl || settings.businessLogoUrl || "")}">
               <input id="businessLogoInput" type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden>
               <button class="button ghost compact-action" type="button" data-pick-business-logo>เปลี่ยนโลโก้</button>
-              <small>ระบบอัปโหลดเป็นไฟล์ storage และเก็บเฉพาะ URL ไม่เก็บ base64 ใน settings</small>
+              <small>ระบบเก็บโลโก้เป็นไฟล์และบันทึกเฉพาะลิงก์ ไม่เก็บรูปแบบ base64 ในการตั้งค่า</small>
             </aside>
           </div>
         `)}
@@ -7166,13 +7178,13 @@ function renderSettingsAi() {
             </div>
           </div>
           <div class="settings-form-grid">
-            <label class="span-2">OpenAI Model<input name="openaiModel" value="${escapeHtml(settings.openaiModel || "gpt-4.1-mini")}" ${settings.openaiApiKeyFromEnv ? "readonly" : ""}></label>
+            <label class="span-2">รุ่น OpenAI<input name="openaiModel" value="${escapeHtml(settings.openaiModel || "gpt-4.1-mini")}" ${settings.openaiApiKeyFromEnv ? "readonly" : ""}></label>
           </div>
           <div class="settings-preference-list">
-            ${settingsToggle("businessAnalysis", "การวิเคราะห์ธุรกิจ", hasAi ? "เปิดใช้การวิเคราะห์เมื่อมี backend/AI key พร้อม" : "ยังไม่พร้อมเพราะไม่มี AI key ที่ใช้งานได้", hasAi && prefs.businessAnalysis !== false, { disabled: !hasAi })}
-            ${settingsToggle("recommendations", "การแนะนำอัตโนมัติ", hasAi ? "ควบคุมคำแนะนำที่ใช้ AI ในส่วนที่รองรับ" : "ยังไม่พร้อมเพราะไม่มี AI key ที่ใช้งานได้", hasAi && prefs.recommendations !== false, { disabled: !hasAi })}
+            ${settingsToggle("businessAnalysis", "การวิเคราะห์ธุรกิจ", hasAi ? "เปิดใช้การวิเคราะห์เมื่อระบบเชื่อมต่อ AI แล้ว" : "ยังไม่พร้อมเพราะไม่มีรหัสเชื่อมต่อ AI ที่ใช้งานได้", hasAi && prefs.businessAnalysis !== false, { disabled: !hasAi })}
+            ${settingsToggle("recommendations", "การแนะนำอัตโนมัติ", hasAi ? "ควบคุมคำแนะนำที่ใช้ AI ในส่วนที่รองรับ" : "ยังไม่พร้อมเพราะไม่มีรหัสเชื่อมต่อ AI ที่ใช้งานได้", hasAi && prefs.recommendations !== false, { disabled: !hasAi })}
             ${settingsToggle("intelligentAlerts", "การแจ้งเตือนอัจฉริยะ", "ควบคุมหมวดโอกาสเพิ่มยอดขายในศูนย์แจ้งเตือน", prefs.intelligentAlerts !== false)}
-            ${settingsToggle("customerInsights", "Customer / Business Insights", hasAi ? "เปิดข้อมูล insight ที่ต้องใช้ AI ในอนาคต" : "บันทึกสถานะไม่ได้จนกว่าจะเชื่อมต่อ AI", hasAi && prefs.customerInsights !== false, { disabled: !hasAi })}
+            ${settingsToggle("customerInsights", "ข้อมูลเชิงลึกลูกค้าและธุรกิจ", hasAi ? "เปิดข้อมูลเชิงลึกที่ต้องใช้ AI ในส่วนที่รองรับ" : "บันทึกสถานะไม่ได้จนกว่าจะเชื่อมต่อ AI", hasAi && prefs.customerInsights !== false, { disabled: !hasAi })}
           </div>
           <button class="button ghost compact-action" type="button" data-test-openai>ทดสอบสถานะ OpenAI</button>
         `)}
@@ -7196,11 +7208,11 @@ function renderSettingsNotifications() {
     "รายการแจ้งเตือนจากข้อมูลธุรกิจล่าสุด",
     `
       <form class="settings-unified-form" id="settingsForm" data-settings-scope="notifications">
-        ${settingsUnifiedCard("ช่องทางการแจ้งเตือน", "In-app ใช้กับศูนย์แจ้งเตือนปัจจุบัน ส่วน Email/LINE จะใช้เมื่อ delivery backend พร้อม", `
+        ${settingsUnifiedCard("ช่องทางการแจ้งเตือน", "ในแอปใช้กับศูนย์แจ้งเตือนปัจจุบัน ส่วนอีเมลและ LINE จะใช้เมื่อระบบส่งข้อความพร้อม", `
           <div class="settings-preference-list">
             ${settingsToggle("channelInApp", "ในแอป", "แสดงรายการในศูนย์แจ้งเตือน", channels.inApp !== false)}
-            ${settingsToggle("channelEmail", "อีเมล", "บันทึก preference ไว้ แต่ยังไม่มีระบบส่งอีเมลอัตโนมัติ", Boolean(channels.email))}
-            ${settingsToggle("channelLine", "LINE", "บันทึก preference ไว้ และจะใช้ร่วมกับ LINE เมื่อ delivery flow พร้อม", Boolean(channels.line))}
+            ${settingsToggle("channelEmail", "อีเมล", "บันทึกค่าที่เลือกไว้ แต่ยังไม่มีระบบส่งอีเมลอัตโนมัติ", Boolean(channels.email))}
+            ${settingsToggle("channelLine", "LINE", "บันทึกค่าที่เลือกไว้ และจะใช้ร่วมกับ LINE เมื่อระบบส่งข้อความพร้อม", Boolean(channels.line))}
           </div>
         `)}
         ${settingsUnifiedCard("ประเภทการแจ้งเตือน", "หมวดที่ปิดจะไม่ถูกสร้างใน in-app notifications", `
@@ -7208,11 +7220,11 @@ function renderSettingsNotifications() {
             ${settingsToggle("categoryOrderReview", "ออเดอร์ที่ควรตรวจสอบ", "เช่น ออเดอร์ซ้ำ", categories.orderReview !== false)}
             ${settingsToggle("categoryCustomerFollowUp", "ลูกค้าที่ควรติดตาม", "ลูกค้าที่ถึงกำหนด follow-up", categories.customerFollowUp !== false)}
             ${settingsToggle("categoryVipReminder", "ลูกค้าใกล้เป็น VIP", "เตือนโอกาสอัปเกรดลูกค้า", categories.vipReminder !== false)}
-            ${settingsToggle("categoryLowStock", "สินค้าใกล้หมด", "เตือนสต็อกต่ำจาก logic เดิม", categories.lowStock !== false)}
-            ${settingsToggle("categorySalesOpportunity", "โอกาสเพิ่มยอดขาย", "ใช้ร่วมกับ AI intelligent alerts preference", categories.salesOpportunity !== false)}
+            ${settingsToggle("categoryLowStock", "สินค้าใกล้หมด", "เตือนสต็อกต่ำจากเงื่อนไขเดิม", categories.lowStock !== false)}
+            ${settingsToggle("categorySalesOpportunity", "โอกาสเพิ่มยอดขาย", "ใช้ร่วมกับการแจ้งเตือนอัจฉริยะของ AI", categories.salesOpportunity !== false)}
           </div>
         `)}
-        ${settingsUnifiedCard("ตัวอย่างแจ้งเตือนปัจจุบัน", "แสดงจากข้อมูลธุรกิจจริงหลังใช้ preference", `
+        ${settingsUnifiedCard("ตัวอย่างแจ้งเตือนปัจจุบัน", "แสดงจากข้อมูลธุรกิจจริงหลังใช้ค่าที่เลือกไว้", `
           <div class="settings-notification-list">
             ${items.map(item => `
               <article class="settings-notification-row">
@@ -7282,12 +7294,25 @@ function integrationConnected(service) {
   return false;
 }
 
+function integrationDisplayError(service, error = "") {
+  const text = String(error || "").trim();
+  if (!text) return "";
+  const lower = text.toLowerCase();
+  if (lower.includes("oauth") || lower.includes("credential") || lower.includes("scope") || lower.includes("redirect url")) {
+    if (service === "google-drive") return "ยังไม่ได้ตั้งค่าข้อมูลอนุญาต Google Drive";
+    if (service === "facebook") return "ยังไม่ได้ตั้งค่าข้อมูลอนุญาต Facebook";
+    return "ยังไม่ได้ตั้งค่าข้อมูลอนุญาตการเชื่อมต่อ";
+  }
+  return text;
+}
+
 function integrationCard({ service, name, description, icon, view }) {
   const connected = integrationConnected(service);
   const settings = app.data.settings || {};
-  const error = service === "google-drive" ? settings.integrations?.googleDrive?.error
+  const rawError = service === "google-drive" ? settings.integrations?.googleDrive?.error
     : service === "facebook" ? settings.integrations?.facebook?.error
       : "";
+  const error = integrationDisplayError(service, rawError);
   const blocked = Boolean(error && !connected);
   return `
     <article class="integration-card ${connected ? "is-connected" : ""} ${blocked ? "is-blocked" : ""}">
@@ -7397,10 +7422,10 @@ function renderSettingsIntegrations() {
       <div class="integrations-page">
         ${integrationGroup("ช่องทางการสื่อสาร", [
           { service: "line", name: "LINE OA", description: "เชื่อมต่อกับ LINE Official Account เพื่อรับออเดอร์และส่งข้อความ", icon: "LINE", view: "settingsLineHub" },
-          { service: "facebook", name: "Facebook", description: "เชื่อมต่อ Meta Page ผ่าน OAuth เมื่อ production app และ scopes พร้อม", icon: "f", view: "settingsFacebook" }
+          { service: "facebook", name: "Facebook", description: "เชื่อมต่อเพจ Facebook เมื่อระบบอนุญาตการเชื่อมต่อบนระบบจริงพร้อม", icon: "f", view: "settingsFacebook" }
         ])}
         ${integrationGroup("การจัดการข้อมูล", [
-          { service: "google-drive", name: "Google Drive", description: "เชื่อมต่อ Google Drive ผ่าน OAuth สำหรับงานไฟล์เมื่อ scopes พร้อม", icon: "G", view: "settingsGoogleDrive" }
+          { service: "google-drive", name: "Google Drive", description: "เชื่อมต่อ Google Drive สำหรับงานไฟล์เมื่อระบบอนุญาตการเชื่อมต่อพร้อม", icon: "G", view: "settingsGoogleDrive" }
         ])}
         ${integrationGroup("AI & เครื่องมืออัจฉริยะ", [
           { service: "openai", name: "OpenAI", description: "เชื่อมต่อเพื่อใช้งาน AI วิเคราะห์ข้อมูลและสร้างคำแนะนำ", icon: "AI", view: "settingsAi" }
@@ -7409,7 +7434,7 @@ function renderSettingsIntegrations() {
           <span>${iconSvg("alert")}</span>
           <div>
             <strong>วิธีเชื่อมต่อ</strong>
-            <p>คลิก “เชื่อมต่อ” หรือ “จัดการ” ในบริการที่มีอยู่จริง ระบบจะไม่แสดงสถานะเชื่อมต่อหากยังไม่มี credential ในระบบ</p>
+            <p>คลิก “เชื่อมต่อ” หรือ “จัดการ” ในบริการที่มีอยู่จริง ระบบจะไม่แสดงสถานะเชื่อมต่อหากยังไม่มีข้อมูลอนุญาตในระบบ</p>
           </div>
         </article>
       </div>
@@ -7430,7 +7455,7 @@ function lineSecretInput(name, label, configured, fromEnv, visible, placeholder)
         <button class="icon-button line-secret-toggle" type="button" data-toggle-line-secret="${escapeHtml(name)}" aria-label="${visible ? "ซ่อน" : "แสดง"} ${escapeHtml(label)}">${iconSvg("eye")}</button>
         <button class="button ghost compact-action" type="button" data-copy-line-field="${escapeHtml(name)}" ${configured ? "" : "disabled"}>${iconSvg("copy")} คัดลอก</button>
       </span>
-      <small>${fromEnv ? "ตั้งค่าไว้ใน Environment แล้ว" : configured ? "มีค่าเดิมอยู่แล้ว เว้นว่างไว้เพื่อคงค่าเดิม" : "ยังไม่ได้ตั้งค่า"}</small>
+      <small>${fromEnv ? "ตั้งค่าไว้ในระบบฝั่งเซิร์ฟเวอร์แล้ว" : configured ? "มีค่าเดิมอยู่แล้ว เว้นว่างไว้เพื่อคงค่าเดิม" : "ยังไม่ได้ตั้งค่า"}</small>
     </label>
   `;
 }
@@ -7438,10 +7463,10 @@ function lineSecretInput(name, label, configured, fromEnv, visible, placeholder)
 function renderSettingsLineHub() {
   const settings = app.data.settings;
   const lineSecretHelp = settings.lineChannelSecretConfigured
-    ? settings.lineChannelSecretFromEnv ? "ตั้งค่าไว้ใน Vercel Environment แล้ว" : "มีค่าเดิมอยู่แล้ว เว้นว่างไว้เพื่อคงค่าเดิม"
+    ? settings.lineChannelSecretFromEnv ? "ตั้งค่าไว้ในระบบฝั่งเซิร์ฟเวอร์แล้ว" : "มีค่าเดิมอยู่แล้ว เว้นว่างไว้เพื่อคงค่าเดิม"
     : "ยังไม่ได้ตั้งค่า";
   const lineTokenHelp = settings.lineChannelAccessTokenConfigured
-    ? settings.lineChannelAccessTokenFromEnv ? "ตั้งค่าไว้ใน Vercel Environment แล้ว" : "มีค่าเดิมอยู่แล้ว เว้นว่างไว้เพื่อคงค่าเดิม"
+    ? settings.lineChannelAccessTokenFromEnv ? "ตั้งค่าไว้ในระบบฝั่งเซิร์ฟเวอร์แล้ว" : "มีค่าเดิมอยู่แล้ว เว้นว่างไว้เพื่อคงค่าเดิม"
     : "ยังไม่ได้ตั้งค่า";
   const connected = integrationConnected("line");
   els.content.innerHTML = settingsSubpageShell(
@@ -7457,11 +7482,11 @@ function renderSettingsLineHub() {
           </div>
           <div>
             <h3>คู่มือเชื่อมต่อ LINE OA</h3>
-            <p>ดูวิดีโอหรืออ่านคู่มือแบบย่อก่อนกรอก Channel ID, Secret และ Long-lived Channel Access Token</p>
+            <p>ดูวิดีโอหรืออ่านคู่มือแบบย่อก่อนกรอก Channel ID, Channel Secret และ Long-lived Channel Access Token</p>
           </div>
           <div class="line-tutorial-actions">
-            <button class="button primary" type="button" data-open-line-video>${iconSvg("play")} Watch Video</button>
-            <button class="button ghost" type="button" data-scroll-line-guide>Text Guide</button>
+            <button class="button primary" type="button" data-open-line-video>${iconSvg("play")} ดูวิดีโอ</button>
+            <button class="button ghost" type="button" data-scroll-line-guide>อ่านคู่มือ</button>
           </div>
         </article>
         <section class="line-oa-shell">
@@ -7470,7 +7495,7 @@ function renderSettingsLineHub() {
               <div>
                 <span>สถานะการเชื่อมต่อ</span>
                 <strong class="${connected ? "connected" : ""}">${connected ? "เชื่อมต่อแล้ว" : "ยังไม่ได้เชื่อมต่อ"}</strong>
-                <p>${connected ? "ระบบพบข้อมูลการเชื่อมต่อ LINE OA ใน settings ปัจจุบัน" : "กรอกข้อมูลจาก LINE Developers Console เพื่อเริ่มเชื่อมต่อ"}</p>
+                <p>${connected ? "ระบบพบข้อมูลการเชื่อมต่อ LINE OA ในการตั้งค่าปัจจุบัน" : "กรอกข้อมูลจาก LINE Developers Console เพื่อเริ่มเชื่อมต่อ"}</p>
               </div>
               <button class="button danger" type="button" data-disconnect-line ${connected ? "" : "disabled"}>ยกเลิกการเชื่อมต่อ</button>
             </div>
@@ -7510,12 +7535,12 @@ function renderSettingsLineHub() {
                 <span class="settings-switch-ui"></span>
               </label>
               <label class="settings-switch">
-                <span><strong>ดึงข้อมูลลูกค้าอัตโนมัติ</strong><small>ใช้ LINE parsing และ customer sync เดิมเมื่อมีข้อความเข้า</small></span>
+                <span><strong>ดึงข้อมูลลูกค้าอัตโนมัติ</strong><small>ใช้การแปลงข้อความ LINE และการอัปเดตข้อมูลลูกค้าเดิมเมื่อมีข้อความเข้า</small></span>
                 <input type="checkbox" ${settings.lineWebhookEnabled ? "checked" : ""} disabled>
                 <span class="settings-switch-ui"></span>
               </label>
               <label class="settings-switch">
-                <span><strong>สร้างออเดอร์อัตโนมัติ</strong><small>สร้างออเดอร์จากข้อความที่ parse ได้ตาม logic เดิม</small></span>
+                <span><strong>สร้างออเดอร์อัตโนมัติ</strong><small>สร้างออเดอร์จากข้อความที่แปลงได้ตามเงื่อนไขเดิม</small></span>
                 <input type="checkbox" ${settings.lineWebhookEnabled ? "checked" : ""} disabled>
                 <span class="settings-switch-ui"></span>
               </label>
@@ -7554,18 +7579,19 @@ function renderSettingsProviderBlocked(provider) {
   const title = isGoogle ? "Google Drive" : "Facebook";
   const settings = app.data.settings || {};
   const integration = isGoogle ? settings.integrations?.googleDrive : settings.integrations?.facebook;
+  const error = integrationDisplayError(provider, integration?.error);
   els.content.innerHTML = settingsSubpageShell(
     "Integrations",
     title,
-    isGoogle ? "เชื่อมต่อ Google Drive ผ่าน OAuth ที่ปลอดภัย" : "เชื่อมต่อ Meta/Facebook Page ผ่าน OAuth ที่ปลอดภัย",
+    isGoogle ? "เชื่อมต่อ Google Drive อย่างปลอดภัย" : "เชื่อมต่อเพจ Meta/Facebook อย่างปลอดภัย",
     `
       <div class="settings-unified-form">
-        ${settingsUnifiedCard("สถานะการเชื่อมต่อ", "ระบบจะไม่แสดงว่าเชื่อมต่อจนกว่าจะผ่าน OAuth จริงใน production", `
+        ${settingsUnifiedCard("สถานะการเชื่อมต่อ", "ระบบจะไม่แสดงว่าเชื่อมต่อจนกว่าจะเชื่อมต่อจริงบนระบบใช้งาน", `
           <div class="settings-status-card">
             <span class="settings-status-icon">${iconSvg(isGoogle ? "link" : "flag")}</span>
             <div>
               <strong>${integration?.connected ? "เชื่อมต่อแล้ว" : "ยังไม่พร้อมเชื่อมต่อ"}</strong>
-              <p>${escapeHtml(integration?.error || "ยังไม่ได้ตั้งค่า OAuth credentials ใน production")}</p>
+              <p>${escapeHtml(error || "ยังไม่ได้ตั้งค่าข้อมูลอนุญาตการเชื่อมต่อบนระบบใช้งาน")}</p>
             </div>
           </div>
           <div class="settings-submit-bar">

@@ -20124,6 +20124,403 @@ body.mobile-app-shell:not(.login-view) .line-status-row span {
   color: #aab4c3 !important;
 }
 
+/* Settings pages opened from Business Management reuse the Business subpage shell. */
+body:not(.login-view) .settings-shared-page {
+  --settings-card-bg: linear-gradient(145deg, rgba(8, 24, 39, 0.96), rgba(3, 13, 24, 0.98));
+  --settings-card-border: rgba(63, 91, 119, 0.58);
+  --settings-muted: #aab4c3;
+  --settings-text: #f5f7fb;
+  --settings-radius: 8px;
+  --settings-control-height: 42px;
+  width: 100% !important;
+  max-width: 100% !important;
+  margin: 0 !important;
+}
+
+body:not(.login-view) .settings-shared-page .mobile-business-subhead {
+  width: 100%;
+  margin: 0;
+}
+
+body:not(.login-view) .settings-shared-page .mobile-business-icon,
+body:not(.login-view) .settings-shared-page .settings-menu-icon,
+body:not(.login-view) .settings-shared-page .settings-status-icon,
+body:not(.login-view) .settings-shared-page .settings-row-icon,
+body:not(.login-view) .settings-shared-page .integration-logo,
+body:not(.login-view) .settings-shared-page .line-video-thumb .integration-logo {
+  color: var(--settings-text) !important;
+  background: rgba(7, 20, 34, 0.74) !important;
+  border: 1px solid rgba(91, 118, 146, 0.58) !important;
+  box-shadow: none !important;
+}
+
+body:not(.login-view) .settings-shared-content,
+body:not(.login-view) .settings-shared-page .settings-unified-form,
+body:not(.login-view) .settings-shared-page .integrations-page,
+body:not(.login-view) .settings-shared-page .line-oa-page {
+  display: grid !important;
+  gap: 14px !important;
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+}
+
+body:not(.login-view) .settings-shared-page.grow-settings-shell {
+  max-width: 100% !important;
+  margin: 0 !important;
+}
+
+body:not(.login-view) .settings-shared-page .grow-settings-list,
+body.desktop-app-shell:not(.login-view) .settings-shared-page .grow-settings-list {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  gap: 10px !important;
+  width: 100% !important;
+}
+
+body:not(.login-view) .settings-shared-page .grow-settings-row,
+body.desktop-app-shell:not(.login-view) .settings-shared-page .grow-settings-row {
+  min-height: 88px !important;
+  display: grid !important;
+  grid-template-columns: 54px minmax(0, 1fr) 24px !important;
+  gap: 18px !important;
+  align-items: center !important;
+  width: 100% !important;
+  padding: 16px 20px !important;
+  border-radius: var(--settings-radius) !important;
+  border: 1px solid var(--settings-card-border) !important;
+  background: var(--settings-card-bg) !important;
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.025) !important;
+}
+
+body:not(.login-view) .settings-shared-page .settings-menu-icon,
+body:not(.login-view) .settings-shared-page .settings-status-icon,
+body:not(.login-view) .settings-shared-page .settings-row-icon,
+body:not(.login-view) .settings-shared-page .integration-logo {
+  width: 46px !important;
+  height: 46px !important;
+  min-width: 46px !important;
+  min-height: 46px !important;
+  display: grid !important;
+  place-items: center !important;
+  border-radius: var(--settings-radius) !important;
+  font-size: 12px !important;
+}
+
+body:not(.login-view) .settings-shared-page .settings-menu-icon svg,
+body:not(.login-view) .settings-shared-page .settings-status-icon svg,
+body:not(.login-view) .settings-shared-page .settings-row-icon svg {
+  width: 24px !important;
+  height: 24px !important;
+}
+
+body:not(.login-view) .settings-shared-page .settings-menu-copy strong,
+body.desktop-app-shell:not(.login-view) .settings-shared-page .settings-menu-copy strong {
+  color: var(--settings-text) !important;
+  font-size: 18px !important;
+  line-height: 1.2 !important;
+  font-weight: 800 !important;
+}
+
+body:not(.login-view) .settings-shared-page .settings-menu-copy small,
+body.desktop-app-shell:not(.login-view) .settings-shared-page .settings-menu-copy small {
+  color: var(--settings-muted) !important;
+  font-size: 14px !important;
+  line-height: 1.45 !important;
+  margin-top: 4px !important;
+}
+
+body:not(.login-view) .settings-shared-page .settings-unified-card,
+body:not(.login-view) .settings-shared-page .settings-detail-panel,
+body:not(.login-view) .settings-shared-page .settings-status-card,
+body:not(.login-view) .settings-shared-page .settings-metric-card,
+body:not(.login-view) .settings-shared-page .settings-notification-row,
+body:not(.login-view) .settings-shared-page .integration-card,
+body:not(.login-view) .settings-shared-page .integration-help-card,
+body:not(.login-view) .settings-shared-page .line-tutorial-card,
+body:not(.login-view) .settings-shared-page .line-guide-card,
+body:not(.login-view) .settings-shared-page .line-capability-card,
+body:not(.login-view) .settings-shared-page .line-oa-form {
+  width: 100% !important;
+  max-width: none !important;
+  border: 1px solid var(--settings-card-border) !important;
+  border-radius: var(--settings-radius) !important;
+  background: var(--settings-card-bg) !important;
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.025) !important;
+}
+
+body:not(.login-view) .settings-shared-page .settings-unified-card {
+  display: grid !important;
+  gap: 16px !important;
+  padding: 18px !important;
+}
+
+body:not(.login-view) .settings-shared-page .settings-unified-card-head h3,
+body:not(.login-view) .settings-shared-page .integration-group h2,
+body:not(.login-view) .settings-shared-page .line-tutorial-card h3,
+body:not(.login-view) .settings-shared-page .line-guide-card h3,
+body:not(.login-view) .settings-shared-page .line-oa-form h3 {
+  margin: 0 !important;
+  color: var(--settings-text) !important;
+  font-size: 16px !important;
+  line-height: 1.25 !important;
+  font-weight: 800 !important;
+}
+
+body:not(.login-view) .settings-shared-page .settings-unified-card-head p,
+body:not(.login-view) .settings-shared-page .settings-metric-card p,
+body:not(.login-view) .settings-shared-page .settings-notification-row small,
+body:not(.login-view) .settings-shared-page .integration-copy p,
+body:not(.login-view) .settings-shared-page .line-tutorial-card p,
+body:not(.login-view) .settings-shared-page .line-capability-card p,
+body:not(.login-view) .settings-shared-page .integration-help-card p {
+  color: var(--settings-muted) !important;
+  font-size: 13px !important;
+  line-height: 1.45 !important;
+}
+
+body:not(.login-view) .settings-shared-page .settings-form-grid,
+body:not(.login-view) .settings-shared-page .settings-metric-grid,
+body:not(.login-view) .settings-shared-page .settings-simple-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 14px !important;
+}
+
+body:not(.login-view) .settings-shared-page .settings-form-grid .span-2 {
+  grid-column: 1 / -1 !important;
+}
+
+body:not(.login-view) .settings-shared-page label {
+  color: var(--settings-muted) !important;
+  font-size: 13px !important;
+  line-height: 1.35 !important;
+  font-weight: 700 !important;
+}
+
+body:not(.login-view) .settings-shared-page input,
+body:not(.login-view) .settings-shared-page select,
+body:not(.login-view) .settings-shared-page textarea {
+  box-sizing: border-box !important;
+  width: 100% !important;
+  min-height: var(--settings-control-height) !important;
+  border-radius: var(--settings-radius) !important;
+  border: 1px solid rgba(63, 91, 119, 0.58) !important;
+  background: rgba(2, 12, 22, 0.72) !important;
+  color: var(--settings-text) !important;
+  padding: 10px 12px !important;
+  font-size: 14px !important;
+}
+
+body:not(.login-view) .settings-shared-page textarea {
+  min-height: 82px !important;
+}
+
+body:not(.login-view) .settings-shared-page .settings-switch input {
+  width: auto !important;
+  min-height: 0 !important;
+  height: auto !important;
+  padding: 0 !important;
+  border: 0 !important;
+}
+
+body:not(.login-view) .settings-shared-page .button,
+body:not(.login-view) .settings-shared-page button.button {
+  min-height: var(--settings-control-height) !important;
+  border-radius: var(--settings-radius) !important;
+}
+
+body:not(.login-view) .settings-shared-page .settings-submit-bar,
+body:not(.login-view) .settings-shared-page .line-form-actions {
+  display: flex !important;
+  justify-content: flex-end !important;
+  align-items: center !important;
+  gap: 10px !important;
+  width: 100% !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+}
+
+body:not(.login-view) .settings-shared-page .settings-business-info-layout {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) 240px !important;
+  gap: 18px !important;
+}
+
+body:not(.login-view) .settings-shared-page .settings-logo-preview {
+  display: grid !important;
+  align-content: center !important;
+  justify-items: center !important;
+  gap: 8px !important;
+  padding: 18px !important;
+  border-left: 1px solid rgba(63, 91, 119, 0.42) !important;
+  color: var(--settings-muted) !important;
+  text-align: center !important;
+}
+
+body:not(.login-view) .settings-shared-page .settings-logo-preview span {
+  width: 92px !important;
+  height: 92px !important;
+  display: grid !important;
+  place-items: center !important;
+  border-radius: 50% !important;
+  border: 1px solid rgba(91, 118, 146, 0.62) !important;
+  color: var(--settings-text) !important;
+  font-size: 24px !important;
+  font-weight: 800 !important;
+}
+
+body:not(.login-view) .settings-shared-page .settings-preference-list {
+  display: grid !important;
+  gap: 10px !important;
+}
+
+body:not(.login-view) .settings-shared-page .settings-preference-row {
+  min-height: 64px !important;
+  padding: 12px !important;
+  border: 1px solid rgba(63, 91, 119, 0.38) !important;
+  border-radius: var(--settings-radius) !important;
+  background: rgba(2, 12, 22, 0.42) !important;
+}
+
+body:not(.login-view) .settings-shared-page .settings-switch-ui {
+  width: 46px !important;
+  height: 26px !important;
+  border-radius: 999px !important;
+}
+
+body:not(.login-view) .settings-shared-page .settings-switch-ui::after {
+  width: 20px !important;
+  height: 20px !important;
+}
+
+body:not(.login-view) .settings-shared-page .settings-switch input:checked + .settings-switch-ui::after {
+  transform: translateX(20px) !important;
+}
+
+body:not(.login-view) .settings-shared-page .settings-notification-list {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  gap: 10px !important;
+}
+
+body:not(.login-view) .settings-shared-page .settings-notification-row {
+  min-height: 72px !important;
+  display: grid !important;
+  grid-template-columns: 46px minmax(0, 1fr) auto !important;
+  gap: 12px !important;
+  align-items: center !important;
+  padding: 12px !important;
+}
+
+body:not(.login-view) .settings-shared-page .integration-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 14px !important;
+}
+
+body:not(.login-view) .settings-shared-page .integration-card {
+  min-height: 156px !important;
+  padding: 16px !important;
+  display: grid !important;
+  grid-template-columns: 46px minmax(0, 1fr) !important;
+  gap: 12px !important;
+}
+
+body:not(.login-view) .settings-shared-page .integration-card.is-blocked {
+  border-style: dashed !important;
+}
+
+body:not(.login-view) .settings-shared-page .integration-status.error {
+  color: #ffd1d1 !important;
+  background: rgba(185, 28, 28, 0.22) !important;
+}
+
+body:not(.login-view) .settings-shared-page .line-tutorial-card {
+  display: grid !important;
+  grid-template-columns: 150px minmax(0, 1fr) auto !important;
+  align-items: center !important;
+  padding: 16px !important;
+}
+
+body:not(.login-view) .settings-shared-page .line-video-thumb {
+  min-height: 88px !important;
+  border-radius: var(--settings-radius) !important;
+  border: 1px solid rgba(63, 91, 119, 0.48) !important;
+  background: rgba(2, 12, 22, 0.62) !important;
+}
+
+body:not(.login-view) .settings-shared-page .line-oa-shell {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) 320px !important;
+  gap: 14px !important;
+}
+
+body:not(.login-view) .settings-shared-page .line-status-row,
+body:not(.login-view) .settings-shared-page .line-form-section {
+  padding: 18px !important;
+}
+
+body:not(.login-view) .settings-shared-page .line-input-action {
+  grid-template-columns: minmax(0, 1fr) 42px auto !important;
+}
+
+body:not(.login-view) .settings-shared-page .line-secret-toggle {
+  width: 42px !important;
+  height: 42px !important;
+  min-width: 42px !important;
+  border-radius: var(--settings-radius) !important;
+}
+
+@media (max-width: 900px) {
+  body:not(.login-view) .settings-shared-page {
+    --settings-control-height: 44px;
+  }
+
+  body:not(.login-view) .settings-shared-page .grow-settings-row {
+    min-height: 84px !important;
+    grid-template-columns: 46px minmax(0, 1fr) 22px !important;
+    gap: 12px !important;
+    padding: 14px !important;
+  }
+
+  body:not(.login-view) .settings-shared-page .settings-form-grid,
+  body:not(.login-view) .settings-shared-page .settings-business-info-layout,
+  body:not(.login-view) .settings-shared-page .settings-metric-grid,
+  body:not(.login-view) .settings-shared-page .settings-simple-grid,
+  body:not(.login-view) .settings-shared-page .integration-grid,
+  body:not(.login-view) .settings-shared-page .line-oa-shell,
+  body:not(.login-view) .settings-shared-page .line-tutorial-card {
+    grid-template-columns: 1fr !important;
+  }
+
+  body:not(.login-view) .settings-shared-page .settings-logo-preview {
+    border-left: 0 !important;
+    border-top: 1px solid rgba(63, 91, 119, 0.42) !important;
+  }
+
+  body:not(.login-view) .settings-shared-page .settings-notification-row {
+    grid-template-columns: 46px minmax(0, 1fr) !important;
+  }
+
+  body:not(.login-view) .settings-shared-page .settings-notification-row em {
+    grid-column: 2 !important;
+  }
+
+  body:not(.login-view) .settings-shared-page .line-tutorial-actions,
+  body:not(.login-view) .settings-shared-page .settings-submit-bar,
+  body:not(.login-view) .settings-shared-page .line-form-actions {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+  }
+
+  body:not(.login-view) .settings-shared-page .settings-submit-bar .button,
+  body:not(.login-view) .settings-shared-page .line-form-actions .button {
+    width: 100% !important;
+  }
+}
+
 /* Final Settings-only overrides. Keep after legacy desktop/mobile rules. */
 body:not(.login-view) .settings-premium-page {
   --settings-max-width: 1180px;

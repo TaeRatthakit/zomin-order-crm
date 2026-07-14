@@ -479,12 +479,12 @@ function normalizeIntegrationSettings(settings = {}) {
     googleDrive: {
       connected: false,
       account: cleanText(integrations.googleDrive?.account, ""),
-      error: cleanText(integrations.googleDrive?.error, process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET ? "" : "ยังไม่ได้ตั้งค่า Google OAuth credentials")
+      error: cleanText(integrations.googleDrive?.error, process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET ? "" : "ยังไม่ได้ตั้งค่าข้อมูลอนุญาต Google Drive")
     },
     facebook: {
       connected: false,
       account: cleanText(integrations.facebook?.account, ""),
-      error: cleanText(integrations.facebook?.error, process.env.META_CLIENT_ID && process.env.META_CLIENT_SECRET ? "" : "ยังไม่ได้ตั้งค่า Meta OAuth credentials")
+      error: cleanText(integrations.facebook?.error, process.env.META_CLIENT_ID && process.env.META_CLIENT_SECRET ? "" : "ยังไม่ได้ตั้งค่าข้อมูลอนุญาต Facebook")
     }
   };
 }
@@ -4004,8 +4004,8 @@ async function handleApi(req, res) {
         status: "blocked",
         provider,
         error: isGoogle
-          ? "ยังไม่ได้ตั้งค่า Google OAuth app, redirect URL และ scopes ใน production"
-          : "ยังไม่ได้ตั้งค่า Meta OAuth app, redirect URL, page permissions และ provider approval ใน production"
+          ? "ยังไม่ได้ตั้งค่าการเชื่อมต่อ Google Drive สำหรับระบบใช้งาน"
+          : "ยังไม่ได้ตั้งค่าการเชื่อมต่อ Facebook สำหรับระบบใช้งาน"
       });
     }
   }
