@@ -35,6 +35,8 @@ const routeToView = {
   "/settings/display": "settingsDisplay",
   "/settings/integrations": "settingsIntegrations",
   "/settings/line": "settingsLineHub",
+  "/settings/google-drive": "settingsGoogleDrive",
+  "/settings/facebook": "settingsFacebook",
   "/settings/users": "settingsUsers",
   "/settings/import-export": "settingsImportExport",
   "/settings/subscription": "settingsSubscription",
@@ -114,6 +116,7 @@ const app = {
   confirmDialogResolve: null,
   teamSavePending: false,
   profileDraftImage: "",
+  businessLogoDraft: "",
   profileSaving: false,
   settingsSavePending: false,
   mobileBusinessPage: "main",
@@ -177,7 +180,7 @@ function mergeCachedMobileProfile(user) {
 
 const adminViews = new Set([
   "settingsStore", "settingsFinance", "settingsCustomers", "settingsGoals",
-  "settingsAi", "settingsNotifications", "settingsDisplay", "settingsIntegrations", "settingsLineHub",
+  "settingsAi", "settingsNotifications", "settingsDisplay", "settingsIntegrations", "settingsLineHub", "settingsGoogleDrive", "settingsFacebook",
   "settingsImportExport", "settingsSubscription",
   "settingsFollowup", "settingsVip", "settingsLine", "lineDebug", "team"
 ]);
@@ -224,7 +227,7 @@ function canAccessView(view) {
   if (view === "reports") return can("reports.sales") || can("reports.costs") || can("reports.profit") || can("reports.finance");
   if (view === "settingsFinance") return can("reports.costs") || can("reports.finance");
   if (["settingsStore", "settingsGoals", "settingsAi", "settingsNotifications", "settingsDisplay", "settingsFollowup", "settingsVip"].includes(view)) return can("system.business");
-  if (view === "settingsLineHub" || view === "settingsLine" || view === "lineDebug") return can("system.integrations");
+  if (view === "settingsLineHub" || view === "settingsGoogleDrive" || view === "settingsFacebook" || view === "settingsLine" || view === "lineDebug") return can("system.integrations");
   if (view === "settingsImportExport") return can("customers.import") || canExportData() || can("system.danger");
   if (adminViews.has(view)) return isAdmin();
   return true;
@@ -488,9 +491,10 @@ function escapeHtml(value) {
 }
 
 function money(value) {
-  return Number(value || 0).toLocaleString("th-TH", {
-    maximumFractionDigits: 0
-  });
+  const prefs = app.data?.settings?.displayPreferences || {};
+  const locale = prefs.numberFormat === "1.234,56" ? "de-DE" : "th-TH";
+  const formatted = Number(value || 0).toLocaleString(locale, { maximumFractionDigits: 0 });
+  return prefs.currency === "USD" ? `$${formatted}` : formatted;
 }
 
 function productCostMoney(value) {
@@ -564,6 +568,16 @@ function formatDate(dateValue) {
   if (!dateValue) return "-";
   const [y, m, d] = String(dateValue).split("-").map(Number);
   const date = new Date(Date.UTC(y, m - 1, d, 12));
+  const prefs = app.data?.settings?.displayPreferences || {};
+  if (prefs.dateFormat === "YYYY-MM-DD") return String(dateValue).slice(0, 10);
+  if (prefs.dateFormat === "DD MMM YYYY") {
+    return new Intl.DateTimeFormat("th-TH-u-ca-buddhist", {
+      timeZone: "Asia/Bangkok",
+      day: "2-digit",
+      month: "short",
+      year: "numeric"
+    }).format(date);
+  }
   return new Intl.DateTimeFormat("th-TH-u-ca-buddhist", {
     timeZone: "Asia/Bangkok",
     day: "2-digit",
@@ -1085,6 +1099,8 @@ function renderNav() {
     settingsFinance: "settings",
     settingsCustomers: "settings",
     settingsLineHub: "settings",
+    settingsGoogleDrive: "settings",
+    settingsFacebook: "settings",
     settingsUsers: "settings",
     settingsImportExport: "settings",
     settingsSubscription: "settings",
@@ -2034,16 +2050,21 @@ function notificationItems() {
     stockEstimate: Math.max(0, 120 - product.soldCount)
   })).filter(product => product.stockEstimate <= 25);
   const opportunities = opportunityCardsData();
+  const preferences = app.data?.settings?.notificationPreferences || {};
+  const categories = preferences.categories || {};
+  const aiPreferences = app.data?.settings?.aiPreferences || {};
   return [
-    { type: "duplicate orders", title: "ออเดอร์ซ้ำที่ควรตรวจสอบ", count: duplicates.length, detail: "ตรวจเลขออเดอร์ซ้ำก่อนปิดยอด" },
-    { type: "follow-up customers", title: "ลูกค้าที่ควรติดตาม", count: due.length, detail: "พร้อมโทรหรือ Broadcast ได้ทันที" },
-    { type: "VIP reminders", title: "ลูกค้าใกล้เป็น VIP", count: vip.length, detail: "กระตุ้นอีกนิดเพื่อเพิ่มโอกาสซื้อซ้ำ" },
-    { type: "stock alerts", title: "สินค้าใกล้หมดสต๊อก", count: lowStock.length, detail: "เช็ก stock ก่อนรอบขายถัดไป" },
-    { type: "sales opportunities", title: "โอกาสเพิ่มรายได้วันนี้", count: opportunities.length, detail: `มูลค่าประมาณ ${money(opportunities.reduce((sum, item) => sum + item.revenue, 0))} บาท` }
-  ];
+    { id: "orderReview", type: "ออเดอร์", title: "ออเดอร์ซ้ำที่ควรตรวจสอบ", count: duplicates.length, detail: "ตรวจเลขออเดอร์ซ้ำก่อนปิดยอด" },
+    { id: "customerFollowUp", type: "ลูกค้า", title: "ลูกค้าที่ควรติดตาม", count: due.length, detail: "พร้อมโทรหรือ Broadcast ได้ทันที" },
+    { id: "vipReminder", type: "ลูกค้า", title: "ลูกค้าใกล้เป็น VIP", count: vip.length, detail: "กระตุ้นอีกนิดเพื่อเพิ่มโอกาสซื้อซ้ำ" },
+    { id: "lowStock", type: "สินค้า", title: "สินค้าใกล้หมดสต๊อก", count: lowStock.length, detail: "เช็ก stock ก่อนรอบขายถัดไป" },
+    { id: "salesOpportunity", type: "โอกาสขาย", title: "โอกาสเพิ่มรายได้วันนี้", count: opportunities.length, detail: `มูลค่าประมาณ ${money(opportunities.reduce((sum, item) => sum + item.revenue, 0))} บาท` }
+  ].filter(item => categories[item.id] !== false && (item.id !== "salesOpportunity" || aiPreferences.intelligentAlerts !== false));
 }
 
 function liveNotificationItems() {
+  const preferences = app.data?.settings?.notificationPreferences || {};
+  if (preferences.channels?.inApp === false) return [];
   return notificationItems().filter(item => Number(item.count || 0) > 0);
 }
 
@@ -6638,7 +6659,6 @@ function settingsSectionTitle(index, title, subtitle, icon = "◈") {
 const settingsMenuItems = [
   { view: "settingsStore", title: "Business Information", titleTh: "ข้อมูลธุรกิจ", description: "ชื่อธุรกิจ, โลโก้, ประเภทธุรกิจ, ที่อยู่ และข้อมูลติดต่อ", icon: "briefcase", tone: "purple" },
   { view: "settingsGoals", title: "Business Goals", titleTh: "เป้าหมายธุรกิจ", description: "ตั้งเป้าหมายรายได้, กำไร, ออเดอร์ และลูกค้า", icon: "flag", tone: "pink" },
-  { view: "settingsFinance", title: "Finance", titleTh: "การเงิน", description: "สกุลเงิน, การปัดเศษ และค่าใช้จ่ายเริ่มต้น", icon: "wallet", tone: "green" },
   { view: "settingsAi", title: "AI", titleTh: "AI", description: "การวิเคราะห์และการแจ้งเตือนอัจฉริยะ", icon: "bot", tone: "blue" },
   { view: "settingsNotifications", title: "Notifications", titleTh: "การแจ้งเตือน", description: "ตั้งค่าการแจ้งเตือนผ่านแอป, อีเมล และ LINE", icon: "bell", tone: "orange" },
   { view: "settingsDisplay", title: "Display", titleTh: "การแสดงผล", description: "ธีม, ภาษา, รูปแบบวันที่และตัวเลข", icon: "palette", tone: "amber" },
@@ -6688,6 +6708,20 @@ function settingsReadonlyMetric(label, value, detail = "") {
       <strong>${escapeHtml(value)}</strong>
       ${detail ? `<p>${escapeHtml(detail)}</p>` : ""}
     </article>
+  `;
+}
+
+function checkedAttr(value) {
+  return value ? "checked" : "";
+}
+
+function settingsToggle(name, title, subtitle, checked, options = {}) {
+  return `
+    <label class="settings-switch settings-preference-row">
+      <span><strong>${escapeHtml(title)}</strong><small>${escapeHtml(subtitle || "")}</small></span>
+      <input name="${escapeHtml(name)}" type="checkbox" ${checkedAttr(checked)} ${options.disabled ? "disabled" : ""}>
+      <span class="settings-switch-ui"></span>
+    </label>
   `;
 }
 
@@ -6933,25 +6967,37 @@ function settingsAdditionalCostRows(settings) {
 function renderSettingsStore() {
   const settings = app.data.settings;
   const templates = settings.messageTemplates || {};
-  const businessInitials = initials(safeBusinessName(settings.businessName, "GP"));
+  const profile = settings.businessProfile || {};
+  const logo = app.businessLogoDraft || profile.logoUrl || settings.businessLogoUrl || "";
+  const businessInitials = initials(safeBusinessName(profile.name || settings.businessName, "GP"));
   els.content.innerHTML = settingsSubpageShell(
     "Business Information",
     "ข้อมูลธุรกิจ",
     "ชื่อธุรกิจ โลโก้ ข้อมูลพื้นฐาน และข้อความดูแลลูกค้า",
     `
-      <form class="settings-unified-form" id="settingsForm">
-        ${settingsUnifiedCard("ข้อมูลร้านค้า", "แก้ไขข้อมูลที่ระบบใช้แสดงในหน้าเอกสารและข้อความอัตโนมัติ", `
+      <form class="settings-unified-form" id="settingsForm" data-settings-scope="business">
+        ${settingsUnifiedCard("ข้อมูลทั่วไป", "ข้อมูลนี้ใช้กับเอกสาร ข้อความ และหน้าระบบที่แสดงชื่อธุรกิจ", `
           <div class="settings-business-info-layout">
             <div class="settings-form-grid">
-              <label>ชื่อธุรกิจ / ร้านค้า<input name="businessName" value="${escapeHtml(safeBusinessName(settings.businessName, ""))}" placeholder="Growup Pilot"></label>
-              <label>ราคาต่อกระปุกเริ่มต้น (บาท)<input name="defaultJarPrice" type="number" min="0" value="${Number(settings.defaultJarPrice || 750)}"></label>
+              <label>ชื่อธุรกิจ<input name="businessName" required value="${escapeHtml(safeBusinessName(profile.name || settings.businessName, ""))}" placeholder="Growup Pilot"></label>
+              <label>ประเภทธุรกิจ
+                <select name="businessType">
+                  ${["ร้านขายสินค้า/อาหารเสริม", "คลินิก/สุขภาพ", "ค้าปลีก", "บริการ", "อื่นๆ"].map(item => `<option value="${escapeHtml(item)}" ${(profile.type || settings.businessType) === item ? "selected" : ""}>${escapeHtml(item)}</option>`).join("")}
+                </select>
+              </label>
+              <label class="span-2">ที่อยู่ธุรกิจ<textarea name="businessAddress" required>${escapeHtml(profile.address || settings.businessAddress || "")}</textarea></label>
+              <label>เบอร์โทรศัพท์<input name="businessPhone" inputmode="tel" value="${escapeHtml(profile.phone || settings.businessPhone || "")}" placeholder="081-234-5678"></label>
+              <label>อีเมล<input name="businessEmail" type="email" value="${escapeHtml(profile.email || settings.businessEmail || "")}" placeholder="info@growuppilot.com"></label>
               <label class="span-2">Template ข้อความลูกค้าปกติ<textarea name="normalTemplate">${escapeHtml(templates.normal || "")}</textarea></label>
               <label class="span-2">Template ข้อความ VIP<textarea name="vipTemplate">${escapeHtml(templates.vip || "")}</textarea></label>
             </div>
             <aside class="settings-logo-preview" aria-label="ตัวอย่างโลโก้ร้าน">
-              <span>${escapeHtml(businessInitials)}</span>
-              <strong>${escapeHtml(safeBusinessName(settings.businessName, "Growup Pilot"))}</strong>
-              <small>ใช้ข้อมูลเดิมของระบบ ไม่มีการเปลี่ยน flow อัปโหลดไฟล์</small>
+              <span class="settings-logo-frame">${logo ? `<img src="${escapeHtml(logo)}" alt="${escapeHtml(profile.name || settings.businessName || "Business logo")}">` : escapeHtml(businessInitials)}</span>
+              <strong>${escapeHtml(safeBusinessName(profile.name || settings.businessName, "Growup Pilot"))}</strong>
+              <input type="hidden" name="businessLogoUrl" value="${escapeHtml(profile.logoUrl || settings.businessLogoUrl || "")}">
+              <input id="businessLogoInput" type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden>
+              <button class="button ghost compact-action" type="button" data-pick-business-logo>เปลี่ยนโลโก้</button>
+              <small>ระบบอัปโหลดเป็นไฟล์ storage และเก็บเฉพาะ URL ไม่เก็บ base64 ใน settings</small>
             </aside>
           </div>
         `)}
@@ -7041,25 +7087,33 @@ function renderSettingsGoals() {
   const monthOrders = (app.data.orders || []).filter(order => String(order.date || "").startsWith(selectedMonth));
   const monthSales = monthOrders.reduce((sum, order) => sum + Number(order.amount || 0), 0);
   const customerIds = new Set(monthOrders.map(order => order.customerId).filter(Boolean));
+  const goals = app.data.settings.businessGoals || {};
   els.content.innerHTML = settingsSubpageShell(
     "Business Goals",
     "เป้าหมายธุรกิจ",
     "ติดตามเป้าหมายจากข้อมูลออเดอร์จริงโดยไม่สร้างตัวเลขจำลอง",
     `
-      <div class="settings-unified-form">
+      <form class="settings-unified-form" id="settingsForm" data-settings-scope="goals">
         ${settingsUnifiedCard("เป้าหมายรายได้", "ข้อมูลสรุปจากออเดอร์จริงในเดือนที่เลือก", `
+          <div class="settings-form-grid">
+            <label>เป้าหมายรายได้ต่อเดือน (บาท)<input name="monthlyRevenue" type="number" min="0" step="1" value="${Number(goals.monthlyRevenue || 0)}"></label>
+            <label>เป้าหมายกำไรต่อเดือน (บาท)<input name="monthlyProfit" type="number" min="0" step="1" value="${Number(goals.monthlyProfit || 0)}"></label>
+            <label>เป้าหมายจำนวนออเดอร์<input name="monthlyOrderCount" type="number" min="0" step="1" value="${Number(goals.monthlyOrderCount || 0)}"></label>
+            <label>เป้าหมายลูกค้าใหม่<input name="monthlyNewCustomerCount" type="number" min="0" step="1" value="${Number(goals.monthlyNewCustomerCount || 0)}"></label>
+          </div>
+        `)}
+        ${settingsUnifiedCard("ผลลัพธ์จริงเดือนนี้", "อ่านจากออเดอร์จริง ไม่แก้ calculation ของรายงาน", `
           <div class="settings-metric-grid">
             ${settingsReadonlyMetric("ยอดขายเดือนนี้", `${money(monthSales)} บาท`, `เดือน ${selectedMonth}`)}
             ${settingsReadonlyMetric("จำนวนออเดอร์", `${monthOrders.length} ออเดอร์`, "คำนวณจากออเดอร์จริง")}
-          </div>
-        `)}
-        ${settingsUnifiedCard("เป้าหมายลูกค้า", "ยังไม่มีแหล่งข้อมูลเป้าหมายในระบบ จึงไม่แสดงค่าเป้าหมายปลอม", `
-          <div class="settings-metric-grid">
             ${settingsReadonlyMetric("ลูกค้าที่มีออเดอร์เดือนนี้", `${customerIds.size} คน`, "นับจาก customerId ในออเดอร์")}
-            ${settingsReadonlyMetric("สถานะเป้าหมาย", "ยังไม่ได้ตั้งค่า", "คง behavior เดิมและไม่สร้างข้อมูลจำลอง")}
           </div>
         `)}
-      </div>
+        <div class="settings-submit-bar">
+          <button class="button ghost" type="button" data-reset-settings>ยกเลิก</button>
+          <button class="button primary" type="submit">บันทึกการเปลี่ยนแปลง</button>
+        </div>
+      </form>
     `
   );
 }
@@ -7067,12 +7121,13 @@ function renderSettingsGoals() {
 function renderSettingsAi() {
   const settings = app.data.settings || {};
   const hasAi = Boolean(settings.openaiApiKeyConfigured);
+  const prefs = settings.aiPreferences || {};
   els.content.innerHTML = settingsSubpageShell(
     "AI",
     "AI",
     "การวิเคราะห์และการแจ้งเตือนอัจฉริยะ",
     `
-      <form class="settings-unified-form settings-ai-form" id="settingsForm">
+      <form class="settings-unified-form settings-ai-form" id="settingsForm" data-settings-scope="ai">
         <input name="daysPerUnit" type="hidden" value="${Math.max(1, Number(settings.followUpDaysPerUnit || 15))}">
         ${settingsUnifiedCard("การตั้งค่า AI และคำแนะนำ", "สถานะการเชื่อมต่อและ model ที่ระบบใช้งาน", `
           <div class="settings-status-card ${hasAi ? "connected" : ""}">
@@ -7085,6 +7140,13 @@ function renderSettingsAi() {
           <div class="settings-form-grid">
             <label class="span-2">OpenAI Model<input name="openaiModel" value="${escapeHtml(settings.openaiModel || "gpt-4.1-mini")}" ${settings.openaiApiKeyFromEnv ? "readonly" : ""}></label>
           </div>
+          <div class="settings-preference-list">
+            ${settingsToggle("businessAnalysis", "การวิเคราะห์ธุรกิจ", hasAi ? "เปิดใช้การวิเคราะห์เมื่อมี backend/AI key พร้อม" : "ยังไม่พร้อมเพราะไม่มี AI key ที่ใช้งานได้", hasAi && prefs.businessAnalysis !== false, { disabled: !hasAi })}
+            ${settingsToggle("recommendations", "การแนะนำอัตโนมัติ", hasAi ? "ควบคุมคำแนะนำที่ใช้ AI ในส่วนที่รองรับ" : "ยังไม่พร้อมเพราะไม่มี AI key ที่ใช้งานได้", hasAi && prefs.recommendations !== false, { disabled: !hasAi })}
+            ${settingsToggle("intelligentAlerts", "การแจ้งเตือนอัจฉริยะ", "ควบคุมหมวดโอกาสเพิ่มยอดขายในศูนย์แจ้งเตือน", prefs.intelligentAlerts !== false)}
+            ${settingsToggle("customerInsights", "Customer / Business Insights", hasAi ? "เปิดข้อมูล insight ที่ต้องใช้ AI ในอนาคต" : "บันทึกสถานะไม่ได้จนกว่าจะเชื่อมต่อ AI", hasAi && prefs.customerInsights !== false, { disabled: !hasAi })}
+          </div>
+          <button class="button ghost compact-action" type="button" data-test-openai>ทดสอบสถานะ OpenAI</button>
         `)}
         <div class="settings-submit-bar">
           <button class="button ghost" type="button" data-reset-settings>ยกเลิก</button>
@@ -7097,13 +7159,32 @@ function renderSettingsAi() {
 
 function renderSettingsNotifications() {
   const items = liveNotificationItems();
+  const prefs = app.data.settings.notificationPreferences || {};
+  const channels = prefs.channels || {};
+  const categories = prefs.categories || {};
   els.content.innerHTML = settingsSubpageShell(
     "Notifications",
     "การแจ้งเตือน",
     "รายการแจ้งเตือนจากข้อมูลธุรกิจล่าสุด",
     `
-      <div class="settings-unified-form">
-        ${settingsUnifiedCard("การแจ้งเตือนของระบบ", "แสดงผลจากข้อมูลธุรกิจล่าสุดโดยใช้ logic เดิม", `
+      <form class="settings-unified-form" id="settingsForm" data-settings-scope="notifications">
+        ${settingsUnifiedCard("ช่องทางการแจ้งเตือน", "In-app ใช้กับศูนย์แจ้งเตือนปัจจุบัน ส่วน Email/LINE จะใช้เมื่อ delivery backend พร้อม", `
+          <div class="settings-preference-list">
+            ${settingsToggle("channelInApp", "ในแอป", "แสดงรายการในศูนย์แจ้งเตือน", channels.inApp !== false)}
+            ${settingsToggle("channelEmail", "อีเมล", "บันทึก preference ไว้ แต่ยังไม่มีระบบส่งอีเมลอัตโนมัติ", Boolean(channels.email))}
+            ${settingsToggle("channelLine", "LINE", "บันทึก preference ไว้ และจะใช้ร่วมกับ LINE เมื่อ delivery flow พร้อม", Boolean(channels.line))}
+          </div>
+        `)}
+        ${settingsUnifiedCard("ประเภทการแจ้งเตือน", "หมวดที่ปิดจะไม่ถูกสร้างใน in-app notifications", `
+          <div class="settings-preference-list">
+            ${settingsToggle("categoryOrderReview", "ออเดอร์ที่ควรตรวจสอบ", "เช่น ออเดอร์ซ้ำ", categories.orderReview !== false)}
+            ${settingsToggle("categoryCustomerFollowUp", "ลูกค้าที่ควรติดตาม", "ลูกค้าที่ถึงกำหนด follow-up", categories.customerFollowUp !== false)}
+            ${settingsToggle("categoryVipReminder", "ลูกค้าใกล้เป็น VIP", "เตือนโอกาสอัปเกรดลูกค้า", categories.vipReminder !== false)}
+            ${settingsToggle("categoryLowStock", "สินค้าใกล้หมด", "เตือนสต็อกต่ำจาก logic เดิม", categories.lowStock !== false)}
+            ${settingsToggle("categorySalesOpportunity", "โอกาสเพิ่มยอดขาย", "ใช้ร่วมกับ AI intelligent alerts preference", categories.salesOpportunity !== false)}
+          </div>
+        `)}
+        ${settingsUnifiedCard("ตัวอย่างแจ้งเตือนปัจจุบัน", "แสดงจากข้อมูลธุรกิจจริงหลังใช้ preference", `
           <div class="settings-notification-list">
             ${items.map(item => `
               <article class="settings-notification-row">
@@ -7117,26 +7198,49 @@ function renderSettingsNotifications() {
             `).join("") || `<div class="empty-state">ยังไม่มีการแจ้งเตือนจากข้อมูลจริง</div>`}
           </div>
         `)}
-      </div>
+        <div class="settings-submit-bar">
+          <button class="button ghost" type="button" data-reset-settings>ยกเลิก</button>
+          <button class="button primary" type="submit">บันทึกการเปลี่ยนแปลง</button>
+        </div>
+      </form>
     `
   );
 }
 
 function renderSettingsDisplay() {
+  const prefs = app.data.settings.displayPreferences || {};
   els.content.innerHTML = settingsSubpageShell(
     "Display",
     "การแสดงผล",
     "ธีม, ภาษา, รูปแบบวันที่และตัวเลข",
     `
-      <div class="settings-unified-form">
-        ${settingsUnifiedCard("ธีมและภาษา", "ค่าการแสดงผลปัจจุบันของระบบ", `
-          <div class="settings-metric-grid">
-            ${settingsReadonlyMetric("Theme", "Dark", "ใช้ธีม Growup Pilot dark ตามระบบปัจจุบัน")}
-            ${settingsReadonlyMetric("Language", "ไทย", "ข้อความหลักของระบบยังคงภาษาไทยตามหน้าเดิม")}
-            ${settingsReadonlyMetric("Date & Number", "รูปแบบระบบ", "แสดงผ่าน formatter เดิมของแอป")}
+      <form class="settings-unified-form" id="settingsForm" data-settings-scope="display">
+        ${settingsUnifiedCard("ธีม ภาษา และรูปแบบข้อมูล", "เปลี่ยนเฉพาะ presentation formatting ไม่เปลี่ยนค่าที่เก็บในฐานข้อมูล", `
+          <div class="settings-form-grid">
+            <label>ธีม<select name="theme"><option value="dark" selected>มืด (Dark)</option></select></label>
+            <label>ภาษา<select name="language"><option value="th" selected>ไทย</option></select></label>
+            <label>รูปแบบวันที่
+              <select name="dateFormat">
+                ${["DD/MM/YYYY", "YYYY-MM-DD", "DD MMM YYYY"].map(value => `<option value="${value}" ${prefs.dateFormat === value ? "selected" : ""}>${value}</option>`).join("")}
+              </select>
+            </label>
+            <label>รูปแบบตัวเลข
+              <select name="numberFormat">
+                ${["1,234.56", "1.234,56", "1234.56"].map(value => `<option value="${value}" ${prefs.numberFormat === value ? "selected" : ""}>${value}</option>`).join("")}
+              </select>
+            </label>
+            <label>สกุลเงิน
+              <select name="currency">
+                ${["THB", "USD"].map(value => `<option value="${value}" ${prefs.currency === value ? "selected" : ""}>${value}</option>`).join("")}
+              </select>
+            </label>
           </div>
         `)}
-      </div>
+        <div class="settings-submit-bar">
+          <button class="button ghost" type="button" data-reset-settings>ยกเลิก</button>
+          <button class="button primary" type="submit">บันทึกการเปลี่ยนแปลง</button>
+        </div>
+      </form>
     `
   );
 }
@@ -7145,21 +7249,29 @@ function integrationConnected(service) {
   const settings = app.data.settings || {};
   if (service === "line") return Boolean(settings.lineChannelId || settings.lineChannelSecretConfigured || settings.lineChannelAccessTokenConfigured || settings.lineWebhookEnabled);
   if (service === "openai") return Boolean(settings.openaiApiKeyConfigured);
+  if (service === "google-drive") return Boolean(settings.integrations?.googleDrive?.connected);
+  if (service === "facebook") return Boolean(settings.integrations?.facebook?.connected);
   return false;
 }
 
 function integrationCard({ service, name, description, icon, view }) {
   const connected = integrationConnected(service);
+  const settings = app.data.settings || {};
+  const error = service === "google-drive" ? settings.integrations?.googleDrive?.error
+    : service === "facebook" ? settings.integrations?.facebook?.error
+      : "";
+  const blocked = Boolean(error && !connected);
   return `
-    <article class="integration-card ${connected ? "is-connected" : ""}">
+    <article class="integration-card ${connected ? "is-connected" : ""} ${blocked ? "is-blocked" : ""}">
       <button class="integration-card-open" type="button" data-view-shortcut="${escapeHtml(view)}" aria-label="เปิด ${escapeHtml(name)}">${iconSvg("arrow")}</button>
       <span class="integration-logo ${escapeHtml(service)}" aria-hidden="true">${escapeHtml(icon)}</span>
       <div class="integration-copy">
         <h3>${escapeHtml(name)}</h3>
         <p>${escapeHtml(description)}</p>
+        ${error ? `<small>${escapeHtml(error)}</small>` : ""}
       </div>
       <div class="integration-card-footer">
-        <span class="integration-status ${connected ? "connected" : "idle"}">${connected ? "เชื่อมต่อแล้ว" : "ไม่ได้เชื่อมต่อ"}</span>
+        <span class="integration-status ${connected ? "connected" : blocked ? "error" : "idle"}">${connected ? "เชื่อมต่อแล้ว" : blocked ? "ยังไม่พร้อม" : "ไม่ได้เชื่อมต่อ"}</span>
         <button class="button ${connected ? "ghost" : "secondary"} compact-action" type="button" data-view-shortcut="${escapeHtml(view)}">${connected ? "จัดการ" : "เชื่อมต่อ"}</button>
       </div>
     </article>
@@ -7177,6 +7289,77 @@ function integrationGroup(title, services) {
   `;
 }
 
+function settingsFormPayload(form) {
+  const scope = form.dataset.settingsScope || "";
+  const data = Object.fromEntries(new FormData(form).entries());
+  if (scope === "business") {
+    return {
+      businessProfile: {
+        name: data.businessName,
+        type: data.businessType,
+        address: data.businessAddress,
+        phone: data.businessPhone,
+        email: data.businessEmail,
+        logoUrl: data.businessLogoUrl
+      },
+      normalTemplate: data.normalTemplate,
+      vipTemplate: data.vipTemplate
+    };
+  }
+  if (scope === "goals") {
+    return {
+      businessGoals: {
+        monthlyRevenue: Number(data.monthlyRevenue || 0),
+        monthlyProfit: Number(data.monthlyProfit || 0),
+        monthlyOrderCount: Number(data.monthlyOrderCount || 0),
+        monthlyNewCustomerCount: Number(data.monthlyNewCustomerCount || 0)
+      }
+    };
+  }
+  if (scope === "ai") {
+    return {
+      openaiModel: data.openaiModel,
+      aiPreferences: {
+        businessAnalysis: Boolean(form.elements.businessAnalysis?.checked),
+        recommendations: Boolean(form.elements.recommendations?.checked),
+        intelligentAlerts: Boolean(form.elements.intelligentAlerts?.checked),
+        customerInsights: Boolean(form.elements.customerInsights?.checked)
+      },
+      followUpDaysPerUnit: Math.max(1, Number(form.elements.daysPerUnit?.value || app.data?.settings?.followUpDaysPerUnit || 15))
+    };
+  }
+  if (scope === "notifications") {
+    return {
+      notificationPreferences: {
+        channels: {
+          inApp: Boolean(form.elements.channelInApp?.checked),
+          email: Boolean(form.elements.channelEmail?.checked),
+          line: Boolean(form.elements.channelLine?.checked)
+        },
+        categories: {
+          orderReview: Boolean(form.elements.categoryOrderReview?.checked),
+          customerFollowUp: Boolean(form.elements.categoryCustomerFollowUp?.checked),
+          vipReminder: Boolean(form.elements.categoryVipReminder?.checked),
+          lowStock: Boolean(form.elements.categoryLowStock?.checked),
+          salesOpportunity: Boolean(form.elements.categorySalesOpportunity?.checked)
+        }
+      }
+    };
+  }
+  if (scope === "display") {
+    return {
+      displayPreferences: {
+        theme: data.theme || "dark",
+        language: data.language || "th",
+        dateFormat: data.dateFormat || "DD/MM/YYYY",
+        numberFormat: data.numberFormat || "1,234.56",
+        currency: data.currency || "THB"
+      }
+    };
+  }
+  return data;
+}
+
 function renderSettingsIntegrations() {
   els.content.innerHTML = settingsSubpageShell(
     "Integrations",
@@ -7185,9 +7368,12 @@ function renderSettingsIntegrations() {
     `
       <div class="integrations-page">
         ${integrationGroup("ช่องทางการสื่อสาร", [
-          { service: "line", name: "LINE OA", description: "เชื่อมต่อกับ LINE Official Account เพื่อรับออเดอร์และส่งข้อความ", icon: "LINE", view: "settingsLineHub" }
+          { service: "line", name: "LINE OA", description: "เชื่อมต่อกับ LINE Official Account เพื่อรับออเดอร์และส่งข้อความ", icon: "LINE", view: "settingsLineHub" },
+          { service: "facebook", name: "Facebook", description: "เชื่อมต่อ Meta Page ผ่าน OAuth เมื่อ production app และ scopes พร้อม", icon: "f", view: "settingsFacebook" }
         ])}
-        ${integrationGroup("การจัดการข้อมูล", [])}
+        ${integrationGroup("การจัดการข้อมูล", [
+          { service: "google-drive", name: "Google Drive", description: "เชื่อมต่อ Google Drive ผ่าน OAuth สำหรับงานไฟล์เมื่อ scopes พร้อม", icon: "G", view: "settingsGoogleDrive" }
+        ])}
         ${integrationGroup("AI & เครื่องมืออัจฉริยะ", [
           { service: "openai", name: "OpenAI", description: "เชื่อมต่อเพื่อใช้งาน AI วิเคราะห์ข้อมูลและสร้างคำแนะนำ", icon: "AI", view: "settingsAi" }
         ])}
@@ -7333,6 +7519,45 @@ function renderSettingsLineHub() {
     ,
     { backView: "settingsIntegrations", backLabel: "กลับไปหน้าการเชื่อมต่อ" }
   );
+}
+
+function renderSettingsProviderBlocked(provider) {
+  const isGoogle = provider === "google-drive";
+  const title = isGoogle ? "Google Drive" : "Facebook";
+  const settings = app.data.settings || {};
+  const integration = isGoogle ? settings.integrations?.googleDrive : settings.integrations?.facebook;
+  els.content.innerHTML = settingsSubpageShell(
+    "Integrations",
+    title,
+    isGoogle ? "เชื่อมต่อ Google Drive ผ่าน OAuth ที่ปลอดภัย" : "เชื่อมต่อ Meta/Facebook Page ผ่าน OAuth ที่ปลอดภัย",
+    `
+      <div class="settings-unified-form">
+        ${settingsUnifiedCard("สถานะการเชื่อมต่อ", "ระบบจะไม่แสดงว่าเชื่อมต่อจนกว่าจะผ่าน OAuth จริงใน production", `
+          <div class="settings-status-card">
+            <span class="settings-status-icon">${iconSvg(isGoogle ? "link" : "flag")}</span>
+            <div>
+              <strong>${integration?.connected ? "เชื่อมต่อแล้ว" : "ยังไม่พร้อมเชื่อมต่อ"}</strong>
+              <p>${escapeHtml(integration?.error || "ยังไม่ได้ตั้งค่า OAuth credentials ใน production")}</p>
+            </div>
+          </div>
+          <div class="settings-submit-bar">
+            <button class="button secondary" type="button" data-provider-action="${escapeHtml(provider)}" data-provider-command="connect">เชื่อมต่อ</button>
+            <button class="button ghost" type="button" data-provider-action="${escapeHtml(provider)}" data-provider-command="reconnect">เชื่อมต่อใหม่</button>
+            <button class="button danger" type="button" data-provider-action="${escapeHtml(provider)}" data-provider-command="disconnect">ยกเลิกการเชื่อมต่อ</button>
+          </div>
+        `)}
+      </div>
+    `,
+    { backView: "settingsIntegrations", backLabel: "กลับไปหน้าการเชื่อมต่อ" }
+  );
+}
+
+function renderSettingsGoogleDrive() {
+  renderSettingsProviderBlocked("google-drive");
+}
+
+function renderSettingsFacebook() {
+  renderSettingsProviderBlocked("facebook");
 }
 
 function permissionsRoleOptions(selectedRole = app.permissionRole || "Admin") {
@@ -8374,6 +8599,8 @@ function render(options = {}) {
     settingsDisplay: renderSettingsDisplay,
     settingsIntegrations: renderSettingsIntegrations,
     settingsLineHub: renderSettingsLineHub,
+    settingsGoogleDrive: renderSettingsGoogleDrive,
+    settingsFacebook: renderSettingsFacebook,
     settingsUsers: renderSettingsUsers,
     settingsImportExport: renderSettingsImportExport,
     settingsSubscription: renderSettingsSubscription,
@@ -9669,7 +9896,41 @@ document.addEventListener("click", async event => {
     return;
   }
 
+  if (event.target.closest("[data-pick-business-logo]")) {
+    document.querySelector("#businessLogoInput")?.click();
+    return;
+  }
+
+  if (event.target.closest("[data-test-openai]")) {
+    try {
+      const payload = await api("/api/integrations/openai/test", { method: "POST", body: JSON.stringify({}) });
+      showToast(payload.ok ? `OpenAI พร้อมใช้งาน: ${payload.model}` : (payload.error || "OpenAI ยังไม่พร้อม"), payload.ok ? "success" : "error");
+    } catch (error) {
+      showToast(error.message || "ทดสอบ OpenAI ไม่สำเร็จ", "error");
+    }
+    return;
+  }
+
+  const providerAction = event.target.closest("[data-provider-action]");
+  if (providerAction) {
+    const provider = providerAction.dataset.providerAction;
+    const command = providerAction.dataset.providerCommand || "connect";
+    try {
+      const payload = await api(`/api/integrations/${encodeURIComponent(provider)}/${encodeURIComponent(command)}`, {
+        method: "POST",
+        body: JSON.stringify({})
+      });
+      if (payload.settings) app.data.settings = payload.settings;
+      showToast(command === "disconnect" ? "ยกเลิกการเชื่อมต่อแล้ว" : "เริ่มเชื่อมต่อแล้ว");
+      render();
+    } catch (error) {
+      showToast(error.message || "การเชื่อมต่อนี้ยังไม่พร้อม", "error");
+    }
+    return;
+  }
+
   if (event.target.closest("[data-reset-settings]")) {
+    app.businessLogoDraft = "";
     render();
     return;
   }
@@ -10105,6 +10366,26 @@ document.addEventListener("change", async event => {
     }
   }
 
+  if (event.target?.id === "businessLogoInput") {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      const logoDataUrl = await compressProductImageFile(file);
+      const payload = await api("/api/settings/business-logo", {
+        method: "POST",
+        body: JSON.stringify({ logoDataUrl })
+      });
+      app.businessLogoDraft = "";
+      if (payload.settings) app.data.settings = payload.settings;
+      showToast("อัปโหลดโลโก้แล้ว");
+      renderSettings();
+    } catch (error) {
+      showToast(error.message || "อัปโหลดโลโก้ไม่สำเร็จ", "error");
+    } finally {
+      event.target.value = "";
+    }
+  }
+
   if (event.target?.id === "profileImageInput") {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -10411,7 +10692,7 @@ document.addEventListener("submit", async event => {
         showToast("ไม่มีสิทธิ์แก้ไขการตั้งค่าธุรกิจ", "error");
         return;
       }
-      const data = Object.fromEntries(new FormData(form).entries());
+      const data = settingsFormPayload(form);
       if (form.elements.lineWebhookEnabled) data.lineWebhookEnabled = form.elements.lineWebhookEnabled.checked;
       if (form.elements.staffCanExport) data.staffCanExport = form.elements.staffCanExport.checked;
       data.followUpDaysPerUnit = Math.max(1, Number(form.elements.daysPerUnit?.value || app.data?.settings?.followUpDaysPerUnit || 15));
@@ -10432,10 +10713,11 @@ document.addEventListener("submit", async event => {
           enabled: row.querySelector("[name='additionalCostEnabled']")?.checked
         })).filter(item => item.name);
       }
-      await api("/api/settings", {
+      const payload = await api("/api/settings", {
         method: "PUT",
         body: JSON.stringify(data)
       });
+      if (payload.settings) app.data.settings = payload.settings;
       if (settingsSaveButton) {
         setSettingsSaveState("saved", settingsSaveButton);
         await new Promise(resolve => setTimeout(resolve, 1200));

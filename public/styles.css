@@ -19544,6 +19544,329 @@ body.mobile-orders-view #orderDialog.grow-modal .form-grid.grow-modal-body {
     height: auto;
   }
 
+  #customerDialog.grow-modal {
+    width: calc(100vw - 16px);
+    max-width: 100%;
+    max-height: calc(100dvh - max(8px, env(safe-area-inset-top)) - max(8px, env(safe-area-inset-bottom)));
+    margin: max(8px, env(safe-area-inset-top)) auto max(8px, env(safe-area-inset-bottom));
+    overflow: hidden;
+  }
+
+  #customerDialog .grow-modal-shell {
+    max-height: calc(100dvh - max(8px, env(safe-area-inset-top)) - max(8px, env(safe-area-inset-bottom)));
+    overflow: hidden;
+  }
+
+  #customerDialog .grow-modal-body,
+  #customerDialog #customerDetail {
+    min-width: 0;
+    max-width: 100%;
+    max-height: calc(100dvh - max(8px, env(safe-area-inset-top)) - max(8px, env(safe-area-inset-bottom)));
+    overflow: hidden;
+  }
+
+  #customerDialog .customer-ref-detail {
+    width: 100%;
+    max-width: 100%;
+    min-height: 0;
+    max-height: calc(100dvh - max(8px, env(safe-area-inset-top)) - max(8px, env(safe-area-inset-bottom)));
+    grid-template-rows: none;
+    grid-auto-rows: auto;
+    gap: 12px;
+    padding: calc(16px + env(safe-area-inset-top)) 12px calc(16px + env(safe-area-inset-bottom));
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  #customerDialog .customer-ref-detail *,
+  #customerDialog .customer-ref-detail *::before,
+  #customerDialog .customer-ref-detail *::after {
+    box-sizing: border-box;
+  }
+
+  #customerDialog .customer-ref-header {
+    position: sticky;
+    top: 0;
+    z-index: 6;
+    height: auto;
+    min-height: 46px;
+    padding: 0 0 8px;
+    background: linear-gradient(180deg, rgba(3, 12, 27, 0.98), rgba(3, 12, 27, 0.72));
+  }
+
+  #customerDialog .customer-ref-header h2 {
+    min-width: 0;
+    font-size: clamp(24px, 7vw, 32px);
+    line-height: 1.1;
+    overflow-wrap: anywhere;
+  }
+
+  #customerDialog .customer-ref-profile {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    gap: 12px;
+    min-height: 0;
+    padding: 0;
+  }
+
+  #customerDialog .customer-ref-avatar {
+    width: 120px;
+    height: 120px;
+    font-size: 32px;
+  }
+
+  #customerDialog .customer-ref-main,
+  #customerDialog .customer-ref-social,
+  #customerDialog .customer-ref-actions,
+  #customerDialog .customer-ref-live-call,
+  #customerDialog .customer-ref-call-card,
+  #customerDialog .customer-ref-follow-form,
+  #customerDialog .customer-ref-history-grid,
+  #customerDialog .customer-ref-kpis {
+    width: 100%;
+    min-width: 0;
+  }
+
+  #customerDialog .customer-ref-main {
+    padding-top: 0;
+    text-align: center;
+  }
+
+  #customerDialog .customer-ref-name-row {
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  #customerDialog .customer-ref-name-row h1 {
+    max-width: 100%;
+    font-size: clamp(24px, 7.2vw, 34px);
+    overflow-wrap: anywhere;
+  }
+
+  #customerDialog .customer-ref-ready {
+    margin: 8px auto 0;
+  }
+
+  #customerDialog .customer-ref-phone {
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  #customerDialog .customer-ref-phone strong {
+    max-width: 100%;
+    font-size: clamp(20px, 6vw, 26px);
+    overflow-wrap: anywhere;
+  }
+
+  #customerDialog .customer-ref-meta-grid,
+  #customerDialog .customer-ref-social,
+  #customerDialog .customer-ref-follow-grid,
+  #customerDialog .customer-ref-follow-right,
+  #customerDialog .customer-ref-history-grid,
+  #customerDialog .customer-ref-kpis {
+    grid-template-columns: 1fr;
+  }
+
+  #customerDialog .customer-ref-meta-grid {
+    gap: 10px;
+    margin-top: 12px;
+    text-align: left;
+  }
+
+  #customerDialog .customer-ref-meta-grid > div + div::before,
+  #customerDialog .customer-ref-divider {
+    display: none;
+  }
+
+  #customerDialog .customer-ref-info-line,
+  #customerDialog .customer-ref-customer-name {
+    width: 100%;
+    grid-template-columns: 34px minmax(0, 1fr);
+    text-align: left;
+  }
+
+  #customerDialog .customer-ref-customer-name strong,
+  #customerDialog .customer-ref-info-line strong,
+  #customerDialog .customer-ref-social-name strong {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    overflow-wrap: anywhere;
+  }
+
+  #customerDialog .customer-ref-social-name {
+    width: 100%;
+    min-height: 50px;
+    height: auto;
+    flex-wrap: wrap;
+    align-items: center;
+    padding: 10px 12px;
+    font-size: 16px;
+    overflow-wrap: anywhere;
+  }
+
+  #customerDialog .customer-ref-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    padding: 0;
+  }
+
+  #customerDialog .customer-ref-primary-action,
+  #customerDialog .customer-ref-copy-action,
+  #customerDialog .customer-ref-end-call,
+  #customerDialog .customer-ref-follow-save,
+  #customerDialog .customer-ref-crm-save {
+    min-width: 0;
+    min-height: 48px;
+    font-size: clamp(16px, 5vw, 20px);
+  }
+
+  #customerDialog .customer-ref-live-call {
+    grid-template-columns: 40px minmax(0, 1fr);
+    gap: 10px;
+    margin: 0;
+    align-items: start;
+  }
+
+  #customerDialog .customer-ref-live-call > * {
+    min-width: 0;
+  }
+
+  #customerDialog .customer-ref-live-call .customer-ref-end-call {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+
+  #customerDialog .customer-ref-card-title {
+    height: auto;
+    min-height: 52px;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 12px;
+  }
+
+  #customerDialog .customer-ref-card-title h3 {
+    min-width: 0;
+    font-size: clamp(18px, 5.6vw, 24px);
+    overflow-wrap: anywhere;
+  }
+
+  #customerDialog .customer-ref-call-card,
+  #customerDialog .customer-ref-follow-form {
+    height: auto;
+    min-height: 0;
+  }
+
+  #customerDialog .customer-ref-call-grid {
+    min-height: 0;
+    grid-template-columns: 1fr 28px 1fr;
+    gap: 8px;
+    padding: 10px 12px;
+  }
+
+  #customerDialog .customer-ref-call-grid div {
+    min-width: 0;
+    min-height: 0;
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  #customerDialog .customer-ref-call-grid div:nth-of-type(n + 3) {
+    grid-column: 1 / -1;
+  }
+
+  #customerDialog .customer-ref-call-grid strong {
+    display: flex;
+    flex-wrap: wrap;
+    min-width: 0;
+    font-size: clamp(17px, 5.4vw, 22px);
+    overflow-wrap: anywhere;
+  }
+
+  #customerDialog .customer-ref-call-grid i {
+    font-size: 22px;
+  }
+
+  #customerDialog .customer-ref-call-foot {
+    height: auto;
+    min-height: 42px;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 8px 12px;
+    padding: 10px 12px;
+  }
+
+  #customerDialog .customer-ref-call-foot em {
+    margin-left: 0;
+    overflow-wrap: anywhere;
+  }
+
+  #customerDialog .customer-ref-follow-form {
+    grid-template-rows: none;
+    padding: 14px 12px;
+  }
+
+  #customerDialog .customer-ref-follow-grid {
+    height: auto;
+    gap: 10px;
+    overflow: visible;
+  }
+
+  #customerDialog .customer-ref-follow-left,
+  #customerDialog .customer-ref-follow-right {
+    min-width: 0;
+  }
+
+  #customerDialog .customer-ref-follow-right {
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  #customerDialog .customer-ref-follow-grid input,
+  #customerDialog .customer-ref-follow-grid select,
+  #customerDialog .customer-ref-follow-grid textarea {
+    min-width: 0;
+    min-height: 44px;
+  }
+
+  #customerDialog .customer-ref-follow-actions {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  #customerDialog .customer-ref-panel {
+    min-width: 0;
+    min-height: 0;
+    overflow: visible;
+  }
+
+  #customerDialog .customer-ref-timeline article {
+    grid-template-columns: 1fr;
+  }
+
+  #customerDialog .customer-ref-timeline time {
+    text-align: left;
+  }
+
+  #customerDialog .customer-ref-order-list article {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  #customerDialog .customer-ref-order-list article > div:last-child {
+    text-align: left;
+  }
+
+  #customerDialog .customer-ref-order-list em {
+    margin-left: 0;
+  }
+
+  #customerDialog .customer-ref-kpis article {
+    min-height: 0;
+  }
+
   .customer-detail-top,
   .customer-lower-grid,
   .customer-history-grid,
@@ -19751,6 +20074,25 @@ body.mobile-orders-view #orderDialog.grow-modal .form-grid.grow-modal-body {
 
   #productForm .sales-package-summary-metrics {
     justify-items: start;
+  }
+}
+
+@media (max-width: 430px) {
+  #customerDialog .customer-ref-actions,
+  #customerDialog .customer-ref-follow-actions {
+    grid-template-columns: 1fr;
+  }
+
+  #customerDialog .customer-ref-call-grid {
+    grid-template-columns: 1fr;
+  }
+
+  #customerDialog .customer-ref-call-grid i {
+    display: none;
+  }
+
+  #customerDialog .customer-ref-call-grid div {
+    grid-column: 1 / -1;
   }
 }
 
@@ -20040,6 +20382,33 @@ body:not(.login-view) .settings-logo-preview span {
   font-weight: 800 !important;
 }
 
+body:not(.login-view) .settings-logo-frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+}
+
+body:not(.login-view) .settings-preference-list {
+  display: grid;
+  gap: 10px;
+}
+
+body:not(.login-view) .settings-preference-row {
+  min-height: 64px;
+  padding: 12px;
+  border: 1px solid rgba(63, 91, 119, 0.38);
+  border-radius: var(--settings-radius);
+  background: rgba(2, 12, 22, 0.42);
+}
+
+body:not(.login-view) .settings-preference-row small,
+body:not(.login-view) .integration-copy small {
+  color: var(--settings-muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
 body:not(.login-view) .settings-logo-preview strong,
 body:not(.login-view) .settings-metric-card strong,
 body:not(.login-view) .settings-detail-panel strong,
@@ -20116,6 +20485,15 @@ body:not(.login-view) .integration-card {
   padding: 16px !important;
   grid-template-columns: 46px minmax(0, 1fr) !important;
   gap: 12px !important;
+}
+
+body:not(.login-view) .integration-card.is-blocked {
+  border-style: dashed !important;
+}
+
+body:not(.login-view) .integration-status.error {
+  color: #ffd1d1;
+  background: rgba(185, 28, 28, 0.22);
 }
 
 body:not(.login-view) .line-tutorial-card {

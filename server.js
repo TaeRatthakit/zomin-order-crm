@@ -392,6 +392,103 @@ function effectiveSettings(settings = {}) {
   };
 }
 
+function cleanText(value, fallback = "") {
+  const textValue = String(value ?? "").trim();
+  if (!textValue || textValue.toLowerCase() === "undefined" || textValue.toLowerCase() === "null") return fallback;
+  return textValue;
+}
+
+function optionalTextPatch(value, fallback = "") {
+  if (value === undefined) return fallback;
+  return cleanText(value, fallback);
+}
+
+function normalizeBusinessProfile(settings = {}) {
+  const profile = settings.businessProfile || {};
+  return {
+    name: cleanText(profile.name, cleanText(settings.businessName, "")),
+    type: cleanText(profile.type, cleanText(settings.businessType, "")),
+    address: cleanText(profile.address, cleanText(settings.businessAddress, "")),
+    phone: cleanText(profile.phone, cleanText(settings.businessPhone, "")),
+    email: cleanText(profile.email, cleanText(settings.businessEmail, "")),
+    logoUrl: cleanText(profile.logoUrl, cleanText(settings.businessLogoUrl, ""))
+  };
+}
+
+function normalizeBusinessGoals(goals = {}) {
+  return {
+    monthlyRevenue: Math.max(0, Number(goals.monthlyRevenue || 0)),
+    monthlyProfit: Math.max(0, Number(goals.monthlyProfit || 0)),
+    monthlyOrderCount: Math.max(0, Math.round(Number(goals.monthlyOrderCount || 0))),
+    monthlyNewCustomerCount: Math.max(0, Math.round(Number(goals.monthlyNewCustomerCount || 0)))
+  };
+}
+
+function normalizeAiPreferences(preferences = {}) {
+  return {
+    businessAnalysis: preferences.businessAnalysis !== false,
+    recommendations: preferences.recommendations !== false,
+    intelligentAlerts: preferences.intelligentAlerts !== false,
+    customerInsights: preferences.customerInsights !== false
+  };
+}
+
+function normalizeNotificationPreferences(preferences = {}) {
+  const channelDefaults = { inApp: true, email: false, line: false };
+  const categoryDefaults = {
+    orderReview: true,
+    customerFollowUp: true,
+    vipReminder: true,
+    lowStock: true,
+    salesOpportunity: true
+  };
+  return {
+    channels: {
+      inApp: preferences.channels?.inApp !== false,
+      email: Boolean(preferences.channels?.email ?? channelDefaults.email),
+      line: Boolean(preferences.channels?.line ?? channelDefaults.line)
+    },
+    categories: {
+      orderReview: preferences.categories?.orderReview !== false,
+      customerFollowUp: preferences.categories?.customerFollowUp !== false,
+      vipReminder: preferences.categories?.vipReminder !== false,
+      lowStock: preferences.categories?.lowStock !== false,
+      salesOpportunity: preferences.categories?.salesOpportunity !== false
+    }
+  };
+}
+
+function normalizeDisplayPreferences(preferences = {}) {
+  const allowedThemes = new Set(["dark"]);
+  const allowedLanguages = new Set(["th"]);
+  const allowedDateFormats = new Set(["DD/MM/YYYY", "YYYY-MM-DD", "DD MMM YYYY"]);
+  const allowedNumberFormats = new Set(["1,234.56", "1.234,56", "1234.56"]);
+  const allowedCurrencies = new Set(["THB", "USD"]);
+  return {
+    theme: allowedThemes.has(preferences.theme) ? preferences.theme : "dark",
+    language: allowedLanguages.has(preferences.language) ? preferences.language : "th",
+    dateFormat: allowedDateFormats.has(preferences.dateFormat) ? preferences.dateFormat : "DD/MM/YYYY",
+    numberFormat: allowedNumberFormats.has(preferences.numberFormat) ? preferences.numberFormat : "1,234.56",
+    currency: allowedCurrencies.has(preferences.currency) ? preferences.currency : "THB"
+  };
+}
+
+function normalizeIntegrationSettings(settings = {}) {
+  const integrations = settings.integrations || {};
+  return {
+    googleDrive: {
+      connected: false,
+      account: cleanText(integrations.googleDrive?.account, ""),
+      error: cleanText(integrations.googleDrive?.error, process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET ? "" : "ยังไม่ได้ตั้งค่า Google OAuth credentials")
+    },
+    facebook: {
+      connected: false,
+      account: cleanText(integrations.facebook?.account, ""),
+      error: cleanText(integrations.facebook?.error, process.env.META_CLIENT_ID && process.env.META_CLIENT_SECRET ? "" : "ยังไม่ได้ตั้งค่า Meta OAuth credentials")
+    }
+  };
+}
+
 function normalizeSettingsCostRows(rows = [], fieldName) {
   const allowedAdditionalCostTypes = new Set(["fixed_per_order", "per_item", "percent_sales"]);
   return (Array.isArray(rows) ? rows : [])
@@ -615,6 +712,37 @@ function productImageStoragePlan(product = {}) {
   };
 }
 
+function businessLogoStoragePlan(image = "") {
+  const parsed = parseProductImageDataUrl(image);
+  if (!parsed) return null;
+  const hash = crypto.createHash("sha256").update(parsed.bytes).digest("hex");
+  const extension = productImageExtension(parsed.mimeType);
+  return {
+    mimeType: parsed.mimeType,
+    bytes: parsed.bytes,
+    byteLength: parsed.bytes.length,
+    hash,
+    objectPath: `business-logo/${hash}.${extension}`
+  };
+}
+
+async function storeBusinessLogoForSave(image = "") {
+  const current = String(image || "").trim();
+  if (!current) return "";
+  if (/^https?:\/\//i.test(current)) return current;
+  const plan = businessLogoStoragePlan(current);
+  if (!plan) throw new Error("รูปโลโก้ไม่ถูกต้อง");
+  if (typeof uploadProductImageObject !== "function") {
+    throw new Error("ยังไม่ได้ตั้งค่า image storage สำหรับอัปโหลดโลโก้");
+  }
+  const url = await uploadProductImageObject(plan.objectPath, plan.bytes, plan.mimeType);
+  if (typeof verifyPublicProductImageUrl === "function") {
+    const verified = await verifyPublicProductImageUrl(url);
+    if (!verified) throw new Error("Uploaded business logo is not publicly accessible");
+  }
+  return url;
+}
+
 function productImageMigrationSummary(products = []) {
   const storageBaseUrl = typeof productImagePublicBaseUrl === "function" ? productImagePublicBaseUrl() : "";
   return normalizeProductRecords(products).map(product => {
@@ -759,8 +887,26 @@ function productCostIndex(productCosts = [], productId = "", legacyNames = []) {
 
 function publicSettings(settings = {}) {
   const effective = effectiveSettings(settings);
+  const businessProfile = normalizeBusinessProfile(effective);
+  const businessGoals = normalizeBusinessGoals(effective.businessGoals);
+  const aiPreferences = normalizeAiPreferences(effective.aiPreferences);
+  const notificationPreferences = normalizeNotificationPreferences(effective.notificationPreferences);
+  const displayPreferences = normalizeDisplayPreferences(effective.displayPreferences);
+  const integrations = normalizeIntegrationSettings(effective);
   return {
     ...effective,
+    businessName: businessProfile.name,
+    businessType: businessProfile.type,
+    businessAddress: businessProfile.address,
+    businessPhone: businessProfile.phone,
+    businessEmail: businessProfile.email,
+    businessLogoUrl: businessProfile.logoUrl,
+    businessProfile,
+    businessGoals,
+    aiPreferences,
+    notificationPreferences,
+    displayPreferences,
+    integrations,
     followUpDaysPerUnit: Number(effective.followUpDaysPerUnit || 15),
     products: normalizeProductRecords(effective.products),
     productCosts: normalizeSettingsCostRows(effective.productCosts, "costPerJar"),
@@ -3802,6 +3948,63 @@ async function handleApi(req, res) {
     return json(res, 200, { ok: true, parsedOrders: parsedOrders.length, rows: parsedOrders });
   }
 
+  if (req.method === "POST" && url.pathname === "/api/settings/business-logo") {
+    const currentUser = await requirePermission(req, res, db, "system.business", "ไม่มีสิทธิ์แก้ไขการตั้งค่าธุรกิจ");
+    if (!currentUser) return;
+    const body = await readBody(req);
+    try {
+      const logoUrl = await storeBusinessLogoForSave(body.logoDataUrl || body.logo || "");
+      db.settings = db.settings || {};
+      const profile = normalizeBusinessProfile(db.settings);
+      db.settings.businessProfile = { ...profile, logoUrl };
+      db.settings.businessLogoUrl = logoUrl;
+      await writeDb(db);
+      return json(res, 200, { ok: true, logoUrl, settings: publicSettings(db.settings) });
+    } catch (error) {
+      return json(res, 400, { ok: false, error: error.message || "อัปโหลดโลโก้ไม่สำเร็จ" });
+    }
+  }
+
+  if (req.method === "POST" && url.pathname.startsWith("/api/integrations/")) {
+    const currentUser = await requirePermission(req, res, db, "system.integrations", "ไม่มีสิทธิ์แก้ไขการเชื่อมต่อระบบ");
+    if (!currentUser) return;
+    const parts = url.pathname.split("/").filter(Boolean);
+    const provider = parts[2] || "";
+    const action = parts[3] || "";
+    if (provider === "openai" && action === "test") {
+      const effective = effectiveSettings(db.settings || {});
+      return json(res, 200, {
+        ok: Boolean(effective.openaiApiKey),
+        status: effective.openaiApiKey ? "configured" : "unavailable",
+        model: effective.openaiModel || "gpt-4.1-mini",
+        error: effective.openaiApiKey ? "" : "ยังไม่ได้ตั้งค่า OPENAI_API_KEY หรือ OpenAI key ฝั่ง server"
+      });
+    }
+    if (["google-drive", "facebook"].includes(provider) && ["connect", "reconnect", "disconnect"].includes(action)) {
+      const isGoogle = provider === "google-drive";
+      const missing = isGoogle
+        ? !(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET)
+        : !(process.env.META_CLIENT_ID && process.env.META_CLIENT_SECRET);
+      if (action === "disconnect") {
+        db.settings = db.settings || {};
+        const integrations = normalizeIntegrationSettings(db.settings);
+        const key = isGoogle ? "googleDrive" : "facebook";
+        integrations[key] = { connected: false, account: "", error: missing ? integrations[key].error : "" };
+        db.settings.integrations = integrations;
+        await writeDb(db);
+        return json(res, 200, { ok: true, settings: publicSettings(db.settings) });
+      }
+      return json(res, missing ? 501 : 501, {
+        ok: false,
+        status: "blocked",
+        provider,
+        error: isGoogle
+          ? "ยังไม่ได้ตั้งค่า Google OAuth app, redirect URL และ scopes ใน production"
+          : "ยังไม่ได้ตั้งค่า Meta OAuth app, redirect URL, page permissions และ provider approval ใน production"
+      });
+    }
+  }
+
   if (req.method === "PUT" && url.pathname === "/api/settings") {
     const currentUser = await requirePermission(req, res, db, "system.business", "ไม่มีสิทธิ์แก้ไขการตั้งค่าธุรกิจ");
     if (!currentUser) return;
@@ -3812,7 +4015,9 @@ async function handleApi(req, res) {
       "lineChannelAccessToken",
       "lineGroupId",
       "openaiModel",
-      "lineWebhookEnabled"
+      "lineWebhookEnabled",
+      "aiPreferences",
+      "integrations"
     ].some(key => Object.prototype.hasOwnProperty.call(body, key));
     if (hasIntegrationPatch && !hasPermission(currentUser, db, "system.integrations")) {
       return json(res, 403, { ok: false, error: "ไม่มีสิทธิ์แก้ไขการเชื่อมต่อระบบ" });
@@ -3834,50 +4039,84 @@ async function handleApi(req, res) {
     }
     const vipThresholdResult = normalizedVipThresholds(body, db.settings || {});
     if (!vipThresholdResult.ok) return json(res, 400, { ok: false, error: vipThresholdResult.error });
+    const existingSettings = db.settings || {};
+    const existingProfile = normalizeBusinessProfile(existingSettings);
+    const bodyProfile = body.businessProfile && typeof body.businessProfile === "object" ? body.businessProfile : {};
+    const nextProfile = {
+      name: optionalTextPatch(bodyProfile.name ?? body.businessName, existingProfile.name),
+      type: optionalTextPatch(bodyProfile.type ?? body.businessType, existingProfile.type),
+      address: optionalTextPatch(bodyProfile.address ?? body.businessAddress, existingProfile.address),
+      phone: optionalTextPatch(bodyProfile.phone ?? body.businessPhone, existingProfile.phone),
+      email: optionalTextPatch(bodyProfile.email ?? body.businessEmail, existingProfile.email),
+      logoUrl: optionalTextPatch(bodyProfile.logoUrl ?? body.businessLogoUrl, existingProfile.logoUrl)
+    };
+    const nextGoals = body.businessGoals === undefined
+      ? normalizeBusinessGoals(existingSettings.businessGoals)
+      : normalizeBusinessGoals(body.businessGoals);
+    const nextAiPreferences = body.aiPreferences === undefined
+      ? normalizeAiPreferences(existingSettings.aiPreferences)
+      : normalizeAiPreferences(body.aiPreferences);
+    const nextNotificationPreferences = body.notificationPreferences === undefined
+      ? normalizeNotificationPreferences(existingSettings.notificationPreferences)
+      : normalizeNotificationPreferences(body.notificationPreferences);
+    const nextDisplayPreferences = body.displayPreferences === undefined
+      ? normalizeDisplayPreferences(existingSettings.displayPreferences)
+      : normalizeDisplayPreferences(body.displayPreferences);
     db.settings = {
       ...db.settings,
-      businessName: String(body.businessName ?? db.settings.businessName),
-      defaultJarPrice: Number(body.defaultJarPrice || db.settings.defaultJarPrice || 750),
+      businessName: nextProfile.name,
+      businessType: nextProfile.type,
+      businessAddress: nextProfile.address,
+      businessPhone: nextProfile.phone,
+      businessEmail: nextProfile.email,
+      businessLogoUrl: nextProfile.logoUrl,
+      businessProfile: nextProfile,
+      businessGoals: nextGoals,
+      aiPreferences: nextAiPreferences,
+      notificationPreferences: nextNotificationPreferences,
+      displayPreferences: nextDisplayPreferences,
+      integrations: normalizeIntegrationSettings(existingSettings),
+      defaultJarPrice: Number(body.defaultJarPrice || existingSettings.defaultJarPrice || 750),
       vipThresholds: vipThresholdResult.thresholds,
       messageTemplates: {
-        normal: String(body.normalTemplate ?? db.settings.messageTemplates?.normal ?? ""),
-        vip: String(body.vipTemplate ?? db.settings.messageTemplates?.vip ?? "")
+        normal: String(body.normalTemplate ?? existingSettings.messageTemplates?.normal ?? ""),
+        vip: String(body.vipTemplate ?? existingSettings.messageTemplates?.vip ?? "")
       },
-      followUpDaysPerUnit: Math.max(1, Number(body.followUpDaysPerUnit || db.settings.followUpDaysPerUnit || 15)),
+      followUpDaysPerUnit: Math.max(1, Number(body.followUpDaysPerUnit || existingSettings.followUpDaysPerUnit || 15)),
       products: body.products === undefined
-        ? normalizeProductRecords(db.settings.products)
+        ? normalizeProductRecords(existingSettings.products)
         : normalizeProductRecords(body.products),
       productCosts: body.productCosts === undefined
-        ? normalizeSettingsCostRows(db.settings.productCosts, "costPerJar")
+        ? normalizeSettingsCostRows(existingSettings.productCosts, "costPerJar")
         : normalizeSettingsCostRows(body.productCosts, "costPerJar"),
       additionalCosts: body.additionalCosts === undefined
-        ? normalizeSettingsCostRows(db.settings.additionalCosts, "amount")
+        ? normalizeSettingsCostRows(existingSettings.additionalCosts, "amount")
         : normalizeSettingsCostRows(body.additionalCosts, "amount"),
       customerSources: body.customerSources === undefined
-        ? normalizeCustomerSources(db.settings.customerSources)
+        ? normalizeCustomerSources(existingSettings.customerSources)
         : normalizeCustomerSources(body.customerSources),
       lineChannelId: process.env.LINE_CHANNEL_ID
-        ? db.settings.lineChannelId || ""
-        : String(body.lineChannelId ?? db.settings.lineChannelId ?? ""),
+        ? existingSettings.lineChannelId || ""
+        : String(body.lineChannelId ?? existingSettings.lineChannelId ?? ""),
       lineChannelSecret: process.env.LINE_CHANNEL_SECRET
-        ? db.settings.lineChannelSecret || ""
-        : secretInputValue(body.lineChannelSecret, db.settings.lineChannelSecret),
+        ? existingSettings.lineChannelSecret || ""
+        : secretInputValue(body.lineChannelSecret, existingSettings.lineChannelSecret),
       lineChannelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN
-        ? db.settings.lineChannelAccessToken || ""
-        : secretInputValue(body.lineChannelAccessToken, db.settings.lineChannelAccessToken),
+        ? existingSettings.lineChannelAccessToken || ""
+        : secretInputValue(body.lineChannelAccessToken, existingSettings.lineChannelAccessToken),
       lineGroupId: process.env.LINE_GROUP_ID
-        ? db.settings.lineGroupId || ""
-        : String(body.lineGroupId ?? db.settings.lineGroupId ?? ""),
+        ? existingSettings.lineGroupId || ""
+        : String(body.lineGroupId ?? existingSettings.lineGroupId ?? ""),
       openaiModel: process.env.OPENAI_MODEL
-        ? db.settings.openaiModel || "gpt-4.1-mini"
-        : String(body.openaiModel ?? db.settings.openaiModel ?? "gpt-4.1-mini"),
+        ? existingSettings.openaiModel || "gpt-4.1-mini"
+        : String(body.openaiModel ?? existingSettings.openaiModel ?? "gpt-4.1-mini"),
       lineWebhookEnabled: body.lineWebhookEnabled === undefined
-        ? Boolean(db.settings.lineWebhookEnabled)
+        ? Boolean(existingSettings.lineWebhookEnabled)
         : Boolean(body.lineWebhookEnabled),
       staffCanExport: body.staffCanExport === undefined
-        ? Boolean(db.settings.staffCanExport)
+        ? Boolean(existingSettings.staffCanExport)
         : Boolean(body.staffCanExport),
-      rolePermissions: sanitizeRolePermissions(db.settings.rolePermissions || {})
+      rolePermissions: sanitizeRolePermissions(existingSettings.rolePermissions || {})
     };
     await writeDb(db);
     return json(res, 200, { ok: true, settings: publicSettings(db.settings) }, {
