@@ -715,7 +715,7 @@ function contactResultLabel(result = "") {
 }
 
 function localizedContactNote(note = "") {
-  return String(note || "")
+  return stripOpportunityCycleNote(note)
     .replace(/\bFollow up\b/gi, "นัดติดตาม")
     .replace(/\bPhone Connected\b/g, "โทรติด")
     .replace(/\bOpportunity chat completed\b/gi, "แชทหาลูกค้าแล้ว");
@@ -4276,24 +4276,79 @@ function renderSearch() {
 
 const OPPORTUNITY_CHAT_RESULT = "แชทหาลูกค้าแล้ว";
 const OPPORTUNITY_CHAT_NOTE = "Opportunity chat completed";
+const OPPORTUNITY_CRM_RESULT = "CRMเรียบร้อยแล้ว";
+const OPPORTUNITY_CYCLE_NOTE_RE = /\n?\[\[opportunityCycle:orderId=([^\]]+)\]\]/g;
 
 function opportunitySelectedDate() {
   return app.data?.summary?.selectedDate || els.workDate?.value || todayISO();
 }
 
-function opportunityChatCompleted(customer, selectedDate = opportunitySelectedDate()) {
+function stripOpportunityCycleNote(note = "") {
+  return String(note || "").replace(OPPORTUNITY_CYCLE_NOTE_RE, "").trim();
+}
+
+function opportunityLogOrderId(log = {}) {
+  const direct = String(log.orderId || log.order_id || log.opportunityCycleId || "").trim();
+  if (direct) return direct;
+  OPPORTUNITY_CYCLE_NOTE_RE.lastIndex = 0;
+  const match = OPPORTUNITY_CYCLE_NOTE_RE.exec(String(log.note || ""));
+  OPPORTUNITY_CYCLE_NOTE_RE.lastIndex = 0;
+  return match ? decodeURIComponent(match[1]) : "";
+}
+
+function customerOpportunityOrders(customer) {
+  const orders = Array.isArray(customer?.orders) && customer.orders.length
+    ? customer.orders
+    : (app.data?.orders || []).filter(order => order.customerId === customer?.id);
+  return [...orders].sort((a, b) => [
+    String(a.date || ""),
+    String(a.time || ""),
+    String(a.id || "")
+  ].join("|").localeCompare([
+    String(b.date || ""),
+    String(b.time || ""),
+    String(b.id || "")
+  ].join("|")));
+}
+
+function latestOpportunityOrder(customer) {
+  const orders = customerOpportunityOrders(customer);
+  return orders[orders.length - 1] || null;
+}
+
+function opportunityCycleKeyForOrder(order) {
+  return String(order?.id || "").trim();
+}
+
+function inferLegacyOpportunityLogOrderId(customer, log = {}) {
+  const direct = opportunityLogOrderId(log);
+  if (direct) return direct;
+  const orders = customerOpportunityOrders(customer);
+  if (orders.length === 1) return opportunityCycleKeyForOrder(orders[0]);
+  const logDate = String(log.date || log.contact_date || "");
+  const previousOrders = orders.filter(order => String(order.date || "") <= logDate);
+  if (previousOrders.length) return opportunityCycleKeyForOrder(previousOrders[previousOrders.length - 1]);
+  return "";
+}
+
+function opportunityLogMatchesCycle(customer, log, cycleKey) {
+  if (!cycleKey) return false;
+  return inferLegacyOpportunityLogOrderId(customer, log) === cycleKey;
+}
+
+function opportunityChatCompleted(customer, cycleKey = opportunityCycleKeyForOrder(latestOpportunityOrder(customer))) {
   return (customer.contactLogs || []).some(log =>
     log.customerId === customer.id &&
-    log.date === selectedDate &&
-    log.result === OPPORTUNITY_CHAT_RESULT
+    log.result === OPPORTUNITY_CHAT_RESULT &&
+    opportunityLogMatchesCycle(customer, log, cycleKey)
   );
 }
 
-function opportunityCrmCompleted(customer, selectedDate = opportunitySelectedDate()) {
+function opportunityCrmCompleted(customer, cycleKey = opportunityCycleKeyForOrder(latestOpportunityOrder(customer))) {
   return (customer.contactLogs || []).some(log =>
     log.customerId === customer.id &&
-    log.date === selectedDate &&
-    log.result === "CRMเรียบร้อยแล้ว"
+    log.result === OPPORTUNITY_CRM_RESULT &&
+    opportunityLogMatchesCycle(customer, log, cycleKey)
   );
 }
 
@@ -4307,7 +4362,8 @@ function upsertCustomerContactLog(customer, log) {
     note: log.note || "",
     staff: log.staff || log.contacted_by || "",
     nextFollowUpDate: log.nextFollowUpDate || log.next_follow_up_date || "",
-    createdAt: log.createdAt || log.created_at || new Date().toISOString()
+    createdAt: log.createdAt || log.created_at || new Date().toISOString(),
+    orderId: log.orderId || log.order_id || opportunityLogOrderId(log) || ""
   };
   customer.contactLogs = [
     normalized,
@@ -4326,15 +4382,18 @@ function mobileOpportunityData() {
       const customerOrders = Array.isArray(customer.orders)
         ? customer.orders
         : app.data.orders.filter(order => order.customerId === customer.id);
-      const lastOrder = customerOrders[customerOrders.length - 1] || null;
+      const lastOrder = latestOpportunityOrder(customer) || customerOrders[customerOrders.length - 1] || null;
+      const cycleKey = opportunityCycleKeyForOrder(lastOrder);
       const socialName = [...customerOrders].reverse().find(order => order.socialName)?.socialName || customer.socialName || "";
+      const crmCompleted = opportunityCrmCompleted(customer, cycleKey);
       return {
         customer,
         lastOrder,
+        cycleKey,
         socialName,
         days: diffDaysISO(selectedDate, customer.followUpDate),
         value: Number(lastOrder?.amount || 0),
-        crmCompletedToday: opportunityCrmCompleted(customer, selectedDate)
+        crmCompletedToday: crmCompleted
       };
     });
   const activeRows = rows.filter(row => !row.crmCompletedToday);
@@ -4394,8 +4453,9 @@ function mobileOpportunityStatus(row) {
 
 function mobileOpportunityCustomerCard(row) {
   const { customer, lastOrder } = row;
-  const chatDone = opportunityChatCompleted(customer);
-  const chatPending = app.opportunityChatPendingIds.has(customer.id);
+  const chatDone = opportunityChatCompleted(customer, row.cycleKey);
+  const chatPendingKey = `${customer.id}:${row.cycleKey || ""}`;
+  const chatPending = app.opportunityChatPendingIds.has(chatPendingKey);
   const lastPurchase = lastOrder
     ? `${lastOrder.items || "สินค้า"} ${money(lastOrder.jars || 0)} กระปุก (${formatShortDate(lastOrder.date)})`
     : "ยังไม่มีข้อมูลการซื้อ";
@@ -4421,7 +4481,7 @@ function mobileOpportunityCustomerCard(row) {
         ${customer.phone
           ? `<a class="call" href="tel:${escapeHtml(customer.phone)}">${iconSvg("phone")} โทร</a>`
           : `<button class="call" type="button" disabled>${iconSvg("phone")} โทร</button>`}
-        <button class="chat ${chatDone ? "done" : ""}" type="button" data-mobile-opportunity-chat="${escapeHtml(customer.id)}" ${chatPending ? "disabled" : ""}>${iconSvg(chatDone ? "check" : "chat")} ${chatPending ? "กำลังบันทึก..." : chatDone ? "แชทหาลูกค้าแล้ว" : "แชทหาลูกค้า"}</button>
+        <button class="chat ${chatDone ? "done" : ""}" type="button" data-mobile-opportunity-chat="${escapeHtml(customer.id)}" data-opportunity-cycle="${escapeHtml(row.cycleKey || "")}" ${chatPending ? "disabled" : ""}>${iconSvg(chatDone ? "check" : "chat")} ${chatPending ? "กำลังบันทึก..." : chatDone ? "แชทหาลูกค้าแล้ว" : "แชทหาลูกค้า"}</button>
         <button class="save" type="button" data-open-customer="${escapeHtml(customer.id)}">${iconSvg("clipboard")} บันทึกผล</button>
       </div>
     </article>
@@ -8116,7 +8176,10 @@ async function saveCustomerContact(container, crmCompletedSubmit = false) {
     return;
   }
   const data = formLikeData(container);
-  const pendingKey = `${data.customerId || ""}:${crmCompletedSubmit ? "crm" : "save"}`;
+  const customer = app.data.customers.find(item => item.id === data.customerId);
+  const opportunityOrder = app.view === "opportunities" && customer ? latestOpportunityOrder(customer) : null;
+  const opportunityCycleKey = opportunityCycleKeyForOrder(opportunityOrder);
+  const pendingKey = `${data.customerId || ""}:${crmCompletedSubmit ? "crm" : "save"}:${opportunityCycleKey}`;
   if (app.customerContactSavingIds.has(pendingKey)) return;
   app.customerContactSavingIds.add(pendingKey);
   const submitButtons = [...container.querySelectorAll("[data-submit-contact]")];
@@ -8128,7 +8191,6 @@ async function saveCustomerContact(container, crmCompletedSubmit = false) {
     const crmButton = container.querySelector('[data-submit-contact="crm"]');
     if (crmButton) crmButton.textContent = "กำลังบันทึก...";
   }
-  const customer = app.data.customers.find(item => item.id === data.customerId);
   try {
     const nextTags = splitTags(data.tags ?? customer?.tags ?? []);
     const currentTags = customerSymptomTags(customer || {});
@@ -8157,7 +8219,8 @@ async function saveCustomerContact(container, crmCompletedSubmit = false) {
     if (isOpportunityCrmSave) data.date = app.data.summary?.selectedDate || todayISO();
     if (crmCompletedSubmit && app.view === "opportunities") {
       data.date = app.data.summary?.selectedDate || todayISO();
-      data.result = "CRMเรียบร้อยแล้ว";
+      data.result = OPPORTUNITY_CRM_RESULT;
+      data.orderId = opportunityCycleKey;
     }
     const result = await api("/api/contact-log", {
       method: "POST",
@@ -9911,9 +9974,11 @@ document.addEventListener("click", async event => {
     const customerId = opportunityChatButton.dataset.mobileOpportunityChat;
     const selectedDate = opportunitySelectedDate();
     const customer = app.data.customers.find(item => item.id === customerId);
-    if (!customer || opportunityChatCompleted(customer, selectedDate)) return;
-    if (app.opportunityChatPendingIds.has(customerId)) return;
-    app.opportunityChatPendingIds.add(customerId);
+    const cycleKey = opportunityChatButton.dataset.opportunityCycle || opportunityCycleKeyForOrder(latestOpportunityOrder(customer));
+    const pendingKey = `${customerId}:${cycleKey || ""}`;
+    if (!customer || !cycleKey || opportunityChatCompleted(customer, cycleKey)) return;
+    if (app.opportunityChatPendingIds.has(pendingKey)) return;
+    app.opportunityChatPendingIds.add(pendingKey);
     const previousLogs = [...(customer.contactLogs || [])];
     const previousLastContactDate = customer.lastContactDate || "";
     const previousLastContactNote = customer.lastContactNote || "";
@@ -9923,6 +9988,7 @@ document.addEventListener("click", async event => {
       date: selectedDate,
       result: OPPORTUNITY_CHAT_RESULT,
       note: OPPORTUNITY_CHAT_NOTE,
+      orderId: cycleKey,
       staff: app.currentUser?.name || app.currentUser?.username || "",
       createdAt: new Date().toISOString(),
       optimistic: true
@@ -9937,6 +10003,7 @@ document.addEventListener("click", async event => {
           date: selectedDate,
           result: OPPORTUNITY_CHAT_RESULT,
           note: OPPORTUNITY_CHAT_NOTE,
+          orderId: cycleKey,
           staff: app.currentUser?.name || app.currentUser?.username || ""
         })
       });
@@ -9946,6 +10013,7 @@ document.addEventListener("click", async event => {
         date: result.log?.date || selectedDate,
         result: result.log?.result || OPPORTUNITY_CHAT_RESULT,
         note: result.log?.note || OPPORTUNITY_CHAT_NOTE,
+        orderId: result.log?.orderId || result.log?.order_id || cycleKey,
         staff: result.log?.staff || app.currentUser?.name || app.currentUser?.username || ""
       };
       customer.contactLogs = (customer.contactLogs || []).filter(log => log.id !== optimisticLog.id);
@@ -9958,7 +10026,7 @@ document.addEventListener("click", async event => {
       renderOpportunities();
       showToast(error.message || "บันทึกไม่สำเร็จ", "error");
     } finally {
-      app.opportunityChatPendingIds.delete(customerId);
+      app.opportunityChatPendingIds.delete(pendingKey);
       renderOpportunities();
     }
     return;

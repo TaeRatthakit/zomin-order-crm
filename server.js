@@ -1019,6 +1019,63 @@ function orderChannel(order = {}) {
   return channel || "";
 }
 
+const OPPORTUNITY_CHAT_RESULT = "แชทหาลูกค้าแล้ว";
+const OPPORTUNITY_CRM_RESULT = "CRMเรียบร้อยแล้ว";
+const OPPORTUNITY_CYCLE_NOTE_RE = /\n?\[\[opportunityCycle:orderId=([^\]]+)\]\]/g;
+
+function stripOpportunityCycleNote(note = "") {
+  return String(note || "").replace(OPPORTUNITY_CYCLE_NOTE_RE, "").trim();
+}
+
+function opportunityCycleMarker(orderId = "") {
+  return `[[opportunityCycle:orderId=${encodeURIComponent(String(orderId || "").trim())}]]`;
+}
+
+function opportunityLogOrderId(log = {}) {
+  const direct = String(log.orderId || log.order_id || log.opportunityCycleId || "").trim();
+  if (direct) return direct;
+  OPPORTUNITY_CYCLE_NOTE_RE.lastIndex = 0;
+  const match = OPPORTUNITY_CYCLE_NOTE_RE.exec(String(log.note || ""));
+  OPPORTUNITY_CYCLE_NOTE_RE.lastIndex = 0;
+  return match ? decodeURIComponent(match[1]) : "";
+}
+
+function opportunityOrdersForCustomer(db, customerId = "") {
+  return (db.orders || [])
+    .filter(order => order.customerId === customerId)
+    .sort((a, b) => [
+      String(a.date || ""),
+      String(a.time || ""),
+      String(a.id || "")
+    ].join("|").localeCompare([
+      String(b.date || ""),
+      String(b.time || ""),
+      String(b.id || "")
+    ].join("|")));
+}
+
+function latestOpportunityOrderForCustomer(db, customerId = "") {
+  const orders = opportunityOrdersForCustomer(db, customerId);
+  return orders[orders.length - 1] || null;
+}
+
+function inferLegacyOpportunityLogOrderId(db, customerId = "", log = {}) {
+  const direct = opportunityLogOrderId(log);
+  if (direct) return direct;
+  const orders = opportunityOrdersForCustomer(db, customerId);
+  if (orders.length === 1) return String(orders[0].id || "");
+  const logDate = String(log.date || log.contact_date || "");
+  const previousOrders = orders.filter(order => String(order.date || "") <= logDate);
+  if (previousOrders.length) return String(previousOrders[previousOrders.length - 1].id || "");
+  return "";
+}
+
+function appendOpportunityCycleNote(note = "", orderId = "") {
+  const clean = stripOpportunityCycleNote(note);
+  const marker = opportunityCycleMarker(orderId);
+  return [clean, marker].filter(Boolean).join("\n");
+}
+
 const DEFAULT_CUSTOMER_SOURCE_CHANNELS = [
   { key: "facebook", name: "Facebook" },
   { key: "line", name: "LINE" },
@@ -4488,11 +4545,34 @@ async function handleApi(req, res) {
     if (!customer) return json(res, 404, { ok: false, error: "ไม่พบลูกค้า" });
     const logDate = toDateOnly(body.date || new Date());
     const logResult = String(body.result || "โทรติด").trim();
-    const logNote = String(body.note || "").trim();
+    const requestedOrderId = String(body.orderId || body.order_id || body.opportunityCycleId || "").trim();
+    const manualOpportunityResult = logResult === OPPORTUNITY_CHAT_RESULT || logResult === OPPORTUNITY_CRM_RESULT;
+    const requestedOrder = requestedOrderId
+      ? (db.orders || []).find(order => order.id === requestedOrderId && order.customerId === customer.id)
+      : null;
+    if (requestedOrderId && !requestedOrder) {
+      return json(res, 400, { ok: false, error: "รอบออเดอร์นี้ไม่ตรงกับลูกค้า" });
+    }
+    const cycleOrder = requestedOrder || (manualOpportunityResult ? latestOpportunityOrderForCustomer(db, customer.id) : null);
+    const cycleOrderId = String(cycleOrder?.id || "");
+    const logNote = manualOpportunityResult && cycleOrderId
+      ? appendOpportunityCycleNote(body.note || "", cycleOrderId)
+      : String(body.note || "").trim();
     db.contactLogs = db.contactLogs || [];
-    if (logResult === "แชทหาลูกค้าแล้ว") {
-      const existing = db.contactLogs.find(log => log.customerId === customer.id && log.date === logDate && log.result === logResult);
-      if (existing) return json(res, 200, { ok: true, customer, log: existing, duplicate: true });
+    if (manualOpportunityResult) {
+      const existing = db.contactLogs.find(log => {
+        if (log.customerId !== customer.id || log.result !== logResult) return false;
+        if (!cycleOrderId) return log.date === logDate;
+        return inferLegacyOpportunityLogOrderId(db, customer.id, log) === cycleOrderId;
+      });
+      if (existing) {
+        return json(res, 200, {
+          ok: true,
+          customer,
+          log: { ...existing, orderId: inferLegacyOpportunityLogOrderId(db, customer.id, existing) },
+          duplicate: true
+        });
+      }
     }
     customer.lastContactDate = logDate;
     customer.lastContactNote = logNote;
@@ -4504,7 +4584,8 @@ async function handleApi(req, res) {
       note: logNote,
       staff: String(body.staff || body.staffName || "").trim(),
       nextFollowUpDate: toDateOnly(body.nextFollowUpDate || ""),
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      orderId: cycleOrderId
     };
     db.contactLogs.push(log);
     await writeDb(db);
