@@ -887,6 +887,11 @@ function productCostIndex(productCosts = [], productId = "", legacyNames = []) {
 
 function publicSettings(settings = {}) {
   const effective = effectiveSettings(settings);
+  const publicBase = { ...effective };
+  delete publicBase.openaiApiKey;
+  delete publicBase.lineChannelSecret;
+  delete publicBase.lineChannelAccessToken;
+  delete publicBase.lineGroupId;
   const businessProfile = normalizeBusinessProfile(effective);
   const businessGoals = normalizeBusinessGoals(effective.businessGoals);
   const aiPreferences = normalizeAiPreferences(effective.aiPreferences);
@@ -894,7 +899,7 @@ function publicSettings(settings = {}) {
   const displayPreferences = normalizeDisplayPreferences(effective.displayPreferences);
   const integrations = normalizeIntegrationSettings(effective);
   return {
-    ...effective,
+    ...publicBase,
     businessName: businessProfile.name,
     businessType: businessProfile.type,
     businessAddress: businessProfile.address,
