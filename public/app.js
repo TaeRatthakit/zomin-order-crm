@@ -3130,8 +3130,8 @@ function mobileBusinessMenuRow(page, title, description, icon, tone) {
 
 function mobileBusinessDataRow(page, title, description, icon, tone, value, options = {}) {
   return `
-    <button class="mobile-business-data-row settings-menu-item grow-settings-row ${escapeHtml(tone)}" type="button" data-business-page="${escapeHtml(page)}">
-      <span class="settings-menu-icon mobile-business-data-row-icon" aria-hidden="true">${iconSvg(icon)}</span>
+    <button class="mobile-business-data-row mobile-business-menu-row ${escapeHtml(tone)}" type="button" data-business-page="${escapeHtml(page)}">
+      ${mobileBusinessIcon(icon)}
       <span class="settings-menu-copy mobile-business-data-row-copy">
         <strong>${escapeHtml(title)}</strong>
         <small>${escapeHtml(description)}</small>
@@ -3140,7 +3140,7 @@ function mobileBusinessDataRow(page, title, description, icon, tone, value, opti
         ${options.badge ? `<i class="mobile-business-new-badge">${escapeHtml(options.badge)}</i>` : ""}
         <b>${escapeHtml(value)}</b>
       </span>
-      <span class="settings-menu-chevron mobile-business-data-row-chevron" aria-hidden="true">${iconSvg("arrow")}</span>
+      <span class="mobile-business-chevron mobile-business-data-row-chevron" aria-hidden="true">${iconSvg("arrow")}</span>
     </button>
   `;
 }
@@ -3291,7 +3291,7 @@ function renderMobileBusinessMain() {
 
       <section class="mobile-business-section">
         <h2>จัดการข้อมูล</h2>
-        <div class="mobile-business-data-grid">
+        <div class="mobile-business-data-grid mobile-business-menu-list">
           ${dataCards}
         </div>
       </section>

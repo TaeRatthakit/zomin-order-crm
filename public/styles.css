@@ -7330,80 +7330,21 @@ small,
     gap: 8px;
   }
 
-  .mobile-business-data-row,
-  body:not(.login-view) .mobile-business-data-row,
-  body.desktop-app-shell:not(.login-view) .mobile-business-data-row {
-    min-height: 58px !important;
-    grid-template-columns: 44px minmax(0, 1fr) minmax(96px, auto) 20px !important;
-    gap: 12px !important;
-    padding: 9px 12px !important;
-    border-radius: 9px !important;
-    border-color: color-mix(in srgb, currentColor 28%, rgba(42, 76, 108, 0.42)) !important;
-    color: var(--mb-purple);
-    background:
-      radial-gradient(circle at 6% 50%, color-mix(in srgb, currentColor 11%, transparent), transparent 28%),
-      linear-gradient(100deg, rgba(7, 19, 34, 0.94), rgba(4, 15, 27, 0.97)) !important;
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.025),
-      0 0 12px color-mix(in srgb, currentColor 8%, transparent) !important;
+  .mobile-business-data-row {
+    grid-template-columns: 44px minmax(0, 1fr) minmax(96px, auto) 18px;
   }
 
-  .mobile-business-data-row.orange { color: var(--mb-orange); }
-  .mobile-business-data-row.green { color: var(--mb-green); }
-  .mobile-business-data-row.blue { color: #2da6ff; }
-  .mobile-business-data-row.pink { color: #ff3d94; }
-
-  .mobile-business-data-row:hover {
-    border-color: color-mix(in srgb, currentColor 42%, rgba(42, 76, 108, 0.42)) !important;
-    background:
-      radial-gradient(circle at 6% 50%, color-mix(in srgb, currentColor 15%, transparent), transparent 30%),
-      linear-gradient(100deg, rgba(8, 23, 39, 0.97), rgba(4, 15, 27, 0.98)) !important;
+  .mobile-business-data-row.blue {
+    color: #2da6ff;
   }
 
-  .mobile-business-data-row .mobile-business-data-row-icon,
-  body:not(.login-view) .mobile-business-data-row .mobile-business-data-row-icon,
-  body.desktop-app-shell:not(.login-view) .mobile-business-data-row .mobile-business-data-row-icon {
-    width: 36px !important;
-    height: 36px !important;
-    min-width: 36px !important;
-    min-height: 36px !important;
-    border: 0 !important;
-    color: currentColor !important;
-    background: color-mix(in srgb, currentColor 12%, rgba(6, 13, 25, 0.92)) !important;
-    box-shadow: 0 0 14px color-mix(in srgb, currentColor 12%, transparent) !important;
-  }
-
-  .mobile-business-data-row .mobile-business-data-row-icon svg,
-  body:not(.login-view) .mobile-business-data-row .mobile-business-data-row-icon svg {
-    width: 22px !important;
-    height: 22px !important;
+  .mobile-business-data-row.pink {
+    color: #ff3d94;
   }
 
   .mobile-business-data-row .mobile-business-data-row-copy {
     display: grid;
     min-width: 0;
-    gap: 1px;
-  }
-
-  .mobile-business-data-row .mobile-business-data-row-copy strong,
-  body:not(.login-view) .mobile-business-data-row .mobile-business-data-row-copy strong,
-  body.desktop-app-shell:not(.login-view) .mobile-business-data-row .mobile-business-data-row-copy strong {
-    font-size: 13px !important;
-    line-height: 1.2 !important;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .mobile-business-data-row .mobile-business-data-row-copy small,
-  body:not(.login-view) .mobile-business-data-row .mobile-business-data-row-copy small,
-  body.desktop-app-shell:not(.login-view) .mobile-business-data-row .mobile-business-data-row-copy small {
-    margin-top: 0 !important;
-    font-size: 10.5px !important;
-    line-height: 1.25 !important;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
   }
 
   .mobile-business-data-row-meta {
@@ -7419,7 +7360,7 @@ small,
   .mobile-business-data-row-meta b {
     min-width: 0;
     color: currentColor;
-    font-size: 13px;
+    font-size: 0.88rem;
     font-weight: 900;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -7428,23 +7369,10 @@ small,
   .mobile-business-data-row .mobile-business-new-badge {
     position: static;
     flex: 0 0 auto;
-    padding: 2px 6px;
+    padding: 3px 7px;
     border-radius: 7px;
-    font-size: 10px;
+    font-size: 0.62rem;
     line-height: 1.25;
-  }
-
-  .mobile-business-data-row .mobile-business-data-row-chevron,
-  body:not(.login-view) .mobile-business-data-row .mobile-business-data-row-chevron,
-  body.desktop-app-shell:not(.login-view) .mobile-business-data-row .mobile-business-data-row-chevron {
-    justify-self: end;
-    color: #a9afb8;
-    transform: rotate(180deg);
-  }
-
-  .mobile-business-data-row .mobile-business-data-row-chevron svg {
-    width: 17px;
-    height: 17px;
   }
 
   .mobile-business-data-card {
@@ -8749,7 +8677,7 @@ small,
   }
 @media (min-width: 560px) and (max-width: 820px) {
   .mobile-business-data-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: 1fr;
   }
 
   .mobile-business-data-card.finance-feature-card {
@@ -20747,58 +20675,22 @@ body.desktop-app-shell:not(.login-view) .grow-settings-row .settings-menu-copy s
   margin-top: 4px !important;
 }
 
-body:not(.login-view) .mobile-business-data-grid {
-  grid-template-columns: 1fr !important;
-  gap: 8px !important;
-}
-
 body:not(.login-view) .mobile-business-data-row,
 body.desktop-app-shell:not(.login-view) .mobile-business-data-row {
-  min-height: 58px !important;
-  grid-template-columns: 44px minmax(0, 1fr) minmax(96px, auto) 20px !important;
-  gap: 12px !important;
-  padding: 9px 12px !important;
-  border-color: color-mix(in srgb, currentColor 28%, rgba(42, 76, 108, 0.42)) !important;
-  color: var(--mb-purple);
-  background:
-    radial-gradient(circle at 6% 50%, color-mix(in srgb, currentColor 11%, transparent), transparent 28%),
-    linear-gradient(100deg, rgba(7, 19, 34, 0.94), rgba(4, 15, 27, 0.97)) !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.025),
-    0 0 12px color-mix(in srgb, currentColor 8%, transparent) !important;
+  grid-template-columns: 44px minmax(0, 1fr) minmax(96px, auto) 18px !important;
 }
 
-body:not(.login-view) .mobile-business-data-row.orange { color: var(--mb-orange); }
-body:not(.login-view) .mobile-business-data-row.green { color: var(--mb-green); }
-body:not(.login-view) .mobile-business-data-row.blue { color: #2da6ff; }
-body:not(.login-view) .mobile-business-data-row.pink { color: #ff3d94; }
-
-body:not(.login-view) .mobile-business-data-row .mobile-business-data-row-icon,
-body.desktop-app-shell:not(.login-view) .mobile-business-data-row .mobile-business-data-row-icon {
-  width: 36px !important;
-  height: 36px !important;
-  min-width: 36px !important;
-  min-height: 36px !important;
-  border: 0 !important;
-  color: currentColor !important;
-  background: color-mix(in srgb, currentColor 12%, rgba(6, 13, 25, 0.92)) !important;
-  box-shadow: 0 0 14px color-mix(in srgb, currentColor 12%, transparent) !important;
-}
+body:not(.login-view) .mobile-business-data-row.purple { color: var(--mb-purple) !important; }
+body:not(.login-view) .mobile-business-data-row.orange { color: var(--mb-orange) !important; }
+body:not(.login-view) .mobile-business-data-row.green { color: var(--mb-green) !important; }
+body:not(.login-view) .mobile-business-data-row.blue { color: #2da6ff !important; }
+body:not(.login-view) .mobile-business-data-row.pink { color: #ff3d94 !important; }
 
 body:not(.login-view) .mobile-business-data-row .mobile-business-data-row-copy strong,
-body.desktop-app-shell:not(.login-view) .mobile-business-data-row .mobile-business-data-row-copy strong {
-  font-size: 13px !important;
-  line-height: 1.2 !important;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
+body.desktop-app-shell:not(.login-view) .mobile-business-data-row .mobile-business-data-row-copy strong,
 body:not(.login-view) .mobile-business-data-row .mobile-business-data-row-copy small,
 body.desktop-app-shell:not(.login-view) .mobile-business-data-row .mobile-business-data-row-copy small {
-  margin-top: 0 !important;
-  font-size: 10.5px !important;
-  line-height: 1.25 !important;
+  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
