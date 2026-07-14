@@ -7447,11 +7447,11 @@ function maskedSecret(configured) {
 }
 
 function lineSecretInput(name, label, configured, fromEnv, visible, placeholder) {
-  const value = visible ? "" : (configured ? "__configured__" : "");
+  const value = "";
   return `
     <label class="line-credential-field">${escapeHtml(label)}
       <span class="line-input-action">
-        <input name="${escapeHtml(name)}" type="${visible ? "text" : "password"}" autocomplete="new-password" value="${escapeHtml(value)}" placeholder="${escapeHtml(placeholder)}" ${fromEnv ? "readonly" : ""} data-line-secret-field="${escapeHtml(name)}">
+        <input name="${escapeHtml(name)}" type="${visible ? "text" : "password"}" autocomplete="new-password" value="${escapeHtml(value)}" placeholder="${escapeHtml(placeholder)}" ${fromEnv ? "readonly" : ""} data-line-secret-field="${escapeHtml(name)}" data-line-secret-configured="${configured ? "true" : "false"}">
         <button class="icon-button line-secret-toggle" type="button" data-toggle-line-secret="${escapeHtml(name)}" aria-label="${visible ? "ซ่อน" : "แสดง"} ${escapeHtml(label)}">${iconSvg("eye")}</button>
         <button class="button ghost compact-action" type="button" data-copy-line-field="${escapeHtml(name)}" ${configured ? "" : "disabled"}>${iconSvg("copy")} คัดลอก</button>
       </span>
