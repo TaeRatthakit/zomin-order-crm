@@ -21,6 +21,7 @@ const {
   verifyCustomerSync,
   persistOrderMutation,
   persistOrderProfitSnapshots,
+  createContactLogFast,
   persistUserProfile,
   persistSettingsPatch,
   readSettingsPatch,
@@ -1348,6 +1349,24 @@ async function requirePermission(req, res, db, permission, error = "ไม่ม
     return null;
   }
   return user;
+}
+
+async function requirePermissionFast(req, res, permission, error = "ไม่มีสิทธิ์เข้าถึงส่วนนี้") {
+  const sessionUser = requireUser(req, res);
+  if (!sessionUser) return null;
+  const user = typeof readUserById === "function" ? await readUserById(sessionUser.id) : null;
+  if (!user || user.active === false) {
+    sessionExpiredResponse(req, res);
+    return null;
+  }
+  const settings = typeof readSettingsPatch === "function"
+    ? await readSettingsPatch(["rolePermissions"])
+    : {};
+  if (!hasPermission(user, settings, permission)) {
+    json(res, 403, { ok: false, error });
+    return null;
+  }
+  return publicUser(user);
 }
 
 function normalizeUserRole(role) {
@@ -3105,6 +3124,7 @@ function serveStatic(req, res) {
 async function handleApi(req, res) {
   const url = new URL(req.url, `http://${req.headers.host}`);
   const isLineWebhook = url.pathname === "/api/line/webhook";
+  const requestStartedAt = Date.now();
 
   if (isLineWebhook && req.method === "POST") {
     const body = await readBody(req);
@@ -3170,6 +3190,70 @@ async function handleApi(req, res) {
   if (req.method === "GET" && url.pathname === "/api/verify/customer-sync") {
     const verification = await verifyCustomerSync();
     return json(res, verification.ok ? 200 : 409, { ok: verification.ok, verification });
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/contact-log" && typeof createContactLogFast === "function") {
+    const authStartedAt = Date.now();
+    const currentUser = await requirePermissionFast(req, res, "customers.edit", "ไม่มีสิทธิ์บันทึกการติดต่อลูกค้า");
+    if (!currentUser) return;
+    const authMs = Date.now() - authStartedAt;
+    const bodyStartedAt = Date.now();
+    const body = await readBody(req);
+    const bodyMs = Date.now() - bodyStartedAt;
+    const customerId = String(body.customerId || "").trim();
+    const logDate = toDateOnly(body.date || new Date());
+    const logResult = String(body.result || "โทรติด").trim();
+    const requestedOrderId = String(body.orderId || body.order_id || body.opportunityCycleId || "").trim();
+    const manualOpportunityResult = logResult === OPPORTUNITY_CHAT_RESULT || logResult === OPPORTUNITY_CRM_RESULT;
+    const fastStartedAt = Date.now();
+    const result = await createContactLogFast({
+      customerId,
+      date: logDate,
+      result: logResult,
+      note: String(body.note || "").trim(),
+      staff: String(body.staff || body.staffName || "").trim(),
+      nextFollowUpDate: toDateOnly(body.nextFollowUpDate || ""),
+      orderId: requestedOrderId,
+      manualOpportunityResult
+    });
+    const fastMs = Date.now() - fastStartedAt;
+    if (!result?.ok) {
+      const status = result?.status || 400;
+      return json(res, status, { ok: false, error: result?.error || "บันทึกไม่สำเร็จ" }, {
+        "Server-Timing": `auth;dur=${authMs}, parse;dur=${bodyMs}, db;dur=${fastMs}`,
+        "X-Contact-Log-Auth-Ms": String(authMs),
+        "X-Contact-Log-Db-Ms": String(fastMs)
+      });
+    }
+    const timings = result.timings || {};
+    const elapsedMs = Date.now() - requestStartedAt;
+    return json(res, 200, {
+      ok: true,
+      log: result.log,
+      duplicate: Boolean(result.duplicate),
+      timings: {
+        authMs,
+        bodyMs,
+        ...timings,
+        totalMs: elapsedMs
+      }
+    }, {
+      "Server-Timing": [
+        `auth;dur=${authMs}`,
+        `parse;dur=${bodyMs}`,
+        `read;dur=${timings.readMs || 0}`,
+        `duplicate;dur=${timings.duplicateMs || 0}`,
+        `write;dur=${timings.writeMs || 0}`,
+        `serialize;dur=${timings.serializeMs || 0}`,
+        `total;dur=${elapsedMs}`
+      ].join(", "),
+      "X-Contact-Log-Auth-Ms": String(authMs),
+      "X-Contact-Log-Read-Ms": String(timings.readMs || 0),
+      "X-Contact-Log-Duplicate-Ms": String(timings.duplicateMs || 0),
+      "X-Contact-Log-Write-Ms": String(timings.writeMs || 0),
+      "X-Contact-Log-Total-Ms": String(elapsedMs),
+      "X-Contact-Log-Response-Bytes": String(Buffer.byteLength(JSON.stringify({ ok: true, log: result.log, duplicate: Boolean(result.duplicate) }), "utf8"))
+    });
   }
 
   if (isLineWebhook && req.method === "GET") {
