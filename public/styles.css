@@ -20696,6 +20696,61 @@ body.desktop-app-shell:not(.login-view) .mobile-business-data-row .mobile-busine
   text-overflow: ellipsis;
 }
 
+@media (max-width: 820px) {
+  body:not(.login-view) .mobile-business-data-row,
+  body.desktop-app-shell:not(.login-view) .mobile-business-data-row {
+    grid-template-columns: 44px minmax(0, 1fr) auto 18px !important;
+  }
+
+  body:not(.login-view) .mobile-business-data-row .mobile-business-data-row-copy,
+  body.desktop-app-shell:not(.login-view) .mobile-business-data-row .mobile-business-data-row-copy {
+    gap: 2px !important;
+    min-width: 0 !important;
+  }
+
+  body:not(.login-view) .mobile-business-data-row .mobile-business-data-row-copy strong,
+  body.desktop-app-shell:not(.login-view) .mobile-business-data-row .mobile-business-data-row-copy strong {
+    color: #f5f2fa !important;
+    font-size: 0.88rem !important;
+    line-height: normal !important;
+    font-weight: 700 !important;
+  }
+
+  body:not(.login-view) .mobile-business-data-row .mobile-business-data-row-copy small,
+  body.desktop-app-shell:not(.login-view) .mobile-business-data-row .mobile-business-data-row-copy small {
+    color: #aaa6b5 !important;
+    font-size: 0.7rem !important;
+    line-height: 1.35 !important;
+    margin-top: 0 !important;
+  }
+
+  body:not(.login-view) .mobile-business-data-row-meta,
+  body.desktop-app-shell:not(.login-view) .mobile-business-data-row-meta {
+    max-width: 82px !important;
+    gap: 5px !important;
+    line-height: 1 !important;
+    overflow: hidden !important;
+  }
+
+  body:not(.login-view) .mobile-business-data-row-meta b,
+  body.desktop-app-shell:not(.login-view) .mobile-business-data-row-meta b {
+    max-width: 100% !important;
+    font-size: 0.7rem !important;
+    line-height: 1.2 !important;
+    font-weight: 900 !important;
+  }
+
+  body:not(.login-view) .mobile-business-data-row .mobile-business-new-badge,
+  body.desktop-app-shell:not(.login-view) .mobile-business-data-row .mobile-business-new-badge {
+    display: inline-flex !important;
+    align-items: center !important;
+    flex: 0 0 auto !important;
+    padding: 2px 5px !important;
+    font-size: 0.58rem !important;
+    line-height: 1 !important;
+  }
+}
+
 body:not(.login-view) .settings-unified-form,
 body:not(.login-view) .integrations-page,
 body:not(.login-view) .line-oa-page {
