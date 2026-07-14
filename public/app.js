@@ -9990,7 +9990,7 @@ document.addEventListener("click", async event => {
     const fieldName = copyLineFieldButton.dataset.copyLineField;
     const field = document.querySelector(`[name="${CSS.escape(fieldName)}"]`);
     const value = String(field?.value || "");
-    if (!value || value === "__configured__") {
+    if (!value) {
       showToast("ไม่สามารถคัดลอกค่าเดิมที่ถูกซ่อนไว้ได้", "error");
     } else {
       copyText(value);
