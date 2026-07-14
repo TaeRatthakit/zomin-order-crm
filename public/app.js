@@ -3128,6 +3128,23 @@ function mobileBusinessMenuRow(page, title, description, icon, tone) {
   `;
 }
 
+function mobileBusinessDataRow(page, title, description, icon, tone, value, options = {}) {
+  return `
+    <button class="mobile-business-data-row settings-menu-item grow-settings-row ${escapeHtml(tone)}" type="button" data-business-page="${escapeHtml(page)}">
+      <span class="settings-menu-icon mobile-business-data-row-icon" aria-hidden="true">${iconSvg(icon)}</span>
+      <span class="settings-menu-copy mobile-business-data-row-copy">
+        <strong>${escapeHtml(title)}</strong>
+        <small>${escapeHtml(description)}</small>
+      </span>
+      <span class="mobile-business-data-row-meta">
+        ${options.badge ? `<i class="mobile-business-new-badge">${escapeHtml(options.badge)}</i>` : ""}
+        <b>${escapeHtml(value)}</b>
+      </span>
+      <span class="settings-menu-chevron mobile-business-data-row-chevron" aria-hidden="true">${iconSvg("arrow")}</span>
+    </button>
+  `;
+}
+
 function mobileBusinessInfoRow(title, value, icon, tone) {
   return `
     <article class="mobile-business-menu-row mobile-business-info-row ${escapeHtml(tone)}">
@@ -3256,26 +3273,11 @@ function renderMobileBusinessMain() {
   const todayPerformance = marketingPerformanceForPeriod({ date: todayISO() });
   const todayFinance = profitBreakdownForOrders(orders.filter(order => order.date === todayISO()));
   const dataCards = [
-    can("customers.view") ? `<button class="mobile-business-data-card purple" type="button" data-business-page="customers">
-      ${mobileBusinessIcon("users")}
-      <span><strong>จัดการลูกค้า</strong><small>เพิ่ม แก้ไข และดูข้อมูลลูกค้า</small><b>${money(customers.length)} ราย</b></span>
-    </button>` : "",
-    can("products.view") ? `<button class="mobile-business-data-card orange" type="button" data-business-page="products">
-      ${mobileBusinessIcon("box")}
-      <span><strong>จัดการสินค้า</strong><small>เพิ่ม แก้ไข และจัดการสินค้า</small><b>${money(products.length)} รายการ</b></span>
-    </button>` : "",
-    can("reports.costs") ? `<button class="mobile-business-data-card green finance-feature-card" type="button" data-business-page="finance">
-      ${mobileBusinessIcon("chart")}
-      <span><strong>ต้นทุนและกำไร</strong><small>คำนวณต้นทุนและกำไรของสินค้า</small><b>กำไรวันนี้ ฿ ${money(todayFinance.profitBeforeAds)}</b></span>
-    </button>` : "",
-    can("reports.finance") ? `<button class="mobile-business-data-card blue ad-feature-card" type="button" data-business-page="advertising">
-      ${mobileBusinessIcon("megaphone")}
-      <span><i class="mobile-business-new-badge">ใหม่</i><strong>ค่าโฆษณา</strong><small>จัดการค่าโฆษณาและวิเคราะห์ผลลัพธ์</small><b>ใช้ไปวันนี้ ฿ ${money(todayPerformance.adCost)}</b></span>
-    </button>` : "",
-    can("reports.finance") ? `<button class="mobile-business-data-card pink ad-feature-card" type="button" data-business-page="marketingPerformance">
-      ${mobileBusinessIcon("chart")}
-      <span><i class="mobile-business-new-badge">ใหม่</i><strong>Dashboard Marketing Performance</strong><small>ดูภาพรวมประสิทธิภาพการตลาด</small><b>ROAS ${marketingNumber(todayPerformance.roas)}</b></span>
-    </button>` : ""
+    can("customers.view") ? mobileBusinessDataRow("customers", "จัดการลูกค้า", "เพิ่ม แก้ไข และดูข้อมูลลูกค้า", "users", "purple", `${money(customers.length)} ราย`) : "",
+    can("products.view") ? mobileBusinessDataRow("products", "จัดการสินค้า", "เพิ่ม แก้ไข และจัดการสินค้า", "box", "orange", `${money(products.length)} รายการ`) : "",
+    can("reports.costs") ? mobileBusinessDataRow("finance", "ต้นทุนและกำไร", "คำนวณต้นทุนและกำไรของสินค้า", "chart", "green", `กำไรวันนี้ ฿ ${money(todayFinance.profitBeforeAds)}`) : "",
+    can("reports.finance") ? mobileBusinessDataRow("advertising", "ค่าโฆษณา", "จัดการค่าใช้จ่ายและวิเคราะห์ผลลัพธ์", "megaphone", "blue", `ใช้ไปวันนี้ ฿ ${money(todayPerformance.adCost)}`, { badge: "ใหม่" }) : "",
+    can("reports.finance") ? mobileBusinessDataRow("marketingPerformance", "Dashboard Marketing Performance", "ติดตามความคุ้มค่าจากการตลาด", "chart", "pink", `ROAS ${marketingNumber(todayPerformance.roas)}`, { badge: "ใหม่" }) : ""
   ].join("");
   const settingsRows = [
     can("system.business") ? mobileBusinessMenuRow("system", "ตั้งค่าระบบ", "ข้อมูลธุรกิจและการทำงานของระบบ", "settings", "blue") : "",
