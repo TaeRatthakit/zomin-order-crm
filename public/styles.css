@@ -19,7 +19,6 @@
   --shadow-soft: 0 10px 30px rgba(97, 70, 190, 0.08);
   color-scheme: light;
 }
-
 body.desktop-app-shell:not(.login-view) .line-oa-form,
 body.mobile-app-shell:not(.login-view) .line-oa-form {
   border-color: rgba(48, 92, 126, 0.62) !important;
@@ -21159,4 +21158,224 @@ body:not(.login-view) .line-secret-toggle {
   body:not(.login-view) .line-form-actions .button {
     width: 100% !important;
   }
+}
+
+/* Theme selector layer: Dark remains the baseline; Light changes color tokens only. */
+html[data-theme="light"] {
+  --bg: #f7f5ff;
+  --surface: rgba(255, 255, 255, 0.94);
+  --surface-2: rgba(247, 243, 255, 0.92);
+  --surface-3: rgba(255, 255, 255, 0.98);
+  --surface-4: rgba(239, 232, 255, 0.92);
+  --ink: #1f1637;
+  --muted: #6d6384;
+  --line: rgba(109, 40, 217, 0.16);
+  --line-strong: rgba(109, 40, 217, 0.28);
+  --purple: #7c3aed;
+  --purple-strong: #6d28d9;
+  --blue: #2563eb;
+  --green: #15803d;
+  --amber: #b45309;
+  --red: #dc2626;
+  --shadow: 0 18px 60px rgba(97, 70, 190, 0.12);
+  --shadow-soft: 0 10px 30px rgba(97, 70, 190, 0.09);
+  --shadow-glow: 0 0 0 1px rgba(124, 58, 237, 0.12), 0 18px 44px rgba(109, 40, 217, 0.14);
+  color-scheme: light;
+}
+
+html[data-theme="light"],
+html[data-theme="light"] body {
+  background: #f7f5ff;
+  color: var(--ink);
+}
+
+html[data-theme="light"] body {
+  background:
+    radial-gradient(circle at 18% 16%, rgba(124, 58, 237, 0.14), transparent 22%),
+    radial-gradient(circle at 82% 14%, rgba(245, 158, 11, 0.12), transparent 18%),
+    radial-gradient(circle at 50% 110%, rgba(37, 99, 235, 0.10), transparent 28%),
+    linear-gradient(180deg, #fcfbff 0%, #f7f5ff 48%, #f4f1ff 100%);
+}
+
+@media (min-width: 1024px) {
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) {
+    background:
+      radial-gradient(circle at 67% 8%, rgba(124, 58, 237, 0.10), transparent 22%),
+      radial-gradient(circle at 48% 96%, rgba(37, 99, 235, 0.09), transparent 30%),
+      #f7f5ff;
+  }
+
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .sidebar {
+    border-color: rgba(109, 40, 217, 0.18);
+    background:
+      radial-gradient(circle at 34% 10%, rgba(124, 58, 237, 0.10), transparent 24%),
+      linear-gradient(180deg, rgba(255,255,255,0.96), rgba(247,243,255,0.98));
+    box-shadow: 0 24px 70px rgba(97, 70, 190, 0.14);
+  }
+
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .brand-text strong,
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .page-heading h1 {
+    color: #1f1637;
+  }
+
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .brand-text span,
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .page-subtitle,
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .date-pill-display {
+    color: rgba(64, 52, 91, 0.72);
+  }
+
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .nav-button {
+    color: rgba(47, 38, 72, 0.86);
+  }
+
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .nav-button:hover {
+    background: rgba(124, 58, 237, 0.10);
+  }
+
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .nav-button.active {
+    color: #fff;
+    background: linear-gradient(90deg, rgba(109, 40, 217, 0.98), rgba(147, 51, 234, 0.96));
+    box-shadow: 0 10px 26px rgba(109, 40, 217, 0.22);
+  }
+
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .date-pill,
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .notification-button,
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .sidebar-upgrade-card,
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .sidebar-theme-switch,
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .theme-switch-track {
+    border-color: rgba(109, 40, 217, 0.18);
+    background: rgba(255, 255, 255, 0.86);
+    color: #594b75;
+  }
+
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .dashboard-kpi-card,
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .desktop-reference-card,
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .workspace-card,
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .report-card,
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .settings-unified-card,
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .settings-detail-panel,
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .integration-card,
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .line-tutorial-card,
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .line-guide-card,
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .line-capability-card,
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .line-oa-form {
+    border-color: rgba(109, 40, 217, 0.16);
+    background:
+      radial-gradient(circle at 18% 7%, rgba(124, 58, 237, 0.08), transparent 32%),
+      linear-gradient(145deg, rgba(255,255,255,0.96), rgba(248,245,255,0.96));
+    box-shadow: 0 18px 46px rgba(97, 70, 190, 0.10);
+  }
+}
+
+html[data-theme="light"] .card,
+html[data-theme="light"] .metric-card,
+html[data-theme="light"] .workspace-card,
+html[data-theme="light"] .report-card,
+html[data-theme="light"] .settings-unified-card,
+html[data-theme="light"] .settings-detail-panel,
+html[data-theme="light"] .settings-status-card,
+html[data-theme="light"] .settings-metric-card,
+html[data-theme="light"] .settings-notification-row,
+html[data-theme="light"] .integration-card,
+html[data-theme="light"] .integration-help-card,
+html[data-theme="light"] .grow-settings-row,
+html[data-theme="light"] .mobile-business-data-row,
+html[data-theme="light"] .mobile-report-card,
+html[data-theme="light"] .mobile-summary-card,
+html[data-theme="light"] .mobile-alerts-card,
+html[data-theme="light"] .mobile-kpi-card,
+html[data-theme="light"] .grow-modal-shell,
+html[data-theme="light"] .toast {
+  border-color: rgba(109, 40, 217, 0.16);
+  background: rgba(255, 255, 255, 0.94);
+  color: var(--ink);
+  box-shadow: var(--shadow-soft);
+}
+
+html[data-theme="light"] input,
+html[data-theme="light"] select,
+html[data-theme="light"] textarea,
+html[data-theme="light"] .date-picker,
+html[data-theme="light"] .search-box,
+html[data-theme="light"] .filter-chip,
+html[data-theme="light"] .dropdown,
+html[data-theme="light"] .settings-switch-ui {
+  border-color: rgba(109, 40, 217, 0.18);
+  background-color: rgba(255, 255, 255, 0.96);
+  color: var(--ink);
+}
+
+html[data-theme="light"] input::placeholder,
+html[data-theme="light"] textarea::placeholder,
+html[data-theme="light"] .muted,
+html[data-theme="light"] small,
+html[data-theme="light"] .page-subtitle,
+html[data-theme="light"] .settings-menu-copy small,
+html[data-theme="light"] .settings-unified-card-head p,
+html[data-theme="light"] .integration-copy p,
+html[data-theme="light"] .line-tutorial-card p,
+html[data-theme="light"] .line-capability-card p {
+  color: var(--muted);
+}
+
+html[data-theme="light"] table,
+html[data-theme="light"] .workspace-table,
+html[data-theme="light"] .mobile-stack-table,
+html[data-theme="light"] .rules-table {
+  color: var(--ink);
+}
+
+html[data-theme="light"] th,
+html[data-theme="light"] td,
+html[data-theme="light"] .workspace-table tbody td,
+html[data-theme="light"] .mobile-stack-table td,
+html[data-theme="light"] .rules-table tbody td {
+  border-color: rgba(109, 40, 217, 0.12);
+}
+
+html[data-theme="light"] tbody tr:hover td,
+html[data-theme="light"] .workspace-table tbody tr:hover td,
+html[data-theme="light"] .user-management-table tbody tr:hover {
+  background: rgba(124, 58, 237, 0.08);
+}
+
+html[data-theme="light"] .button.primary,
+html[data-theme="light"] button.button.primary {
+  color: #fff;
+  background: linear-gradient(135deg, #7c3aed, #6d28d9);
+}
+
+html[data-theme="light"] .button.ghost,
+html[data-theme="light"] button.button.ghost,
+html[data-theme="light"] .icon-button {
+  border-color: rgba(109, 40, 217, 0.18);
+  background: rgba(255, 255, 255, 0.74);
+  color: #4c356f;
+}
+
+html[data-theme="light"] .grow-modal::backdrop,
+html[data-theme="light"] dialog::backdrop,
+html[data-theme="light"] .overlay {
+  background: rgba(31, 22, 55, 0.34);
+}
+
+html[data-theme="light"] .toast-error,
+html[data-theme="light"] .status-error,
+html[data-theme="light"] .integration-status.error {
+  color: #b91c1c;
+}
+
+html[data-theme="light"] .toast-success,
+html[data-theme="light"] .status-success,
+html[data-theme="light"] .integration-status.connected {
+  color: #047857;
+}
+
+html[data-theme="light"] .toast-warning,
+html[data-theme="light"] .status-warning {
+  color: #92400e;
+}
+
+html[data-theme="light"] *:focus-visible {
+  outline-color: rgba(109, 40, 217, 0.72);
 }

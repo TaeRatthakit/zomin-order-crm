@@ -51,6 +51,8 @@ const routeToView = {
 const viewToRoute = Object.fromEntries(Object.entries(routeToView).map(([path, view]) => [view, path]));
 const MISSING_CHANNEL_LABEL = "อื่นๆ";
 const MOBILE_PROFILE_CACHE_KEY = "growup_mobile_profile_v1";
+const THEME_STORAGE_PREFIX = "growup-theme:";
+const THEME_OPTIONS = new Set(["dark", "light", "system"]);
 
 const app = {
   view: routeFromLocation(),
@@ -455,19 +457,82 @@ async function restoreSession() {
     });
     const payload = await res.json();
     app.currentUser = payload.user?.id ? payload.user : null;
+    if (app.currentUser) applyUserTheme(app.currentUser);
+    else applyThemePreference("system", { persistLocal: false });
     cacheMobileProfile(app.currentUser);
   } catch {
     app.currentUser = null;
+    applyThemePreference("system", { persistLocal: false });
   }
 }
 
 function saveSession(user) {
   app.currentUser = user;
+  applyUserTheme(user);
 }
 
 function clearSession() {
+  clearActiveThemeUser();
   app.currentUser = null;
   app.data = null;
+  applyThemePreference("system", { persistLocal: false });
+}
+
+function normalizeThemePreference(value) {
+  return THEME_OPTIONS.has(value) ? value : "system";
+}
+
+function resolveThemePreference(preference = "system") {
+  const normalized = normalizeThemePreference(preference);
+  if (normalized !== "system") return normalized;
+  return window.matchMedia?.("(prefers-color-scheme: dark)")?.matches === false ? "light" : "dark";
+}
+
+function themeStorageKey(userId = app.currentUser?.id) {
+  const id = String(userId || "").trim();
+  return id ? `${THEME_STORAGE_PREFIX}${id}` : "";
+}
+
+function readCachedThemePreference(userId = app.currentUser?.id) {
+  const key = themeStorageKey(userId);
+  if (!key) return "system";
+  try {
+    return normalizeThemePreference(window.localStorage.getItem(key));
+  } catch {
+    return "system";
+  }
+}
+
+function cacheThemePreference(preference, userId = app.currentUser?.id) {
+  const key = themeStorageKey(userId);
+  if (!key) return;
+  try {
+    window.localStorage.setItem(key, normalizeThemePreference(preference));
+  } catch {
+    // Theme still applies for the current page even if storage is unavailable.
+  }
+}
+
+function clearActiveThemeUser() {
+  document.documentElement.removeAttribute("data-theme-user");
+}
+
+function applyThemePreference(preference, { persistLocal = true, userId = app.currentUser?.id } = {}) {
+  const normalized = normalizeThemePreference(preference);
+  const resolved = resolveThemePreference(normalized);
+  document.documentElement.dataset.themePreference = normalized;
+  document.documentElement.dataset.theme = resolved;
+  document.documentElement.style.colorScheme = resolved;
+  if (userId) document.documentElement.dataset.themeUser = String(userId);
+  else clearActiveThemeUser();
+  if (persistLocal) cacheThemePreference(normalized, userId);
+}
+
+function applyUserTheme(user = app.currentUser, { preferCache = false, persistLocal = true } = {}) {
+  const userId = user?.id || "";
+  const serverPreference = normalizeThemePreference(user?.themePreference);
+  const preference = preferCache ? readCachedThemePreference(userId) : serverPreference;
+  applyThemePreference(preference, { persistLocal, userId });
 }
 
 function todayISO() {
@@ -966,6 +1031,7 @@ async function loadState() {
       app.data.currentUser = app.currentUser;
       cacheMobileProfile(app.currentUser);
     }
+    applyUserTheme(app.currentUser);
   } catch (error) {
     if (error.status === 401) {
       clearSession();
@@ -1023,6 +1089,7 @@ function userSyncSignature(user = {}) {
     username: user.username || "",
     name: user.name || "",
     avatar: user.avatar || "",
+    themePreference: normalizeThemePreference(user.themePreference),
     role: user.role || "",
     active: user.active !== false
   });
@@ -1054,6 +1121,7 @@ async function refreshCurrentUser() {
       if (!app.data.users.some(user => user.id === nextUser.id)) app.data.users.push(nextUser);
     }
     cacheMobileProfile(nextUser);
+    applyUserTheme(nextUser);
     if (!canAccessView(app.view)) {
       app.view = "settings";
       navigateToView("settings", true);
@@ -7208,6 +7276,12 @@ function renderSettingsNotifications() {
 
 function renderSettingsDisplay() {
   const prefs = app.data.settings.displayPreferences || {};
+  const userThemePreference = normalizeThemePreference(app.currentUser?.themePreference || app.data.currentUser?.themePreference);
+  const themeOptions = [
+    ["dark", "Dark"],
+    ["light", "Light"],
+    ["system", "System"]
+  ];
   els.content.innerHTML = settingsSubpageShell(
     "Display",
     "การแสดงผล",
@@ -7216,7 +7290,11 @@ function renderSettingsDisplay() {
       <form class="settings-unified-form" id="settingsForm" data-settings-scope="display">
         ${settingsUnifiedCard("ธีม ภาษา และรูปแบบข้อมูล", "เปลี่ยนเฉพาะ presentation formatting ไม่เปลี่ยนค่าที่เก็บในฐานข้อมูล", `
           <div class="settings-form-grid">
-            <label>ธีม<select name="theme"><option value="dark" selected>มืด (Dark)</option></select></label>
+            <label>ธีม
+              <select name="theme" data-theme-select>
+                ${themeOptions.map(([value, label]) => `<option value="${value}" ${userThemePreference === value ? "selected" : ""}>${label}</option>`).join("")}
+              </select>
+            </label>
             <label>ภาษา<select name="language"><option value="th" selected>ไทย</option></select></label>
             <label>รูปแบบวันที่
               <select name="dateFormat">
@@ -7360,8 +7438,8 @@ function settingsFormPayload(form) {
   }
   if (scope === "display") {
     return {
+      themePreference: normalizeThemePreference(data.theme),
       displayPreferences: {
-        theme: data.theme || "dark",
         language: data.language || "th",
         dateFormat: data.dateFormat || "DD/MM/YYYY",
         numberFormat: data.numberFormat || "1,234.56",
@@ -8953,6 +9031,7 @@ function syncViewFromLocation(event = null) {
   const previousBusinessPage = app.mobileBusinessPage || "main";
   const wasCustomerManagement = app.view === "customers" || app.view === "settingsCustomers" || (app.view === "settings" && previousBusinessPage === "customers");
   if (!app.currentUser && nextView !== "login") {
+    applyThemePreference("system", { persistLocal: false });
     if (wasCustomerManagement) resetCustomerManagementState({ resetGroup: true });
     clearBusinessManagementScrollRestore();
     app.mobileBusinessPage = "main";
@@ -10215,6 +10294,7 @@ document.addEventListener("click", async event => {
 
   if (event.target.closest("[data-reset-settings]")) {
     app.businessLogoDraft = "";
+    applyUserTheme(app.currentUser);
     render();
     return;
   }
@@ -10518,6 +10598,10 @@ document.addEventListener("change", event => {
     const key = event.target.dataset.permission || "";
     app.rolePermissionsDraft = app.rolePermissionsDraft || { Admin: {}, Staff: {} };
     app.rolePermissionsDraft[role] = { ...(app.rolePermissionsDraft[role] || {}), [key]: event.target.checked };
+    return;
+  }
+  if (event.target?.matches?.("[data-theme-select]")) {
+    applyThemePreference(event.target.value, { persistLocal: false, userId: app.currentUser?.id });
     return;
   }
   if (elementId(event.target?.form) === "teamForm") {
@@ -10975,6 +11059,42 @@ document.addEventListener("submit", async event => {
         return;
       }
       const data = settingsFormPayload(form);
+      if (form.dataset.settingsScope === "display") {
+        const nextThemePreference = normalizeThemePreference(data.themePreference);
+        const currentThemePreference = normalizeThemePreference(app.currentUser?.themePreference);
+        const currentDisplay = app.data?.settings?.displayPreferences || {};
+        const nextDisplay = data.displayPreferences || {};
+        const displayKeys = ["language", "dateFormat", "numberFormat", "currency"];
+        const displayChanged = displayKeys.some(key => String(currentDisplay[key] || "") !== String(nextDisplay[key] || ""));
+        if (nextThemePreference !== currentThemePreference) {
+          const payload = await api("/api/profile/theme", {
+            method: "PUT",
+            body: JSON.stringify({ themePreference: nextThemePreference })
+          });
+          if (payload.user) {
+            app.currentUser = payload.user;
+            if (app.data) {
+              app.data.currentUser = payload.user;
+              app.data.users = (app.data.users || []).map(user => user.id === payload.user.id ? { ...user, ...payload.user } : user);
+              if (!app.data.users.some(user => user.id === payload.user.id)) app.data.users.push(payload.user);
+            }
+            applyUserTheme(payload.user);
+            cacheMobileProfile(payload.user);
+          }
+        } else {
+          applyThemePreference(nextThemePreference, { userId: app.currentUser?.id });
+        }
+        if (displayChanged) {
+          const payload = await api("/api/settings", {
+            method: "PUT",
+            body: JSON.stringify({ displayPreferences: nextDisplay })
+          });
+          if (payload.settings && app.data) app.data.settings = payload.settings;
+        }
+        showToast("บันทึกการตั้งค่าแล้ว");
+        app.settingsSavePending = false;
+        return;
+      }
       if (form.elements.lineWebhookEnabled) data.lineWebhookEnabled = form.elements.lineWebhookEnabled.checked;
       if (form.elements.staffCanExport) data.staffCanExport = form.elements.staffCanExport.checked;
       data.followUpDaysPerUnit = Math.max(1, Number(form.elements.daysPerUnit?.value || app.data?.settings?.followUpDaysPerUnit || 15));
@@ -11177,6 +11297,12 @@ document.addEventListener("visibilitychange", () => {
 window.setInterval(() => {
   refreshCurrentUser().catch(error => console.warn("[user-sync]", error.message || error));
 }, 5000);
+window.matchMedia?.("(prefers-color-scheme: dark)")?.addEventListener?.("change", () => {
+  const preference = app.currentUser?.themePreference
+    || document.documentElement.dataset.themePreference
+    || "system";
+  applyThemePreference(preference, { persistLocal: false });
+});
 
 // Add-order entry point is now rendered only inside the Orders page.
 if (els.workDate) els.workDate.value = todayISO();
