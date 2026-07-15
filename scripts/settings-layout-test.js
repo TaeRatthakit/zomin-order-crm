@@ -74,4 +74,9 @@ assert(!notificationEvents.includes("stock:${product.id}"), "stock notification 
 const notificationNavigation = functionBody("navigateFromNotification");
 assert(notificationNavigation.includes("closeNotifications({ replaceHistory: true })"), "notification routing must replace the overlay history entry before navigation");
 
+const workDateChangeStart = appJs.indexOf("if (event.target === els.workDate)");
+const workDateChangeEnd = appJs.indexOf("if (event.target?.matches?.(\"[data-orders-show-all]\"))", workDateChangeStart);
+const workDateChangeSource = appJs.slice(workDateChangeStart, workDateChangeEnd);
+assert((workDateChangeSource.match(/updateShell\(\)/g) || []).length >= 2, "desktop and mobile date changes must refresh the unread badge");
+
 console.log("Settings layout contract OK");
