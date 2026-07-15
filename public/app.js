@@ -940,6 +940,7 @@ async function api(path, options = {}) {
   if (!res.ok || payload.ok === false) {
     const error = new Error(payload.error || "บันทึกไม่สำเร็จ");
     error.status = res.status;
+    error.payload = payload;
     throw error;
   }
   return payload;
@@ -1960,7 +1961,7 @@ function productStatsMap() {
 }
 
 function productStatus(product, stats) {
-  if (product.archived) return "เก็บถาวร";
+  if (product.archived) return "ปิดใช้งาน";
   if (product.status && !["พร้อมขาย", "ใกล้หมด", "เหลือน้อย", "ปิดการขาย"].includes(product.status)) return product.status;
   if (product.stockQuantity <= 0) return "ปิดการขาย";
   if (product.stockQuantity <= Number(product.lowStockAlert || 0)) return "ใกล้หมด";
@@ -1972,7 +1973,6 @@ function productRowsData() {
   const statsByName = productStatsMap();
   const stored = normalizeProductRecords();
   const merged = [];
-  const seen = new Set();
   for (const product of stored) {
     const stats = statsByName.get(product.name) || { revenue: 0, soldCount: 0, orderCount: 0, lastOrderDate: "", followUpCustomers: 0 };
     merged.push({
@@ -1983,36 +1983,9 @@ function productRowsData() {
       followUpCustomers: stats.followUpCustomers,
       computedStatus: productStatus(product, stats)
     });
-    seen.add(product.name);
-  }
-  for (const [name, stats] of statsByName.entries()) {
-    if (seen.has(name)) continue;
-    merged.push({
-      id: `derived_${name.toLowerCase().replace(/[^a-z0-9]+/gi, "_")}`,
-      image: "",
-      name,
-      sku: "",
-      description: "",
-      salePrice: stats.soldCount ? Math.round(stats.revenue / Math.max(stats.soldCount, 1)) : 0,
-      costPerItem: 0,
-      stockQuantity: 0,
-      lowStockAlert: 0,
-      status: "พร้อมขาย",
-      followUpEnabled: true,
-      followUpDays: 15,
-      followUpRule: "1 ชิ้น = 15 วัน",
-      archived: false,
-      revenue: stats.revenue,
-      soldCount: stats.soldCount,
-      orderCount: stats.orderCount,
-      followUpCustomers: stats.followUpCustomers,
-      computedStatus: "พร้อมขาย",
-      derived: true
-    });
   }
   const q = app.productsFilterQ.trim().toLowerCase();
   return merged
-    .filter(product => !product.archived)
     .filter(product => !q || [product.name, product.sku, product.description].join(" ").toLowerCase().includes(q))
     .filter(product => !app.productsFilterStatus || product.computedStatus === app.productsFilterStatus)
     .sort((a, b) => b.revenue - a.revenue || a.name.localeCompare(b.name, "th"));
@@ -3430,11 +3403,21 @@ function renderMobileBusinessProducts() {
       </div>
       <div class="mobile-business-record-list">
         ${products.map(product => `
-          <button class="mobile-business-product-record" type="button" data-business-product="${escapeHtml(product.id)}">
+          <article class="mobile-business-product-record">
             <span class="mobile-business-product-thumb">${productImageMarkup(product.image, product.name, iconSvg("box"), product.id)}</span>
-            <span><strong>${escapeHtml(product.name)}</strong><small>${money(product.salePrice)} บาท · คงเหลือ ${money(product.stockQuantity)} ชิ้น</small></span>
+            <button class="mobile-business-product-main" type="button" data-business-product="${escapeHtml(product.id)}">
+              <span><strong>${escapeHtml(product.name)}</strong><small>${money(product.salePrice)} บาท · คงเหลือ ${money(product.stockQuantity)} ชิ้น</small></span>
+            </button>
             <b>${escapeHtml(product.computedStatus)}</b>
-          </button>
+            <span class="table-actions">
+              <button class="button ghost compact-action product-row-menu-button" type="button" data-product-row-menu="${escapeHtml(product.id)}" aria-label="เมนูสินค้า">⋯</button>
+              <div class="product-row-menu" hidden data-product-row-menu-panel="${escapeHtml(product.id)}">
+                ${can("products.edit") ? `<button type="button" data-edit-product="${escapeHtml(product.id)}">แก้ไขสินค้า</button>` : ""}
+                ${can("products.delete") ? `<button type="button" data-toggle-product="${escapeHtml(product.id)}">${product.archived ? "เปิดใช้งาน" : "ปิดใช้งาน"}</button>` : ""}
+                ${can("products.delete") ? `<button type="button" class="danger" data-delete-product="${escapeHtml(product.id)}">ลบสินค้า</button>` : ""}
+              </div>
+            </span>
+          </article>
         `).join("") || mobileBusinessEmpty("ยังไม่มีข้อมูลสินค้า", "เพิ่มสินค้า หรือบันทึกออเดอร์จริงเพื่อให้แสดงในหน้านี้")}
       </div>
     </section>
@@ -4506,7 +4489,7 @@ function renderProducts() {
             <input class="orders-search-input" data-products-filter="q" placeholder="ค้นหาสินค้า..." value="${escapeHtml(app.productsFilterQ)}">
             <select data-products-filter="status">
               <option value="">ทั้งหมด</option>
-              ${["พร้อมขาย", "ใกล้หมด", "เหลือน้อย", "ปิดการขาย"].map(status => `<option value="${escapeHtml(status)}" ${app.productsFilterStatus === status ? "selected" : ""}>${escapeHtml(status)}</option>`).join("")}
+              ${["พร้อมขาย", "ใกล้หมด", "เหลือน้อย", "ปิดการขาย", "ปิดใช้งาน"].map(status => `<option value="${escapeHtml(status)}" ${app.productsFilterStatus === status ? "selected" : ""}>${escapeHtml(status)}</option>`).join("")}
             </select>
           </div>
           <button class="button ghost" type="button" data-products-filter-reset>ล้างตัวกรอง</button>
@@ -4550,9 +4533,13 @@ function renderProducts() {
                   <td data-label="สถานะ"><span class="badge ${product.computedStatus === "พร้อมขาย" ? "vip" : product.computedStatus === "ใกล้หมด" ? "risk" : product.computedStatus === "เหลือน้อย" ? "lost" : "normal"}">${escapeHtml(product.computedStatus)}</span></td>
                   <td data-label="จัดการ">
                     <div class="table-actions">
-                      ${can("products.edit") ? `<button class="button ghost compact-action" type="button" data-edit-product="${escapeHtml(product.id)}">✎</button>` : ""}
-                      <button class="button ghost compact-action" type="button" data-product-details="${escapeHtml(product.id)}">⋯</button>
-                      ${can("products.delete") ? `<button class="button danger compact-action" type="button" data-archive-product="${escapeHtml(product.id)}">🗑</button>` : ""}
+                      <button class="button ghost compact-action product-row-menu-button" type="button" data-product-row-menu="${escapeHtml(product.id)}" aria-label="เมนูสินค้า">⋯</button>
+                      <div class="product-row-menu" hidden data-product-row-menu-panel="${escapeHtml(product.id)}">
+                        ${can("products.edit") ? `<button type="button" data-edit-product="${escapeHtml(product.id)}">แก้ไขสินค้า</button>` : ""}
+                        ${can("products.delete") ? `<button type="button" data-toggle-product="${escapeHtml(product.id)}">${product.archived ? "เปิดใช้งาน" : "ปิดใช้งาน"}</button>` : ""}
+                        ${can("products.delete") ? `<button type="button" class="danger" data-delete-product="${escapeHtml(product.id)}">ลบสินค้า</button>` : ""}
+                        <button type="button" data-product-details="${escapeHtml(product.id)}">ดูรายละเอียด</button>
+                      </div>
                     </div>
                   </td>
                 </tr>
@@ -8539,6 +8526,67 @@ function applyProductSavePayload(payload = {}) {
   }
 }
 
+function closeProductRowMenus(exceptProductId = "") {
+  document.querySelectorAll("[data-product-row-menu-panel]").forEach(panel => {
+    if (panel.dataset.productRowMenuPanel !== exceptProductId) panel.hidden = true;
+  });
+}
+
+function refreshProductsAfterAction(payload = {}) {
+  applyProductSavePayload(payload);
+  renderProducts();
+}
+
+async function toggleProductArchived(productId) {
+  const product = productRowsData().find(item => item.id === productId);
+  if (!product) return;
+  const archived = !product.archived;
+  const confirmed = await showConfirmDialog({
+    title: archived ? "ปิดใช้งานสินค้า" : "เปิดใช้งานสินค้า",
+    message: archived
+      ? `ปิดใช้งาน "${product.name}" สำหรับออเดอร์ใหม่ แต่ยังเก็บประวัติเดิมไว้`
+      : `เปิดใช้งาน "${product.name}" ให้กลับมาเลือกในออเดอร์ใหม่`,
+    confirmText: archived ? "ปิดใช้งานสินค้า" : "เปิดใช้งานสินค้า"
+  });
+  if (!confirmed) return;
+  const payload = await api(`/api/products/${encodeURIComponent(productId)}/archive`, {
+    method: "POST",
+    body: JSON.stringify({ archived })
+  });
+  refreshProductsAfterAction(payload);
+  showToast(archived ? "ปิดใช้งานสินค้าแล้ว" : "เปิดใช้งานสินค้าแล้ว");
+}
+
+async function deleteProductPermanently(productId) {
+  const product = productRowsData().find(item => item.id === productId);
+  if (!product) return;
+  const confirmed = await showConfirmDialog({
+    title: "ลบสินค้าถาวร",
+    message: `ลบ "${product.name}" ถาวรได้เฉพาะเมื่อไม่มีข้อมูลอ้างอิง ระบบจะตรวจสอบอีกครั้งบนเซิร์ฟเวอร์ก่อนลบ`,
+    confirmText: "ลบสินค้า"
+  });
+  if (!confirmed) return;
+  try {
+    const payload = await api(`/api/products/${encodeURIComponent(productId)}`, {
+      method: "DELETE",
+      body: "{}"
+    });
+    refreshProductsAfterAction(payload);
+    showToast("ลบสินค้าแล้ว");
+  } catch (error) {
+    if (error.payload?.canDisable) {
+      const disableConfirmed = await showConfirmDialog({
+        title: "ลบถาวรไม่ได้",
+        message: `${error.message}\n\nต้องการปิดใช้งานสินค้าแทนหรือไม่`,
+        confirmText: "ปิดใช้งานสินค้า"
+      });
+      if (disableConfirmed && !product.archived) await toggleProductArchived(productId);
+      return;
+    }
+    throw error;
+  }
+}
+
 function setProductSaveState(isSaving) {
   app.productSavePending = isSaving;
   if (!els.productSubmitButton) return;
@@ -8855,6 +8903,12 @@ async function submitOrder(form) {
   data.originSource = selectedOriginSource || normalizeCustomerSourceKey(preservedOriginSource) || "";
   data.originSourceOther = "";
   delete data.originSourceChoice;
+  if (!String(data.productId || "").trim()) {
+    setOrderSaveState(false);
+    showToast("กรุณาเลือกสินค้าในระบบ", "error");
+    els.orderForm.elements.productId?.focus();
+    return;
+  }
   applyQuantityMatchedOrderPackage(data);
   const orderId = app.editingOrderId;
   const snapshot = cloneUiState();
@@ -8944,14 +8998,18 @@ function openDeleteUserDialog(userId) {
   els.deleteUserDialog.showModal();
 }
 
+function orderSelectableProducts() {
+  return normalizeProductRecords().filter(product => !product.archived);
+}
+
 function packageProducts() {
-  return normalizeProductRecords().filter(product => product.salesPackages.length);
+  return orderSelectableProducts().filter(product => product.salesPackages.length);
 }
 
 function applyQuantityMatchedOrderPackage(data) {
   const quantity = Number(data.jars || 0);
-  const product = packageProducts().find(item =>
-    normalizeProductName(item.name) === normalizeProductName(data.items)
+  const product = orderSelectableProducts().find(item =>
+    item.id === data.productId || normalizeProductName(item.name) === normalizeProductName(data.items)
   );
   const matchedPackage = product?.salesPackages.find(item =>
     item.enabled && Number(item.totalQuantityShipped || 0) === quantity
@@ -8981,7 +9039,7 @@ function renderOrderPackageExpenses(expenses = []) {
 
 function selectedOrderPackageProduct() {
   const productId = els.orderForm?.elements?.productId?.value || "";
-  return packageProducts().find(product => product.id === productId) || null;
+  return orderSelectableProducts().find(product => product.id === productId) || null;
 }
 
 function updateOrderPackageOptions(selectedPackageId = "", expenses = []) {
@@ -8999,11 +9057,12 @@ function setupOrderPackageFields(order = null) {
   const section = document.querySelector("#orderPackageSection");
   const productSelect = els.orderForm?.elements?.productId;
   if (!section || !productSelect) return;
-  const products = packageProducts();
-  section.hidden = true;
+  const products = orderSelectableProducts();
+  section.hidden = false;
   productSelect.innerHTML = `<option value="">เลือกสินค้า</option>${products.map(product => `
     <option value="${escapeHtml(product.id)}">${escapeHtml(product.name)}</option>
   `).join("")}`;
+  productSelect.required = true;
   const matchedProduct = products.find(product =>
     product.id === order?.productId || normalizeProductName(product.name) === normalizeProductName(order?.items)
   );
@@ -9211,6 +9270,7 @@ document.addEventListener("click", async event => {
   }
 
   if (!event.target.closest("[data-source-picker]")) closeCustomerSourcePicker();
+  if (!event.target.closest("[data-product-row-menu], [data-product-row-menu-panel]")) closeProductRowMenus();
 
   if (event.target.closest("#mobileMenuToggle")) {
     document.body.classList.toggle("sidebar-open");
@@ -9353,41 +9413,45 @@ document.addEventListener("click", async event => {
 
   const editProductButton = event.target.closest("[data-edit-product]");
   if (editProductButton) {
+    closeProductRowMenus();
     if (!can("products.edit")) return showToast("ไม่มีสิทธิ์แก้ไขสินค้า", "error");
     const product = productRowsData().find(item => item.id === editProductButton.dataset.editProduct);
     if (product) openProductDialog(product);
+    return;
   }
 
   const detailProductButton = event.target.closest("[data-product-details]");
   if (detailProductButton) {
+    closeProductRowMenus();
     const product = productRowsData().find(item => item.id === detailProductButton.dataset.productDetails);
     if (product) renderProductDetail(product);
+    return;
   }
 
-  const archiveProductButton = event.target.closest("[data-archive-product]");
-  if (archiveProductButton) {
+  const productMenuButton = event.target.closest("[data-product-row-menu]");
+  if (productMenuButton) {
+    const productId = productMenuButton.dataset.productRowMenu || "";
+    const panel = document.querySelector(`[data-product-row-menu-panel="${CSS.escape(productId)}"]`);
+    const willOpen = panel?.hidden;
+    closeProductRowMenus(productId);
+    if (panel) panel.hidden = !willOpen;
+    return;
+  }
+
+  const toggleProductButton = event.target.closest("[data-toggle-product]");
+  if (toggleProductButton) {
     if (!can("products.delete")) return showToast("ไม่มีสิทธิ์ลบสินค้า", "error");
-    const productId = archiveProductButton.dataset.archiveProduct;
-    const product = productRowsData().find(item => item.id === productId);
-    if (product?.derived) {
-      const payload = await api("/api/products", {
-        method: "POST",
-        body: JSON.stringify({ ...product, archived: true, status: "เก็บถาวร" })
-      });
-      if (payload.product?.id) {
-        await api(`/api/products/${encodeURIComponent(payload.product.id)}/archive`, {
-          method: "POST",
-          body: "{}"
-        });
-      }
-    } else {
-      await api(`/api/products/${encodeURIComponent(productId)}/archive`, {
-        method: "POST",
-        body: "{}"
-      });
-    }
-    showToast("เก็บถาวรสินค้าแล้ว");
-    await loadState();
+    closeProductRowMenus();
+    await toggleProductArchived(toggleProductButton.dataset.toggleProduct);
+    return;
+  }
+
+  const deleteProductButton = event.target.closest("[data-delete-product]");
+  if (deleteProductButton) {
+    if (!can("products.delete")) return showToast("ไม่มีสิทธิ์ลบสินค้า", "error");
+    closeProductRowMenus();
+    await deleteProductPermanently(deleteProductButton.dataset.deleteProduct);
+    return;
   }
 
   const navButton = event.target.closest("[data-view]");
@@ -10540,8 +10604,7 @@ document.addEventListener("submit", async event => {
       else delete data.image;
       data.salesPackages = readProductPackageDraft();
       data.followUpEnabled = form.elements.followUpEnabled.checked;
-      const editingProduct = productRowsData().find(item => item.id === app.editingProductId);
-      const useCreate = !app.editingProductId || editingProduct?.derived;
+      const useCreate = !app.editingProductId;
       const url = useCreate ? "/api/products" : `/api/products/${encodeURIComponent(app.editingProductId)}`;
       const method = useCreate ? "POST" : "PUT";
       try {

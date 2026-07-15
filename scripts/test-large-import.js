@@ -88,9 +88,26 @@ async function main() {
   });
   if (login.status !== 200) throw new Error(`login failed: ${login.text}`);
   const cookie = cookieFrom(login);
+  const product = await request("/api/products", {
+    method: "POST",
+    headers: { cookie, "content-type": "application/json" },
+    body: JSON.stringify({
+      name: "Load Test Product",
+      sku: "LOAD-TEST",
+      salePrice: 750,
+      costPerItem: 50,
+      stockQuantity: 20_000,
+      lowStockAlert: 100,
+      status: "พร้อมขาย"
+    })
+  });
+  if (product.status !== 200) throw new Error(`product setup failed: ${product.status} ${product.text}`);
+  const productId = JSON.parse(product.text).product?.id;
   const rows = Array.from({ length: 10_000 }, (_, index) => ({
     rowNumber: index + 2,
     orderNumber: `LOAD-${String(index + 1).padStart(6, "0")}`,
+    items: "Load Test Product",
+    productId,
     name: `Load Test ${index % 100}`,
     phone: `089${String(index % 100).padStart(7, "0")}`,
     address: "Import load test",
