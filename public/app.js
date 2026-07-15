@@ -954,7 +954,7 @@ async function loadState() {
   const selectedDate = els.workDate?.value || todayISO();
   const sequence = ++app.stateRequestSequence;
   try {
-    const payload = await api(`/api/state?date=${encodeURIComponent(selectedDate)}`);
+    const payload = await api(`/api/state?date=${encodeURIComponent(selectedDate)}&_=${Date.now()}`);
     if (sequence !== app.stateRequestSequence) return;
     app.data = payload;
     app.lastStateLoadedAt = Date.now();
