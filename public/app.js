@@ -8595,12 +8595,13 @@ function closeProductRowMenus(exceptProductId = "") {
   });
 }
 
-function refreshProductsAfterAction(payload = {}) {
+async function refreshProductsAfterAction(payload = {}) {
   applyProductSavePayload(payload);
-  if (app.view === "settings" || String(app.view || "").startsWith("settings")) {
+  try {
+    await loadState();
+  } catch (error) {
+    console.warn("[product-refresh]", error.message || error);
     render();
-  } else {
-    renderProducts();
   }
 }
 
@@ -8620,7 +8621,7 @@ async function toggleProductArchived(productId) {
     method: "POST",
     body: JSON.stringify({ archived })
   });
-  refreshProductsAfterAction(payload);
+  await refreshProductsAfterAction(payload);
   showToast(archived ? "ปิดใช้งานสินค้าแล้ว" : "เปิดใช้งานสินค้าแล้ว");
 }
 
@@ -8638,7 +8639,7 @@ async function deleteProductPermanently(productId) {
       method: "DELETE",
       body: "{}"
     });
-    refreshProductsAfterAction(payload);
+    await refreshProductsAfterAction(payload);
     showToast("ลบสินค้าแล้ว");
   } catch (error) {
     if (error.payload?.canDisable) {
