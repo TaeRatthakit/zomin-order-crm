@@ -4678,6 +4678,24 @@ function opportunityCrmCompleted(customer, cycleKey = opportunityCycleKeyForOrde
   );
 }
 
+function latestOpportunityCrmCompletedLog(customer, cycleKey = opportunityCycleKeyForOrder(latestOpportunityOrder(customer))) {
+  return (customer.contactLogs || [])
+    .filter(log =>
+      log.customerId === customer.id &&
+      log.result === OPPORTUNITY_CRM_RESULT &&
+      opportunityLogMatchesCycle(customer, log, cycleKey)
+    )
+    .sort((a, b) => [
+      String(b.date || b.contact_date || ""),
+      String(b.createdAt || b.created_at || ""),
+      String(b.id || "")
+    ].join("|").localeCompare([
+      String(a.date || a.contact_date || ""),
+      String(a.createdAt || a.created_at || ""),
+      String(a.id || "")
+    ].join("|")))[0] || null;
+}
+
 function upsertCustomerContactLog(customer, log) {
   if (!customer || !log) return;
   const normalized = {
@@ -4711,7 +4729,7 @@ function mobileOpportunityData() {
       const lastOrder = latestOpportunityOrder(customer) || customerOrders[customerOrders.length - 1] || null;
       const cycleKey = opportunityCycleKeyForOrder(lastOrder);
       const socialName = [...customerOrders].reverse().find(order => order.socialName)?.socialName || customer.socialName || "";
-      const crmCompleted = opportunityCrmCompleted(customer, cycleKey);
+      const crmCompletedLog = latestOpportunityCrmCompletedLog(customer, cycleKey);
       return {
         customer,
         lastOrder,
@@ -4719,7 +4737,8 @@ function mobileOpportunityData() {
         socialName,
         days: diffDaysISO(selectedDate, customer.followUpDate),
         value: Number(lastOrder?.amount || 0),
-        crmCompletedToday: crmCompleted
+        crmCompletedToday: Boolean(crmCompletedLog),
+        crmCompletedDate: crmCompletedLog?.date || crmCompletedLog?.contact_date || ""
       };
     });
   const activeRows = rows.filter(row => !row.crmCompletedToday);
@@ -4768,6 +4787,12 @@ function mobileOpportunityRows(model) {
 }
 
 function mobileOpportunityStatus(row) {
+  if (row.crmCompletedToday) {
+    return [
+      `<span class="mobile-opportunity-due-label">CRM เรียบร้อยแล้ว</span>`,
+      row.crmCompletedDate ? `<small>บันทึกผลล่าสุด ${formatShortDate(row.crmCompletedDate)}</small>` : ""
+    ].filter(Boolean).join("");
+  }
   if (row.days < 0) {
     return `<span class="mobile-opportunity-due-label overdue">เลยกำหนดแล้ว</span><strong class="overdue">${money(Math.abs(row.days))} วัน</strong>`;
   }
@@ -4796,7 +4821,7 @@ function mobileOpportunityCustomerCard(row) {
         </div>
         <div class="mobile-opportunity-due">
           ${mobileOpportunityStatus(row)}
-          <small>กำหนด ${formatShortDate(customer.followUpDate)}</small>
+          ${row.crmCompletedToday ? "" : `<small>กำหนด ${formatShortDate(customer.followUpDate)}</small>`}
         </div>
         <div class="mobile-opportunity-value">
           <span>โอกาสปิดยอด</span>
