@@ -8606,6 +8606,9 @@ function closeProductRowMenus(exceptProductId = "") {
 async function refreshProductsAfterAction(payload = {}) {
   applyProductSavePayload(payload);
   render();
+  window.setTimeout(() => {
+    loadState().catch(error => console.warn("[product-refresh]", error.message || error));
+  }, 1200);
 }
 
 async function toggleProductArchived(productId) {
