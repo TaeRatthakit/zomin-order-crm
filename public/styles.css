@@ -22192,6 +22192,529 @@ html[data-theme="light"] body:not(.login-view) .workspace-hero .orders-show-all 
   color: rgba(226, 232, 240, 0.82) !important;
 }
 
+/* Light theme full-audit correction: final scoped color pass for ordinary app surfaces. */
+html[data-theme="light"] {
+  --light-app-bg: #f7f5ff;
+  --light-surface: #ffffff;
+  --light-surface-soft: #fbfaff;
+  --light-surface-muted: #f3f0fb;
+  --light-surface-tint: #f8f5ff;
+  --light-text: #172033;
+  --light-text-strong: #111827;
+  --light-text-muted: #5b6478;
+  --light-text-soft: #7a8498;
+  --light-border: rgba(91, 73, 127, 0.18);
+  --light-border-stronger: rgba(91, 73, 127, 0.30);
+  --light-shadow-surface: 0 14px 34px rgba(48, 38, 84, 0.10);
+  --light-purple-accent: #6d28d9;
+  --light-purple-chip: rgba(124, 58, 237, 0.10);
+  --light-blue-chip: rgba(37, 99, 235, 0.10);
+  --light-green-chip: rgba(22, 163, 74, 0.11);
+  --light-amber-chip: rgba(245, 158, 11, 0.13);
+  --light-red-chip: rgba(220, 38, 38, 0.10);
+  --settings-card-bg: #ffffff;
+  --settings-card-border: var(--light-border);
+  --settings-muted: var(--light-text-muted);
+  --settings-text: var(--light-text);
+}
+
+html[data-theme="light"] body:not(.login-view) .main-panel,
+html[data-theme="light"] body:not(.login-view) .section,
+html[data-theme="light"] body:not(.login-view) .saas-page,
+html[data-theme="light"] body:not(.login-view) .mobile-business-page,
+html[data-theme="light"] body:not(.login-view) .settings-shared-page,
+html[data-theme="light"] body:not(.login-view) .settings-premium-page,
+html[data-theme="light"] body:not(.login-view) .import-center,
+html[data-theme="light"] body:not(.login-view) .mobile-reports-page,
+html[data-theme="light"] body:not(.login-view) .mobile-opportunities-page,
+html[data-theme="light"] body:not(.login-view) .orders-page {
+  color: var(--light-text);
+}
+
+html[data-theme="light"] body:not(.login-view) .panel:not(.workspace-hero):not(.pricing-card.featured),
+html[data-theme="light"] body:not(.login-view) .panel-premium:not(.workspace-hero),
+html[data-theme="light"] body:not(.login-view) .settings-unified-card,
+html[data-theme="light"] body:not(.login-view) .settings-detail-panel,
+html[data-theme="light"] body:not(.login-view) .settings-status-card,
+html[data-theme="light"] body:not(.login-view) .settings-metric-card,
+html[data-theme="light"] body:not(.login-view) .settings-preference-row,
+html[data-theme="light"] body:not(.login-view) .settings-cost-row,
+html[data-theme="light"] body:not(.login-view) .settings-finance-pill,
+html[data-theme="light"] body:not(.login-view) .settings-notification-row,
+html[data-theme="light"] body:not(.login-view) .settings-logo-preview,
+html[data-theme="light"] body:not(.login-view) .integration-card,
+html[data-theme="light"] body:not(.login-view) .integration-help-card,
+html[data-theme="light"] body:not(.login-view) .line-oa-form,
+html[data-theme="light"] body:not(.login-view) .line-form-section,
+html[data-theme="light"] body:not(.login-view) .line-status-row,
+html[data-theme="light"] body:not(.login-view) .line-guide-card,
+html[data-theme="light"] body:not(.login-view) .line-capability-card,
+html[data-theme="light"] body:not(.login-view) .settings-users-layout > .panel,
+html[data-theme="light"] body:not(.login-view) .user-editor-panel,
+html[data-theme="light"] body:not(.login-view) .permissions-panel,
+html[data-theme="light"] body:not(.login-view) .mobile-permissions-panel,
+html[data-theme="light"] body:not(.login-view) .permission-card,
+html[data-theme="light"] body:not(.login-view) .mobile-permission-card,
+html[data-theme="light"] body:not(.login-view) .permission-row,
+html[data-theme="light"] body:not(.login-view) .permission-toolbar,
+html[data-theme="light"] body:not(.login-view) .settings-user-tabs,
+html[data-theme="light"] body:not(.login-view) .security-center-card,
+html[data-theme="light"] body:not(.login-view) .security-detail-panel,
+html[data-theme="light"] body:not(.login-view) .mobile-business-detail-card,
+html[data-theme="light"] body:not(.login-view) .mobile-business-action-card,
+html[data-theme="light"] body:not(.login-view) .mobile-business-form,
+html[data-theme="light"] body:not(.login-view) .mobile-business-record,
+html[data-theme="light"] body:not(.login-view) .mobile-business-product-record,
+html[data-theme="light"] body:not(.login-view) .mobile-business-notification,
+html[data-theme="light"] body:not(.login-view) .mobile-business-user,
+html[data-theme="light"] body:not(.login-view) .mobile-business-ranking > div,
+html[data-theme="light"] body:not(.login-view) .mobile-business-finance-grid article,
+html[data-theme="light"] body:not(.login-view) .mobile-business-kpis article,
+html[data-theme="light"] body:not(.login-view) .mobile-finance-form,
+html[data-theme="light"] body:not(.login-view) .mobile-finance-product,
+html[data-theme="light"] body:not(.login-view) .mobile-finance-helper-card,
+html[data-theme="light"] body:not(.login-view) .mobile-ad-form,
+html[data-theme="light"] body:not(.login-view) .mobile-ad-record,
+html[data-theme="light"] body:not(.login-view) .mobile-ad-platform-form,
+html[data-theme="light"] body:not(.login-view) .mobile-ad-platform-list > div,
+html[data-theme="light"] body:not(.login-view) .mobile-marketing-filters,
+html[data-theme="light"] body:not(.login-view) .mobile-marketing-table,
+html[data-theme="light"] body:not(.login-view) .mobile-marketing-table-row,
+html[data-theme="light"] body:not(.login-view) .import-center-hero,
+html[data-theme="light"] body:not(.login-view) .import-upload-card,
+html[data-theme="light"] body:not(.login-view) .import-template-card,
+html[data-theme="light"] body:not(.login-view) .import-validation-card,
+html[data-theme="light"] body:not(.login-view) .import-progress-card,
+html[data-theme="light"] body:not(.login-view) .import-preview-card,
+html[data-theme="light"] body:not(.login-view) .import-final-summary,
+html[data-theme="light"] body:not(.login-view) .import-history-card,
+html[data-theme="light"] body:not(.login-view) .import-column-note,
+html[data-theme="light"] body:not(.login-view) .import-summary-card,
+html[data-theme="light"] body:not(.login-view) .import-stat-grid > div,
+html[data-theme="light"] body:not(.login-view) .import-mapped-grid > div,
+html[data-theme="light"] body:not(.login-view) .import-preview-stats > div,
+html[data-theme="light"] body:not(.login-view) .import-table-wrap,
+html[data-theme="light"] body:not(.login-view) .customer-management-toolbar,
+html[data-theme="light"] body:not(.login-view) .customer-summary-card,
+html[data-theme="light"] body:not(.login-view) .customer-vip-settings-panel,
+html[data-theme="light"] body:not(.login-view) .product-card,
+html[data-theme="light"] body:not(.login-view) .pricing-card:not(.featured),
+html[data-theme="light"] body:not(.login-view) .mobile-stack-table tbody tr,
+html[data-theme="light"] body:not(.login-view) .table-wrap,
+html[data-theme="light"] body:not(.login-view) .empty-state,
+html[data-theme="light"] body:not(.login-view) .mobile-business-empty {
+  border-color: var(--light-border) !important;
+  background:
+    radial-gradient(circle at 18% 0, rgba(124, 58, 237, 0.045), transparent 36%),
+    linear-gradient(145deg, var(--light-surface), var(--light-surface-soft)) !important;
+  color: var(--light-text) !important;
+  box-shadow: var(--light-shadow-surface) !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .mobile-setup-card,
+html[data-theme="light"] body:not(.login-view) .import-center-hero,
+html[data-theme="light"] body:not(.login-view) .line-tutorial-card {
+  border-color: rgba(124, 58, 237, 0.22) !important;
+  background:
+    radial-gradient(circle at 10% 0, rgba(124, 58, 237, 0.12), transparent 42%),
+    linear-gradient(145deg, #ffffff, #f6f1ff) !important;
+  color: var(--light-text) !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .mobile-business-menu-row,
+html[data-theme="light"] body:not(.login-view) .mobile-business-data-row,
+html[data-theme="light"] body:not(.login-view) .grow-settings-row {
+  border-color: var(--light-border) !important;
+  background: #ffffff !important;
+  color: var(--light-text) !important;
+  box-shadow: 0 10px 24px rgba(48, 38, 84, 0.08) !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .mobile-business-menu-row:is(button):hover,
+html[data-theme="light"] body:not(.login-view) .mobile-business-data-row:is(button):hover,
+html[data-theme="light"] body:not(.login-view) .grow-settings-row:is(button):hover,
+html[data-theme="light"] body:not(.login-view) .security-center-card:hover {
+  border-color: rgba(124, 58, 237, 0.34) !important;
+  background: #fbf8ff !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .security-center-card.is-active {
+  border-color: rgba(109, 40, 217, 0.42) !important;
+  background:
+    radial-gradient(circle at 50% 0, rgba(124, 58, 237, 0.14), transparent 42%),
+    #ffffff !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .settings-premium-page .settings-inline-back,
+html[data-theme="light"] body:not(.login-view) .mobile-business-back,
+html[data-theme="light"] body:not(.login-view) .security-detail-close,
+html[data-theme="light"] body:not(.login-view) .product-row-menu-button,
+html[data-theme="light"] body:not(.login-view) .line-secret-toggle,
+html[data-theme="light"] body:not(.login-view) .notification-icon-control {
+  border-color: var(--light-border) !important;
+  background: #ffffff !important;
+  color: var(--light-text) !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .settings-menu-icon,
+html[data-theme="light"] body:not(.login-view) .settings-status-icon,
+html[data-theme="light"] body:not(.login-view) .settings-row-icon,
+html[data-theme="light"] body:not(.login-view) .mobile-business-icon,
+html[data-theme="light"] body:not(.login-view) .security-card-icon,
+html[data-theme="light"] body:not(.login-view) .security-detail-icon,
+html[data-theme="light"] body:not(.login-view) .permission-card-icon,
+html[data-theme="light"] body:not(.login-view) .import-hero-icon,
+html[data-theme="light"] body:not(.login-view) .import-upload-cloud,
+html[data-theme="light"] body:not(.login-view) .import-summary-icon,
+html[data-theme="light"] body:not(.login-view) .settings-logo-preview span {
+  border-color: rgba(124, 58, 237, 0.16) !important;
+  background: var(--light-purple-chip) !important;
+  color: var(--light-purple-accent) !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .mobile-business-menu-row.blue,
+html[data-theme="light"] body:not(.login-view) .mobile-business-data-row.blue,
+html[data-theme="light"] body:not(.login-view) .mobile-business-finance-grid article.blue,
+html[data-theme="light"] body:not(.login-view) .mobile-business-kpis article.blue,
+html[data-theme="light"] body:not(.login-view) .security-center-card.blue {
+  border-color: rgba(37, 99, 235, 0.20) !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .mobile-business-menu-row.green,
+html[data-theme="light"] body:not(.login-view) .mobile-business-data-row.green,
+html[data-theme="light"] body:not(.login-view) .mobile-business-finance-grid article.green,
+html[data-theme="light"] body:not(.login-view) .mobile-business-kpis article.green,
+html[data-theme="light"] body:not(.login-view) .security-center-card.green {
+  border-color: rgba(22, 163, 74, 0.20) !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .mobile-business-menu-row.orange,
+html[data-theme="light"] body:not(.login-view) .mobile-business-data-row.orange,
+html[data-theme="light"] body:not(.login-view) .mobile-business-finance-grid article.orange,
+html[data-theme="light"] body:not(.login-view) .mobile-business-kpis article.orange,
+html[data-theme="light"] body:not(.login-view) .security-center-card.orange {
+  border-color: rgba(245, 158, 11, 0.24) !important;
+}
+
+html[data-theme="light"] body:not(.login-view) h1,
+html[data-theme="light"] body:not(.login-view) h2,
+html[data-theme="light"] body:not(.login-view) h3,
+html[data-theme="light"] body:not(.login-view) h4,
+html[data-theme="light"] body:not(.login-view) label,
+html[data-theme="light"] body:not(.login-view) strong,
+html[data-theme="light"] body:not(.login-view) b,
+html[data-theme="light"] body:not(.login-view) th,
+html[data-theme="light"] body:not(.login-view) .settings-premium-page .page-identity-copy h2,
+html[data-theme="light"] body:not(.login-view) .settings-unified-card-head h3,
+html[data-theme="light"] body:not(.login-view) .integration-group h2,
+html[data-theme="light"] body:not(.login-view) .line-tutorial-card h3,
+html[data-theme="light"] body:not(.login-view) .line-guide-card h3,
+html[data-theme="light"] body:not(.login-view) .line-oa-form h3,
+html[data-theme="light"] body:not(.login-view) .mobile-business-section > h2,
+html[data-theme="light"] body:not(.login-view) .mobile-business-inner-title,
+html[data-theme="light"] body:not(.login-view) .mobile-finance-section-head h3,
+html[data-theme="light"] body:not(.login-view) .import-center-hero h2,
+html[data-theme="light"] body:not(.login-view) .import-template-card h3,
+html[data-theme="light"] body:not(.login-view) .import-validation-card h3,
+html[data-theme="light"] body:not(.login-view) .import-history-card h3,
+html[data-theme="light"] body:not(.login-view) .permission-row-copy b,
+html[data-theme="light"] body:not(.login-view) .security-card-copy strong {
+  color: var(--light-text-strong) !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .customer-vip-settings-panel input,
+html[data-theme="light"] body:not(.login-view) .customer-vip-settings-panel select,
+html[data-theme="light"] body:not(.login-view) .customer-vip-settings-panel textarea {
+  border-color: var(--light-border-stronger) !important;
+  background: #ffffff !important;
+  color: var(--light-text) !important;
+}
+
+html[data-theme="light"] body:not(.login-view) p,
+html[data-theme="light"] body:not(.login-view) small,
+html[data-theme="light"] body:not(.login-view) em,
+html[data-theme="light"] body:not(.login-view) .muted,
+html[data-theme="light"] body:not(.login-view) .settings-premium-page .page-identity-copy p,
+html[data-theme="light"] body:not(.login-view) .settings-premium-page .page-kicker,
+html[data-theme="light"] body:not(.login-view) .settings-unified-card-head p,
+html[data-theme="light"] body:not(.login-view) .settings-metric-card p,
+html[data-theme="light"] body:not(.login-view) .settings-notification-row small,
+html[data-theme="light"] body:not(.login-view) .integration-copy p,
+html[data-theme="light"] body:not(.login-view) .integration-copy small,
+html[data-theme="light"] body:not(.login-view) .line-tutorial-card p,
+html[data-theme="light"] body:not(.login-view) .line-capability-card p,
+html[data-theme="light"] body:not(.login-view) .integration-help-card p,
+html[data-theme="light"] body:not(.login-view) .mobile-business-menu-row small,
+html[data-theme="light"] body:not(.login-view) .mobile-business-data-row small,
+html[data-theme="light"] body:not(.login-view) .security-card-copy small,
+html[data-theme="light"] body:not(.login-view) .security-card-meta small,
+html[data-theme="light"] body:not(.login-view) .permission-row-copy small,
+html[data-theme="light"] body:not(.login-view) .import-center-hero p,
+html[data-theme="light"] body:not(.login-view) .import-template-card p,
+html[data-theme="light"] body:not(.login-view) .import-validation-card p,
+html[data-theme="light"] body:not(.login-view) .import-upload-card small,
+html[data-theme="light"] body:not(.login-view) .import-upload-card em,
+html[data-theme="light"] body:not(.login-view) .import-summary-card span:not(.import-summary-icon),
+html[data-theme="light"] body:not(.login-view) .import-summary-card small,
+html[data-theme="light"] body:not(.login-view) .import-history-row small,
+html[data-theme="light"] body:not(.login-view) .import-history-row em,
+html[data-theme="light"] body:not(.login-view) .import-column-note,
+html[data-theme="light"] body:not(.login-view) .import-capabilities span {
+  color: var(--light-text-muted) !important;
+  opacity: 1 !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .settings-premium-page input,
+html[data-theme="light"] body:not(.login-view) .settings-premium-page select,
+html[data-theme="light"] body:not(.login-view) .settings-premium-page textarea,
+html[data-theme="light"] body:not(.login-view) input,
+html[data-theme="light"] body:not(.login-view) select,
+html[data-theme="light"] body:not(.login-view) textarea,
+html[data-theme="light"] body:not(.login-view) .date-picker,
+html[data-theme="light"] body:not(.login-view) .search-box,
+html[data-theme="light"] body:not(.login-view) .orders-search-input,
+html[data-theme="light"] body:not(.login-view) .line-input-action input,
+html[data-theme="light"] body:not(.login-view) .import-sheet-picker select {
+  border-color: var(--light-border-stronger) !important;
+  background: #ffffff !important;
+  color: var(--light-text) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72) !important;
+}
+
+html[data-theme="light"] body:not(.login-view) input::placeholder,
+html[data-theme="light"] body:not(.login-view) textarea::placeholder {
+  color: var(--light-text-soft) !important;
+  opacity: 1 !important;
+}
+
+html[data-theme="light"] body:not(.login-view) input:disabled,
+html[data-theme="light"] body:not(.login-view) select:disabled,
+html[data-theme="light"] body:not(.login-view) textarea:disabled,
+html[data-theme="light"] body:not(.login-view) button:disabled {
+  opacity: 0.68 !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .settings-submit-bar,
+html[data-theme="light"] body:not(.login-view) .line-form-actions,
+html[data-theme="light"] body:not(.login-view) .permission-save-bar,
+html[data-theme="light"] body:not(.login-view) .mobile-permission-save,
+html[data-theme="light"] body:not(.login-view) .mobile-ad-record-actions,
+html[data-theme="light"] body:not(.login-view) .mobile-ad-record-meta,
+html[data-theme="light"] body:not(.login-view) .import-center-actions {
+  border-color: var(--light-border) !important;
+  background: rgba(248, 245, 255, 0.72) !important;
+  color: var(--light-text) !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .button.ghost,
+html[data-theme="light"] body:not(.login-view) button.button.ghost,
+html[data-theme="light"] body:not(.login-view) .button.secondary,
+html[data-theme="light"] body:not(.login-view) button.button.secondary,
+html[data-theme="light"] body:not(.login-view) .compact-action:not(.danger),
+html[data-theme="light"] body:not(.login-view) .import-template-button,
+html[data-theme="light"] body:not(.login-view) .product-row-menu button {
+  border-color: var(--light-border) !important;
+  background: #ffffff !important;
+  color: var(--light-text) !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .button.primary,
+html[data-theme="light"] body:not(.login-view) button.button.primary,
+html[data-theme="light"] body:not(.login-view) .import-select-button,
+html[data-theme="light"] body:not(.login-view) .mobile-setup-primary {
+  border-color: rgba(109, 40, 217, 0.38) !important;
+  background: linear-gradient(135deg, #7c3aed, #5b21b6) !important;
+  color: #ffffff !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .button.danger,
+html[data-theme="light"] body:not(.login-view) button.button.danger,
+html[data-theme="light"] body:not(.login-view) .product-row-menu button.danger {
+  border-color: rgba(185, 28, 28, 0.26) !important;
+  background: #fff1f2 !important;
+  color: #b91c1c !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .settings-switch-ui {
+  border-color: rgba(109, 40, 217, 0.22) !important;
+  background: #e9e3f6 !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .settings-switch input:checked + .settings-switch-ui {
+  border-color: rgba(109, 40, 217, 0.42) !important;
+  background: linear-gradient(90deg, #7c3aed, #9333ea) !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .settings-switch-ui::after {
+  background: #ffffff !important;
+  box-shadow: 0 2px 8px rgba(48, 38, 84, 0.18) !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .table,
+html[data-theme="light"] body:not(.login-view) .workspace-table,
+html[data-theme="light"] body:not(.login-view) .rules-table,
+html[data-theme="light"] body:not(.login-view) .mobile-stack-table,
+html[data-theme="light"] body:not(.login-view) .user-management-table,
+html[data-theme="light"] body:not(.login-view) .import-preview-table {
+  background: transparent !important;
+  color: var(--light-text) !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .table th,
+html[data-theme="light"] body:not(.login-view) .workspace-table th,
+html[data-theme="light"] body:not(.login-view) .rules-table th,
+html[data-theme="light"] body:not(.login-view) .mobile-stack-table th,
+html[data-theme="light"] body:not(.login-view) .user-management-table th,
+html[data-theme="light"] body:not(.login-view) .import-preview-table th {
+  border-color: var(--light-border) !important;
+  background: var(--light-surface-muted) !important;
+  color: var(--light-text-muted) !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .table td,
+html[data-theme="light"] body:not(.login-view) .workspace-table td,
+html[data-theme="light"] body:not(.login-view) .rules-table td,
+html[data-theme="light"] body:not(.login-view) .mobile-stack-table td,
+html[data-theme="light"] body:not(.login-view) .user-management-table td,
+html[data-theme="light"] body:not(.login-view) .import-preview-table td {
+  border-color: var(--light-border) !important;
+  color: var(--light-text) !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .table tbody tr,
+html[data-theme="light"] body:not(.login-view) .workspace-table tbody tr,
+html[data-theme="light"] body:not(.login-view) .rules-table tbody tr,
+html[data-theme="light"] body:not(.login-view) .mobile-stack-table tbody tr,
+html[data-theme="light"] body:not(.login-view) .user-management-table tbody tr {
+  background: #ffffff !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .product-row-menu,
+html[data-theme="light"] body:not(.login-view) .import-dropdown,
+html[data-theme="light"] body:not(.login-view) .customer-source-menu,
+html[data-theme="light"] body:not(.login-view) .dropdown,
+html[data-theme="light"] body:not(.login-view) .toast {
+  border-color: var(--light-border-stronger) !important;
+  background: #ffffff !important;
+  color: var(--light-text) !important;
+  box-shadow: 0 18px 48px rgba(48, 38, 84, 0.18) !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .product-row-menu button:hover,
+html[data-theme="light"] body:not(.login-view) .customer-source-option:hover,
+html[data-theme="light"] body:not(.login-view) .customer-source-option.is-selected {
+  background: var(--light-purple-chip) !important;
+  color: var(--light-purple-accent) !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .import-progress-track {
+  background: #e7e1f3 !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .import-progress-track span {
+  background: linear-gradient(90deg, #7c3aed, #a855f7) !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .import-status {
+  border-color: rgba(22, 163, 74, 0.22) !important;
+  background: #dcfce7 !important;
+  color: #047857 !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .import-status.failed,
+html[data-theme="light"] body:not(.login-view) .import-status.cancelled {
+  border-color: rgba(185, 28, 28, 0.22) !important;
+  background: #fee2e2 !important;
+  color: #b91c1c !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .import-status.running,
+html[data-theme="light"] body:not(.login-view) .import-status.queued,
+html[data-theme="light"] body:not(.login-view) .import-status.paused {
+  border-color: rgba(37, 99, 235, 0.22) !important;
+  background: #dbeafe !important;
+  color: #1d4ed8 !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .badge,
+html[data-theme="light"] body:not(.login-view) .tag,
+html[data-theme="light"] body:not(.login-view) .filter-chip,
+html[data-theme="light"] body:not(.login-view) .mobile-business-new-badge,
+html[data-theme="light"] body:not(.login-view) .import-warning-chip {
+  border-color: rgba(124, 58, 237, 0.18) !important;
+  background: var(--light-purple-chip) !important;
+  color: var(--light-purple-accent) !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .badge.normal,
+html[data-theme="light"] body:not(.login-view) .badge.vip,
+html[data-theme="light"] body:not(.login-view) .badge.risk,
+html[data-theme="light"] body:not(.login-view) .badge.lost {
+  opacity: 1 !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .status-success,
+html[data-theme="light"] body:not(.login-view) .toast-success,
+html[data-theme="light"] body:not(.login-view) .report-trend.up,
+html[data-theme="light"] body:not(.login-view) .import-summary-card.success,
+html[data-theme="light"] body:not(.login-view) .line-status-row strong.connected {
+  color: #047857 !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .status-warning,
+html[data-theme="light"] body:not(.login-view) .toast-warning,
+html[data-theme="light"] body:not(.login-view) .report-trend.flat {
+  color: #a15c07 !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .status-error,
+html[data-theme="light"] body:not(.login-view) .toast-error,
+html[data-theme="light"] body:not(.login-view) .report-trend.down,
+html[data-theme="light"] body:not(.login-view) .import-summary-card.danger,
+html[data-theme="light"] body:not(.login-view) .form-error {
+  color: #b91c1c !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .notification-panel {
+  border-color: var(--light-border-stronger) !important;
+  background:
+    radial-gradient(circle at 14% 0, rgba(124, 58, 237, 0.10), transparent 36%),
+    #ffffff !important;
+  color: var(--light-text) !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .notification-panel-header h2,
+html[data-theme="light"] body:not(.login-view) .notification-panel-empty strong,
+html[data-theme="light"] body:not(.login-view) .notification-row-copy strong {
+  color: var(--light-text-strong) !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .notification-panel-header p,
+html[data-theme="light"] body:not(.login-view) .notification-panel-empty,
+html[data-theme="light"] body:not(.login-view) .notification-row-copy small,
+html[data-theme="light"] body:not(.login-view) .notification-row-meta {
+  color: var(--light-text-muted) !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .notification-panel-controls,
+html[data-theme="light"] body:not(.login-view) .notification-action-row {
+  border-color: var(--light-border) !important;
+  background: #fbfaff !important;
+  color: var(--light-text) !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .notification-action-row.is-read {
+  opacity: 0.82 !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .workspace-hero,
+html[data-theme="light"] body:not(.login-view) .desktop-reference-hero,
+html[data-theme="light"] body.desktop-dashboard-view:not(.login-view) .desktop-reference-onboarding-card,
+html[data-theme="light"] body:not(.login-view) .pricing-card.featured,
+html[data-theme="light"] body:not(.login-view) .line-video-thumb {
+  /* Intentionally retained dark/premium artwork surfaces in Light Theme. */
+}
+
 /* Actionable notification layer: isolated from page cards and application shell. */
 body.notification-panel-open {
   overflow: hidden;
