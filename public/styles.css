@@ -21379,3 +21379,426 @@ html[data-theme="light"] .status-warning {
 html[data-theme="light"] *:focus-visible {
   outline-color: rgba(109, 40, 217, 0.72);
 }
+
+/* Light theme completion: ordinary data surfaces use light colors; premium artwork stays dark. */
+html[data-theme="light"] {
+  --light-page: #f7f5ff;
+  --light-card: rgba(255, 255, 255, 0.96);
+  --light-card-solid: #ffffff;
+  --light-card-soft: #faf8ff;
+  --light-rail: #f1eef9;
+  --light-ink: #20172f;
+  --light-heading: #181126;
+  --light-muted: #655b78;
+  --light-faint: #877e98;
+  --light-line: rgba(98, 73, 142, 0.16);
+  --light-line-strong: rgba(98, 73, 142, 0.26);
+  --light-purple-soft: rgba(124, 58, 237, 0.11);
+  --light-blue-soft: rgba(37, 99, 235, 0.10);
+  --light-green-soft: rgba(22, 163, 74, 0.11);
+  --light-amber-soft: rgba(245, 158, 11, 0.13);
+  --light-pink-soft: rgba(219, 39, 119, 0.10);
+}
+
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .mobile-reports-page,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .mobile-opportunities-page,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .orders-page,
+html[data-theme="light"] body.desktop-dashboard-view:not(.login-view) .desktop-reference-dashboard-shell {
+  color: var(--light-ink);
+}
+
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .dashboard-kpi-card,
+html[data-theme="light"] body.desktop-dashboard-view:not(.login-view) .desktop-reference-kpi,
+html[data-theme="light"] body.desktop-dashboard-view:not(.login-view) .desktop-reference-card,
+html[data-theme="light"] body.desktop-dashboard-view:not(.login-view) .desktop-reference-quick-action,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .mobile-report-kpi,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .mobile-report-card,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .mobile-report-customer-stat,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .mobile-report-vip-card,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .mobile-report-business-summary,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .orders-page .metric-card,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .orders-page .panel-premium,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) #orderList,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .mobile-opportunity-summary,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .mobile-opportunity-status-grid button,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .mobile-opportunity-customer-card,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .desktop-opportunity-shortcut,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .grow-opportunity-panel,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .desktop-orders-panel,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .workspace-table-wrap,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .opportunity-card,
+html[data-theme="light"] .mobile-business-detail-card,
+html[data-theme="light"] .mobile-business-action-card,
+html[data-theme="light"] .mobile-business-form,
+html[data-theme="light"] .mobile-business-record,
+html[data-theme="light"] .mobile-business-product-record,
+html[data-theme="light"] .mobile-business-notification,
+html[data-theme="light"] .mobile-business-user,
+html[data-theme="light"] .mobile-business-ranking > div {
+  border-color: var(--light-line);
+  background:
+    radial-gradient(circle at 18% 0, rgba(124, 58, 237, 0.055), transparent 38%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(249, 247, 255, 0.96));
+  color: var(--light-ink);
+  box-shadow: 0 14px 34px rgba(76, 56, 124, 0.10), inset 0 1px 0 rgba(255, 255, 255, 0.74);
+}
+
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .dashboard-kpi-card.blue,
+html[data-theme="light"] body.desktop-dashboard-view:not(.login-view) .desktop-reference-kpi.tone-blue,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .mobile-report-kpi.tone-blue {
+  border-color: rgba(37, 99, 235, 0.18);
+  background:
+    radial-gradient(circle at 18% 0, var(--light-blue-soft), transparent 42%),
+    var(--light-card);
+}
+
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .dashboard-kpi-card.gold,
+html[data-theme="light"] body.desktop-dashboard-view:not(.login-view) .desktop-reference-kpi.tone-orange,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .mobile-report-kpi.tone-amber {
+  border-color: rgba(245, 158, 11, 0.22);
+  background:
+    radial-gradient(circle at 18% 0, var(--light-amber-soft), transparent 42%),
+    var(--light-card);
+}
+
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .dashboard-kpi-card.pink,
+html[data-theme="light"] body.desktop-dashboard-view:not(.login-view) .desktop-reference-kpi.tone-pink {
+  border-color: rgba(219, 39, 119, 0.18);
+  background:
+    radial-gradient(circle at 18% 0, var(--light-pink-soft), transparent 42%),
+    var(--light-card);
+}
+
+html[data-theme="light"] body.desktop-dashboard-view:not(.login-view) .desktop-reference-kpi.tone-green,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .mobile-report-kpi.tone-green {
+  border-color: rgba(22, 163, 74, 0.18);
+  background:
+    radial-gradient(circle at 18% 0, var(--light-green-soft), transparent 42%),
+    var(--light-card);
+}
+
+html[data-theme="light"] body.desktop-dashboard-view:not(.login-view) .desktop-reference-kpi.tone-purple,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .mobile-report-kpi.tone-violet,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .mobile-report-customer-stat.tone-violet {
+  border-color: rgba(124, 58, 237, 0.18);
+  background:
+    radial-gradient(circle at 18% 0, var(--light-purple-soft), transparent 42%),
+    var(--light-card);
+}
+
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .dashboard-kpi-label,
+html[data-theme="light"] body.desktop-dashboard-view:not(.login-view) .desktop-reference-card-head h2,
+html[data-theme="light"] body.desktop-dashboard-view:not(.login-view) .desktop-reference-quick-action strong,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .mobile-report-heading,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .mobile-report-card h2,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .mobile-report-kpi-head,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .mobile-report-vip-title,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .mobile-opportunity-list-heading strong,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .orders-show-all,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .grow-opportunity-title h2,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .grow-opportunity-head,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .desktop-opportunity-shortcut strong {
+  color: var(--light-heading);
+}
+
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .dashboard-kpi-head strong,
+html[data-theme="light"] body.desktop-dashboard-view:not(.login-view) .desktop-reference-kpi-copy strong,
+html[data-theme="light"] body.desktop-dashboard-view:not(.login-view) .desktop-reference-quick-action b,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .mobile-report-kpi > strong,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .mobile-report-customer-stat strong,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .mobile-report-vip-grid strong,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .mobile-report-product b,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .mobile-opportunity-summary strong,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .mobile-opportunity-status-grid strong,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .mobile-opportunity-identity strong,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .grow-customer strong,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .grow-reason strong,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .grow-value,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .workspace-table td,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) #orderList .workspace-table td {
+  color: var(--light-heading);
+}
+
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .dashboard-kpi-foot small,
+html[data-theme="light"] body.desktop-dashboard-view:not(.login-view) .desktop-reference-kpi-copy > span,
+html[data-theme="light"] body.desktop-dashboard-view:not(.login-view) .desktop-reference-kpi-copy small,
+html[data-theme="light"] body.desktop-dashboard-view:not(.login-view) .desktop-reference-card-head h2 small,
+html[data-theme="light"] body.desktop-dashboard-view:not(.login-view) .desktop-reference-quick-action small,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .mobile-report-heading small,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .mobile-report-card h2 small,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .mobile-report-kpi-foot,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .mobile-report-kpi-foot > small,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .mobile-opportunity-identity span,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .mobile-opportunity-identity small,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .mobile-opportunity-due span,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .mobile-opportunity-due small,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .mobile-opportunity-value span,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .grow-opportunity-title p,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .grow-customer small,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .grow-reason small,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .desktop-opportunity-shortcut small {
+  color: var(--light-muted);
+}
+
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .workspace-table-wrap,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) #orderList {
+  background: var(--light-card-solid);
+}
+
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .workspace-table th,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) #orderList .workspace-table th,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .mobile-product-table-head,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .grow-opportunity-head {
+  border-color: var(--light-line);
+  background: var(--light-rail);
+  color: #54476f;
+}
+
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .workspace-table tbody tr,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .mobile-product-table-row,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .mobile-report-order-channel-list > div,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .grow-opportunity-row,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) #orderList .workspace-table td {
+  border-color: var(--light-line);
+}
+
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .orders-search-input,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .mobile-opportunity-search-row label,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .mobile-opportunity-search-row input,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .desktop-report-controlbar .date-picker,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .orders-show-all input {
+  border-color: var(--light-line-strong);
+  background: var(--light-card-solid);
+  color: var(--light-heading);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .orders-search-input::placeholder,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .mobile-opportunity-search-row input::placeholder {
+  color: var(--light-faint);
+  opacity: 1;
+}
+
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .mobile-opportunity-filter-row button,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .mobile-opportunity-sort-button,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .filter-chip {
+  border-color: var(--light-line);
+  background: var(--light-card-solid);
+  color: var(--light-muted);
+}
+
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .mobile-opportunity-filter-row button.active,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .desktop-opportunity-shortcut .tag {
+  border-color: rgba(124, 58, 237, 0.34);
+  background: linear-gradient(135deg, #7c3aed, #6d28d9);
+  color: #fff;
+}
+
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .mobile-opportunity-actions a,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .mobile-opportunity-actions button,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .grow-chat-button {
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: none;
+}
+
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .grow-view-all,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .grow-follow-button,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .orders-search-row .button,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .orders-header-actions .button.primary {
+  border-color: rgba(124, 58, 237, 0.34);
+  background: linear-gradient(135deg, #7c3aed, #6d28d9);
+  color: #fff;
+}
+
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .grow-score::before {
+  background: #fff;
+}
+
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .orders-empty-state,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .mobile-report-empty,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .mobile-opportunity-empty,
+html[data-theme="light"] .mobile-business-empty {
+  border-color: rgba(98, 73, 142, 0.24);
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--light-muted);
+}
+
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .orders-empty-state strong,
+html[data-theme="light"] .mobile-business-empty strong {
+  color: var(--light-heading);
+}
+
+html[data-theme="light"] body:not(.login-view) .settings-shared-page,
+html[data-theme="light"] body:not(.login-view) .grow-settings-shell,
+html[data-theme="light"] body:not(.login-view) .mobile-business-page {
+  --settings-card-bg: #ffffff;
+  --settings-card-border: rgba(98, 73, 142, 0.18);
+  --settings-muted: #6b607c;
+  --settings-text: #20172f;
+}
+
+html[data-theme="light"] body:not(.login-view) .grow-settings-row,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .grow-settings-row,
+html[data-theme="light"] body:not(.login-view) .mobile-business-data-row,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .mobile-business-data-row,
+html[data-theme="light"] body:not(.login-view) .mobile-business-menu-row,
+html[data-theme="light"] body:not(.login-view) .mobile-business-tool,
+html[data-theme="light"] body:not(.login-view) .mobile-business-usage-grid article,
+html[data-theme="light"] body:not(.login-view) .mobile-business-kpis article,
+html[data-theme="light"] body:not(.login-view) .mobile-business-finance-grid article {
+  border-color: rgba(98, 73, 142, 0.18) !important;
+  background: #ffffff !important;
+  color: var(--light-ink) !important;
+  box-shadow: 0 10px 26px rgba(76, 56, 124, 0.08) !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .grow-settings-row .settings-menu-icon,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .grow-settings-row .settings-menu-icon,
+html[data-theme="light"] body:not(.login-view) .settings-status-icon,
+html[data-theme="light"] body:not(.login-view) .settings-row-icon,
+html[data-theme="light"] body:not(.login-view) .mobile-business-icon {
+  border-color: rgba(98, 73, 142, 0.16) !important;
+  background: rgba(124, 58, 237, 0.10) !important;
+  color: #6d28d9 !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .grow-settings-row .settings-menu-copy strong,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .grow-settings-row .settings-menu-copy strong,
+html[data-theme="light"] body:not(.login-view) .mobile-business-data-row .mobile-business-data-row-copy strong,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .mobile-business-data-row .mobile-business-data-row-copy strong,
+html[data-theme="light"] body:not(.login-view) .mobile-business-menu-row strong,
+html[data-theme="light"] body:not(.login-view) .mobile-business-tool strong,
+html[data-theme="light"] body:not(.login-view) .mobile-business-usage-grid strong,
+html[data-theme="light"] body:not(.login-view) .mobile-business-kpis strong,
+html[data-theme="light"] body:not(.login-view) .mobile-business-finance-grid strong,
+html[data-theme="light"] body:not(.login-view) .mobile-business-record strong,
+html[data-theme="light"] body:not(.login-view) .mobile-business-product-record strong,
+html[data-theme="light"] body:not(.login-view) .mobile-business-notification strong,
+html[data-theme="light"] body:not(.login-view) .mobile-business-user strong,
+html[data-theme="light"] body:not(.login-view) .mobile-business-ranking strong {
+  color: var(--light-heading) !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .grow-settings-row .settings-menu-copy small,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .grow-settings-row .settings-menu-copy small,
+html[data-theme="light"] body:not(.login-view) .mobile-business-data-row .mobile-business-data-row-copy small,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .mobile-business-data-row .mobile-business-data-row-copy small,
+html[data-theme="light"] body:not(.login-view) .mobile-business-menu-row small,
+html[data-theme="light"] body:not(.login-view) .mobile-business-tool small,
+html[data-theme="light"] body:not(.login-view) .mobile-business-usage-grid small,
+html[data-theme="light"] body:not(.login-view) .mobile-business-kpis small,
+html[data-theme="light"] body:not(.login-view) .mobile-business-record small,
+html[data-theme="light"] body:not(.login-view) .mobile-business-product-record small,
+html[data-theme="light"] body:not(.login-view) .mobile-business-notification small,
+html[data-theme="light"] body:not(.login-view) .mobile-business-user small,
+html[data-theme="light"] body:not(.login-view) .mobile-business-ranking span {
+  color: var(--light-muted) !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .mobile-business-chevron,
+html[data-theme="light"] body:not(.login-view) .settings-menu-chevron {
+  color: #8a7aa3 !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .mobile-kpi-card,
+html[data-theme="light"] body:not(.login-view) .mobile-summary-card,
+html[data-theme="light"] body:not(.login-view) .mobile-alerts-card,
+html[data-theme="light"] body:not(.login-view) .mobile-report-kpi,
+html[data-theme="light"] body:not(.login-view) .mobile-report-card,
+html[data-theme="light"] body:not(.login-view) .mobile-report-customer-stat,
+html[data-theme="light"] body:not(.login-view) .mobile-report-vip-card,
+html[data-theme="light"] body:not(.login-view) .mobile-report-business-summary,
+html[data-theme="light"] body:not(.login-view) .mobile-opportunity-summary,
+html[data-theme="light"] body:not(.login-view) .mobile-opportunity-summary > div,
+html[data-theme="light"] body:not(.login-view) .mobile-opportunity-status-grid button,
+html[data-theme="light"] body:not(.login-view) .mobile-opportunity-customer-card,
+html[data-theme="light"] body:not(.login-view) .workspace-table-wrap {
+  border-color: var(--light-line) !important;
+  background:
+    radial-gradient(circle at 18% 0, rgba(124, 58, 237, 0.055), transparent 38%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(249, 247, 255, 0.96)) !important;
+  color: var(--light-ink) !important;
+  box-shadow: 0 14px 34px rgba(76, 56, 124, 0.10), inset 0 1px 0 rgba(255, 255, 255, 0.74) !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .mobile-report-kpi.tone-green {
+  border-color: rgba(22, 163, 74, 0.18) !important;
+  background:
+    radial-gradient(circle at 18% 0, var(--light-green-soft), transparent 42%),
+    var(--light-card) !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .mobile-report-kpi.tone-amber {
+  border-color: rgba(245, 158, 11, 0.22) !important;
+  background:
+    radial-gradient(circle at 18% 0, var(--light-amber-soft), transparent 42%),
+    var(--light-card) !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .mobile-report-kpi.tone-violet,
+html[data-theme="light"] body:not(.login-view) .mobile-report-customer-stat.tone-violet {
+  border-color: rgba(124, 58, 237, 0.18) !important;
+  background:
+    radial-gradient(circle at 18% 0, var(--light-purple-soft), transparent 42%),
+    var(--light-card) !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .mobile-report-kpi.tone-blue {
+  border-color: rgba(37, 99, 235, 0.18) !important;
+  background:
+    radial-gradient(circle at 18% 0, var(--light-blue-soft), transparent 42%),
+    var(--light-card) !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .mobile-kpi-card strong,
+html[data-theme="light"] body:not(.login-view) .mobile-summary-head h3,
+html[data-theme="light"] body:not(.login-view) .mobile-summary-donut strong,
+html[data-theme="light"] body:not(.login-view) .mobile-summary-row strong,
+html[data-theme="light"] body:not(.login-view) .mobile-alert-copy strong,
+html[data-theme="light"] body:not(.login-view) .mobile-report-kpi > strong,
+html[data-theme="light"] body:not(.login-view) .mobile-report-customer-stat strong,
+html[data-theme="light"] body:not(.login-view) .mobile-report-vip-grid strong,
+html[data-theme="light"] body:not(.login-view) .mobile-report-product b,
+html[data-theme="light"] body:not(.login-view) .mobile-opportunity-summary strong,
+html[data-theme="light"] body:not(.login-view) .mobile-opportunity-status-grid strong,
+html[data-theme="light"] body:not(.login-view) .mobile-opportunity-identity strong,
+html[data-theme="light"] body:not(.login-view) .workspace-table td,
+html[data-theme="light"] body:not(.login-view) .mobile-product-table-row {
+  color: var(--light-heading) !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .mobile-kpi-label,
+html[data-theme="light"] body:not(.login-view) .mobile-kpi-delta,
+html[data-theme="light"] body:not(.login-view) .mobile-summary-head > span,
+html[data-theme="light"] body:not(.login-view) .mobile-summary-donut small,
+html[data-theme="light"] body:not(.login-view) .mobile-alert-copy small,
+html[data-theme="light"] body:not(.login-view) .mobile-alert-meta small,
+html[data-theme="light"] body:not(.login-view) .mobile-report-heading small,
+html[data-theme="light"] body:not(.login-view) .mobile-report-card h2 small,
+html[data-theme="light"] body:not(.login-view) .mobile-report-kpi-foot,
+html[data-theme="light"] body:not(.login-view) .mobile-report-kpi-foot > small,
+html[data-theme="light"] body:not(.login-view) .mobile-opportunity-identity span,
+html[data-theme="light"] body:not(.login-view) .mobile-opportunity-identity small,
+html[data-theme="light"] body:not(.login-view) .mobile-opportunity-due span,
+html[data-theme="light"] body:not(.login-view) .mobile-opportunity-due small,
+html[data-theme="light"] body:not(.login-view) .mobile-opportunity-value span {
+  color: var(--light-muted) !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .workspace-table th,
+html[data-theme="light"] body:not(.login-view) .mobile-product-table-head,
+html[data-theme="light"] body:not(.login-view) .mobile-opportunity-status-grid button {
+  border-color: var(--light-line) !important;
+  background: var(--light-rail) !important;
+  color: #54476f !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .settings-shared-page select,
+html[data-theme="light"] body:not(.login-view) .settings-premium-page select,
+html[data-theme="light"] body:not(.login-view) select[data-theme-select],
+html[data-theme="light"] body:not(.login-view) select[data-profile-theme-select] {
+  border-color: var(--light-line-strong) !important;
+  background-color: var(--light-card-solid) !important;
+  color: var(--light-heading) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8) !important;
+}
