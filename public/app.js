@@ -106,6 +106,7 @@ const app = {
   editingOrderId: "",
   editingProductId: "",
   productSavePending: false,
+  productActionPendingIds: new Set(),
   productDraftImage: "",
   productOriginalImage: "",
   productImageDebugKeys: new Set(),
@@ -3397,18 +3398,18 @@ function renderMobileBusinessProducts() {
       ${mobileBusinessHeader("จัดการสินค้า", "เพิ่ม แก้ไข และจัดการสินค้า", "box")}
       <button class="button primary mobile-business-full-button" type="button" data-add-product>${iconSvg("box")} เพิ่มสินค้า</button>
       <div class="mobile-business-kpis three mobile-business-product-kpis">
-        <article class="purple"><span>สินค้าทั้งหมด</span><strong>${money(products.length)}</strong><small>รายการ</small></article>
-        <article class="blue"><span>พร้อมขาย</span><strong>${money(ready)}</strong><small>รายการ</small></article>
-        <article class="orange"><span>สต๊อกต่ำ</span><strong>${money(low)}</strong><small>รายการ</small></article>
+        <article class="purple" data-product-kpi="total"><span>สินค้าทั้งหมด</span><strong>${money(products.length)}</strong><small>รายการ</small></article>
+        <article class="blue" data-product-kpi="ready"><span>พร้อมขาย</span><strong>${money(ready)}</strong><small>รายการ</small></article>
+        <article class="orange" data-product-kpi="low"><span>สต๊อกต่ำ</span><strong>${money(low)}</strong><small>รายการ</small></article>
       </div>
       <div class="mobile-business-record-list">
         ${products.map(product => `
-          <article class="mobile-business-product-record">
+          <article class="mobile-business-product-record" data-product-record="${escapeHtml(product.id)}">
             <span class="mobile-business-product-thumb">${productImageMarkup(product.image, product.name, iconSvg("box"), product.id)}</span>
             <button class="mobile-business-product-main" type="button" data-business-product="${escapeHtml(product.id)}">
               <span><strong>${escapeHtml(product.name)}</strong><small>${money(product.salePrice)} บาท · คงเหลือ ${money(product.stockQuantity)} ชิ้น</small></span>
             </button>
-            <b>${escapeHtml(product.computedStatus)}</b>
+            <b data-product-status-label="${escapeHtml(product.id)}">${escapeHtml(product.computedStatus)}</b>
             <span class="table-actions">
               <button class="button ghost compact-action product-row-menu-button" type="button" data-product-row-menu="${escapeHtml(product.id)}" aria-label="เมนูสินค้า">⋯</button>
               <div class="product-row-menu" hidden data-product-row-menu-panel="${escapeHtml(product.id)}">
@@ -4510,7 +4511,7 @@ function renderProducts() {
             </thead>
             <tbody>
               ${products.map(product => `
-                <tr data-product-id="${escapeHtml(product.id)}">
+                <tr data-product-id="${escapeHtml(product.id)}" data-product-record="${escapeHtml(product.id)}">
                   <td data-label="สินค้า">
                     <div class="table-identity product-identity">
                       <span class="product-thumb">${productImageMarkup(product.image, product.name, escapeHtml(initials(product.name)))}</span>
@@ -4530,7 +4531,7 @@ function renderProducts() {
                       <small>${escapeHtml(product.followUpRule || "1 ชิ้น = 15 วัน")}</small>
                     </div>
                   </td>
-                  <td data-label="สถานะ"><span class="badge ${product.computedStatus === "พร้อมขาย" ? "vip" : product.computedStatus === "ใกล้หมด" ? "risk" : product.computedStatus === "เหลือน้อย" ? "lost" : "normal"}">${escapeHtml(product.computedStatus)}</span></td>
+                  <td data-label="สถานะ"><span class="badge ${product.computedStatus === "พร้อมขาย" ? "vip" : product.computedStatus === "ใกล้หมด" ? "risk" : product.computedStatus === "เหลือน้อย" ? "lost" : "normal"}" data-product-status-label="${escapeHtml(product.id)}">${escapeHtml(product.computedStatus)}</span></td>
                   <td data-label="จัดการ">
                     <div class="table-actions">
                       <button class="button ghost compact-action product-row-menu-button" type="button" data-product-row-menu="${escapeHtml(product.id)}" aria-label="เมนูสินค้า">⋯</button>
@@ -8540,17 +8541,124 @@ function closeProductRowMenus(exceptProductId = "") {
   });
 }
 
-async function refreshProductsAfterAction(payload = {}) {
-  applyProductSavePayload(payload);
-  render();
-  window.setTimeout(() => {
-    loadState().catch(error => console.warn("[product-refresh]", error.message || error));
-  }, 1200);
+function storedProductRecords() {
+  app.data = app.data || {};
+  app.data.settings = app.data.settings || {};
+  app.data.settings.products = normalizeProductRecords();
+  return app.data.settings.products;
+}
+
+function findStoredProduct(productId) {
+  return storedProductRecords().find(product => product.id === productId) || null;
+}
+
+function updateStoredProduct(productId, patch = {}) {
+  const products = storedProductRecords();
+  const index = products.findIndex(product => product.id === productId);
+  if (index === -1) return null;
+  products[index] = normalizeProductRecords([{ ...products[index], ...patch }])[0];
+  app.data.settings.products = products;
+  if (Array.isArray(app.data.settings.productCosts)) {
+    app.data.settings.productCosts = app.data.settings.productCosts.map(item => (
+      item.id === productId || item.name === products[index].name
+        ? { ...item, name: products[index].name || item.name, enabled: !products[index].archived }
+        : item
+    ));
+  }
+  return products[index];
+}
+
+function removeStoredProduct(productId) {
+  const product = findStoredProduct(productId);
+  app.data.settings.products = storedProductRecords().filter(item => item.id !== productId);
+  if (Array.isArray(app.data.settings.productCosts)) {
+    app.data.settings.productCosts = app.data.settings.productCosts.filter(item =>
+      item.id !== productId && (!product || item.name !== product.name)
+    );
+  }
+}
+
+function productManagementCountsLocal() {
+  const products = productRowsData();
+  return {
+    total: products.length,
+    ready: products.filter(product => product.computedStatus === "พร้อมขาย").length,
+    low: products.filter(product => ["ใกล้หมด", "เหลือน้อย"].includes(product.computedStatus)).length
+  };
+}
+
+function updateProductManagementKpis(counts = productManagementCountsLocal()) {
+  const map = { total: counts.total, ready: counts.ready, low: counts.low };
+  Object.entries(map).forEach(([key, value]) => {
+    document.querySelectorAll(`[data-product-kpi="${key}"] strong`).forEach(node => {
+      node.textContent = money(value);
+    });
+  });
+}
+
+function productStatusClass(status = "") {
+  return status === "พร้อมขาย" ? "vip" : status === "ใกล้หมด" ? "risk" : status === "เหลือน้อย" ? "lost" : "normal";
+}
+
+function patchProductOrderPickers() {
+  const select = els.orderForm?.elements?.productId;
+  if (!select) return;
+  const previousValue = select.value;
+  const products = orderSelectableProducts();
+  select.innerHTML = `<option value="">เลือกสินค้า</option>${products.map(product => `
+    <option value="${escapeHtml(product.id)}">${escapeHtml(product.name)}</option>
+  `).join("")}`;
+  select.value = products.some(product => product.id === previousValue) ? previousValue : "";
+  if (!select.value && els.orderForm?.elements?.items) els.orderForm.elements.items.value = "";
+  updateOrderPackageOptions();
+}
+
+function setProductActionPending(productId, pending) {
+  if (!productId) return;
+  if (pending) app.productActionPendingIds.add(productId);
+  else app.productActionPendingIds.delete(productId);
+  document.querySelectorAll(
+    `[data-product-row-menu="${CSS.escape(productId)}"], [data-toggle-product="${CSS.escape(productId)}"], [data-delete-product="${CSS.escape(productId)}"]`
+  ).forEach(button => {
+    button.disabled = pending;
+    button.dataset.loading = pending ? "true" : "false";
+  });
+  document.querySelectorAll(`[data-product-record="${CSS.escape(productId)}"]`).forEach(row => {
+    row.classList.toggle("is-pending", pending);
+    row.setAttribute("aria-busy", pending ? "true" : "false");
+  });
+}
+
+function patchProductRow(productId) {
+  const product = productRowsData().find(item => item.id === productId);
+  if (!product) {
+    removeProductRow(productId);
+    return;
+  }
+  document.querySelectorAll(`[data-product-status-label="${CSS.escape(productId)}"]`).forEach(label => {
+    label.textContent = product.computedStatus;
+    if (label.classList.contains("badge")) {
+      label.className = `badge ${productStatusClass(product.computedStatus)}`;
+      label.dataset.productStatusLabel = productId;
+    }
+  });
+  document.querySelectorAll(`[data-toggle-product="${CSS.escape(productId)}"]`).forEach(button => {
+    button.textContent = product.archived ? "เปิดใช้งาน" : "ปิดใช้งาน";
+  });
+  updateProductManagementKpis();
+  patchProductOrderPickers();
+}
+
+function removeProductRow(productId) {
+  document.querySelectorAll(`[data-product-record="${CSS.escape(productId)}"]`).forEach(row => row.remove());
+  updateProductManagementKpis();
+  patchProductOrderPickers();
 }
 
 async function toggleProductArchived(productId) {
   const product = productRowsData().find(item => item.id === productId);
-  if (!product) return;
+  const storedProduct = findStoredProduct(productId);
+  if (!product || !storedProduct || app.productActionPendingIds.has(productId)) return;
   const archived = !product.archived;
   const confirmed = await showConfirmDialog({
     title: archived ? "ปิดใช้งานสินค้า" : "เปิดใช้งานสินค้า",
@@ -8560,31 +8668,50 @@ async function toggleProductArchived(productId) {
     confirmText: archived ? "ปิดใช้งานสินค้า" : "เปิดใช้งานสินค้า"
   });
   if (!confirmed) return;
-  const payload = await api(`/api/products/${encodeURIComponent(productId)}/archive`, {
-    method: "POST",
-    body: JSON.stringify({ archived })
-  });
-  await refreshProductsAfterAction(payload);
-  showToast(archived ? "ปิดใช้งานสินค้าแล้ว" : "เปิดใช้งานสินค้าแล้ว");
+  const previous = { ...storedProduct };
+  setProductActionPending(productId, true);
+  updateStoredProduct(productId, { archived, status: archived ? "ปิดใช้งาน" : "พร้อมขาย" });
+  patchProductRow(productId);
+  try {
+    const payload = await api(`/api/products/${encodeURIComponent(productId)}/archive`, {
+      method: "POST",
+      body: JSON.stringify({ archived })
+    });
+    updateStoredProduct(productId, {
+      archived: Boolean(payload.archived),
+      status: payload.archived ? "ปิดใช้งาน" : "พร้อมขาย"
+    });
+    patchProductRow(productId);
+    showToast(archived ? "ปิดใช้งานสินค้าแล้ว" : "เปิดใช้งานสินค้าแล้ว");
+  } catch (error) {
+    updateStoredProduct(productId, previous);
+    patchProductRow(productId);
+    showToast(error.message || "บันทึกไม่สำเร็จ", "error");
+  } finally {
+    setProductActionPending(productId, false);
+  }
 }
 
 async function deleteProductPermanently(productId) {
   const product = productRowsData().find(item => item.id === productId);
-  if (!product) return;
+  if (!product || app.productActionPendingIds.has(productId)) return;
   const confirmed = await showConfirmDialog({
     title: "ลบสินค้าถาวร",
     message: `ลบ "${product.name}" ถาวรได้เฉพาะเมื่อไม่มีข้อมูลอ้างอิง ระบบจะตรวจสอบอีกครั้งบนเซิร์ฟเวอร์ก่อนลบ`,
     confirmText: "ลบสินค้า"
   });
   if (!confirmed) return;
+  setProductActionPending(productId, true);
   try {
-    const payload = await api(`/api/products/${encodeURIComponent(productId)}`, {
+    await api(`/api/products/${encodeURIComponent(productId)}`, {
       method: "DELETE",
       body: "{}"
     });
-    await refreshProductsAfterAction(payload);
+    removeStoredProduct(productId);
+    removeProductRow(productId);
     showToast("ลบสินค้าแล้ว");
   } catch (error) {
+    setProductActionPending(productId, false);
     if (error.payload?.canDisable) {
       const disableConfirmed = await showConfirmDialog({
         title: "ลบถาวรไม่ได้",
@@ -8595,6 +8722,8 @@ async function deleteProductPermanently(productId) {
       return;
     }
     throw error;
+  } finally {
+    setProductActionPending(productId, false);
   }
 }
 
