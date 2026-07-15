@@ -26,6 +26,8 @@ const {
   persistUserThemePreference,
   persistSettingsPatch,
   readSettingsPatch,
+  readNotificationReadIds,
+  persistNotificationReadIds,
   uploadProductImageObject,
   productImagePublicBaseUrl,
   verifyPublicProductImageUrl
@@ -50,6 +52,12 @@ const PORT = Number(process.env.PORT || 3000);
 const HOST = process.env.HOST || "0.0.0.0";
 const ROOT = __dirname;
 const PUBLIC_DIR = path.join(ROOT, "public");
+
+function sanitizeNotificationIds(ids) {
+  return [...new Set((Array.isArray(ids) ? ids : [])
+    .map(id => String(id || "").trim())
+    .filter(id => id && id.length <= 240 && !/[\u0000-\u001f\u007f]/.test(id)))];
+}
 
 const MIME_TYPES = {
   ".html": "text/html; charset=utf-8",
@@ -3791,15 +3799,50 @@ async function handleApi(req, res) {
     if (!hasPermission(currentUser, enriched, "reports.finance")) {
       enriched.settings = { ...(enriched.settings || {}), adCostRecords: [] };
     }
+    let notificationReadIds = [];
+    if (typeof readNotificationReadIds === "function") {
+      try {
+        notificationReadIds = await readNotificationReadIds(currentUser.id);
+      } catch (error) {
+        // Keep the workspace available while a newly deployed Supabase schema migration is pending.
+        console.error("Notification read state unavailable", error.message);
+      }
+    }
     return json(res, 200, {
       ...enriched,
       settings: publicSettings(enriched.settings),
       users: currentUser.role === "Owner" ? enriched.users.map(publicUser) : [currentUser],
       currentUser,
+      notificationReadIds,
       currentPermissions,
       permissionCatalog: currentUser.role === "Owner" ? PERMISSION_GROUPS : [],
       summary: buildSummary(enriched, date)
     });
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/notifications/read") {
+    const body = await readBody(req);
+    const notificationIds = sanitizeNotificationIds(body.notificationIds);
+    if (!notificationIds.length) {
+      try {
+        const notificationReadIds = typeof readNotificationReadIds === "function"
+          ? await readNotificationReadIds(currentUser.id)
+          : [];
+        return json(res, 200, { ok: true, notificationReadIds });
+      } catch (error) {
+        console.error("Notification read state unavailable", error.message);
+        return json(res, 503, { ok: false, error: "บันทึกสถานะอ่านการแจ้งเตือนไม่สำเร็จ" });
+      }
+    }
+    try {
+      const notificationReadIds = typeof persistNotificationReadIds === "function"
+        ? await persistNotificationReadIds(currentUser.id, notificationIds)
+        : [];
+      return json(res, 200, { ok: true, notificationReadIds });
+    } catch (error) {
+      console.error("Notification read persistence failed", error.message);
+      return json(res, 503, { ok: false, error: "บันทึกสถานะอ่านการแจ้งเตือนไม่สำเร็จ" });
+    }
   }
 
   if (req.method === "GET" && url.pathname === "/api/marketing-performance") {
