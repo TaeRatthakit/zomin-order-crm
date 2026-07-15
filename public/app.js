@@ -8597,7 +8597,11 @@ function closeProductRowMenus(exceptProductId = "") {
 
 function refreshProductsAfterAction(payload = {}) {
   applyProductSavePayload(payload);
-  renderProducts();
+  if (app.view === "settings" || String(app.view || "").startsWith("settings")) {
+    render();
+  } else {
+    renderProducts();
+  }
 }
 
 async function toggleProductArchived(productId) {
