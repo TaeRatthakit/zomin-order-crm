@@ -10974,6 +10974,7 @@ document.addEventListener("change", async event => {
       app.data.summary = buildLocalSummary(selectedDate);
       const calculationTime = performance.now() - calculationStartedAt;
       if (els.workDateDisplay) els.workDateDisplay.textContent = formatMobileDatePill(selectedDate);
+      updateShell();
       const domStartedAt = performance.now();
       if (app.view === "orders") renderOrders();
       else patchMobileDateView();
@@ -10993,6 +10994,7 @@ document.addEventListener("change", async event => {
       app.data.summary = buildLocalSummary(selectedDate);
       const calculationTime = performance.now() - calculationStartedAt;
       if (els.workDateDisplay) els.workDateDisplay.textContent = formatDatePill(selectedDate);
+      updateShell();
       const domStartedAt = performance.now();
       renderDesktopDateView();
       const domUpdateTime = performance.now() - domStartedAt;
