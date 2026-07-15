@@ -21921,6 +21921,33 @@ html[data-theme="light"] body.desktop-dashboard-view:not(.login-view) .desktop-r
   color: #f8fafc !important;
 }
 
+html[data-theme="light"] body:not(.login-view) .mobile-summary-donut > div,
+html[data-theme="light"] body:not(.login-view) .mobile-summary-donut > div span,
+html[data-theme="light"] body:not(.login-view) .mobile-summary-donut > div small,
+html[data-theme="light"] body:not(.login-view) .mobile-summary-donut > div strong {
+  color: #f8fafc !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .mobile-summary-legend {
+  border-color: var(--light-border-visible) !important;
+  background: rgba(255, 255, 255, 0.72) !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .mobile-summary-row {
+  border-color: var(--light-border-visible) !important;
+  background: rgba(255, 255, 255, 0.82) !important;
+  color: var(--light-text-primary) !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .mobile-summary-name,
+html[data-theme="light"] body:not(.login-view) .mobile-summary-row strong {
+  color: var(--light-text-primary) !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .mobile-summary-row > span:last-child {
+  color: var(--light-text-secondary) !important;
+}
+
 html[data-theme="light"] body.desktop-dashboard-view:not(.login-view) .desktop-reference-chart-legend > div,
 html[data-theme="light"] body.desktop-dashboard-view:not(.login-view) .desktop-reference-channel-list > div,
 html[data-theme="light"] body:not(.login-view) .mobile-report-channel-row,
