@@ -23,6 +23,7 @@ const {
   persistOrderProfitSnapshots,
   createContactLogFast,
   persistUserProfile,
+  persistUserThemePreference,
   persistSettingsPatch,
   readSettingsPatch,
   uploadProductImageObject,
@@ -362,7 +363,14 @@ function normalizeImportDate(value) {
 
 function publicUser(user) {
   const { pin, password, passwordHash, ...safeUser } = user;
-  return safeUser;
+  return {
+    ...safeUser,
+    themePreference: normalizeThemePreference(user.themePreference)
+  };
+}
+
+function normalizeThemePreference(value) {
+  return ["dark", "light", "system"].includes(value) ? value : "system";
 }
 
 function sanitizeAvatarDataUrl(value) {
@@ -460,13 +468,13 @@ function normalizeNotificationPreferences(preferences = {}) {
 }
 
 function normalizeDisplayPreferences(preferences = {}) {
-  const allowedThemes = new Set(["dark"]);
+  const allowedThemes = new Set(["dark", "light", "system"]);
   const allowedLanguages = new Set(["th"]);
   const allowedDateFormats = new Set(["DD/MM/YYYY", "YYYY-MM-DD", "DD MMM YYYY"]);
   const allowedNumberFormats = new Set(["1,234.56", "1.234,56", "1234.56"]);
   const allowedCurrencies = new Set(["THB", "USD"]);
   return {
-    theme: allowedThemes.has(preferences.theme) ? preferences.theme : "dark",
+    theme: allowedThemes.has(preferences.theme) ? preferences.theme : "system",
     language: allowedLanguages.has(preferences.language) ? preferences.language : "th",
     dateFormat: allowedDateFormats.has(preferences.dateFormat) ? preferences.dateFormat : "DD/MM/YYYY",
     numberFormat: allowedNumberFormats.has(preferences.numberFormat) ? preferences.numberFormat : "1,234.56",
@@ -3929,6 +3937,18 @@ async function handleApi(req, res) {
     const avatar = sanitizeAvatarDataUrl(body.avatar);
     const savedUser = typeof persistUserProfile === "function"
       ? await persistUserProfile(currentUser.id, { displayName, avatar })
+      : null;
+    if (!savedUser) return json(res, 404, { ok: false, error: "ไม่พบผู้ใช้งาน" });
+    const session = createSession(savedUser);
+    return json(res, 200, { ok: true, user: publicUser(savedUser) }, {
+      "Set-Cookie": sessionCookie(session.token, session.expiresAt)
+    });
+  }
+
+  if (req.method === "PUT" && url.pathname === "/api/profile/theme") {
+    const body = await readBody(req);
+    const savedUser = typeof persistUserThemePreference === "function"
+      ? await persistUserThemePreference(currentUser.id, normalizeThemePreference(body.themePreference || body.theme))
       : null;
     if (!savedUser) return json(res, 404, { ok: false, error: "ไม่พบผู้ใช้งาน" });
     const session = createSession(savedUser);

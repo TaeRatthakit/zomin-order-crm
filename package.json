@@ -11,6 +11,7 @@
     "test:opportunity-cycle": "node scripts/opportunity-cycle-test.js",
     "test:permissions": "node scripts/permission-smoke-test.js",
     "test:settings-layout": "node scripts/settings-layout-test.js",
+    "test:theme": "node scripts/theme-selector-test.js",
     "test:permission-ui": "node scripts/permission-ui-test.js",
     "test:large-import": "node scripts/test-large-import.js",
     "seed": "node scripts/seed.js",
