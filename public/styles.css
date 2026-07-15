@@ -1166,6 +1166,10 @@ h3 {
   box-shadow: 0 8px 20px rgba(255, 77, 109, 0.28);
 }
 
+.notification-badge[hidden] {
+  display: none;
+}
+
 .date-picker {
   display: grid;
   gap: 6px;
