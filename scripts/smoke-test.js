@@ -9,6 +9,10 @@ process.env.LINE_WEBHOOK_ENABLED = "true";
 if (!process.env.JSON_DB_PATH) {
   process.env.JSON_DB_PATH = path.join(os.tmpdir(), `zomin-smoke-${process.pid}.json`);
   fs.copyFileSync(path.join(__dirname, "..", "data", "db.json"), process.env.JSON_DB_PATH);
+  const fixture = JSON.parse(fs.readFileSync(process.env.JSON_DB_PATH, "utf8"));
+  const admin = (fixture.users || []).find(user => user.username === "admin");
+  if (admin) admin.role = "Owner";
+  fs.writeFileSync(process.env.JSON_DB_PATH, `${JSON.stringify(fixture, null, 2)}\n`);
 }
 const appHandler = require("../server");
 
@@ -110,6 +114,21 @@ async function main() {
   const parsedAdminState = JSON.parse(adminState.text);
   if (!parsedAdminState.currentUser || parsedAdminState.currentUser.role !== "Owner") {
     fail("state did not return Owner session");
+  }
+  const notificationReadId = `smoke-notification:${crypto.randomBytes(4).toString("hex")}:ทดสอบ/1.5`;
+  const notificationSnapshotIds = Array.from({ length: 501 }, (_, index) => `${notificationReadId}:${index}`);
+  const markNotificationRead = await request("/api/notifications/read", {
+    method: "POST",
+    headers: { cookie, "content-type": "application/json" },
+    body: JSON.stringify({ notificationIds: [notificationReadId, ...notificationSnapshotIds, notificationReadId] })
+  });
+  if (markNotificationRead.status !== 200) fail(`notification read returned ${markNotificationRead.status}: ${markNotificationRead.text}`);
+  const markedReadIds = JSON.parse(markNotificationRead.text).notificationReadIds || [];
+  if (markedReadIds.filter(id => id === notificationReadId).length !== 1) fail("notification read state was not deduplicated");
+  if (!markedReadIds.includes(notificationSnapshotIds.at(-1))) fail("notification read snapshot was truncated");
+  const refreshedNotificationState = JSON.parse((await request("/api/state", { headers: { cookie } })).text);
+  if (!(refreshedNotificationState.notificationReadIds || []).includes(notificationReadId)) {
+    fail("notification read state did not persist across state refresh");
   }
   const ownerUser = parsedAdminState.currentUser;
   const originalOwnerName = ownerUser.name;
@@ -1083,6 +1102,9 @@ async function main() {
   const staffTeam = await request("/api/state", { headers: { cookie: staffCookie } });
   if (staffTeam.status !== 200) fail(`staff state returned ${staffTeam.status}: ${staffTeam.text}`);
   const parsedStaffState = JSON.parse(staffTeam.text);
+  if ((parsedStaffState.notificationReadIds || []).includes(notificationReadId)) {
+    fail("notification read state leaked to another user");
+  }
   if (!parsedStaffState.currentUser || parsedStaffState.currentUser.role !== "Staff") {
     fail("state did not return Staff session");
   }

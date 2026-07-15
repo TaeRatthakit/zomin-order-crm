@@ -123,6 +123,15 @@ create table if not exists public.contact_logs (
   updated_at timestamptz not null default now()
 );
 
+-- Notification events are deterministic client-side projections of permitted business data.
+-- This application is single-business; store read state only against the authenticated user.
+create table if not exists public.notification_reads (
+  user_id text not null references public.users(id) on delete cascade,
+  notification_id text not null,
+  read_at timestamptz not null default now(),
+  primary key (user_id, notification_id)
+);
+
 create index if not exists idx_customers_phone on public.customers(phone);
 create index if not exists idx_customers_vip_level on public.customers(vip_level);
 create index if not exists idx_customers_follow_up_date on public.customers(follow_up_date);
@@ -132,6 +141,7 @@ create index if not exists idx_orders_order_number on public.orders(order_number
 create index if not exists idx_orders_import_duplicate on public.orders(order_date, phone, amount);
 create index if not exists idx_customer_tags_customer_id on public.customer_tags(customer_id);
 create index if not exists idx_contact_logs_customer_id on public.contact_logs(customer_id);
+create index if not exists idx_notification_reads_user on public.notification_reads(user_id, read_at desc);
 
 drop trigger if exists users_updated_at on public.users;
 create trigger users_updated_at before update on public.users
@@ -178,3 +188,4 @@ alter table public.settings enable row level security;
 alter table public.tags enable row level security;
 alter table public.customer_tags enable row level security;
 alter table public.contact_logs enable row level security;
+alter table public.notification_reads enable row level security;

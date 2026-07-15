@@ -11,8 +11,6 @@ const routeToView = {
   "/dashboard": "dashboard",
   "/customers": "customers",
   "/orders": "orders",
-  "/follow-up": "notifications",
-  "/notifications": "notifications",
   "/more": "settings",
   "/opportunities": "opportunities",
   "/products": "products",
@@ -151,7 +149,12 @@ const app = {
   rolePermissionsSavedSnapshot: "",
   recommendedRolePermissions: null,
   openPermissionGroups: null,
-  permissionsSavePending: false
+  permissionsSavePending: false,
+  notificationPanelOpen: false,
+  notificationFilter: "all",
+  notificationReadPending: null,
+  notificationTrigger: null,
+  notificationHistoryActive: false
 };
 
 const ROLE_PERMISSION_DEFAULTS = {
@@ -277,7 +280,7 @@ function routeFromLocation() {
   if (location.hash) {
     const hashView = location.hash.replace("#", "") || "dashboard";
     if (hashView === "search") return "customers";
-    if (hashView === "followup" || hashView === "follow-up") return "notifications";
+    if (hashView === "followup" || hashView === "follow-up") return "dashboard";
     if (hashView === "more") return "settings";
     return hashView;
   }
@@ -415,6 +418,7 @@ const els = {
   headerProfile: document.querySelector("#headerProfile"),
   headerNotificationButton: document.querySelector("#headerNotificationButton"),
   headerNotificationBadge: document.querySelector("#headerNotificationBadge"),
+  notificationOverlayRoot: document.querySelector("#notificationOverlayRoot"),
   orderDialog: document.querySelector("#orderDialog"),
   orderForm: document.querySelector("#orderForm"),
   orderDialogTitle: document.querySelector("#orderDialogTitle"),
@@ -1247,7 +1251,7 @@ function renderNav() {
 
 function sidebarNotificationCount() {
   if (!app.data) return 0;
-  return liveNotificationItems().reduce((sum, item) => sum + Number(item.count || 0), 0);
+  return unreadNotificationEvents().length;
 }
 
 function currentUserAvatar() {
@@ -2096,7 +2100,7 @@ function productStatus(product, stats) {
   return product.status || "พร้อมขาย";
 }
 
-function productRowsData() {
+function productRowsData(options = {}) {
   const statsByName = productStatsMap();
   const stored = normalizeProductRecords();
   const merged = [];
@@ -2111,10 +2115,10 @@ function productRowsData() {
       computedStatus: productStatus(product, stats)
     });
   }
-  const q = app.productsFilterQ.trim().toLowerCase();
+  const q = options.ignoreFilters ? "" : app.productsFilterQ.trim().toLowerCase();
   return merged
     .filter(product => !q || [product.name, product.sku, product.description].join(" ").toLowerCase().includes(q))
-    .filter(product => !app.productsFilterStatus || product.computedStatus === app.productsFilterStatus)
+    .filter(product => options.ignoreFilters || !app.productsFilterStatus || product.computedStatus === app.productsFilterStatus)
     .sort((a, b) => b.revenue - a.revenue || a.name.localeCompare(b.name, "th"));
 }
 
@@ -2135,39 +2139,303 @@ function channelPerformance() {
     .sort((a, b) => b.revenue - a.revenue);
 }
 
-function notificationItems() {
+function notificationEvents() {
+  if (!app.data) return [];
   const selectedDate = app.data.summary?.selectedDate || todayISO();
-  const duplicates = [];
-  const seen = new Map();
+  const preferences = app.data.settings?.notificationPreferences || {};
+  const categories = preferences.categories || {};
+  const aiPreferences = app.data.settings?.aiPreferences || {};
+  const duplicateGroups = new Map();
   for (const order of app.data.orders) {
     const key = `${String(order.orderNumber || "").trim().toLowerCase()}|${order.date}`;
     if (!String(order.orderNumber || "").trim()) continue;
-    if (seen.has(key)) duplicates.push(order);
-    else seen.set(key, order.id);
+    if (!duplicateGroups.has(key)) duplicateGroups.set(key, []);
+    duplicateGroups.get(key).push(order);
   }
-  const due = app.data.customers.filter(customer => customer.followUpDate && customer.followUpDate <= selectedDate);
-  const vip = app.data.customers.filter(customer => customer.vipLevel === "NORMAL" && Number(customer.totalSpent || 0) >= Number(app.data.settings.vipThresholds?.vip || 5000) * 0.8);
-  const lowStock = groupedProducts().map(product => ({
-    ...product,
-    stockEstimate: Math.max(0, 120 - product.soldCount)
-  })).filter(product => product.stockEstimate <= 25);
-  const opportunities = opportunityCardsData();
+  const duplicates = [...duplicateGroups.values()].flatMap(group => group
+    .slice()
+    .sort((a, b) => `${a.createdAt || ""}|${a.id}`.localeCompare(`${b.createdAt || ""}|${b.id}`))
+    .slice(1));
+  const events = [];
+  if (categories.orderReview !== false) {
+    for (const order of duplicates) events.push({
+      id: `order-review:${order.id}:${order.date || "no-date"}`,
+      category: "orderReview", type: "order", icon: "clipboard", tone: "blue",
+      title: "ออเดอร์ที่ควรตรวจสอบ", detail: `เลขออเดอร์ ${order.orderNumber || "-"} อาจซ้ำกับรายการเดิม`,
+      time: order.updatedAt || order.createdAt || order.date || selectedDate, targetId: order.id
+    });
+  }
+  if (categories.customerFollowUp !== false) {
+    for (const customer of app.data.customers.filter(item => item.followUpDate && item.followUpDate <= selectedDate)) {
+      const overdue = customer.followUpDate < selectedDate;
+      events.push({
+        id: `follow-up:${customer.id}:${customer.followUpDate}`,
+        category: "customerFollowUp", type: "followup", icon: "users", tone: "purple",
+        title: overdue ? "ติดตามลูกค้าเกินกำหนด" : "ครบกำหนดติดตามลูกค้าวันนี้",
+        detail: `${customer.name} · นัดติดตาม ${formatShortDate(customer.followUpDate)}`,
+        time: customer.followUpDate, targetId: customer.id, overdue
+      });
+    }
+  }
+  if (categories.lowStock !== false) {
+    for (const product of productRowsData({ ignoreFilters: true }).filter(item => ["ใกล้หมด", "ปิดการขาย"].includes(item.computedStatus))) {
+      const persistentProductId = String(product.id || "").trim();
+      const stableProductKey = persistentProductId && !/^product_\d+$/.test(persistentProductId)
+        ? `id:${encodeURIComponent(persistentProductId)}`
+        : (String(product.sku || "").trim() ? `sku:${encodeURIComponent(String(product.sku).trim().toLowerCase())}` : "");
+      if (!stableProductKey) continue;
+      const outOfStock = product.computedStatus === "ปิดการขาย";
+      events.push({
+        id: `stock:${stableProductKey}:${Number(product.stockQuantity || 0)}`,
+        category: "lowStock", type: "stock", icon: "box", tone: "orange",
+        title: outOfStock ? "สินค้าหมดสต๊อก" : "สินค้าใกล้หมดสต๊อก",
+        detail: `${product.name} คงเหลือ ${money(product.stockQuantity)} ชิ้น`,
+        time: product.updatedAt || selectedDate, targetId: product.id, outOfStock
+      });
+    }
+  }
+  if (categories.vipReminder !== false) {
+    const threshold = Number(app.data.settings?.vipThresholds?.vip || 5000);
+    for (const customer of app.data.customers.filter(item => item.vipLevel === "NORMAL" && Number(item.totalSpent || 0) >= threshold * 0.8)) events.push({
+      id: `vip:${customer.id}:${customer.totalSpent}:${threshold}`,
+      category: "vipReminder", type: "vip", icon: "stars", tone: "gold",
+      title: "ลูกค้าใกล้เป็น VIP", detail: `${customer.name} เหลืออีก ${money(Math.max(0, threshold - Number(customer.totalSpent || 0)))} บาท`,
+      time: customer.updatedAt || customer.lastPurchaseDate || selectedDate, targetId: customer.id
+    });
+  }
+  if (categories.salesOpportunity !== false && aiPreferences.intelligentAlerts !== false) {
+    const currentMonth = selectedDate.slice(0, 7);
+    for (const customer of app.data.customers
+      .filter(item => Number(item.totalSpent || 0) > 0 && (!item.lastPurchaseDate || !String(item.lastPurchaseDate).startsWith(currentMonth)))
+      .slice()
+      .sort((a, b) => String(a.id).localeCompare(String(b.id)))
+      .slice(0, 12)) events.push({
+      id: `opportunity:${customer.id}:${currentMonth}`,
+      category: "salesOpportunity", type: "opportunity", icon: "chart", tone: "green",
+      title: "โอกาสเพิ่มยอดขาย", detail: `${customer.name} ยังไม่มีการซื้อในเดือนนี้`,
+      time: selectedDate, targetId: customer.id
+    });
+  }
+  return events.sort((a, b) => String(b.time || "").localeCompare(String(a.time || "")) || a.id.localeCompare(b.id));
+}
+
+function liveNotificationEvents() {
   const preferences = app.data?.settings?.notificationPreferences || {};
-  const categories = preferences.categories || {};
-  const aiPreferences = app.data?.settings?.aiPreferences || {};
-  return [
-    { id: "orderReview", type: "ออเดอร์", title: "ออเดอร์ซ้ำที่ควรตรวจสอบ", count: duplicates.length, detail: "ตรวจเลขออเดอร์ซ้ำก่อนปิดยอด" },
-    { id: "customerFollowUp", type: "ลูกค้า", title: "ลูกค้าที่ควรติดตาม", count: due.length, detail: "พร้อมโทรหรือ Broadcast ได้ทันที" },
-    { id: "vipReminder", type: "ลูกค้า", title: "ลูกค้าใกล้เป็น VIP", count: vip.length, detail: "กระตุ้นอีกนิดเพื่อเพิ่มโอกาสซื้อซ้ำ" },
-    { id: "lowStock", type: "สินค้า", title: "สินค้าใกล้หมดสต๊อก", count: lowStock.length, detail: "เช็ก stock ก่อนรอบขายถัดไป" },
-    { id: "salesOpportunity", type: "โอกาสขาย", title: "โอกาสเพิ่มรายได้วันนี้", count: opportunities.length, detail: `มูลค่าประมาณ ${money(opportunities.reduce((sum, item) => sum + item.revenue, 0))} บาท` }
-  ].filter(item => categories[item.id] !== false && (item.id !== "salesOpportunity" || aiPreferences.intelligentAlerts !== false));
+  if (preferences.channels?.inApp === false) return [];
+  return notificationEvents();
+}
+
+function readNotificationIds() {
+  return new Set(app.data?.notificationReadIds || []);
+}
+
+function unreadNotificationEvents() {
+  const readIds = readNotificationIds();
+  return liveNotificationEvents().filter(item => !readIds.has(item.id));
+}
+
+function notificationItems() {
+  const labels = {
+    orderReview: ["ออเดอร์", "ออเดอร์ที่ควรตรวจสอบ", "ตรวจสอบข้อมูลออเดอร์ก่อนดำเนินการ"],
+    customerFollowUp: ["ลูกค้า", "ลูกค้าที่ควรติดตาม", "ลูกค้าที่มีนัดติดตามตามข้อมูลจริง"],
+    vipReminder: ["ลูกค้า", "ลูกค้าใกล้เป็น VIP", "โอกาสดูแลลูกค้าสำคัญต่อ"],
+    lowStock: ["สินค้า", "สินค้าใกล้หมดสต๊อก", "ตรวจสต๊อกก่อนรอบขายถัดไป"],
+    salesOpportunity: ["โอกาสขาย", "โอกาสเพิ่มรายได้", "ลูกค้าที่ควรกลับไปดูแล" ]
+  };
+  const grouped = new Map();
+  for (const item of liveNotificationEvents()) grouped.set(item.category, (grouped.get(item.category) || 0) + 1);
+  return [...grouped].map(([id, count]) => ({ id, type: labels[id]?.[0] || "แจ้งเตือน", title: labels[id]?.[1] || "การแจ้งเตือน", detail: labels[id]?.[2] || "ข้อมูลธุรกิจที่ต้องดำเนินการ", count }));
 }
 
 function liveNotificationItems() {
-  const preferences = app.data?.settings?.notificationPreferences || {};
-  if (preferences.channels?.inApp === false) return [];
-  return notificationItems().filter(item => Number(item.count || 0) > 0);
+  return notificationItems();
+}
+
+function notificationTimeLabel(value) {
+  const text = String(value || "");
+  if (!text) return "อัปเดตล่าสุด";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) {
+    const selected = app.data?.summary?.selectedDate || todayISO();
+    if (text === selected) return "วันนี้";
+    const days = diffDaysISO(selected, text);
+    if (days < 0) return `เลยกำหนด ${Math.abs(days)} วัน`;
+    return formatShortDate(text);
+  }
+  return formatDateTime(text) || "อัปเดตล่าสุด";
+}
+
+function notificationPanelItems() {
+  const all = liveNotificationEvents();
+  const readIds = readNotificationIds();
+  return all.filter(item => app.notificationFilter !== "unread" || !readIds.has(item.id));
+}
+
+function notificationRowHtml(item) {
+  const isUnread = !readNotificationIds().has(item.id);
+  return `
+    <button class="notification-action-row ${isUnread ? "is-unread" : "is-read"}" type="button" data-open-notification="${escapeHtml(item.id)}">
+      <span class="notification-unread-dot" ${isUnread ? "" : "aria-hidden=\"true\""}></span>
+      <span class="notification-row-icon tone-${escapeHtml(item.tone)}" aria-hidden="true">${iconSvg(item.icon)}</span>
+      <span class="notification-row-copy">
+        <span class="notification-row-title">${escapeHtml(item.title)}${isUnread ? `<em>ใหม่</em>` : ""}</span>
+        <small>${escapeHtml(item.detail)}</small>
+      </span>
+      <span class="notification-row-meta"><time>${escapeHtml(notificationTimeLabel(item.time))}</time><b>เปิดดู</b><i aria-hidden="true">›</i></span>
+    </button>
+  `;
+}
+
+function renderNotificationOverlay() {
+  const root = els.notificationOverlayRoot;
+  if (!root) return;
+  if (!app.notificationPanelOpen || !app.currentUser) {
+    root.innerHTML = "";
+    return;
+  }
+  const items = notificationPanelItems();
+  const unreadCount = unreadNotificationEvents().length;
+  root.innerHTML = `
+    <div class="notification-overlay" data-notification-backdrop>
+      <section class="notification-surface" role="dialog" aria-modal="true" aria-labelledby="notificationPanelTitle" aria-describedby="notificationPanelSubtitle" tabindex="-1">
+        <div class="notification-drag-handle" aria-hidden="true"></div>
+        <header class="notification-panel-header">
+          <div><h2 id="notificationPanelTitle">การแจ้งเตือน</h2><p id="notificationPanelSubtitle">เรื่องสำคัญที่ต้องจัดการวันนี้</p></div>
+          <div class="notification-panel-actions">
+            <button class="notification-icon-control" type="button" data-notification-settings aria-label="ตั้งค่าการแจ้งเตือน">${iconSvg("settings")}</button>
+            <button class="notification-icon-control" type="button" data-close-notifications aria-label="ปิดการแจ้งเตือน">×</button>
+          </div>
+        </header>
+        <div class="notification-panel-controls">
+          <div class="notification-filter-tabs" role="tablist" aria-label="ตัวกรองการแจ้งเตือน">
+            <button type="button" class="${app.notificationFilter === "all" ? "active" : ""}" data-notification-filter="all" aria-selected="${app.notificationFilter === "all"}">ทั้งหมด <b>${liveNotificationEvents().length}</b></button>
+            <button type="button" class="${app.notificationFilter === "unread" ? "active" : ""}" data-notification-filter="unread" aria-selected="${app.notificationFilter === "unread"}">ยังไม่อ่าน <b>${unreadCount}</b></button>
+          </div>
+          <span class="notification-sort" aria-label="เรียงลำดับล่าสุด">ล่าสุด⌄</span>
+        </div>
+        <div class="notification-list" aria-live="polite">
+          ${items.map(notificationRowHtml).join("") || `<div class="notification-panel-empty"><strong>${app.notificationFilter === "unread" ? "ไม่มีรายการที่ยังไม่อ่าน" : "ยังไม่มีการแจ้งเตือน"}</strong><p>เมื่อมีรายการที่ต้องดำเนินการ ระบบจะแสดงไว้ที่นี่</p></div>`}
+        </div>
+      </section>
+    </div>
+  `;
+  requestAnimationFrame(() => root.querySelector(".notification-surface")?.focus());
+}
+
+async function persistNotificationReadSnapshot(ids) {
+  const snapshot = [...new Set(ids || [])].filter(Boolean);
+  if (!snapshot.length) return Promise.resolve();
+  const previousRequest = app.notificationReadPending;
+  const request = (previousRequest ? previousRequest.catch(() => {}) : Promise.resolve())
+    .then(() => api("/api/notifications/read", {
+      method: "POST",
+      body: JSON.stringify({ notificationIds: snapshot })
+    }))
+    .then(payload => {
+      if (app.data) app.data.notificationReadIds = payload.notificationReadIds || [...readNotificationIds()];
+    })
+    .catch(async error => {
+      if (app.data) {
+        const failedIds = new Set(snapshot);
+        app.data.notificationReadIds = (app.data.notificationReadIds || []).filter(id => !failedIds.has(id));
+      }
+      updateShell();
+      if (app.notificationPanelOpen) renderNotificationOverlay();
+      showToast("บันทึกสถานะอ่านไม่สำเร็จ ระบบจะตรวจสอบอีกครั้ง", "error");
+      try { await refreshSharedState({ force: true }); } catch { /* state refresh is best effort */ }
+      throw error;
+    });
+  app.notificationReadPending = request;
+  const settle = () => {
+    if (app.notificationReadPending === request) app.notificationReadPending = null;
+    if (app.notificationPanelOpen) renderNotificationOverlay();
+  };
+  return request.then(value => {
+    settle();
+    return value;
+  }, error => {
+    settle();
+    throw error;
+  });
+}
+
+function openNotifications(trigger = els.headerNotificationButton) {
+  if (!app.currentUser || app.notificationPanelOpen) return;
+  app.notificationTrigger = trigger || els.headerNotificationButton;
+  app.notificationFilter = "all";
+  app.notificationPanelOpen = true;
+  app.notificationHistoryActive = true;
+  history.pushState({ ...(history.state || {}), notificationPanel: true }, "", location.href);
+  document.body.classList.add("notification-panel-open");
+  const snapshot = unreadNotificationEvents().map(item => item.id);
+  if (app.data) app.data.notificationReadIds = [...new Set([...(app.data.notificationReadIds || []), ...snapshot])];
+  updateShell();
+  renderNotificationOverlay();
+  persistNotificationReadSnapshot(snapshot).catch(() => {});
+}
+
+function closeNotifications({ fromHistory = false, replaceHistory = false } = {}) {
+  if (!app.notificationPanelOpen) return;
+  const historyActive = app.notificationHistoryActive;
+  app.notificationPanelOpen = false;
+  document.body.classList.remove("notification-panel-open");
+  renderNotificationOverlay();
+  updateShell();
+  if (historyActive && replaceHistory) {
+    const nextState = { ...(history.state || {}) };
+    delete nextState.notificationPanel;
+    history.replaceState(nextState, "", location.href);
+    app.notificationHistoryActive = false;
+  } else if (historyActive && !fromHistory) {
+    app.notificationHistoryActive = false;
+    history.back();
+  } else {
+    app.notificationHistoryActive = false;
+  }
+  window.setTimeout(() => app.notificationTrigger?.focus?.(), 0);
+}
+
+function navigateFromNotification(id) {
+  const item = liveNotificationEvents().find(entry => entry.id === id);
+  if (!item) {
+    closeNotifications();
+    showToast("รายการนี้ไม่พร้อมใช้งานแล้ว", "error");
+    return;
+  }
+  closeNotifications({ replaceHistory: true });
+  if (item.type === "followup" || item.type === "opportunity") {
+    const customer = app.data.customers.find(entry => entry.id === item.targetId);
+    if (!customer) return showToast("ไม่พบลูกค้าที่เกี่ยวข้อง จึงเปิดหน้าเพิ่มยอดขายแทน", "error");
+    app.mobileOpportunityFilter = item.type === "followup" ? "followup" : "all";
+    app.mobileOpportunitySearch = customer.name;
+    app.mobileOpportunitySearchDraft = customer.name;
+    setView("opportunities");
+    window.setTimeout(() => document.querySelector(`[data-opportunity-customer="${CSS.escape(customer.id)}"], [data-open-customer="${CSS.escape(customer.id)}"]`)?.scrollIntoView({ block: "center", behavior: "smooth" }), 80);
+    return;
+  }
+  if (item.type === "stock") {
+    const product = productRowsData({ ignoreFilters: true }).find(entry => entry.id === item.targetId);
+    if (!product) return showToast("ไม่พบสินค้าที่เกี่ยวข้อง จึงเปิดหน้าจัดการสินค้าแทน", "error");
+    app.productsFilterQ = product.name;
+    app.productsFilterStatus = "";
+    setView("products");
+    window.setTimeout(() => document.querySelector(`[data-product-row="${CSS.escape(product.id)}"], [data-business-product="${CSS.escape(product.id)}"]`)?.scrollIntoView({ block: "center", behavior: "smooth" }), 80);
+    return;
+  }
+  if (item.type === "order") {
+    const order = app.data.orders.find(entry => entry.id === item.targetId);
+    if (!order) return showToast("ไม่พบออเดอร์ที่เกี่ยวข้อง จึงเปิดหน้าออเดอร์แทน", "error");
+    app.ordersFilterQ = order.orderNumber || order.customerName || "";
+    app.ordersFilterDraft = app.ordersFilterQ;
+    setView("orders");
+    window.setTimeout(() => document.querySelector(`[data-order-id="${CSS.escape(order.id)}"]`)?.scrollIntoView({ block: "center", behavior: "smooth" }), 80);
+    return;
+  }
+  const customer = app.data.customers.find(entry => entry.id === item.targetId);
+  if (!customer) return showToast("ไม่พบลูกค้าที่เกี่ยวข้อง จึงเปิดหน้าจัดการลูกค้าแทน", "error");
+  app.customerGroupFilter = customer.vipLevel === "NORMAL" ? "all" : String(customer.vipLevel || "").toLowerCase();
+  applyCustomerSearchValue(customer.name);
+  setView("customers");
+  window.setTimeout(() => document.querySelector(`[data-customer="${CSS.escape(customer.id)}"]`)?.scrollIntoView({ block: "center", behavior: "smooth" }), 80);
 }
 
 function opportunityCardsData() {
@@ -2205,7 +2473,7 @@ function opportunityCardsData() {
       count: due.length,
       revenue: estimatedOpportunityRevenue(due, 0.36),
       action: "เปิดแจ้งเตือน",
-      targetView: "notifications",
+      targetView: "opportunities",
       description: "กลุ่มพร้อมปิดการขายซ้ำเร็วที่สุด"
     },
     {
@@ -2640,11 +2908,11 @@ function mobileDashboardAlertsCard(items) {
     <article class="mobile-alerts-card">
       <div class="mobile-summary-head">
         <h3>แจ้งเตือนสำคัญ</h3>
-        <button class="mobile-link-button" type="button" data-view-shortcut="notifications">ดูทั้งหมด <span aria-hidden="true">›</span></button>
+        <button class="mobile-link-button" type="button" data-open-notifications>ดูทั้งหมด <span aria-hidden="true">›</span></button>
       </div>
       <div class="mobile-alerts-list">
         ${items.map(item => `
-          <button class="mobile-alert-item" type="button" data-view-shortcut="notifications">
+          <button class="mobile-alert-item" type="button" data-open-notifications>
             <span class="mobile-alert-icon ${item.tone}" aria-hidden="true">${dashboardCardIcon(item.icon)}</span>
             <span class="mobile-alert-copy">
               <strong>${escapeHtml(item.title)} ${money(item.count)} รายการ</strong>
@@ -3381,7 +3649,6 @@ function renderMobileBusinessMain() {
   ].join("");
   const settingsRows = [
     can("system.business") ? mobileBusinessMenuRow("system", "ตั้งค่าระบบ", "ข้อมูลธุรกิจและการทำงานของระบบ", "settings", "blue") : "",
-    mobileBusinessMenuRow("notifications", "การแจ้งเตือน", "ดูการแจ้งเตือนจากข้อมูลล่าสุด", "bell", "orange"),
     mobileBusinessMenuRow("security", "ความปลอดภัย", "ข้อมูลบัญชีและความปลอดภัย", "flag", "green"),
     isOwner() ? mobileBusinessMenuRow("roles", "ผู้ใช้งานและสิทธิ์", "จัดการผู้ใช้และสิทธิ์การเข้าถึงระบบ", "users", "cyan") : ""
   ].join("");
@@ -3596,24 +3863,6 @@ function renderMobileBusinessProductDetail() {
 
 function renderMobileBusinessSystem() {
   return settingsMenuMarkup({ embeddedInBusiness: true });
-}
-
-function renderMobileBusinessNotifications() {
-  const items = liveNotificationItems();
-  return `
-    <section class="mobile-business-page mobile-business-subpage">
-      ${mobileBusinessHeader("การแจ้งเตือน", "รายการแจ้งเตือนจากข้อมูลธุรกิจล่าสุด", "bell")}
-      <div class="mobile-business-notification-list">
-        ${items.map(item => `
-          <article class="mobile-business-notification">
-            ${mobileBusinessIcon(item.type === "stock alerts" ? "box" : item.type === "follow-up customers" ? "users" : "bell")}
-            <span><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.detail)}</small></span>
-            <b>${money(item.count)}</b>
-          </article>
-        `).join("") || mobileBusinessEmpty("ไม่มีการแจ้งเตือน", "ยังไม่มีรายการจากข้อมูลจริงที่ต้องดำเนินการ")}
-      </div>
-    </section>
-  `;
 }
 
 function renderMobileBusinessFinance() {
@@ -4002,7 +4251,6 @@ function renderMobileBusinessManagement() {
     products: renderMobileBusinessProducts,
     productDetail: renderMobileBusinessProductDetail,
     system: renderMobileBusinessSystem,
-    notifications: renderMobileBusinessNotifications,
     finance: renderMobileBusinessFinance,
     advertising: renderMobileBusinessAdvertising,
     marketingPerformance: renderMobileBusinessMarketingPerformance,
@@ -4897,7 +5145,6 @@ function renderDesktopDateView() {
     orders: renderOrders,
     customers: renderSearch,
     opportunities: renderOpportunities,
-    notifications: renderNotifications,
     vip: renderVip,
     risk: renderRisk,
     settingsFinance: renderSettingsFinance
@@ -4910,7 +5157,7 @@ function queueSummaryRefresh() {
   app.summaryRefreshTimer = setTimeout(() => {
     if (!app.data) return;
     app.data.summary = buildLocalSummary(app.data.summary?.selectedDate || els.workDate.value || todayISO());
-  if (["dashboard", "notifications", "reports", "vip", "risk", "customers", "opportunities"].includes(app.view)) render();
+  if (["dashboard", "reports", "vip", "risk", "customers", "opportunities"].includes(app.view)) render();
   }, 0);
 }
 
@@ -6595,7 +6842,7 @@ function renderAiInsights() {
 function renderBroadcast() {
   const segments = [
     ["ลูกค้าเก่ายังไม่ซื้อเดือนนี้", opportunityCardsData()[0]?.count || 0],
-    ["ลูกค้าใกล้เป็น VIP", notificationItems()[2]?.count || 0],
+    ["ลูกค้าใกล้เป็น VIP", notificationEvents().filter(item => item.category === "vipReminder").length],
     ["ลูกค้าที่ควรติดตาม", app.data.summary?.dueToday || 0]
   ];
   els.content.innerHTML = `
@@ -6666,40 +6913,6 @@ function renderCampaigns() {
             </div>
           </article>
         `).join("")}
-      </div>
-    </section>
-  `;
-}
-
-function renderNotifications() {
-  const items = liveNotificationItems();
-  const followupCustomers = sortByPriority(app.data.customers.filter(customer => customer.followUpDate && customer.followUpDate <= (app.data.summary?.selectedDate || todayISO()))).slice(0, 5);
-  els.content.innerHTML = `
-    <section class="section saas-page notifications-page">
-      <div class="page-identity workspace-hero notifications-hero">
-        <div class="page-identity-copy">
-          <span class="page-kicker">Actionable Notifications</span>
-          <h2>ศูนย์แจ้งเตือนที่เปลี่ยนเป็นงานได้ทันที</h2>
-          <p>รวม duplicate orders, follow-up, VIP reminders, stock alerts และ sales opportunities</p>
-        </div>
-      </div>
-      <div class="notification-grid">
-        ${items.map(item => `
-          <article class="notification-card">
-            <div class="section-title">
-              <h3>${escapeHtml(item.title)}</h3>
-              <span class="tag">${money(item.count)} รายการ</span>
-            </div>
-            <p class="muted">${escapeHtml(item.detail)}</p>
-          </article>
-        `).join("")}
-      </div>
-      <div class="panel stack panel-premium">
-        <div class="section-title">
-          <h2>ลูกค้าที่ควรติดตาม</h2>
-          <p>เปิดต่อได้จากหน้านี้โดยตรง</p>
-        </div>
-        ${followupCards(followupCustomers)}
       </div>
     </section>
   `;
@@ -6777,7 +6990,7 @@ const settingsMenuItems = [
   { view: "settingsStore", title: "Business Information", titleTh: "ข้อมูลธุรกิจ", description: "ชื่อธุรกิจ, โลโก้, ประเภทธุรกิจ, ที่อยู่ และข้อมูลติดต่อ", icon: "briefcase", tone: "purple" },
   { view: "settingsGoals", title: "Business Goals", titleTh: "เป้าหมายธุรกิจ", description: "ตั้งเป้าหมายรายได้, กำไร, ออเดอร์ และลูกค้า", icon: "flag", tone: "pink" },
   { view: "settingsAi", title: "AI", titleTh: "AI", description: "การวิเคราะห์และการแจ้งเตือนอัจฉริยะ", icon: "bot", tone: "blue" },
-  { view: "settingsNotifications", title: "Notifications", titleTh: "การแจ้งเตือน", description: "ตั้งค่าการแจ้งเตือนผ่านแอป, อีเมล และ LINE", icon: "bell", tone: "orange" },
+  { view: "settingsNotifications", title: "Notifications", titleTh: "ตั้งค่าการแจ้งเตือน", description: "ตั้งค่าการแจ้งเตือนผ่านแอป, อีเมล และ LINE", icon: "bell", tone: "orange" },
   { view: "settingsDisplay", title: "Display", titleTh: "การแสดงผล", description: "ธีม, ภาษา, รูปแบบวันที่และตัวเลข", icon: "palette", tone: "amber" },
   { view: "settingsIntegrations", title: "Integrations", titleTh: "การเชื่อมต่อ", description: "เชื่อมต่อบริการภายนอก เช่น LINE, Facebook, Google และอื่นๆ", icon: "link", tone: "cyan" }
 ];
@@ -6792,7 +7005,7 @@ function settingsSubpageShell(kicker, title, description, inner, options = {}) {
     "เป้าหมายธุรกิจ": "flag",
     "AI": "bot",
     "Notifications": "bell",
-    "การแจ้งเตือน": "bell",
+    "ตั้งค่าการแจ้งเตือน": "bell",
     "Display": "palette",
     "การแสดงผล": "palette",
     "Integrations": "link",
@@ -7289,8 +7502,8 @@ function renderSettingsNotifications() {
   const categories = prefs.categories || {};
   els.content.innerHTML = settingsSubpageShell(
     "Notifications",
-    "การแจ้งเตือน",
-    "รายการแจ้งเตือนจากข้อมูลธุรกิจล่าสุด",
+    "ตั้งค่าการแจ้งเตือน",
+    "จัดการช่องทางและประเภทการแจ้งเตือน",
     `
       <form class="settings-unified-form" id="settingsForm" data-settings-scope="notifications">
         ${settingsUnifiedCard("ช่องทางการแจ้งเตือน", "ในแอปใช้กับศูนย์แจ้งเตือนปัจจุบัน ส่วนอีเมลและ LINE จะใช้เมื่อระบบส่งข้อความพร้อม", `
@@ -8958,7 +9171,6 @@ function render(options = {}) {
     broadcast: renderBroadcast,
     campaigns: renderCampaigns,
     pricing: renderPricing,
-    notifications: renderNotifications,
     team: renderTeam,
     settings: renderSettings,
     settingsStore: renderSettingsStore,
@@ -9085,6 +9297,10 @@ async function setMobileNavView(view) {
 }
 
 function syncViewFromLocation(event = null) {
+  if (app.notificationPanelOpen && event?.type === "popstate") {
+    closeNotifications({ fromHistory: true });
+    return;
+  }
   const nextView = routeFromLocation();
   const previousBusinessPage = app.mobileBusinessPage || "main";
   const wasCustomerManagement = app.view === "customers" || app.view === "settingsCustomers" || (app.view === "settings" && previousBusinessPage === "customers");
@@ -9556,7 +9772,41 @@ document.addEventListener("click", async event => {
   }
 
   if (event.target.closest("#headerNotificationButton")) {
-    setView("notifications");
+    openNotifications(event.target.closest("#headerNotificationButton"));
+    return;
+  }
+
+  if (event.target.closest("[data-open-notifications]")) {
+    openNotifications(event.target.closest("[data-open-notifications]"));
+    return;
+  }
+
+  if (event.target.closest("[data-close-notifications]")) {
+    closeNotifications();
+    return;
+  }
+
+  if (event.target.closest("[data-notification-backdrop]") === event.target) {
+    closeNotifications();
+    return;
+  }
+
+  const notificationFilter = event.target.closest("[data-notification-filter]");
+  if (notificationFilter) {
+    app.notificationFilter = notificationFilter.dataset.notificationFilter === "unread" ? "unread" : "all";
+    renderNotificationOverlay();
+    return;
+  }
+
+  if (event.target.closest("[data-notification-settings]")) {
+    closeNotifications({ replaceHistory: true });
+    setView("settingsNotifications");
+    return;
+  }
+
+  const notificationRow = event.target.closest("[data-open-notification]");
+  if (notificationRow) {
+    navigateFromNotification(notificationRow.dataset.openNotification);
     return;
   }
 
@@ -10690,6 +10940,11 @@ document.addEventListener("change", event => {
 });
 
 document.addEventListener("keydown", event => {
+  if (event.key === "Escape" && app.notificationPanelOpen) {
+    event.preventDefault();
+    closeNotifications();
+    return;
+  }
   if (event.key !== "Enter") return;
   if (event.target?.matches?.("[data-order-filter]")) {
     event.preventDefault();

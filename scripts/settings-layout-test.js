@@ -28,7 +28,7 @@ assert(JSON.stringify(titles) === JSON.stringify([
   "ข้อมูลธุรกิจ",
   "เป้าหมายธุรกิจ",
   "AI",
-  "การแจ้งเตือน",
+  "ตั้งค่าการแจ้งเตือน",
   "การแสดงผล",
   "การเชื่อมต่อ"
 ]), "settings menu order changed");
@@ -51,6 +51,7 @@ assert(!menuMarkup.includes("settings-subpage-header"), "settings landing must n
 const businessMain = functionBody("renderMobileBusinessMain");
 assert(businessMain.includes('mobileBusinessMenuRow("system", "ตั้งค่าระบบ"'), "Business Management must keep the existing System Settings card");
 assert(!businessMain.includes("settingsMenuItems.map"), "Settings landing rows must not render directly on Business Management");
+assert(!businessMain.includes("notifications"), "Business Management must not restore the duplicate Notifications card");
 
 const businessSystem = functionBody("renderMobileBusinessSystem");
 assert(businessSystem.includes("settingsMenuMarkup({ embeddedInBusiness: true })"), "System Settings card must open the Settings landing page");
@@ -64,5 +65,13 @@ assert(css.includes(".settings-shared-content"), "settings shared content CSS mi
 assert(css.includes(".settings-shared-page .settings-unified-form"), "settings shared form CSS missing");
 assert(css.includes(".settings-shared-page .integration-grid"), "settings integration grid must be scoped to shared page");
 assert(css.includes("@media (max-width: 900px)"), "responsive Settings layout rules missing");
+
+const notificationEvents = functionBody("notificationEvents");
+assert(notificationEvents.includes("stock:${stableProductKey}"), "stock notification IDs must use the stable product key");
+assert(notificationEvents.includes("!/^product_\\d+$/.test(persistentProductId)"), "stock notifications must reject array-index fallback product IDs");
+assert(!notificationEvents.includes("stock:${product.id}"), "stock notification IDs must not use normalized index fallback IDs");
+
+const notificationNavigation = functionBody("navigateFromNotification");
+assert(notificationNavigation.includes("closeNotifications({ replaceHistory: true })"), "notification routing must replace the overlay history entry before navigation");
 
 console.log("Settings layout contract OK");
