@@ -8514,7 +8514,8 @@ function applyProductSavePayload(payload = {}) {
   app.data.settings = app.data.settings || {};
   if (Array.isArray(payload.settings?.products)) {
     app.data.settings.products = normalizeProductRecords({ products: payload.settings.products });
-  } else if (payload.product) {
+  }
+  if (payload.product) {
     const products = normalizeProductRecords();
     const index = products.findIndex(item => item.id === payload.product.id);
     if (index === -1) products.push(payload.product);
@@ -8523,6 +8524,13 @@ function applyProductSavePayload(payload = {}) {
   }
   if (Array.isArray(payload.settings?.productCosts)) {
     app.data.settings.productCosts = payload.settings.productCosts;
+  }
+  if (payload.product && Array.isArray(app.data.settings.productCosts)) {
+    app.data.settings.productCosts = app.data.settings.productCosts.map(item => (
+      item.id === payload.product.id || item.name === payload.product.name
+        ? { ...item, name: payload.product.name || item.name, enabled: !payload.product.archived }
+        : item
+    ));
   }
 }
 
