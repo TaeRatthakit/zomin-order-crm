@@ -68,6 +68,8 @@ function fail(message) {
   throw new Error(`Smoke test failed: ${message}`);
 }
 
+const PRODUCT_RESOLUTION_ERROR = "ไม่พบสินค้า กรุณาเพิ่มสินค้าหรือจับคู่สินค้าให้ถูกต้องก่อนสร้างออเดอร์";
+
 function bangkokNow() {
   const parts = new Intl.DateTimeFormat("en-GB", {
     timeZone: "Asia/Bangkok",
@@ -349,15 +351,27 @@ async function main() {
   for (let index = 0; index < lineProductCases.length; index += 1) {
     const [inputProduct, expectedProduct] = lineProductCases[index];
     const suffix = `${productSuffix}${index}`;
-    const mock = await request("/api/line/mock", {
+    const lineText = lineOrderText(inputProduct, suffix);
+    const mock = await request("/api/line/webhook", {
       method: "POST",
-      headers: { cookie, "content-type": "application/json" },
-      body: JSON.stringify({ text: lineOrderText(inputProduct, suffix) })
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        events: [{
+          type: "message",
+          replyToken: "",
+          source: { type: "group", groupId: "smoke-test-group" },
+          message: { type: "text", id: `line-normalize-${productSuffix}-${index}`, text: lineText }
+        }]
+      })
     });
     if (mock.status !== 200) fail(`LINE mock normalization returned ${mock.status}: ${mock.text}`);
-    const rows = JSON.parse(mock.text).rows || [];
-    if (rows[0]?.items !== expectedProduct) {
-      fail(`LINE product normalization failed for "${inputProduct}": got "${rows[0]?.items}"`);
+    if (JSON.parse(mock.text).parsedOrders !== 1) {
+      fail(`LINE normalization order was not imported for "${inputProduct}": ${mock.text}`);
+    }
+    const normalizedOrder = JSON.parse((await request("/api/state", { headers: { cookie } })).text)
+      .orders.find(order => order.orderNumber === `LINE-NORM-${suffix}`);
+    if (normalizedOrder?.items !== expectedProduct) {
+      fail(`LINE product normalization failed for "${inputProduct}": got "${normalizedOrder?.items}"`);
     }
   }
   const zominLabelProduct = await request("/api/products", {
@@ -390,22 +404,31 @@ async function main() {
   if (createZominPlusForMatching.status !== 200) {
     fail(`Zomin Plus product creation returned ${createZominPlusForMatching.status}: ${createZominPlusForMatching.text}`);
   }
-  const longestMatchMock = await request("/api/line/mock", {
+  const longestMatchText = lineOrderText("ข้อความมั่ว zomin plus", `${productSuffix}long`);
+  const longestMatchMock = await request("/api/line/webhook", {
     method: "POST",
-    headers: { cookie, "content-type": "application/json" },
-    body: JSON.stringify({ text: lineOrderText("ข้อความมั่ว zomin plus", `${productSuffix}long`) })
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      events: [{
+        type: "message",
+        replyToken: "",
+        source: { type: "group", groupId: "smoke-test-group" },
+        message: { type: "text", id: `line-longest-${productSuffix}`, text: longestMatchText }
+      }]
+    })
   });
   if (longestMatchMock.status !== 200) fail(`longest product match returned ${longestMatchMock.status}: ${longestMatchMock.text}`);
-  const longestRows = JSON.parse(longestMatchMock.text).rows || [];
-  if (longestRows[0]?.items !== "Zomin Plus") {
-    fail(`longest product match did not choose Zomin Plus: got "${longestRows[0]?.items}"`);
+  const longestOrder = JSON.parse((await request("/api/state", { headers: { cookie } })).text)
+    .orders.find(order => order.orderNumber === `LINE-NORM-${productSuffix}long`);
+  if (longestOrder?.items !== "Zomin Plus") {
+    fail(`longest product match did not choose Zomin Plus: got "${longestOrder?.items}"`);
   }
   const trulyNewProductName = `สินค้าใหม่ Normalize ${productSuffix}`;
   const trulyNewOrderProduct = `ข้อความสินค้าใหม่ ${productSuffix}`;
-  const trulyNewOrderMock = await request("/api/line/mock", {
+  const trulyNewOrderMock = await request("/api/parse-preview", {
     method: "POST",
     headers: { cookie, "content-type": "application/json" },
-    body: JSON.stringify({ text: lineOrderText(trulyNewOrderProduct, `${productSuffix}new`) })
+    body: JSON.stringify({ content: lineOrderText(trulyNewOrderProduct, `${productSuffix}new`) })
   });
   if (trulyNewOrderMock.status !== 200) fail(`new product order match returned ${trulyNewOrderMock.status}: ${trulyNewOrderMock.text}`);
   const trulyNewOrderRows = JSON.parse(trulyNewOrderMock.text).rows || [];
@@ -498,6 +521,73 @@ async function main() {
     fail("product cost rows were not kept separate by product id");
   }
 
+  const beforeUnmatchedManual = JSON.parse((await request("/api/state", { headers: { cookie } })).text);
+  const zominStockBeforeUnmatched = beforeUnmatchedManual.settings.products.find(product => product.id === savedZomin.id)?.stockQuantity;
+  const unmatchedManual = await request("/api/orders", {
+    method: "POST",
+    headers: { cookie, "content-type": "application/json" },
+    body: JSON.stringify({
+      orderNumber: `NO-PRODUCT-${productSuffix}`,
+      items: `สินค้าไม่มีจริง ${productSuffix}`,
+      name: "ลูกค้าไม่พบสินค้า",
+      phone: `080${String(productSuffix).slice(-7).padStart(7, "0")}`,
+      address: "กรุงเทพฯ",
+      date: bangkokNow().date,
+      jars: 1,
+      amount: 750
+    })
+  });
+  if (unmatchedManual.status !== 409 || !unmatchedManual.text.includes(PRODUCT_RESOLUTION_ERROR)) {
+    fail(`manual unmatched product was not blocked: ${unmatchedManual.status} ${unmatchedManual.text}`);
+  }
+  const afterUnmatchedManual = JSON.parse((await request("/api/state", { headers: { cookie } })).text);
+  if (
+    afterUnmatchedManual.orders.some(order => order.orderNumber === `NO-PRODUCT-${productSuffix}`)
+    || afterUnmatchedManual.settings.products.find(product => product.id === savedZomin.id)?.stockQuantity !== zominStockBeforeUnmatched
+  ) {
+    fail("manual unmatched product changed orders or stock");
+  }
+
+  const importJobStart = await request("/api/import-jobs", {
+    method: "POST",
+    headers: { cookie, "content-type": "application/json" },
+    body: JSON.stringify({
+      type: "orders",
+      total: 1,
+      fileName: "unmatched-product.csv",
+      fingerprint: `unmatched-product-${productSuffix}`
+    })
+  });
+  if (importJobStart.status !== 201) fail(`import job start failed: ${importJobStart.status} ${importJobStart.text}`);
+  const importJobId = JSON.parse(importJobStart.text).job?.id;
+  const importBatch = await request(`/api/import-jobs/${encodeURIComponent(importJobId)}/batches`, {
+    method: "POST",
+    headers: { cookie, "content-type": "application/json" },
+    body: JSON.stringify({
+      offset: 0,
+      rows: [{
+        rowNumber: 1,
+        orderNumber: `IMP-NO-PRODUCT-${productSuffix}`,
+        items: `สินค้า import ไม่มีจริง ${productSuffix}`,
+        name: "ลูกค้านำเข้าไม่พบสินค้า",
+        phone: `081${String(productSuffix).slice(-7).padStart(7, "0")}`,
+        address: "กรุงเทพฯ",
+        date: bangkokNow().date,
+        jars: 1,
+        amount: 750
+      }]
+    })
+  });
+  if (importBatch.status !== 200) fail(`import batch failed: ${importBatch.status} ${importBatch.text}`);
+  const importJob = JSON.parse(importBatch.text).job;
+  if (importJob.imported !== 0 || importJob.failed !== 1 || importJob.canExportFailures !== true) {
+    fail(`import unmatched product was not recorded as failed: ${importBatch.text}`);
+  }
+  const afterUnmatchedImport = JSON.parse((await request("/api/state", { headers: { cookie } })).text);
+  if (afterUnmatchedImport.orders.some(order => order.orderNumber === `IMP-NO-PRODUCT-${productSuffix}`)) {
+    fail("import unmatched product created an order");
+  }
+
   const packageOrderExpenses = editedZomin.salesPackages[0].expenses.map(expense => ({ ...expense }));
   const packageOrder = await request("/api/orders", {
     method: "POST",
@@ -532,6 +622,61 @@ async function main() {
   ) {
     fail("package order snapshot did not persist");
   }
+  const deleteUnreferenced = await request(`/api/products/${encodeURIComponent(savedTrulyNewProduct.id)}`, {
+    method: "DELETE",
+    headers: { cookie, "content-type": "application/json" },
+    body: "{}"
+  });
+  if (deleteUnreferenced.status !== 200) fail(`unreferenced product delete failed: ${deleteUnreferenced.status} ${deleteUnreferenced.text}`);
+  const stateAfterUnreferencedDelete = JSON.parse((await request("/api/state", { headers: { cookie } })).text);
+  if (stateAfterUnreferencedDelete.settings.products.some(product => product.id === savedTrulyNewProduct.id)) {
+    fail("unreferenced product remained after permanent deletion");
+  }
+  const deleteReferenced = await request(`/api/products/${encodeURIComponent(savedZomin.id)}`, {
+    method: "DELETE",
+    headers: { cookie, "content-type": "application/json" },
+    body: "{}"
+  });
+  if (deleteReferenced.status !== 409 || !JSON.parse(deleteReferenced.text).canDisable) {
+    fail(`referenced product delete was not blocked safely: ${deleteReferenced.status} ${deleteReferenced.text}`);
+  }
+  const disableReferenced = await request(`/api/products/${encodeURIComponent(savedZomin.id)}/archive`, {
+    method: "POST",
+    headers: { cookie, "content-type": "application/json" },
+    body: JSON.stringify({ archived: true })
+  });
+  if (disableReferenced.status !== 200) fail(`referenced product disable failed: ${disableReferenced.status} ${disableReferenced.text}`);
+  const disabledState = JSON.parse((await request("/api/state", { headers: { cookie } })).text);
+  if (
+    !disabledState.settings.products.find(product => product.id === savedZomin.id && product.archived === true)
+    || !disabledState.orders.find(order => order.id === packageOrderId && order.items === "Zomin")
+  ) {
+    fail("disabling product did not preserve product and historical order data");
+  }
+  const disabledProductOrder = await request("/api/orders", {
+    method: "POST",
+    headers: { cookie, "content-type": "application/json" },
+    body: JSON.stringify({
+      orderNumber: `DISABLED-PRODUCT-${productSuffix}`,
+      items: "Zomin",
+      productId: savedZomin.id,
+      name: "ลูกค้าสินค้าปิดใช้งาน",
+      phone: `087${String(productSuffix).slice(-7).padStart(7, "0")}`,
+      address: "กรุงเทพฯ",
+      date: bangkokNow().date,
+      jars: 1,
+      amount: 750
+    })
+  });
+  if (disabledProductOrder.status !== 409 || !disabledProductOrder.text.includes(PRODUCT_RESOLUTION_ERROR)) {
+    fail(`disabled product was not blocked from new order picker behavior: ${disabledProductOrder.status} ${disabledProductOrder.text}`);
+  }
+  const reenableReferenced = await request(`/api/products/${encodeURIComponent(savedZomin.id)}/archive`, {
+    method: "POST",
+    headers: { cookie, "content-type": "application/json" },
+    body: JSON.stringify({ archived: false })
+  });
+  if (reenableReferenced.status !== 200) fail(`referenced product re-enable failed: ${reenableReferenced.status} ${reenableReferenced.text}`);
   const enabledPackageExpenseTotal = packageOrderExpenses
     .filter(expense => expense.enabled)
     .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
@@ -801,9 +946,13 @@ async function main() {
     || !productClient.text.includes("function mobileOrderProductParts")
     || !productClient.text.includes("function mobileOrderProductSummary")
     || !productClient.text.includes("mobile-order-products")
-    || !productClient.text.includes("delete data.originSourceChoice;\n  applyQuantityMatchedOrderPackage(data);")
+    || !productClient.text.includes("delete data.originSourceChoice;")
+    || !productClient.text.includes("showToast(\"กรุณาเลือกสินค้าในระบบ\"")
+    || !productClient.text.includes("applyQuantityMatchedOrderPackage(data);")
     || !productClient.text.includes("Number(item.totalQuantityShipped || 0) === quantity")
-    || !productClient.text.includes("section.hidden = true")
+    || !productClient.text.includes("section.hidden = false")
+    || !productClient.text.includes("data-product-row-menu")
+    || !productClient.text.includes("data-delete-product")
   ) {
     fail("product image, mobile order product row, or decimal cost renderer is missing from the client");
   }
@@ -1020,8 +1169,8 @@ async function main() {
 
   const upsaleOrderNumber = `UPSALE-${uniqueSuffix}`;
   const upsalePhone = `08345${uniquePhoneSuffix}`;
-  const upsaleLineText = ({ jars, amount, gift = "", note = "Original", symptoms = "ปวดเข่า" }) => [
-    "สินค้า : ACNA",
+  const upsaleLineText = ({ jars, amount, gift = "", note = "Original", symptoms = "ปวดเข่า", product = "ACNA" }) => [
+    `สินค้า : ${product}`,
     `เลขออเดอร์ : ${upsaleOrderNumber}`,
     "วันที่ซื้อ : 12/7/2569",
     "ช่องทางการสั่งซื้อ : ไลน์บริษัท",
@@ -1053,6 +1202,24 @@ async function main() {
     JSON.parse((await request("/api/state", { headers: { cookie } })).text)
       .settings.products.find(product => product.id === savedAcna.id)?.stockQuantity
   );
+  const unmatchedLineText = upsaleLineText({
+    jars: 1,
+    amount: 750,
+    note: "Unmatched LINE",
+    product: `LINE ไม่มีสินค้า ${productSuffix}`
+  }).replace(upsaleOrderNumber, `LINE-NO-PRODUCT-${productSuffix}`).replace(upsalePhone, `08445${uniquePhoneSuffix}`);
+  const unmatchedLineImport = await postLineEvent(`line-no-product-${uniqueSuffix}`, unmatchedLineText, `reply-no-product-${uniqueSuffix}`);
+  if (unmatchedLineImport.status !== 200 || JSON.parse(unmatchedLineImport.text).parsedOrders !== 0) {
+    fail(`LINE unmatched product should be skipped safely: ${unmatchedLineImport.status} ${unmatchedLineImport.text}`);
+  }
+  let stateAfterUnmatchedLine = JSON.parse((await request("/api/state", { headers: { cookie } })).text);
+  if (
+    stateAfterUnmatchedLine.orders.some(order => order.orderNumber === `LINE-NO-PRODUCT-${productSuffix}`)
+    || stateAfterUnmatchedLine.settings.products.some(product => product.name === `LINE ไม่มีสินค้า ${productSuffix}`)
+    || Number(stateAfterUnmatchedLine.settings.products.find(product => product.id === savedAcna.id)?.stockQuantity) !== acnaStockBeforeUpsale
+  ) {
+    fail("LINE unmatched product created product/order or changed stock");
+  }
   const firstUpsaleText = upsaleLineText({ jars: 6, amount: 1000 });
   const firstUpsaleImport = await postLineEvent(`line-upsale-first-${uniqueSuffix}`, firstUpsaleText, `reply-first-${uniqueSuffix}`);
   if (firstUpsaleImport.status !== 200 || JSON.parse(firstUpsaleImport.text).parsedOrders !== 1) {
@@ -1073,7 +1240,8 @@ async function main() {
     amount: 1800,
     gift: "Mesh Bag",
     note: "Updated",
-    symptoms: "ปวดเข่า, นอนไม่หลับ"
+    symptoms: "ปวดเข่า, นอนไม่หลับ",
+    product: `UPSALE Product ${productSuffix}`
   });
   const upsaleUpdate = await postLineEvent(`line-upsale-update-${uniqueSuffix}`, updatedUpsaleText, `reply-update-${uniqueSuffix}`);
   if (upsaleUpdate.status !== 200 || JSON.parse(upsaleUpdate.text).parsedOrders !== 1) {
@@ -1083,6 +1251,9 @@ async function main() {
   upsaleOrders = upsaleState.orders.filter(order => order.orderNumber === upsaleOrderNumber && order.phone === upsalePhone);
   if (upsaleOrders.length !== 1 || upsaleOrders[0].jars !== 13 || upsaleOrders[0].amount !== 1800 || upsaleOrders[0].freeGift !== "Mesh Bag" || upsaleOrders[0].note !== "Updated") {
     fail(`UPSALE update did not update the existing order: ${JSON.stringify(upsaleOrders)}`);
+  }
+  if (upsaleOrders[0].items !== "ACNA" || upsaleState.settings.products.some(product => product.name === `UPSALE Product ${productSuffix}`)) {
+    fail("UPSALE update created or switched to a placeholder product");
   }
   const acnaAfterUpsaleUpdate = Number(upsaleState.settings.products.find(product => product.id === savedAcna.id)?.stockQuantity);
   if (acnaAfterUpsaleUpdate !== acnaStockBeforeUpsale - 13) {

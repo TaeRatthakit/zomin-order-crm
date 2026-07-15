@@ -808,6 +808,125 @@ function canonicalProductNameForOrder(settings = {}, value) {
   return containsMatches[0]?.name || normalizedName;
 }
 
+const PRODUCT_RESOLUTION_ERROR = "ไม่พบสินค้า กรุณาเพิ่มสินค้าหรือจับคู่สินค้าให้ถูกต้องก่อนสร้างออเดอร์";
+
+function activeProductsForOrders(settings = {}) {
+  return normalizeProductRecords(settings.products).filter(product => !product.archived);
+}
+
+function resolveActiveProductForOrder(settings = {}, payload = {}, options = {}) {
+  const products = activeProductsForOrders(settings);
+  const productId = String(payload.productId || payload.product_id || "").trim();
+  const productName = payload.items || payload.product || payload.productName || "";
+  let product = productId
+    ? products.find(item => String(item.id || "") === productId)
+    : null;
+  if (!product) {
+    const normalizedKey = normalizedProductNameKey(normalizeProductNameForMatching(productName));
+    product = products.find(item => normalizedProductNameKey(item.name) === normalizedKey) || null;
+  }
+  if (!product && options.allowContainsMatch) {
+    const normalizedKey = normalizedProductNameKey(normalizeProductNameForMatching(productName));
+    product = products
+      .filter(item => normalizedKey && normalizedKey.includes(normalizedProductNameKey(item.name)))
+      .sort((a, b) => normalizedProductNameKey(b.name).length - normalizedProductNameKey(a.name).length)[0] || null;
+  }
+  if (!product) {
+    const error = new Error(PRODUCT_RESOLUTION_ERROR);
+    error.code = "PRODUCT_NOT_FOUND";
+    throw error;
+  }
+  const packageId = String(payload.packageId || payload.package_id || "").trim();
+  const salesPackages = normalizeSalesPackages(product.salesPackages);
+  const selectedPackage = packageId
+    ? salesPackages.find(item => item.id === packageId && item.enabled !== false)
+    : null;
+  if (packageId && !selectedPackage) {
+    const error = new Error(PRODUCT_RESOLUTION_ERROR);
+    error.code = "PRODUCT_NOT_FOUND";
+    throw error;
+  }
+  return { product, package: selectedPackage };
+}
+
+function resolveStoredProductForOrder(settings = {}, order = {}) {
+  const products = normalizeProductRecords(settings.products);
+  const productId = String(order.productId || order.product_id || "").trim();
+  const productNameKey = normalizedProductNameKey(order.items || order.product || order.productName || "");
+  const product = (productId ? products.find(item => String(item.id || "") === productId) : null)
+    || products.find(item => productNameKey && normalizedProductNameKey(item.name) === productNameKey)
+    || null;
+  if (!product) {
+    const error = new Error(PRODUCT_RESOLUTION_ERROR);
+    error.code = "PRODUCT_NOT_FOUND";
+    throw error;
+  }
+  const packageId = String(order.packageId || order.package_id || "").trim();
+  const selectedPackage = packageId
+    ? normalizeSalesPackages(product.salesPackages).find(item => item.id === packageId) || null
+    : null;
+  return { product, package: selectedPackage };
+}
+
+function applyResolvedProductToPayload(settings = {}, payload = {}, options = {}) {
+  const resolved = resolveActiveProductForOrder(settings, payload, options);
+  const preservePackageSnapshot = options.preservePackageSnapshot
+    && Array.isArray(payload.packageExpenses)
+    && String(payload.packageId || payload.package_id || "") === String(resolved.package?.id || "");
+  return {
+    ...payload,
+    items: resolved.product.name,
+    productId: resolved.product.id,
+    packageId: resolved.package?.id || "",
+    packageName: resolved.package?.name || "",
+    paidQuantity: resolved.package ? Number(resolved.package.paidQuantity || 0) : Number(payload.paidQuantity || 0),
+    freeQuantity: resolved.package ? Number(resolved.package.freeQuantity || 0) : Number(payload.freeQuantity || 0),
+    totalQuantityShipped: resolved.package ? Number(resolved.package.totalQuantityShipped || 0) : Number(payload.totalQuantityShipped || 0),
+    packageExpenses: preservePackageSnapshot
+      ? normalizePackageExpenses(payload.packageExpenses)
+      : resolved.package
+      ? normalizePackageExpenses(resolved.package.expenses).map(expense => ({ ...expense }))
+      : normalizePackageExpenses(payload.packageExpenses)
+  };
+}
+
+function productReferenceReport(db = {}, product = {}) {
+  const productId = String(product.id || "").trim();
+  const productNameKey = normalizedProductNameKey(product.name);
+  const packages = normalizeSalesPackages(product.salesPackages);
+  const packageIds = new Set(packages.map(item => item.id));
+  const matchesProduct = order => (
+    (productId && String(order.productId || order.product_id || "") === productId) ||
+    (productNameKey && normalizedProductNameKey(order.items || order.product || order.productName || "") === productNameKey)
+  );
+  const orders = (db.orders || []).filter(matchesProduct);
+  const packageOrders = (db.orders || []).filter(order => packageIds.has(String(order.packageId || order.package_id || "")));
+  const productCosts = normalizeSettingsCostRows(db.settings?.productCosts, "costPerJar").filter(item =>
+    (productId && String(item.id || "") === productId) ||
+    (productNameKey && normalizedProductNameKey(item.name) === productNameKey)
+  );
+  const adCostRecords = Array.isArray(db.settings?.adCostRecords)
+    ? db.settings.adCostRecords.filter(record =>
+        (productId && String(record.productId || "") === productId) ||
+        (productNameKey && normalizedProductNameKey(record.productName || "") === productNameKey)
+      )
+    : [];
+  const contactLogs = (db.contactLogs || []).filter(log => {
+    const textValue = `${log.productId || ""} ${log.productName || ""} ${log.note || ""}`;
+    return (productId && String(log.productId || "") === productId)
+      || (productNameKey && normalizedProductNameKey(log.productName || "") === productNameKey)
+      || (productNameKey && normalizedProductNameKey(textValue).includes(productNameKey));
+  });
+  return {
+    orders,
+    packageOrders,
+    productCosts,
+    adCostRecords,
+    contactLogs,
+    total: orders.length + packageOrders.length + productCosts.length + adCostRecords.length + contactLogs.length
+  };
+}
+
 function orderInventoryQuantity(order = {}) {
   const shipped = Number(order.totalQuantityShipped || 0);
   if (Number.isFinite(shipped) && shipped > 0) return shipped;
@@ -1964,6 +2083,9 @@ function addOrder(db, payload) {
     error.order = duplicate;
     throw error;
   }
+  const resolvedPayload = applyResolvedProductToPayload(db.settings || {}, payload, {
+    allowContainsMatch: Boolean(payload.allowProductContainsMatch)
+  });
   const existingCustomer = payload.customerId
     ? db.customers.find(item => item.id === payload.customerId)
     : null;
@@ -1996,7 +2118,7 @@ function addOrder(db, payload) {
     id: payload.id || uid("o"),
     customerId: customer.id,
     orderNumber: normalizeImportText(payload.orderNumber),
-    items: canonicalProductNameForOrder(db.settings || {}, payload.items || payload.product || payload.productName || "Growup"),
+    items: resolvedPayload.items,
     customerName: normalizeImportText(payload.name || customer.name),
     phone,
     address: normalizeImportText(payload.address || customer.address),
@@ -2013,13 +2135,13 @@ function addOrder(db, payload) {
     duplicateFingerprint: duplicateFingerprint(payload),
     socialName: String(payload.socialName || payload.social_name || "").trim(),
     freeGift: String(payload.freeGift || payload.free_gift || "").trim(),
-    productId: String(payload.productId || "").trim(),
-    packageId: String(payload.packageId || "").trim(),
-    packageName: String(payload.packageName || "").trim(),
-    paidQuantity: Math.max(0, Number(payload.paidQuantity || 0)),
-    freeQuantity: Math.max(0, Number(payload.freeQuantity || 0)),
-    totalQuantityShipped: Math.max(0, Number(payload.totalQuantityShipped || 0)),
-    packageExpenses: normalizePackageExpenses(payload.packageExpenses),
+    productId: String(resolvedPayload.productId || "").trim(),
+    packageId: String(resolvedPayload.packageId || "").trim(),
+    packageName: String(resolvedPayload.packageName || "").trim(),
+    paidQuantity: Math.max(0, Number(resolvedPayload.paidQuantity || 0)),
+    freeQuantity: Math.max(0, Number(resolvedPayload.freeQuantity || 0)),
+    totalQuantityShipped: Math.max(0, Number(resolvedPayload.totalQuantityShipped || 0)),
+    packageExpenses: normalizePackageExpenses(resolvedPayload.packageExpenses),
     vipCardStatus,
     note,
     rawText: String(payload.rawText || "").trim(),
@@ -2034,6 +2156,7 @@ function addOrder(db, payload) {
 
 function updateLineUpsaleOrder(db, order, payload = {}) {
   const previousOrder = { ...order };
+  const existingProduct = resolveStoredProductForOrder(db.settings || {}, order);
   const customer = db.customers.find(item => item.id === order.customerId);
   const previousCustomer = customer ? { ...customer, tags: [...(customer.tags || [])] } : null;
   previousOrder.tags = previousCustomer?.tags || [];
@@ -2055,7 +2178,7 @@ function updateLineUpsaleOrder(db, order, payload = {}) {
     const nextSourceChannel = orderChannel(payload) || order.sourceChannel || "LINE";
     Object.assign(order, {
       orderNumber: normalizeImportText(payload.orderNumber || order.orderNumber),
-      items: canonicalProductNameForOrder(db.settings || {}, payload.items || payload.product || payload.productName || order.items || "Growup"),
+      items: existingProduct.product.name,
       customerName: normalizeImportText(payload.name || order.customerName || customer?.name || ""),
       phone: normalizePhone(payload.phone || order.phone || customer?.phone || ""),
       address: normalizeImportText(payload.address || order.address || customer?.address || ""),
@@ -2071,9 +2194,9 @@ function updateLineUpsaleOrder(db, order, payload = {}) {
       duplicateFingerprint: duplicateFingerprint(payload),
       socialName: String(payload.socialName || payload.social_name || order.socialName || "").trim(),
       freeGift: String(payload.freeGift ?? payload.free_gift ?? order.freeGift ?? "").trim(),
-      productId: String(payload.productId ?? order.productId ?? "").trim(),
-      packageId: String(payload.packageId ?? order.packageId ?? "").trim(),
-      packageName: String(payload.packageName ?? order.packageName ?? "").trim(),
+      productId: String(existingProduct.product.id || order.productId || "").trim(),
+      packageId: String(existingProduct.package?.id || order.packageId || "").trim(),
+      packageName: String(existingProduct.package?.name || order.packageName || "").trim(),
       paidQuantity: payload.paidQuantity !== undefined ? Math.max(0, Number(payload.paidQuantity || 0)) : Number(order.paidQuantity || 0),
       freeQuantity: payload.freeQuantity !== undefined ? Math.max(0, Number(payload.freeQuantity || 0)) : Number(order.freeQuantity || 0),
       totalQuantityShipped: payload.totalQuantityShipped !== undefined
@@ -2843,7 +2966,7 @@ async function handleLineWebhookEvents(db, settings, events) {
         debug.reply_text = upsaleReplyText;
         replies.push({ replyToken, messages: [{ type: "text", text: upsaleReplyText }] });
       } else {
-        const order = addOrder(db, normalized);
+        const order = addOrder(db, { ...normalized, allowProductContainsMatch: true });
         adjustInventoryForOrderChange(db, null, order);
         parsedOrders.push(order);
         persistedOrders.push({
@@ -2883,6 +3006,19 @@ async function handleLineWebhookEvents(db, settings, events) {
           ? "ℹ️ ออเดอร์นี้มีอยู่แล้วใน Growup Pilot"
           : "⚠️ พบออเดอร์ซ้ำ ระบบไม่นำเข้า CRM\n\nพบออเดอร์ที่มีรายละเอียดตรงกันภายใน 24 ชั่วโมง\nกรุณาตรวจสอบก่อนส่งซ้ำ";
         replies.push({ replyToken, messages: [{ type: "text", text: duplicateReplyText }] });
+        continue;
+      }
+      if (error.code === "PRODUCT_NOT_FOUND") {
+        debug.parser_status = "product_not_found";
+        debug.supabase_insert_status = "skipped_product_not_found";
+        debug.error_message = PRODUCT_RESOLUTION_ERROR;
+        console.log("LINE webhook product not found skipped", JSON.stringify({
+          groupId: source.groupId || "",
+          lineMessageId: messageId || "",
+          orderNumber: normalized.orderNumber || "",
+          product: normalized.items || ""
+        }));
+        replies.push({ replyToken, messages: [{ type: "text", text: PRODUCT_RESOLUTION_ERROR }] });
         continue;
       }
       debug.parser_status = "error";
@@ -3847,6 +3983,9 @@ async function handleApi(req, res) {
           requestedQuantity: error.requestedQuantity
         });
       }
+      if (error.code === "PRODUCT_NOT_FOUND") {
+        return json(res, 409, { ok: false, error: PRODUCT_RESOLUTION_ERROR });
+      }
       throw error;
     }
     const mutation = orderMutationPayload(db, {
@@ -3888,9 +4027,20 @@ async function handleApi(req, res) {
         body.originSourceOther ?? body.origin_source_other ?? order.originSourceOther
       )
       : { originSource: order.originSource, originSourceOther: order.originSourceOther || "" };
+    let resolvedPayload = null;
+    try {
+      resolvedPayload = statusOnly
+        ? null
+        : applyResolvedProductToPayload(db.settings || {}, { ...order, ...body }, { preservePackageSnapshot: true });
+    } catch (error) {
+      if (error.code === "PRODUCT_NOT_FOUND") {
+        return json(res, 409, { ok: false, error: PRODUCT_RESOLUTION_ERROR });
+      }
+      throw error;
+    }
     Object.assign(order, {
       orderNumber: body.orderNumber !== undefined ? normalizeImportText(body.orderNumber) : order.orderNumber,
-      items: body.items !== undefined ? normalizeProductNameForMatching(body.items) : order.items,
+      items: resolvedPayload ? resolvedPayload.items : order.items,
       customerName: body.name !== undefined ? String(body.name).trim() : order.customerName,
       phone: body.phone !== undefined ? normalizePhone(body.phone) : order.phone,
       address: body.address !== undefined ? String(body.address).trim() : order.address,
@@ -3904,16 +4054,16 @@ async function handleApi(req, res) {
       originSourceOther: nextOriginSource.originSourceOther,
       socialName: body.socialName ?? order.socialName,
       freeGift: body.freeGift ?? order.freeGift,
-      productId: body.productId !== undefined ? String(body.productId || "") : String(order.productId || ""),
-      packageId: body.packageId !== undefined ? String(body.packageId || "") : String(order.packageId || ""),
-      packageName: body.packageName !== undefined ? String(body.packageName || "") : String(order.packageName || ""),
-      paidQuantity: body.paidQuantity !== undefined ? Math.max(0, Number(body.paidQuantity || 0)) : Number(order.paidQuantity || 0),
-      freeQuantity: body.freeQuantity !== undefined ? Math.max(0, Number(body.freeQuantity || 0)) : Number(order.freeQuantity || 0),
-      totalQuantityShipped: body.totalQuantityShipped !== undefined
-        ? Math.max(0, Number(body.totalQuantityShipped || 0))
+      productId: resolvedPayload ? String(resolvedPayload.productId || "") : String(order.productId || ""),
+      packageId: resolvedPayload ? String(resolvedPayload.packageId || "") : String(order.packageId || ""),
+      packageName: resolvedPayload ? String(resolvedPayload.packageName || "") : String(order.packageName || ""),
+      paidQuantity: resolvedPayload ? Math.max(0, Number(resolvedPayload.paidQuantity || 0)) : Number(order.paidQuantity || 0),
+      freeQuantity: resolvedPayload ? Math.max(0, Number(resolvedPayload.freeQuantity || 0)) : Number(order.freeQuantity || 0),
+      totalQuantityShipped: resolvedPayload
+        ? Math.max(0, Number(resolvedPayload.totalQuantityShipped || 0))
         : Number(order.totalQuantityShipped || 0),
-      packageExpenses: body.packageExpenses !== undefined
-        ? normalizePackageExpenses(body.packageExpenses)
+      packageExpenses: resolvedPayload
+        ? normalizePackageExpenses(resolvedPayload.packageExpenses)
         : normalizePackageExpenses(order.packageExpenses),
       vipCardStatus: body.vipCardStatus ?? order.vipCardStatus,
       note: body.note ?? order.note
@@ -3931,6 +4081,9 @@ async function handleApi(req, res) {
           availableStock: error.availableStock,
           requestedQuantity: error.requestedQuantity
         });
+      }
+      if (error.code === "PRODUCT_NOT_FOUND") {
+        return json(res, 409, { ok: false, error: PRODUCT_RESOLUTION_ERROR });
       }
       throw error;
     }
@@ -4388,18 +4541,56 @@ async function handleApi(req, res) {
     if (!await requirePermission(req, res, db, "products.delete", "ไม่มีสิทธิ์ลบสินค้า")) return;
     const parts = url.pathname.split("/");
     const productId = decodeURIComponent(parts[parts.length - 2] || "");
+    const body = await readBody(req);
     const products = normalizeProductRecords(db.settings.products);
     const index = products.findIndex(item => item.id === productId);
     if (index === -1) return json(res, 404, { ok: false, error: "ไม่พบสินค้า" });
-    products[index] = { ...products[index], archived: true, status: "เก็บถาวร" };
+    const archived = body.archived === undefined ? true : Boolean(body.archived);
+    products[index] = {
+      ...products[index],
+      archived,
+      status: archived ? "ปิดใช้งาน" : "พร้อมขาย",
+      updatedAt: new Date().toISOString()
+    };
     const productCosts = normalizeSettingsCostRows(db.settings.productCosts, "costPerJar").map(item => (
       item.id === productId || item.name === products[index].name
-        ? { ...item, enabled: false }
+        ? { ...item, enabled: !archived }
         : item
     ));
     db.settings = { ...db.settings, products, productCosts };
     await writeDb(db);
     return json(res, 200, { ok: true, product: products[index], settings: publicSettings(db.settings) });
+  }
+
+  if (req.method === "DELETE" && /^\/api\/products\/[^/]+$/.test(url.pathname)) {
+    if (!await requirePermission(req, res, db, "products.delete", "ไม่มีสิทธิ์ลบสินค้า")) return;
+    const productId = decodeURIComponent(url.pathname.split("/").pop() || "");
+    const products = normalizeProductRecords(db.settings.products);
+    const index = products.findIndex(item => item.id === productId);
+    if (index === -1) return json(res, 404, { ok: false, error: "ไม่พบสินค้า" });
+    const product = products[index];
+    const references = productReferenceReport(db, product);
+    const externalReferenceCount = references.total - references.productCosts.length;
+    if (externalReferenceCount > 0) {
+      return json(res, 409, {
+        ok: false,
+        error: "ไม่สามารถลบสินค้านี้ถาวรได้ เพราะยังมีประวัติออเดอร์หรือข้อมูลที่อ้างอิงสินค้าอยู่ กรุณาปิดใช้งานสินค้าแทนเพื่อเก็บประวัติเดิมไว้",
+        canDisable: true,
+        references: {
+          orders: references.orders.length,
+          packageOrders: references.packageOrders.length,
+          adCostRecords: references.adCostRecords.length,
+          contactLogs: references.contactLogs.length
+        }
+      });
+    }
+    products.splice(index, 1);
+    const productCosts = normalizeSettingsCostRows(db.settings.productCosts, "costPerJar").filter(item =>
+      item.id !== productId && normalizedProductNameKey(item.name) !== normalizedProductNameKey(product.name)
+    );
+    db.settings = { ...db.settings, products, productCosts };
+    await writeDb(db);
+    return json(res, 200, { ok: true, deletedProductId: productId, settings: publicSettings(db.settings) });
   }
 
   if (req.method === "PUT" && url.pathname === "/api/followup-rules") {
