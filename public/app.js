@@ -123,6 +123,8 @@ const app = {
   profileDraftImage: "",
   businessLogoDraft: "",
   profileSaving: false,
+  themeSavePromise: null,
+  themeSavePreference: "",
   settingsSavePending: false,
   mobileBusinessPage: "main",
   securityDetailKey: "",
@@ -526,6 +528,7 @@ function applyThemePreference(preference, { persistLocal = true, userId = app.cu
   if (userId) document.documentElement.dataset.themeUser = String(userId);
   else clearActiveThemeUser();
   if (persistLocal) cacheThemePreference(normalized, userId);
+  syncThemeControls(normalized);
 }
 
 function applyUserTheme(user = app.currentUser, { preferCache = false, persistLocal = true } = {}) {
@@ -533,6 +536,56 @@ function applyUserTheme(user = app.currentUser, { preferCache = false, persistLo
   const serverPreference = normalizeThemePreference(user?.themePreference);
   const preference = preferCache ? readCachedThemePreference(userId) : serverPreference;
   applyThemePreference(preference, { persistLocal, userId });
+}
+
+function syncThemeControls(preference = document.documentElement.dataset.themePreference) {
+  const normalized = normalizeThemePreference(preference);
+  document.querySelectorAll("[data-theme-select], [data-profile-theme-select]").forEach(select => {
+    const hasOption = Array.from(select.options || []).some(option => option.value === normalized);
+    if (hasOption && select.value !== normalized) select.value = normalized;
+  });
+}
+
+function updateCurrentUserTheme(user) {
+  if (!user?.id) return;
+  app.currentUser = user;
+  if (app.data) {
+    app.data.currentUser = user;
+    app.data.users = (app.data.users || []).map(item => item.id === user.id ? { ...item, ...user } : item);
+    if (!app.data.users.some(item => item.id === user.id)) app.data.users.push(user);
+  }
+  applyUserTheme(user);
+  cacheMobileProfile(user);
+}
+
+async function saveCurrentUserThemePreference(preference) {
+  const normalized = normalizeThemePreference(preference);
+  if (!app.currentUser?.id) {
+    applyThemePreference(normalized, { persistLocal: false });
+    return { saved: false };
+  }
+  if (app.themeSavePromise) {
+    if (app.themeSavePreference === normalized) return app.themeSavePromise;
+    await app.themeSavePromise;
+  }
+  const currentThemePreference = normalizeThemePreference(app.currentUser?.themePreference);
+  if (normalized === currentThemePreference) {
+    applyThemePreference(normalized, { userId: app.currentUser.id });
+    return { saved: false };
+  }
+  applyThemePreference(normalized, { persistLocal: false, userId: app.currentUser.id });
+  app.themeSavePreference = normalized;
+  app.themeSavePromise = api("/api/profile/theme", {
+    method: "PUT",
+    body: JSON.stringify({ themePreference: normalized })
+  }).then(payload => {
+    if (payload.user) updateCurrentUserTheme(payload.user);
+    return { saved: true, user: payload.user };
+  }).finally(() => {
+    app.themeSavePromise = null;
+    app.themeSavePreference = "";
+  });
+  return app.themeSavePromise;
 }
 
 function todayISO() {
@@ -1236,9 +1289,14 @@ function openProfileDialog() {
   if (els.profileForm.elements.displayName) {
     els.profileForm.elements.displayName.value = app.currentUser.name || "";
   }
+  const activeThemePreference = normalizeThemePreference(document.documentElement.dataset.themePreference || app.currentUser.themePreference);
+  if (els.profileForm.elements.profileTheme) {
+    els.profileForm.elements.profileTheme.value = activeThemePreference;
+  }
   const input = document.querySelector("#profileImageInput");
   if (input) input.value = "";
   syncProfileAvatarPreview();
+  syncThemeControls(activeThemePreference);
   setProfileSaveState(false);
   els.profileDialog.showModal();
 }
@@ -10588,6 +10646,17 @@ document.addEventListener("input", event => {
 });
 
 document.addEventListener("change", event => {
+  if (event.target?.matches?.("[data-profile-theme-select]")) {
+    saveCurrentUserThemePreference(event.target.value)
+      .then(result => {
+        if (result.saved) showToast("บันทึกธีมแล้ว");
+      })
+      .catch(error => {
+        applyUserTheme(app.currentUser);
+        showToast(error.message);
+      });
+    return;
+  }
   if (event.target?.matches?.("[data-permission-role]")) {
     app.permissionRole = event.target.value === "Staff" ? "Staff" : "Admin";
     render();
@@ -11061,29 +11130,11 @@ document.addEventListener("submit", async event => {
       const data = settingsFormPayload(form);
       if (form.dataset.settingsScope === "display") {
         const nextThemePreference = normalizeThemePreference(data.themePreference);
-        const currentThemePreference = normalizeThemePreference(app.currentUser?.themePreference);
         const currentDisplay = app.data?.settings?.displayPreferences || {};
         const nextDisplay = data.displayPreferences || {};
         const displayKeys = ["language", "dateFormat", "numberFormat", "currency"];
         const displayChanged = displayKeys.some(key => String(currentDisplay[key] || "") !== String(nextDisplay[key] || ""));
-        if (nextThemePreference !== currentThemePreference) {
-          const payload = await api("/api/profile/theme", {
-            method: "PUT",
-            body: JSON.stringify({ themePreference: nextThemePreference })
-          });
-          if (payload.user) {
-            app.currentUser = payload.user;
-            if (app.data) {
-              app.data.currentUser = payload.user;
-              app.data.users = (app.data.users || []).map(user => user.id === payload.user.id ? { ...user, ...payload.user } : user);
-              if (!app.data.users.some(user => user.id === payload.user.id)) app.data.users.push(payload.user);
-            }
-            applyUserTheme(payload.user);
-            cacheMobileProfile(payload.user);
-          }
-        } else {
-          applyThemePreference(nextThemePreference, { userId: app.currentUser?.id });
-        }
+        await saveCurrentUserThemePreference(nextThemePreference);
         if (displayChanged) {
           const payload = await api("/api/settings", {
             method: "PUT",

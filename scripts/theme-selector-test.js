@@ -18,10 +18,10 @@ const serviceWorker = fs.readFileSync(path.join(root, "public", "service-worker.
 const jsonAdapter = fs.readFileSync(path.join(root, "lib", "db", "json-adapter.js"), "utf8");
 const supabaseAdapter = fs.readFileSync(path.join(root, "lib", "db", "supabase-adapter.js"), "utf8");
 
-assert(html.indexOf('const preference = "system"') < html.indexOf("/styles.css?v=20260715-theme-selector-v1"), "theme bootstrap must default to System before stylesheet load");
+assert(html.indexOf('const preference = "system"') < html.indexOf("/styles.css?v=20260715-theme-selector-v2"), "theme bootstrap must default to System before stylesheet load");
 assert(html.includes('document.documentElement.dataset.theme = resolved'), "theme bootstrap must set resolved theme before render");
 assert(!html.includes("growup_theme_preference_v1"), "bootstrap must not read a shared theme key before authentication");
-assert(html.includes('/app.js?v=20260715-theme-selector-v1'), "app asset version must be bumped");
+assert(html.includes('/app.js?v=20260715-theme-selector-v2'), "app asset version must be bumped");
 
 assert(appJs.includes('const THEME_STORAGE_PREFIX = "growup-theme:"'), "theme storage must be namespaced per user");
 assert(!appJs.includes("growup_theme_preference_v1"), "client must not use a shared theme storage key");
@@ -31,9 +31,16 @@ assert(appJs.includes('return THEME_OPTIONS.has(value) ? value : "system"'), "in
 assert(appJs.includes('applyThemePreference("system", { persistLocal: false })'), "logout/session cleanup must return the document to System");
 assert(appJs.includes('window.matchMedia?.("(prefers-color-scheme: dark)")?.addEventListener?.("change"'), "System mode must react to device theme changes");
 assert(appJs.includes("[data-theme-select]"), "Display theme selector change handler missing");
+assert(html.includes("data-profile-theme-select"), "Profile dialog must include the personal theme selector for every authenticated user");
+assert(appJs.includes("[data-profile-theme-select]"), "Profile theme selector change handler missing");
+assert(appJs.includes("function saveCurrentUserThemePreference"), "Profile and Display theme selectors must share one save helper");
+assert(appJs.includes('if (app.themeSavePreference === normalized) return app.themeSavePromise'), "theme save helper must avoid duplicate save requests for one selection");
+assert(appJs.includes('document.querySelectorAll("[data-theme-select], [data-profile-theme-select]")'), "Profile and Display theme selectors must stay synchronized");
 assert(appJs.includes('["dark", "Dark"]') && appJs.includes('["light", "Light"]') && appJs.includes('["system", "System"]'), "Display selector must expose exactly Dark, Light, System");
+assert(html.includes('<option value="dark">Dark</option>') && html.includes('<option value="light">Light</option>') && html.includes('<option value="system">System</option>'), "Profile selector must expose exactly Dark, Light, System");
 assert(appJs.includes('/api/profile/theme'), "theme must persist through the per-user profile theme endpoint");
 assert(!appJs.includes('app.data?.settings?.displayPreferences?.theme'), "theme must not be read from shared business settings");
+assert(appJs.includes('if (["settingsStore", "settingsGoals", "settingsAi", "settingsNotifications", "settingsDisplay", "settingsFollowup", "settingsVip"].includes(view)) return can("system.business");'), "Display settings permission gate must remain unchanged");
 
 assert(serverJs.includes('const allowedThemes = new Set(["dark", "light", "system"])'), "server theme whitelist must be exactly dark/light/system");
 assert(serverJs.includes('theme: allowedThemes.has(preferences.theme) ? preferences.theme : "system"'), "shared display preferences must default to System");
@@ -52,9 +59,9 @@ assert(finalLightLayerIndex > premiumLayerIndex, "Light theme layer must come af
 assert(css.includes('html[data-theme="light"] *:focus-visible'), "Light theme focus-visible coverage missing");
 assert(!css.includes('html[data-theme="dark"]'), "Dark theme must remain the unmodified baseline");
 
-assert(serviceWorker.includes('growup-pilot-pwa-v92-theme-selector'), "service worker cache name must be bumped");
-assert(serviceWorker.includes('/styles.css?v=20260715-theme-selector-v1'), "service worker must cache current stylesheet");
-assert(serviceWorker.includes('/app.js?v=20260715-theme-selector-v1'), "service worker must cache current app bundle");
+assert(serviceWorker.includes('growup-pilot-pwa-v93-theme-selector'), "service worker cache name must be bumped");
+assert(serviceWorker.includes('/styles.css?v=20260715-theme-selector-v2'), "service worker must cache current stylesheet");
+assert(serviceWorker.includes('/app.js?v=20260715-theme-selector-v2'), "service worker must cache current app bundle");
 
 async function runPerUserApiTest() {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "growup-theme-test-"));
