@@ -4477,32 +4477,33 @@ function renderMobileOrders(selectedDate) {
       </div>
 
       <div class="mobile-orders-list">
-        ${orders.map((order, index) => {
+        ${orders.map(order => {
           const customer = app.data.customers.find(item => item.id === order.customerId);
           const customerName = order.customerName || customer?.name || "ไม่ระบุชื่อลูกค้า";
           const phone = order.phone || customer?.phone || "-";
+          const orderNumber = mobileOrderNumber(order);
+          const orderTime = String(order.time || "09:00").slice(0, 5);
           return `
             <article class="mobile-order-row">
-              <span class="mobile-order-sequence">${index + 1}</span>
-              <strong class="mobile-order-number">${escapeHtml(mobileOrderNumber(order))}</strong>
-              <span class="mobile-order-customer">
-                <strong>${escapeHtml(customerName)}</strong>
-                <small>${escapeHtml(phone)}</small>
+              <div class="mobile-order-main">
+                <strong class="mobile-order-number">${escapeHtml(orderNumber)}</strong>
+                <strong class="mobile-order-customer">${escapeHtml(customerName)}</strong>
+                <span class="mobile-order-date">${escapeHtml(mobileOrderDate(order.date))}</span>
+                <strong class="mobile-order-total">฿${escapeHtml(mobileOrderMoney(order.amount))}</strong>
+                <span class="mobile-order-row-actions" aria-label="จัดการ ${escapeHtml(orderNumber)}">
+                  ${can("orders.edit") ? `<button class="mobile-order-action-button" type="button" data-edit-order="${escapeHtml(order.id)}" aria-label="แก้ไข ${escapeHtml(orderNumber)}">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 16-.8 4 4-.8L19 7.4 16.6 5 4 16Z"/><path d="m14.8 6.8 2.4 2.4"/></svg>
+                  </button>` : ""}
+                  ${can("orders.delete") ? `<button class="mobile-order-action-button delete" type="button" data-delete-order="${escapeHtml(order.id)}" aria-label="ลบ ${escapeHtml(orderNumber)}">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="m19 6-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+                  </button>` : ""}
+                </span>
+              </div>
+              <div class="mobile-order-meta">
                 ${mobileOrderProductSummary(order)}
-              </span>
-              <span class="mobile-order-date">
-                <strong>${escapeHtml(mobileOrderDate(order.date))}</strong>
-                <small>${escapeHtml(String(order.time || "09:00").slice(0, 5))}</small>
-              </span>
-              <strong class="mobile-order-total">฿ ${escapeHtml(mobileOrderMoney(order.amount))}</strong>
-              <span class="mobile-order-row-actions" aria-label="จัดการ ${escapeHtml(mobileOrderNumber(order))}">
-                ${can("orders.edit") ? `<button class="mobile-order-action-button" type="button" data-edit-order="${escapeHtml(order.id)}" aria-label="แก้ไข ${escapeHtml(mobileOrderNumber(order))}">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 16-.8 4 4-.8L19 7.4 16.6 5 4 16Z"/><path d="m14.8 6.8 2.4 2.4"/></svg>
-                </button>` : ""}
-                ${can("orders.delete") ? `<button class="mobile-order-action-button delete" type="button" data-delete-order="${escapeHtml(order.id)}" aria-label="ลบ ${escapeHtml(mobileOrderNumber(order))}">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="m19 6-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
-                </button>` : ""}
-              </span>
+                <span class="mobile-order-phone">${escapeHtml(phone)}</span>
+                <span class="mobile-order-time">${escapeHtml(orderTime)}</span>
+              </div>
             </article>
           `;
         }).join("") || `<div class="mobile-orders-empty">ไม่พบออเดอร์ที่ค้นหา 🔍</div>`}

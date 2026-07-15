@@ -11859,37 +11859,18 @@ body.desktop-app-shell:not(.login-view) .line-status-row span {
 
   body.mobile-orders-view .mobile-orders-list-head,
   body.mobile-orders-view .mobile-order-row {
-    display: grid;
-    grid-template-columns: 26px 66px minmax(0, 1fr) 58px 82px 58px;
-    align-items: center;
     min-width: 0;
   }
 
   body.mobile-orders-view .mobile-orders-list-head {
-    height: 32px;
-    padding: 0 10px;
-    border: 1px solid rgba(63, 96, 121, 0.3);
-    border-radius: 10px;
-    background: rgba(3, 15, 25, 0.72);
-    color: #dedfe5;
-    font-size: 12px;
-    white-space: nowrap;
-  }
-
-  body.mobile-orders-view .mobile-orders-list-head span:first-child {
-    color: #b057ff;
-  }
-
-  body.mobile-orders-view .mobile-orders-list-head span:nth-child(2),
-  body.mobile-orders-view .mobile-orders-list-head span:nth-child(5) {
-    text-align: center;
+    display: none;
   }
 
   body.mobile-orders-view .mobile-orders-list {
     display: grid;
     align-content: start;
-    gap: 5px;
-    height: calc(100dvh - 354px);
+    gap: 7px;
+    height: calc(100dvh - 314px);
     margin-top: -7px;
     overflow-x: visible;
     overflow-y: auto;
@@ -11902,9 +11883,11 @@ body.desktop-app-shell:not(.login-view) .line-status-row span {
 
   body.mobile-orders-view .mobile-order-row {
     position: relative;
-    height: 70px;
-    padding: 0 10px;
-    overflow: visible;
+    display: grid;
+    gap: 3px;
+    min-height: 74px;
+    padding: 8px 9px 7px;
+    overflow: hidden;
     border: 1px solid rgba(55, 90, 116, 0.28);
     border-radius: 10px;
     background:
@@ -11918,47 +11901,59 @@ body.desktop-app-shell:not(.login-view) .line-status-row span {
   }
 
   body.mobile-orders-view .mobile-order-sequence {
-    color: #f1f2f5;
-    font-size: 15px;
+    display: none;
+  }
+
+  body.mobile-orders-view .mobile-order-main,
+  body.mobile-orders-view .mobile-order-meta {
+    display: grid;
+    align-items: center;
+    min-width: 0;
+    column-gap: 7px;
+  }
+
+  body.mobile-orders-view .mobile-order-main {
+    grid-template-columns: minmax(48px, 0.74fr) minmax(76px, 1.42fr) minmax(54px, 0.82fr) minmax(70px, 1.02fr) auto;
+  }
+
+  body.mobile-orders-view .mobile-order-meta {
+    grid-template-columns: minmax(94px, 1fr) minmax(96px, 0.82fr) minmax(42px, 0.38fr) 67px;
   }
 
   body.mobile-orders-view .mobile-order-number {
-    overflow: hidden;
     color: #b650ff;
-    font-size: 14px;
+    font-size: 13.5px;
     font-weight: 500;
-    text-overflow: ellipsis;
+    line-height: 1.12;
     white-space: nowrap;
   }
 
-  body.mobile-orders-view .mobile-order-customer,
-  body.mobile-orders-view .mobile-order-date {
-    display: grid;
-    min-width: 0;
-    gap: 1px;
-  }
-
-  body.mobile-orders-view .mobile-order-customer strong,
-  body.mobile-orders-view .mobile-order-date strong,
-  body.mobile-orders-view .mobile-order-customer small,
-  body.mobile-orders-view .mobile-order-date small {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  body.mobile-orders-view .mobile-order-customer strong {
+  body.mobile-orders-view .mobile-order-customer {
     color: #eceef2;
+    font-size: 12.5px;
+    font-weight: 500;
+    line-height: 1.12;
+    overflow-wrap: anywhere;
+  }
+
+  body.mobile-orders-view .mobile-order-date,
+  body.mobile-orders-view .mobile-order-phone,
+  body.mobile-orders-view .mobile-order-time {
+    min-width: 0;
+    white-space: nowrap;
+  }
+
+  body.mobile-orders-view .mobile-order-date,
+  body.mobile-orders-view .mobile-order-phone,
+  body.mobile-orders-view .mobile-order-time {
+    color: #adb2bc;
     font-size: 12.5px;
     font-weight: 400;
   }
 
-  body.mobile-orders-view .mobile-order-customer small,
-  body.mobile-orders-view .mobile-order-date strong,
-  body.mobile-orders-view .mobile-order-date small {
-    color: #adb2bc;
-    font-size: 12px;
-    font-weight: 400;
+  body.mobile-orders-view .mobile-order-date,
+  body.mobile-orders-view .mobile-order-time {
+    text-align: center;
   }
 
   body.mobile-orders-view .mobile-order-products {
@@ -11966,12 +11961,11 @@ body.desktop-app-shell:not(.login-view) .line-status-row span {
     align-items: center;
     min-width: 0;
     gap: 3px;
-    overflow: hidden;
+    overflow: visible;
     color: #eceef2;
-    font-size: 11.5px;
+    font-size: 12.5px;
     line-height: 1.1;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    white-space: normal;
   }
 
   body.mobile-orders-view .mobile-order-product-chip {
@@ -12009,10 +12003,9 @@ body.desktop-app-shell:not(.login-view) .line-status-row span {
   }
 
   body.mobile-orders-view .mobile-order-product-name {
-    overflow: hidden;
     min-width: 0;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    overflow-wrap: anywhere;
+    white-space: normal;
   }
 
   body.mobile-orders-view .mobile-order-total {
@@ -12027,12 +12020,12 @@ body.desktop-app-shell:not(.login-view) .line-status-row span {
     display: flex;
     align-items: center;
     justify-content: flex-end;
-    gap: 4px;
+    gap: 5px;
   }
 
   body.mobile-orders-view .mobile-order-action-button {
-    width: 27px;
-    height: 34px;
+    width: 31px;
+    height: 31px;
     padding: 0;
     border: 1px solid rgba(137, 92, 255, 0.28);
     border-radius: 8px;
@@ -12049,8 +12042,8 @@ body.desktop-app-shell:not(.login-view) .line-status-row span {
   }
 
   body.mobile-orders-view .mobile-order-action-button svg {
-    width: 17px;
-    height: 17px;
+    width: 16px;
+    height: 16px;
   }
 
   body.mobile-orders-view .mobile-orders-empty {
