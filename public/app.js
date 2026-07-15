@@ -8556,16 +8556,18 @@ function updateStoredProduct(productId, patch = {}) {
   const products = storedProductRecords();
   const index = products.findIndex(product => product.id === productId);
   if (index === -1) return null;
-  products[index] = normalizeProductRecords([{ ...products[index], ...patch }])[0];
+  const nextProduct = normalizeProductRecords({ products: [{ ...products[index], ...patch }] })[0];
+  if (!nextProduct) return null;
+  products[index] = nextProduct;
   app.data.settings.products = products;
   if (Array.isArray(app.data.settings.productCosts)) {
     app.data.settings.productCosts = app.data.settings.productCosts.map(item => (
-      item.id === productId || item.name === products[index].name
-        ? { ...item, name: products[index].name || item.name, enabled: !products[index].archived }
+      item.id === productId || item.name === nextProduct.name
+        ? { ...item, name: nextProduct.name || item.name, enabled: !nextProduct.archived }
         : item
     ));
   }
-  return products[index];
+  return nextProduct;
 }
 
 function removeStoredProduct(productId) {
@@ -8670,9 +8672,9 @@ async function toggleProductArchived(productId) {
   if (!confirmed) return;
   const previous = { ...storedProduct };
   setProductActionPending(productId, true);
-  updateStoredProduct(productId, { archived, status: archived ? "ปิดใช้งาน" : "พร้อมขาย" });
-  patchProductRow(productId);
   try {
+    updateStoredProduct(productId, { archived, status: archived ? "ปิดใช้งาน" : "พร้อมขาย" });
+    patchProductRow(productId);
     const payload = await api(`/api/products/${encodeURIComponent(productId)}/archive`, {
       method: "POST",
       body: JSON.stringify({ archived })

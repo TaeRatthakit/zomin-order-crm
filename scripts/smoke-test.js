@@ -983,6 +983,7 @@ async function main() {
     || !productClient.text.includes("productActionPendingIds")
     || !productClient.text.includes("patchProductOrderPickers")
     || !productClient.text.includes("removeProductRow(productId)")
+    || !productClient.text.includes("normalizeProductRecords({ products: [{ ...products[index], ...patch }] })")
     || !productClient.text.includes("updateStoredProduct(productId, { archived")
   ) {
     fail("product image, mobile order product row, or decimal cost renderer is missing from the client");
