@@ -1069,6 +1069,25 @@ function productSettingsPayload(settings = {}) {
   };
 }
 
+function productManagementCounts(settings = {}) {
+  const products = normalizeProductRecords(settings.products);
+  return products.reduce((counts, product) => {
+    counts.total += 1;
+    const status = product.archived
+      ? "ปิดใช้งาน"
+      : product.stockQuantity <= 0
+        ? "ปิดการขาย"
+        : product.stockQuantity <= Number(product.lowStockAlert || 0)
+          ? "ใกล้หมด"
+          : product.stockQuantity <= Math.max(Number(product.lowStockAlert || 0) * 2, 10)
+            ? "เหลือน้อย"
+            : product.status || "พร้อมขาย";
+    if (status === "พร้อมขาย") counts.ready += 1;
+    if (["ใกล้หมด", "เหลือน้อย"].includes(status)) counts.low += 1;
+    return counts;
+  }, { total: 0, ready: 0, low: 0 });
+}
+
 async function readProductSettingsForSave() {
   if (typeof readSettingsPatch === "function") {
     return readSettingsPatch(["products", "productCosts"]);
@@ -4557,9 +4576,20 @@ async function handleApi(req, res) {
         ? { ...item, enabled: !archived }
         : item
     ));
-    db.settings = { ...db.settings, products, productCosts };
-    await writeDb(db);
-    return json(res, 200, { ok: true, product: products[index], settings: publicSettings(db.settings) });
+    const patch = { products, productCosts };
+    if (typeof persistSettingsPatch === "function") {
+      await persistSettingsPatch(patch);
+    } else {
+      db.settings = { ...db.settings, ...patch };
+      await writeDb(db);
+    }
+    db.settings = { ...db.settings, ...patch };
+    return json(res, 200, {
+      ok: true,
+      productId,
+      archived,
+      counts: productManagementCounts(db.settings)
+    });
   }
 
   if (req.method === "DELETE" && /^\/api\/products\/[^/]+$/.test(url.pathname)) {
@@ -4588,9 +4618,21 @@ async function handleApi(req, res) {
     const productCosts = normalizeSettingsCostRows(db.settings.productCosts, "costPerJar").filter(item =>
       item.id !== productId && normalizedProductNameKey(item.name) !== normalizedProductNameKey(product.name)
     );
-    db.settings = { ...db.settings, products, productCosts };
-    await writeDb(db);
-    return json(res, 200, { ok: true, deletedProductId: productId, settings: publicSettings(db.settings) });
+    const patch = { products, productCosts };
+    if (typeof persistSettingsPatch === "function") {
+      await persistSettingsPatch(patch);
+    } else {
+      db.settings = { ...db.settings, ...patch };
+      await writeDb(db);
+    }
+    db.settings = { ...db.settings, ...patch };
+    return json(res, 200, {
+      ok: true,
+      productId,
+      deletedProductId: productId,
+      deleted: true,
+      counts: productManagementCounts(db.settings)
+    });
   }
 
   if (req.method === "PUT" && url.pathname === "/api/followup-rules") {

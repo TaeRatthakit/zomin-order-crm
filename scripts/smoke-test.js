@@ -628,6 +628,15 @@ async function main() {
     body: "{}"
   });
   if (deleteUnreferenced.status !== 200) fail(`unreferenced product delete failed: ${deleteUnreferenced.status} ${deleteUnreferenced.text}`);
+  const deleteUnreferencedPayload = JSON.parse(deleteUnreferenced.text);
+  if (
+    deleteUnreferencedPayload.deleted !== true
+    || deleteUnreferencedPayload.deletedProductId !== savedTrulyNewProduct.id
+    || !deleteUnreferencedPayload.counts
+    || deleteUnreferencedPayload.settings
+  ) {
+    fail("product delete response was not minimal or did not include delete metadata");
+  }
   const stateAfterUnreferencedDelete = JSON.parse((await request("/api/state", { headers: { cookie } })).text);
   if (stateAfterUnreferencedDelete.settings.products.some(product => product.id === savedTrulyNewProduct.id)) {
     fail("unreferenced product remained after permanent deletion");
@@ -646,6 +655,15 @@ async function main() {
     body: JSON.stringify({ archived: true })
   });
   if (disableReferenced.status !== 200) fail(`referenced product disable failed: ${disableReferenced.status} ${disableReferenced.text}`);
+  const disableReferencedPayload = JSON.parse(disableReferenced.text);
+  if (
+    disableReferencedPayload.productId !== savedZomin.id
+    || disableReferencedPayload.archived !== true
+    || !disableReferencedPayload.counts
+    || disableReferencedPayload.settings
+  ) {
+    fail("product disable response was not minimal or did not include archive metadata");
+  }
   const disabledState = JSON.parse((await request("/api/state", { headers: { cookie } })).text);
   if (
     !disabledState.settings.products.find(product => product.id === savedZomin.id && product.archived === true)
@@ -677,6 +695,15 @@ async function main() {
     body: JSON.stringify({ archived: false })
   });
   if (reenableReferenced.status !== 200) fail(`referenced product re-enable failed: ${reenableReferenced.status} ${reenableReferenced.text}`);
+  const reenableReferencedPayload = JSON.parse(reenableReferenced.text);
+  if (
+    reenableReferencedPayload.productId !== savedZomin.id
+    || reenableReferencedPayload.archived !== false
+    || !reenableReferencedPayload.counts
+    || reenableReferencedPayload.settings
+  ) {
+    fail("product enable response was not minimal or did not include archive metadata");
+  }
   const enabledPackageExpenseTotal = packageOrderExpenses
     .filter(expense => expense.enabled)
     .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
@@ -953,8 +980,36 @@ async function main() {
     || !productClient.text.includes("section.hidden = false")
     || !productClient.text.includes("data-product-row-menu")
     || !productClient.text.includes("data-delete-product")
+    || !productClient.text.includes("productActionPendingIds")
+    || !productClient.text.includes("patchProductOrderPickers")
+    || !productClient.text.includes("removeProductRow(productId)")
+    || !productClient.text.includes("updateStoredProduct(productId, { archived")
   ) {
     fail("product image, mobile order product row, or decimal cost renderer is missing from the client");
+  }
+  const archiveHandler = productClient.text.slice(
+    productClient.text.indexOf("async function toggleProductArchived"),
+    productClient.text.indexOf("async function deleteProductPermanently")
+  );
+  const deleteHandler = productClient.text.slice(
+    productClient.text.indexOf("async function deleteProductPermanently"),
+    productClient.text.indexOf("function setProductSaveState")
+  );
+  if (
+    archiveHandler.includes("loadState(")
+    || deleteHandler.includes("loadState(")
+    || archiveHandler.includes("render();")
+    || deleteHandler.includes("render();")
+  ) {
+    fail("product actions still trigger full state refresh or full render");
+  }
+  if (
+    (archiveHandler.match(/api\(`/g) || []).length !== 1
+    || (deleteHandler.match(/api\(`/g) || []).length !== 1
+    || !archiveHandler.includes("updateStoredProduct(productId, previous)")
+    || !deleteHandler.includes("removeProductRow(productId)")
+  ) {
+    fail("product actions do not enforce one request, rollback, or immediate row removal");
   }
   const appShell = await request("/");
   if (
