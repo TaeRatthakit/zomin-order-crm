@@ -8534,12 +8534,7 @@ function closeProductRowMenus(exceptProductId = "") {
 
 async function refreshProductsAfterAction(payload = {}) {
   applyProductSavePayload(payload);
-  try {
-    await loadState();
-  } catch (error) {
-    console.warn("[product-refresh]", error.message || error);
-    render();
-  }
+  render();
 }
 
 async function toggleProductArchived(productId) {
