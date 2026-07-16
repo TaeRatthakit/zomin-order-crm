@@ -19041,6 +19041,254 @@ body.modal-scroll-locked {
   font-size: 14px;
 }
 
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-detail {
+  --ref-panel: #ffffff;
+  --ref-panel-strong: #fbfaff;
+  --ref-line: rgba(91, 73, 127, 0.22);
+  --ref-purple: #6d28d9;
+  --ref-purple-deep: #4c1d95;
+  --ref-green: #15803d;
+  --ref-red: #b91c1c;
+  --ref-muted: #5c6678;
+  color: #172033;
+  background:
+    radial-gradient(circle at 12% 7%, rgba(124, 58, 237, 0.075), transparent 18%),
+    radial-gradient(circle at 78% 8%, rgba(59, 130, 246, 0.055), transparent 26%),
+    linear-gradient(135deg, #ffffff 0%, #fbfaff 48%, #f7f4ff 100%);
+}
+
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-header,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-profile,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-actions,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-history-grid,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-kpis {
+  color: #172033;
+}
+
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-header h2,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-name-row h1,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-phone strong,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-meta-grid strong,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-customer-name strong,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-info-line strong,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-social-name strong,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-card-title h3,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-follow-form h3,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-panel h3,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-call-grid strong,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-timeline strong,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-order-list strong,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-kpis article strong {
+  color: #111827;
+}
+
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-meta-grid,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-meta-grid > div,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-meta-grid span,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-meta-grid small,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-info-line span,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-customer-name span,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-follow-grid label,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-follow-left small,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-call-grid span,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-call-foot,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-call-foot em,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-timeline p,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-timeline time,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-order-list span,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-order-list small,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-kpis article span,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-kpis article em {
+  color: #5c6678;
+}
+
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-close,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-back,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-phone button,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-card-title button,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-call-foot button,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-history-more {
+  color: #4c1d95;
+}
+
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-close,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-copy-action,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-card-title button,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-call-foot button,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-history-more {
+  border-color: rgba(91, 73, 127, 0.24);
+  background: #ffffff;
+}
+
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-copy-action {
+  color: #4c1d95;
+}
+
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-close:hover,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-copy-action:hover,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-card-title button:hover,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-call-foot button:hover,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-history-more:hover {
+  border-color: rgba(109, 40, 217, 0.34);
+  background: #f4edff;
+}
+
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-divider,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-meta-grid > div + div::before,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-follow-right,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-timeline::before,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-order-list article {
+  border-color: var(--ref-line);
+}
+
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-divider,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-meta-grid > div + div::before,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-timeline::before {
+  background: var(--ref-line);
+}
+
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-social-name,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-call-card,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-follow-form,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-panel,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-kpis article {
+  border-color: var(--ref-line);
+  background:
+    radial-gradient(circle at 14% 0, rgba(124, 58, 237, 0.045), transparent 34%),
+    linear-gradient(145deg, #ffffff, #fbfaff);
+  box-shadow: 0 10px 24px rgba(48, 38, 84, 0.08);
+}
+
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-social-name {
+  color: #172033;
+}
+
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-call-foot {
+  background: linear-gradient(90deg, rgba(22, 163, 74, 0.12), rgba(20, 184, 166, 0.08));
+}
+
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-call-foot span,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-call-grid .good,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-timeline b {
+  color: #15803d;
+}
+
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-call-grid .danger {
+  color: #b91c1c;
+}
+
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-call-grid .purple,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-card-title button,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-call-foot button,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-history-more {
+  color: #6d28d9;
+}
+
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-call-grid i {
+  color: #5c6678;
+}
+
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-follow-grid input,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-follow-grid select,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-follow-grid textarea {
+  border-color: rgba(91, 73, 127, 0.28);
+  background: #ffffff;
+  color: #111827;
+}
+
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-follow-grid input::placeholder,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-follow-grid textarea::placeholder {
+  color: #748096;
+  opacity: 1;
+}
+
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-follow-grid input:focus,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-follow-grid select:focus,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-follow-grid textarea:focus {
+  border-color: rgba(109, 40, 217, 0.56);
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.14);
+  outline: 0;
+}
+
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-follow-grid input:disabled,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-follow-grid select:disabled,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-follow-grid textarea:disabled,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-follow-save:disabled,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-crm-save:disabled {
+  opacity: 0.64;
+}
+
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-primary-action,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-follow-save {
+  color: #ffffff;
+  background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%);
+  background-color: #6d28d9;
+  box-shadow: 0 12px 24px rgba(91, 33, 182, 0.18);
+}
+
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-crm-save,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-ready,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-end-call {
+  color: #ffffff;
+}
+
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-ready {
+  background: #15803d;
+}
+
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-crm-save {
+  background: linear-gradient(180deg, #16a34a 0%, #15803d 100%);
+  background-color: #15803d;
+}
+
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-date-chip,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-name-row .badge,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-kpis article em {
+  background: #f1e8ff;
+  color: #4c1d95 !important;
+}
+
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-timeline article,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-order-list article {
+  background: rgba(248, 246, 255, 0.72);
+}
+
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-timeline article:hover,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-order-list article:hover {
+  background: #f3efff;
+}
+
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-order-list em {
+  background: #dcfce7;
+  color: #166534;
+}
+
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-order-list em.blue {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-kpis article.gold {
+  border-color: rgba(245, 158, 11, 0.42);
+  background:
+    radial-gradient(circle at 26% 50%, rgba(250, 204, 21, 0.16), transparent 34%),
+    linear-gradient(135deg, #fffaf0, #ffffff);
+  box-shadow: 0 10px 24px rgba(180, 83, 9, 0.08);
+}
+
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-kpi-icon,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-kpis article strong {
+  color: #6d28d9;
+  filter: none;
+}
+
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-kpis .gold .customer-ref-kpi-icon,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-kpis .gold strong,
+html[data-theme="light"] #customerDialog #customerDetail .customer-ref-revenue-bag {
+  color: #b45309;
+  filter: none;
+}
+
 .grow-modal::backdrop {
   background:
     radial-gradient(circle at 50% 18%, rgba(156, 72, 255, 0.2), transparent 32%),
