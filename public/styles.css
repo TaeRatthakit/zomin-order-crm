@@ -11884,9 +11884,10 @@ body.desktop-app-shell:not(.login-view) .line-status-row span {
   body.mobile-orders-view .mobile-order-row {
     position: relative;
     display: grid;
-    gap: 3px;
-    min-height: 74px;
-    padding: 8px 9px 7px;
+    gap: 7px;
+    height: max-content;
+    min-height: max-content;
+    padding: 10px 10px 9px;
     overflow: hidden;
     border: 1px solid rgba(55, 90, 116, 0.28);
     border-radius: 10px;
@@ -11905,40 +11906,53 @@ body.desktop-app-shell:not(.login-view) .line-status-row span {
   }
 
   body.mobile-orders-view .mobile-order-main,
-  body.mobile-orders-view .mobile-order-meta {
+  body.mobile-orders-view .mobile-order-product-line,
+  body.mobile-orders-view .mobile-order-details {
     display: grid;
     align-items: center;
     min-width: 0;
-    column-gap: 7px;
+    column-gap: 9px;
   }
 
   body.mobile-orders-view .mobile-order-main {
-    grid-template-columns: minmax(48px, 0.74fr) minmax(76px, 1.42fr) minmax(54px, 0.82fr) minmax(70px, 1.02fr) auto;
+    grid-template-columns: minmax(58px, max-content) minmax(0, 1fr) minmax(82px, max-content) auto;
+    align-items: start;
   }
 
-  body.mobile-orders-view .mobile-order-meta {
-    grid-template-columns: minmax(94px, 1fr) minmax(96px, 0.82fr) minmax(42px, 0.38fr) 67px;
+  body.mobile-orders-view .mobile-order-product-line {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  body.mobile-orders-view .mobile-order-details {
+    grid-template-columns: minmax(0, 1fr) minmax(74px, max-content) minmax(52px, max-content);
   }
 
   body.mobile-orders-view .mobile-order-number {
     color: #b650ff;
-    font-size: 13.5px;
+    font-size: 14px;
     font-weight: 500;
-    line-height: 1.12;
+    line-height: 1.18;
     white-space: nowrap;
   }
 
   body.mobile-orders-view .mobile-order-customer {
     color: #eceef2;
-    font-size: 12.5px;
+    display: -webkit-box;
+    overflow: hidden;
+    font-size: 13.5px;
     font-weight: 500;
-    line-height: 1.12;
+    line-height: 1.22;
     overflow-wrap: anywhere;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
   }
 
   body.mobile-orders-view .mobile-order-date,
   body.mobile-orders-view .mobile-order-phone,
   body.mobile-orders-view .mobile-order-time {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
     min-width: 0;
     white-space: nowrap;
   }
@@ -11949,22 +11963,41 @@ body.desktop-app-shell:not(.login-view) .line-status-row span {
     color: #adb2bc;
     font-size: 12.5px;
     font-weight: 400;
+    line-height: 1.15;
   }
 
-  body.mobile-orders-view .mobile-order-date,
-  body.mobile-orders-view .mobile-order-time {
+  body.mobile-orders-view .mobile-order-phone {
+    justify-self: start;
+    text-align: left;
+  }
+
+  body.mobile-orders-view .mobile-order-date {
+    justify-self: center;
     text-align: center;
+  }
+
+  body.mobile-orders-view .mobile-order-time {
+    justify-self: end;
+    text-align: right;
+  }
+
+  body.mobile-orders-view .mobile-order-date svg,
+  body.mobile-orders-view .mobile-order-phone svg,
+  body.mobile-orders-view .mobile-order-time svg {
+    width: 14px;
+    height: 14px;
+    flex: 0 0 14px;
   }
 
   body.mobile-orders-view .mobile-order-products {
     display: flex;
     align-items: center;
     min-width: 0;
-    gap: 3px;
+    gap: 5px;
     overflow: visible;
     color: #eceef2;
-    font-size: 12.5px;
-    line-height: 1.1;
+    font-size: 13px;
+    line-height: 1.18;
     white-space: normal;
   }
 
@@ -11983,9 +12016,9 @@ body.desktop-app-shell:not(.login-view) .line-status-row span {
 
   body.mobile-orders-view .mobile-order-product-thumb {
     display: inline-grid;
-    width: 18px;
-    height: 18px;
-    flex: 0 0 18px;
+    width: 20px;
+    height: 20px;
+    flex: 0 0 20px;
     place-items: center;
     overflow: hidden;
     border: 1px solid rgba(255, 255, 255, 0.18);
@@ -12010,7 +12043,8 @@ body.desktop-app-shell:not(.login-view) .line-status-row span {
 
   body.mobile-orders-view .mobile-order-total {
     color: #ffc400;
-    font-size: 13.5px;
+    align-self: start;
+    font-size: 14px;
     font-weight: 600;
     text-align: right;
     white-space: nowrap;
@@ -12018,6 +12052,7 @@ body.desktop-app-shell:not(.login-view) .line-status-row span {
 
   body.mobile-orders-view .mobile-order-row-actions {
     display: flex;
+    align-self: start;
     align-items: center;
     justify-content: flex-end;
     gap: 5px;
