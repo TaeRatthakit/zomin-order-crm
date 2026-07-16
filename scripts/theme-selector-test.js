@@ -18,10 +18,10 @@ const serviceWorker = fs.readFileSync(path.join(root, "public", "service-worker.
 const jsonAdapter = fs.readFileSync(path.join(root, "lib", "db", "json-adapter.js"), "utf8");
 const supabaseAdapter = fs.readFileSync(path.join(root, "lib", "db", "supabase-adapter.js"), "utf8");
 
-assert(html.indexOf('const preference = "system"') < html.indexOf("/styles.css?v=20260716-orders-hero-light-v1"), "theme bootstrap must default to System before stylesheet load");
+assert(html.indexOf('const preference = "system"') < html.indexOf("/styles.css?v=20260717-sidebar-theme-v1"), "theme bootstrap must default to System before stylesheet load");
 assert(html.includes('document.documentElement.dataset.theme = resolved'), "theme bootstrap must set resolved theme before render");
 assert(!html.includes("growup_theme_preference_v1"), "bootstrap must not read a shared theme key before authentication");
-assert(html.includes('/app.js?v=20260716-orders-hero-light-v1'), "app asset version must be bumped");
+assert(html.includes('/app.js?v=20260717-sidebar-theme-v1'), "app asset version must be bumped");
 
 assert(appJs.includes('const THEME_STORAGE_PREFIX = "growup-theme:"'), "theme storage must be namespaced per user");
 assert(!appJs.includes("growup_theme_preference_v1"), "client must not use a shared theme storage key");
@@ -31,18 +31,30 @@ assert(appJs.includes('return THEME_OPTIONS.has(value) ? value : "system"'), "in
 assert(appJs.includes('applyThemePreference("system", { persistLocal: false })'), "logout/session cleanup must return the document to System");
 assert(appJs.includes('window.matchMedia?.("(prefers-color-scheme: dark)")?.addEventListener?.("change"'), "System mode must react to device theme changes");
 assert(appJs.includes("[data-theme-select]"), "Display theme selector change handler missing");
-assert(html.includes("data-profile-theme-select"), "Profile dialog must include the personal theme selector for every authenticated user");
+const profileDialogHtml = html.slice(html.indexOf('<dialog id="profileDialog"'), html.indexOf('<dialog id="lineVideoDialog"'));
+assert(!profileDialogHtml.includes("data-profile-theme-select"), "Profile dialog must not include the personal theme selector");
+assert(!profileDialogHtml.includes("profileTheme"), "Profile dialog must not keep the removed theme field name");
+assert(!profileDialogHtml.includes(">Theme<") && !profileDialogHtml.includes(">ธีม<") && !profileDialogHtml.includes(">ธีมหน้าจอ<"), "Profile dialog must not show a theme label");
+assert((profileDialogHtml.match(/class="span-2"/g) || []).length === 1, "Profile dialog must not leave an empty theme field gap");
 assert(html.includes("data-clear-profile-image"), "Profile dialog must allow users to remove their own avatar");
-assert(appJs.includes("[data-profile-theme-select]"), "Profile theme selector change handler missing");
+assert(!appJs.includes("[data-profile-theme-select]"), "Profile theme selector handler must be removed");
 assert(appJs.includes("profileAvatarRemovePending"), "Profile avatar removal must distinguish remove from unchanged avatar");
 assert(appJs.includes("PROFILE_AVATAR_ALLOWED_TYPES"), "Profile avatar upload must validate MIME types before reading");
 assert(appJs.includes("function userAvatarMarkup"), "Users list must render real user avatars before initials fallback");
 assert(appJs.includes("markAvatarImagesLoaded(els.content)"), "Users list avatars must register load/error fallback handlers");
 assert(appJs.includes("function saveCurrentUserThemePreference"), "Profile and Display theme selectors must share one save helper");
 assert(appJs.includes('if (app.themeSavePreference === normalized) return app.themeSavePromise'), "theme save helper must avoid duplicate save requests for one selection");
-assert(appJs.includes('document.querySelectorAll("[data-theme-select], [data-profile-theme-select]")'), "Profile and Display theme selectors must stay synchronized");
-assert(appJs.includes('["dark", "Dark"]') && appJs.includes('["light", "Light"]') && appJs.includes('["system", "System"]'), "Display selector must expose exactly Dark, Light, System");
-assert(html.includes('<option value="dark">Dark</option>') && html.includes('<option value="light">Light</option>') && html.includes('<option value="system">System</option>'), "Profile selector must expose exactly Dark, Light, System");
+assert(appJs.includes('document.querySelectorAll("[data-theme-select]")'), "Display selector must stay synchronized");
+assert(appJs.includes('document.querySelectorAll("[data-theme-button]")'), "Sidebar theme buttons must stay synchronized");
+assert(appJs.includes('button.classList.toggle("is-active", active)') && appJs.includes('button.setAttribute("aria-pressed", active ? "true" : "false")'), "Sidebar theme buttons must expose active state");
+assert(appJs.includes('["dark", "มืด"') && appJs.includes('["light", "สว่าง"') && appJs.includes('["system", "อัตโนมัติ"'), "Theme controls must expose Thai Dark, Light, System labels");
+assert(appJs.includes('settingsUnifiedCard("ธีมหน้าจอ", "เปลี่ยนตามการตั้งค่าของอุปกรณ์"'), "Display settings theme selector must be localized");
+assert(appJs.includes('<label>ธีมหน้าจอ'), "Display settings theme heading must be localized");
+assert(appJs.includes('class="sidebar-theme-controls"') && appJs.indexOf('class="sidebar-upgrade-card"') < appJs.indexOf('${themeControlMarkup()}'), "Sidebar theme buttons must render directly below Upgrade Pro");
+assert(appJs.includes('data-theme-button="${value}"') && appJs.includes('aria-label="${label}" title="${label}"'), "Sidebar theme buttons must have Thai aria-labels and tooltips");
+assert(appJs.includes('const themeButton = event.target.closest("[data-theme-button]")'), "Sidebar/mobile theme button click handler missing");
+assert(appJs.includes('saveCurrentUserThemePreference(themeButton.dataset.themeButton)'), "Sidebar/mobile theme buttons must persist through the existing per-user save helper");
+assert(appJs.includes('if (event.target?.matches?.("[data-theme-select]"))') && appJs.includes('saveCurrentUserThemePreference(event.target.value)'), "Display selector must switch and persist immediately");
 assert(appJs.includes('/api/profile/theme'), "theme must persist through the per-user profile theme endpoint");
 assert(!appJs.includes('app.data?.settings?.displayPreferences?.theme'), "theme must not be read from shared business settings");
 assert(appJs.includes('if (["settingsStore", "settingsGoals", "settingsAi", "settingsNotifications", "settingsDisplay", "settingsFollowup", "settingsVip"].includes(view)) return can("system.business");'), "Display settings permission gate must remain unchanged");
@@ -74,9 +86,12 @@ assert(css.includes('html[data-theme="light"] body:not(.login-view) .settings-us
 assert(css.includes('html[data-theme="light"] body:not(.login-view) .settings-users-page .mobile-business-avatar'), "Light theme must cover Users avatar initials fallback");
 assert(!css.includes('html[data-theme="dark"]'), "Dark theme must remain the unmodified baseline");
 
-assert(serviceWorker.includes('growup-pilot-pwa-v106-orders-hero-light'), "service worker cache name must be bumped");
-assert(serviceWorker.includes('/styles.css?v=20260716-orders-hero-light-v1'), "service worker must cache current stylesheet");
-assert(serviceWorker.includes('/app.js?v=20260716-orders-hero-light-v1'), "service worker must cache current app bundle");
+assert(css.includes(".sidebar-theme-button") && css.includes("width: 30px;") && css.includes("height: 30px;"), "Desktop theme buttons must remain compact");
+assert(css.includes(".sidebar-theme-button.is-active"), "Sidebar theme buttons must have an active state");
+assert(css.includes("body.mobile-app-shell:not(.login-view) .brand,\n  body.mobile-app-shell:not(.login-view) .sidebar-footer {\n    display: none;"), "Mobile layout must keep the sidebar footer hidden");
+assert(serviceWorker.includes('growup-pilot-pwa-v108-sidebar-theme'), "service worker cache name must be bumped");
+assert(serviceWorker.includes('/styles.css?v=20260717-sidebar-theme-v1'), "service worker must cache current stylesheet");
+assert(serviceWorker.includes('/app.js?v=20260717-sidebar-theme-v1'), "service worker must cache current app bundle");
 
 async function runPerUserApiTest() {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "growup-theme-test-"));

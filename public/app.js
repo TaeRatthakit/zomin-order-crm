@@ -561,9 +561,14 @@ function applyUserTheme(user = app.currentUser, { preferCache = false, persistLo
 
 function syncThemeControls(preference = document.documentElement.dataset.themePreference) {
   const normalized = normalizeThemePreference(preference);
-  document.querySelectorAll("[data-theme-select], [data-profile-theme-select]").forEach(select => {
+  document.querySelectorAll("[data-theme-select]").forEach(select => {
     const hasOption = Array.from(select.options || []).some(option => option.value === normalized);
     if (hasOption && select.value !== normalized) select.value = normalized;
+  });
+  document.querySelectorAll("[data-theme-button]").forEach(button => {
+    const active = button.dataset.themeButton === normalized;
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-pressed", active ? "true" : "false");
   });
 }
 
@@ -1616,14 +1621,10 @@ function openProfileDialog() {
   if (els.profileForm.elements.displayName) {
     els.profileForm.elements.displayName.value = app.currentUser.name || "";
   }
-  const activeThemePreference = normalizeThemePreference(document.documentElement.dataset.themePreference || app.currentUser.themePreference);
-  if (els.profileForm.elements.profileTheme) {
-    els.profileForm.elements.profileTheme.value = activeThemePreference;
-  }
   const input = document.querySelector("#profileImageInput");
   if (input) input.value = "";
   syncProfileAvatarPreview();
-  syncThemeControls(activeThemePreference);
+  syncThemeControls();
   setProfileSaveState(false);
   els.profileDialog.showModal();
 }
@@ -1641,6 +1642,24 @@ function avatarMarkup(name, avatar, className = "header-profile-avatar", interac
       ${image}
       <span class="header-profile-badge">👑</span>
     </span>
+  `;
+}
+
+function themeControlMarkup() {
+  const active = normalizeThemePreference(document.documentElement.dataset.themePreference || app.currentUser?.themePreference);
+  const options = [
+    ["dark", "มืด", `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 7.5A9 9 0 1 1 12 3Z"/></svg>`],
+    ["light", "สว่าง", `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>`],
+    ["system", "อัตโนมัติ", `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 3v18"/><path d="M12 3a9 9 0 0 1 0 18"/></svg>`]
+  ];
+  return `
+    <div class="sidebar-theme-controls" role="group" aria-label="ธีมหน้าจอ">
+      ${options.map(([value, label, icon]) => `
+        <button class="sidebar-theme-button ${active === value ? "is-active" : ""}" type="button" data-theme-button="${value}" aria-label="${label}" title="${label}" aria-pressed="${active === value ? "true" : "false"}">
+          ${icon}
+        </button>
+      `).join("")}
+    </div>
   `;
 }
 
@@ -1894,18 +1913,7 @@ function updateShell() {
         </div>
         <button class="button primary" type="button" data-view-shortcut="pricing">อัปเกรดเลย</button>
       </article>
-      <article class="sidebar-profile-card">
-        <div class="sidebar-profile-avatar" aria-hidden="true">${escapeHtml(initials(app.currentUser.name || "GP"))}</div>
-        <div class="sidebar-profile-copy">
-          <strong>${escapeHtml(app.currentUser.name)}</strong>
-          <span>${escapeHtml(profileRoleLabel(app.currentUser.role))}</span>
-        </div>
-        <button class="sidebar-profile-action" type="button" data-logout aria-label="ออกจากระบบ">›</button>
-      </article>
-      <div class="sidebar-theme-switch" aria-label="ธีมมืด">
-        <span aria-hidden="true">☀</span>
-        <span class="theme-switch-track"><i>☾</i></span>
-      </div>
+      ${themeControlMarkup()}
     `;
   }
 }
@@ -8327,9 +8335,9 @@ function renderSettingsDisplay() {
   const prefs = app.data.settings.displayPreferences || {};
   const userThemePreference = normalizeThemePreference(app.currentUser?.themePreference || app.data.currentUser?.themePreference);
   const themeOptions = [
-    ["dark", "Dark"],
-    ["light", "Light"],
-    ["system", "System"]
+    ["dark", "มืด"],
+    ["light", "สว่าง"],
+    ["system", "อัตโนมัติ"]
   ];
   els.content.innerHTML = settingsSubpageShell(
     "Display",
@@ -8337,9 +8345,9 @@ function renderSettingsDisplay() {
     "ธีม, ภาษา, รูปแบบวันที่และตัวเลข",
     `
       <form class="settings-unified-form" id="settingsForm" data-settings-scope="display">
-        ${settingsUnifiedCard("ธีม ภาษา และรูปแบบข้อมูล", "เปลี่ยนเฉพาะ presentation formatting ไม่เปลี่ยนค่าที่เก็บในฐานข้อมูล", `
+        ${settingsUnifiedCard("ธีมหน้าจอ", "เปลี่ยนตามการตั้งค่าของอุปกรณ์", `
           <div class="settings-form-grid">
-            <label>ธีม
+            <label>ธีมหน้าจอ
               <select name="theme" data-theme-select>
                 ${themeOptions.map(([value, label]) => `<option value="${value}" ${userThemePreference === value ? "selected" : ""}>${label}</option>`).join("")}
               </select>
@@ -10696,6 +10704,19 @@ document.addEventListener("click", async event => {
     document.body.classList.toggle("sidebar-open");
   }
 
+  const themeButton = event.target.closest("[data-theme-button]");
+  if (themeButton) {
+    saveCurrentUserThemePreference(themeButton.dataset.themeButton)
+      .then(result => {
+        if (result.saved) showToast("บันทึกธีมแล้ว");
+      })
+      .catch(error => {
+        applyUserTheme(app.currentUser);
+        showToast(error.message);
+      });
+    return;
+  }
+
   if (event.target.closest("#headerNotificationButton")) {
     openNotifications(event.target.closest("#headerNotificationButton"));
     return;
@@ -11889,17 +11910,6 @@ document.addEventListener("change", event => {
     updateDatePickerDraft({ compareMode: "custom", [key]: event.target.value });
     return;
   }
-  if (event.target?.matches?.("[data-profile-theme-select]")) {
-    saveCurrentUserThemePreference(event.target.value)
-      .then(result => {
-        if (result.saved) showToast("บันทึกธีมแล้ว");
-      })
-      .catch(error => {
-        applyUserTheme(app.currentUser);
-        showToast(error.message);
-      });
-    return;
-  }
   if (event.target?.matches?.("[data-permission-role]")) {
     app.permissionRole = event.target.value === "Staff" ? "Staff" : "Admin";
     render();
@@ -11913,7 +11923,14 @@ document.addEventListener("change", event => {
     return;
   }
   if (event.target?.matches?.("[data-theme-select]")) {
-    applyThemePreference(event.target.value, { persistLocal: false, userId: app.currentUser?.id });
+    saveCurrentUserThemePreference(event.target.value)
+      .then(result => {
+        if (result.saved) showToast("บันทึกธีมแล้ว");
+      })
+      .catch(error => {
+        applyUserTheme(app.currentUser);
+        showToast(error.message);
+      });
     return;
   }
   if (elementId(event.target?.form) === "teamForm") {

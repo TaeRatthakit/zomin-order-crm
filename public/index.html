@@ -51,7 +51,7 @@
         document.documentElement.dataset.theme = resolved;
       })();
     </script>
-    <link rel="stylesheet" href="/styles.css?v=20260716-orders-hero-light-v1">
+    <link rel="stylesheet" href="/styles.css?v=20260717-sidebar-theme-v1">
   </head>
   <body>
     <div id="appStartupLoader" class="app-startup-loader" aria-hidden="true">
@@ -154,13 +154,6 @@
             <input id="profileImageInput" name="profileImageInput" type="file" accept="image/*" hidden>
           </div>
           <label class="span-2"><span class="order-field-label">ชื่อที่แสดง</span><input name="displayName" maxlength="60" required></label>
-          <label class="span-2"><span class="order-field-label">Theme</span>
-            <select name="profileTheme" data-profile-theme-select>
-              <option value="dark">Dark</option>
-              <option value="light">Light</option>
-              <option value="system">System</option>
-            </select>
-          </label>
         </div>
         <div class="dialog-actions grow-modal-footer">
           <button class="button ghost" type="button" data-close-profile>ยกเลิก</button>
@@ -477,9 +470,9 @@
       </form>
     </dialog>
 
-    <script src="/app.js?v=20260717-mobile-icon-v1"></script>
+    <script src="/app.js?v=20260717-sidebar-theme-v1"></script>
     <script>
-      const swUrl = "/service-worker.js?v=20260717-mobile-icon-v1";
+      const swUrl = "/service-worker.js?v=20260717-sidebar-theme-v1";
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", () => {
           navigator.serviceWorker.register(swUrl).then(registration => registration.update()).catch(() => {});
