@@ -18,10 +18,10 @@ const serviceWorker = fs.readFileSync(path.join(root, "public", "service-worker.
 const jsonAdapter = fs.readFileSync(path.join(root, "lib", "db", "json-adapter.js"), "utf8");
 const supabaseAdapter = fs.readFileSync(path.join(root, "lib", "db", "supabase-adapter.js"), "utf8");
 
-assert(html.indexOf('const preference = "system"') < html.indexOf("/styles.css?v=20260716-users-avatar-light-v1"), "theme bootstrap must default to System before stylesheet load");
+assert(html.indexOf('const preference = "system"') < html.indexOf("/styles.css?v=20260716-orders-hero-light-v1"), "theme bootstrap must default to System before stylesheet load");
 assert(html.includes('document.documentElement.dataset.theme = resolved'), "theme bootstrap must set resolved theme before render");
 assert(!html.includes("growup_theme_preference_v1"), "bootstrap must not read a shared theme key before authentication");
-assert(html.includes('/app.js?v=20260716-users-avatar-light-v1'), "app asset version must be bumped");
+assert(html.includes('/app.js?v=20260716-orders-hero-light-v1'), "app asset version must be bumped");
 
 assert(appJs.includes('const THEME_STORAGE_PREFIX = "growup-theme:"'), "theme storage must be namespaced per user");
 assert(!appJs.includes("growup_theme_preference_v1"), "client must not use a shared theme storage key");
@@ -68,14 +68,15 @@ assert(css.includes("/* Light theme completion: ordinary data surfaces use light
 assert(css.includes("--light-card-solid: #ffffff"), "Light theme must expose centralized light surface token");
 assert(css.includes('html[data-theme="light"] body.desktop-app-shell:not(.login-view) .mobile-report-kpi'), "Light theme must cover Reports KPI cards");
 assert(css.includes('html[data-theme="light"] body.desktop-app-shell:not(.login-view) #orderList'), "Light theme must cover Orders table surface");
+assert(css.includes('html[data-theme="light"] body.desktop-app-shell:not(.login-view) .orders-page .orders-hero'), "Light theme must cover Orders desktop hero");
 assert(css.includes('html[data-theme="light"] body:not(.login-view) .grow-settings-row'), "Light theme must cover Business Management settings rows");
 assert(css.includes('html[data-theme="light"] body:not(.login-view) .settings-users-page .settings-user-tabs button'), "Light theme must cover Users & Permissions tabs");
 assert(css.includes('html[data-theme="light"] body:not(.login-view) .settings-users-page .mobile-business-avatar'), "Light theme must cover Users avatar initials fallback");
 assert(!css.includes('html[data-theme="dark"]'), "Dark theme must remain the unmodified baseline");
 
-assert(serviceWorker.includes('growup-pilot-pwa-v105-users-avatar-light'), "service worker cache name must be bumped");
-assert(serviceWorker.includes('/styles.css?v=20260716-users-avatar-light-v1'), "service worker must cache current stylesheet");
-assert(serviceWorker.includes('/app.js?v=20260716-users-avatar-light-v1'), "service worker must cache current app bundle");
+assert(serviceWorker.includes('growup-pilot-pwa-v106-orders-hero-light'), "service worker cache name must be bumped");
+assert(serviceWorker.includes('/styles.css?v=20260716-orders-hero-light-v1'), "service worker must cache current stylesheet");
+assert(serviceWorker.includes('/app.js?v=20260716-orders-hero-light-v1'), "service worker must cache current app bundle");
 
 async function runPerUserApiTest() {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "growup-theme-test-"));
