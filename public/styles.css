@@ -22877,6 +22877,148 @@ html[data-theme="light"] body:not(.login-view) .mobile-business-page:not(.mobile
   color: #7a6c91 !important;
 }
 
+@media (min-width: 821px) {
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .orders-page {
+    --orders-desktop-text: #172033;
+    --orders-desktop-heading: #111827;
+    --orders-desktop-muted: #5c6678;
+    --orders-desktop-soft: #748096;
+    --orders-desktop-border: rgba(91, 73, 127, 0.20);
+    --orders-desktop-border-strong: rgba(91, 73, 127, 0.32);
+    --orders-desktop-surface: #ffffff;
+    --orders-desktop-surface-soft: #fbfaff;
+    --orders-desktop-row-alt: #f8f6ff;
+    --orders-desktop-row-hover: #f3efff;
+    color: var(--orders-desktop-text);
+  }
+
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .orders-page .metric-card,
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .orders-page .panel-premium,
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .orders-page #orderList {
+    border-color: var(--orders-desktop-border) !important;
+    background:
+      radial-gradient(circle at 16% 0, rgba(124, 58, 237, 0.045), transparent 34%),
+      linear-gradient(145deg, var(--orders-desktop-surface), var(--orders-desktop-surface-soft)) !important;
+    color: var(--orders-desktop-text) !important;
+    box-shadow: 0 14px 34px rgba(48, 38, 84, 0.10) !important;
+  }
+
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .orders-page .metric-card span,
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .orders-page .section-title p,
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .orders-page .table-identity small {
+    color: var(--orders-desktop-muted) !important;
+    opacity: 1 !important;
+  }
+
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .orders-page .metric-card strong,
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .orders-page .section-title h2,
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .orders-page .workspace-table td,
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .orders-page .workspace-table td strong,
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .orders-page .table-identity,
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .orders-page .table-identity strong {
+    color: var(--orders-desktop-heading) !important;
+    opacity: 1 !important;
+  }
+
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .orders-page .orders-search-input {
+    border-color: var(--orders-desktop-border-strong) !important;
+    background: #ffffff !important;
+    color: var(--orders-desktop-heading) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.82) !important;
+  }
+
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .orders-page .orders-search-input::placeholder {
+    color: var(--orders-desktop-soft) !important;
+    opacity: 1 !important;
+  }
+
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .orders-page .orders-search-row .button,
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .orders-page .orders-header-actions .button.primary {
+    border-color: rgba(109, 40, 217, 0.36) !important;
+    background: linear-gradient(135deg, #7c3aed, #6d28d9) !important;
+    background-color: #6d28d9 !important;
+    color: #ffffff !important;
+    box-shadow: 0 10px 22px rgba(109, 40, 217, 0.20) !important;
+  }
+
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .orders-page .orders-show-all,
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .orders-page .orders-show-all span {
+    color: #f8fafc !important;
+  }
+
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .orders-page .workspace-table {
+    background: transparent !important;
+    color: var(--orders-desktop-text) !important;
+  }
+
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .orders-page .workspace-table thead th {
+    border-color: var(--orders-desktop-border) !important;
+    background: #f1edf9 !important;
+    color: #5b4b75 !important;
+  }
+
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .orders-page .workspace-table tbody tr {
+    background: #ffffff !important;
+    color: var(--orders-desktop-text) !important;
+  }
+
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .orders-page .workspace-table tbody tr:nth-child(even) {
+    background: var(--orders-desktop-row-alt) !important;
+  }
+
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .orders-page .workspace-table tbody tr:hover,
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .orders-page .workspace-table tbody tr:focus-within {
+    background: var(--orders-desktop-row-hover) !important;
+  }
+
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .orders-page .workspace-table td {
+    border-color: var(--orders-desktop-border) !important;
+    background: transparent !important;
+  }
+
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .orders-page .table-identity .avatar {
+    border-color: rgba(124, 58, 237, 0.18) !important;
+    background: linear-gradient(135deg, rgba(124, 58, 237, 0.82), rgba(37, 99, 235, 0.66)) !important;
+    background-color: #6d28d9 !important;
+    color: #ffffff !important;
+    box-shadow: 0 8px 18px rgba(76, 56, 124, 0.16) !important;
+  }
+
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .orders-page .badge,
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .orders-page .badge.new {
+    border-color: rgba(124, 58, 237, 0.22) !important;
+    background: #f1e8ff !important;
+    color: #4c1d95 !important;
+    opacity: 1 !important;
+  }
+
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .orders-page .table-actions .button.secondary,
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .orders-page .table-actions .button.ghost {
+    border-color: rgba(109, 40, 217, 0.24) !important;
+    background: #ffffff !important;
+    color: #4c1d95 !important;
+    box-shadow: 0 6px 16px rgba(48, 38, 84, 0.10) !important;
+  }
+
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .orders-page .table-actions .button.secondary:hover,
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .orders-page .table-actions .button.ghost:hover {
+    background: #f4edff !important;
+    border-color: rgba(109, 40, 217, 0.34) !important;
+  }
+
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .orders-page .table-actions .button.danger {
+    border-color: rgba(185, 28, 28, 0.24) !important;
+    background: #fff1f2 !important;
+    color: #b91c1c !important;
+    box-shadow: 0 6px 16px rgba(127, 29, 29, 0.08) !important;
+  }
+
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .orders-page .table-actions .button.danger:hover {
+    background: #ffe4e6 !important;
+    border-color: rgba(185, 28, 28, 0.32) !important;
+  }
+}
+
 @media (max-width: 780px) {
   html[data-theme="light"] body.mobile-app-shell:not(.login-view),
   html[data-theme="light"] body.mobile-home-view:not(.login-view),
