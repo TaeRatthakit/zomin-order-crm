@@ -22833,8 +22833,8 @@ html[data-theme="light"] body:not(.login-view) .mobile-business-page:not(.mobile
 
 html[data-theme="light"] body:not(.login-view) .mobile-business-page:not(.mobile-business-subpage) .mobile-business-new-badge {
   border-color: rgba(124, 58, 237, 0.22) !important;
-  background: rgba(124, 58, 237, 0.10) !important;
-  color: #6d28d9 !important;
+  background: #f1e8ff !important;
+  color: #4c1d95 !important;
   box-shadow: 0 0 12px rgba(124, 58, 237, 0.18) !important;
 }
 
