@@ -1354,45 +1354,77 @@ function duplicateFingerprint(order = {}) {
 }
 
 function parseOrderDateTime(order = {}) {
-  const updatedValue = String(order.updatedAt || order.updated_at || "").trim();
-  if (updatedValue) {
-    const updated = new Date(updatedValue);
-    if (!Number.isNaN(updated.getTime())) return updated;
+  const date = toDateOnly(order.date || order.order_date || "");
+  if (date) {
+    const timeValue = String(order.time || order.order_time || "").trim();
+    const timeMatch = timeValue.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+    if (!timeMatch) {
+      const fallback = new Date(`${date}T00:00:00+07:00`);
+      return Number.isNaN(fallback.getTime()) ? null : fallback;
+    }
+    const [, hours, minutes, seconds = "00"] = timeMatch;
+    const exact = new Date(`${date}T${String(hours).padStart(2, "0")}:${minutes}:${seconds}+07:00`);
+    return Number.isNaN(exact.getTime()) ? null : exact;
   }
   const createdValue = String(order.createdAt || order.created_at || "").trim();
   if (createdValue && /T/.test(createdValue)) {
     const created = new Date(createdValue);
     if (!Number.isNaN(created.getTime())) return created;
   }
-  const date = toDateOnly(order.date || order.order_date || "");
-  if (!date) return null;
-  const timeValue = String(order.time || order.order_time || "").trim();
-  const timeMatch = timeValue.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
-  if (!timeMatch) {
-    const fallback = new Date(`${date}T00:00:00+07:00`);
-    return Number.isNaN(fallback.getTime()) ? null : fallback;
+  const updatedValue = String(order.updatedAt || order.updated_at || "").trim();
+  if (updatedValue) {
+    const updated = new Date(updatedValue);
+    if (!Number.isNaN(updated.getTime())) return updated;
   }
-  const [, hours, minutes, seconds = "00"] = timeMatch;
-  const exact = new Date(`${date}T${String(hours).padStart(2, "0")}:${minutes}:${seconds}+07:00`);
-  return Number.isNaN(exact.getTime()) ? null : exact;
+  return null;
+}
+
+function parseOrderCreatedDateTime(order = {}) {
+  const createdValue = String(order.createdAt || order.created_at || "").trim();
+  if (!createdValue) return null;
+  const created = new Date(createdValue);
+  return Number.isNaN(created.getTime()) ? null : created;
+}
+
+function isWithinOrderCycleHours(existingDateValue, payloadDateValue, hours) {
+  if (!existingDateValue || !payloadDateValue) return false;
+  const existingTime = existingDateValue instanceof Date ? existingDateValue.getTime() : new Date(existingDateValue).getTime();
+  const payloadTime = payloadDateValue instanceof Date ? payloadDateValue.getTime() : new Date(payloadDateValue).getTime();
+  if (Number.isNaN(existingTime) || Number.isNaN(payloadTime)) return false;
+  return Math.abs(payloadTime - existingTime) <= Number(hours || 0) * 60 * 60 * 1000;
+}
+
+function isSameOrderDate(order = {}, payload = {}) {
+  const orderDate = toDateOnly(order.date || order.order_date || "");
+  const payloadDate = toDateOnly(payload.date || payload.order_date || "");
+  return Boolean(orderDate && payloadDate && orderDate === payloadDate);
+}
+
+function isWithinCreatedOrderWindow(order = {}, payload = {}, hours) {
+  if (!isSameOrderDate(order, payload)) return true;
+  const orderCreatedAt = parseOrderCreatedDateTime(order);
+  if (!orderCreatedAt) return true;
+  const payloadCreatedAt = parseOrderCreatedDateTime(payload) || new Date();
+  return isWithinOrderCycleHours(orderCreatedAt, payloadCreatedAt, hours);
 }
 
 function findExactDuplicateOrderWithin24Hours(db, payload = {}) {
   const payloadFields = normalizeDuplicateComparisonFields(payload);
-  const now = new Date();
-  const windowStart = now.getTime() - (24 * 60 * 60 * 1000);
+  const payloadDateTime = parseOrderDateTime(payload) || new Date();
   return (db.orders || []).find(order => {
     const orderDateTime = parseOrderDateTime(order);
     if (!orderDateTime) return false;
-    const orderTime = orderDateTime.getTime();
-    if (orderTime < windowStart || orderTime > now.getTime()) return false;
+    if (!isWithinOrderCycleHours(orderDateTime, payloadDateTime, 24)) return false;
+    if (!isWithinCreatedOrderWindow(order, payload, 24)) return false;
     const existingFields = normalizeDuplicateComparisonFields(order);
     const matchedFields = Object.keys(payloadFields).filter(key => existingFields[key] === payloadFields[key]);
     if (matchedFields.length !== 5) return false;
     order.__duplicateMatch = {
       matchedFields,
       payload: payloadFields,
-      existing: existingFields
+      existing: existingFields,
+      payloadOrderDateTime: payloadDateTime.toISOString(),
+      existingOrderDateTime: orderDateTime.toISOString()
     };
     return true;
   }) || null;
@@ -2284,13 +2316,15 @@ function isWithinPreviousHours(dateValue, hours, now = new Date()) {
   return timestamp <= current && timestamp >= current - (Number(hours || 0) * 60 * 60 * 1000);
 }
 
-function findLineUpsaleOrder(db, payload = {}, now = new Date()) {
+function findLineUpsaleOrder(db, payload = {}) {
   const targetOrderNumber = orderNumberKey(payload.orderNumber || payload.order_number || "");
   if (!targetOrderNumber) return null;
+  const payloadDateTime = parseOrderDateTime(payload) || new Date();
   return (db.orders || []).find(order => {
     if (orderNumberKey(order.orderNumber || order.order_number || "") !== targetOrderNumber) return false;
     if (!sameOrderCustomerIdentity(order, payload)) return false;
-    return isWithinPreviousHours(parseOrderDateTime(order), 24, now);
+    if (!isWithinOrderCycleHours(parseOrderDateTime(order), payloadDateTime, 24)) return false;
+    return isWithinCreatedOrderWindow(order, payload, 24);
   }) || null;
 }
 

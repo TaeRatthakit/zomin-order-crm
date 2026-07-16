@@ -10,6 +10,7 @@
     "test": "node scripts/smoke-test.js",
     "test:opportunity-cycle": "node scripts/opportunity-cycle-test.js",
     "test:permissions": "node scripts/permission-smoke-test.js",
+    "test:line-webhook": "node scripts/line-webhook-duplicate-test.js",
     "test:settings-layout": "node scripts/settings-layout-test.js",
     "test:theme": "node scripts/theme-selector-test.js",
     "test:permission-ui": "node scripts/permission-ui-test.js",
