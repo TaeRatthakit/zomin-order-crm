@@ -10088,12 +10088,7 @@ document.addEventListener("click", async event => {
   if (businessPageButton && app.view === "settings") {
     const nextPage = businessPageButton.dataset.businessPage || "main";
     if (nextPage !== app.mobileBusinessPage && !await confirmDiscardPermissionChanges()) return;
-    const statePage = history.state?.businessManagementPage || "main";
-    if (nextPage === "main" && statePage !== "main" && app.mobileBusinessPage !== "system") {
-      history.back();
-      return;
-    }
-    setBusinessManagementPage(nextPage);
+    setBusinessManagementPage(nextPage, nextPage === "main" ? { replaceHistory: true } : {});
     if (nextPage !== "main") window.scrollTo({ top: 0, behavior: "smooth" });
     return;
   }
