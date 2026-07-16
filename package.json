@@ -13,6 +13,7 @@
     "test:line-webhook": "node scripts/line-webhook-duplicate-test.js",
     "test:settings-layout": "node scripts/settings-layout-test.js",
     "test:theme": "node scripts/theme-selector-test.js",
+    "test:customer-management": "node scripts/customer-management-redesign-test.js",
     "test:permission-ui": "node scripts/permission-ui-test.js",
     "test:large-import": "node scripts/test-large-import.js",
     "seed": "node scripts/seed.js",

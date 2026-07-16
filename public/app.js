@@ -81,6 +81,9 @@ const app = {
   customersShowAll: false,
   customerGroupFilter: "all",
   customerSearchDraft: "",
+  customerManagementDetailId: "",
+  customerManagementDetailTab: "overview",
+  customerManagementListScrollTop: 0,
   ordersFilterQ: "",
   ordersFilterDraft: "",
   mobileOrdersDateOnly: true,
@@ -386,6 +389,7 @@ function iconSvg(name) {
     palette: '<circle cx="13.5" cy="6.5" r=".5"/><circle cx="17.5" cy="10.5" r=".5"/><circle cx="8.5" cy="7.5" r=".5"/><circle cx="6.5" cy="12.5" r=".5"/><path d="M12 3a9 9 0 0 0 0 18h1.5a2.5 2.5 0 0 0 0-5H12a2 2 0 0 1 0-4h2a7 7 0 0 0 0-14z"/>',
     link: '<path d="M10 13a5 5 0 0 0 7.07 0l2.12-2.12a5 5 0 0 0-7.07-7.07L11 4.93"/><path d="M14 11a5 5 0 0 0-7.07 0L4.8 13.12a5 5 0 0 0 7.07 7.07L13 19.07"/>',
     copy: '<rect x="9" y="9" width="11" height="11" rx="2"/><rect x="4" y="4" width="11" height="11" rx="2"/>',
+    edit: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>',
     eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
     play: '<circle cx="12" cy="12" r="9"/><path d="m10 8 6 4-6 4z"/>',
     external: '<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>',
@@ -2526,9 +2530,9 @@ function renderLogin() {
 
 function customerRow(customer) {
   return `
-    <tr data-customer="${escapeHtml(customer.id)}">
+    <tr data-customer="${escapeHtml(customer.id)}" tabindex="0" aria-label="เปิดรายละเอียดลูกค้า ${escapeHtml(customer.name)}">
       <td data-label="ลูกค้า">
-        <button class="table-identity" type="button" data-open-customer="${escapeHtml(customer.id)}">
+        <button class="table-identity" type="button" data-open-customer-management="${escapeHtml(customer.id)}">
           <span class="avatar">${escapeHtml(initials(customer.name))}</span>
           <span>
             <strong>${escapeHtml(customer.name)}</strong>
@@ -2544,8 +2548,8 @@ function customerRow(customer) {
       <td data-label="สถานะ">${badge(customer.status || "NORMAL")}</td>
       <td data-label="จัดการ">
         <div class="table-actions">
-          <button class="button ghost compact-action" type="button" data-open-customer="${escapeHtml(customer.id)}">ดู</button>
-          ${can("customers.delete") && customer.purchaseCount === 0 ? `<button class="button danger compact-action" type="button" data-delete-customer="${escapeHtml(customer.id)}">ลบ</button>` : ""}
+          ${can("customers.edit") ? `<button class="button secondary compact-action" type="button" data-edit-customer="${escapeHtml(customer.id)}">${iconSvg("edit")}<span>แก้ไข</span></button>` : ""}
+          ${can("customers.delete") ? `<button class="button danger compact-action" type="button" data-delete-customer="${escapeHtml(customer.id)}">ลบ</button>` : ""}
         </div>
       </td>
     </tr>
@@ -2574,6 +2578,204 @@ function customerTable(customers, emptyText = "ไม่พบข้อมูล
         </tbody>
       </table>
     </div>
+  `;
+}
+
+function customerManagementSocialDisplayName(customer = {}) {
+  return customer.facebookName || customer.lineName || customer.socialName
+    || customer.orders?.slice().reverse().find(order => order.socialName)?.socialName
+    || customer.name
+    || "-";
+}
+
+function customerManagementTypeLabel(customer = {}) {
+  if (customer.vipLevel && customer.vipLevel !== "NORMAL") return `ลูกค้าซื้อซ้ำ (${customer.vipLevel})`;
+  if (Number(customer.purchaseCount || 0) > 1) return "ลูกค้าซื้อซ้ำ";
+  if (String(customer.status || "").toUpperCase() === "NEW") return "ลูกค้าใหม่";
+  return customer.status || "ลูกค้าทั่วไป";
+}
+
+function latestCustomerContactDateTime(customer = {}) {
+  const logs = [...(customer.contactLogs || [])].sort((a, b) => {
+    const first = String(a.createdAt || a.date || "");
+    const second = String(b.createdAt || b.date || "");
+    return second.localeCompare(first);
+  });
+  const latest = logs[0];
+  if (latest?.createdAt) return formatDateTime(latest.createdAt).replace(/:00$/, "");
+  if (latest?.date) return formatShortDate(latest.date);
+  return customer.lastContactDate ? formatShortDate(customer.lastContactDate) : "-";
+}
+
+function customerManagementKnownChannel(customer = {}) {
+  const order = (customer.orders || []).slice().reverse().find(item => summarizeSalesChannel(displayOrderChannel(item)) !== MISSING_CHANNEL_LABEL)
+    || (customer.orders || []).slice().reverse()[0];
+  if (!order) return "";
+  const label = displayOrderChannel(order);
+  return label === MISSING_CHANNEL_LABEL ? "" : label;
+}
+
+function customerManagementOrderStatus(order = {}, index = 0) {
+  return order.status || order.fulfillmentStatus || order.deliveryStatus || (index === 0 ? "ล่าสุด" : "");
+}
+
+function customerManagementInfoItem(icon, label, value) {
+  if (!String(value || "").trim() || value === "-") return "";
+  return `
+    <div class="customer-management-info-item">
+      <span class="customer-management-info-icon" aria-hidden="true">${iconSvg(icon)}</span>
+      <span>${escapeHtml(label)}</span>
+      <strong>${escapeHtml(value)}</strong>
+    </div>
+  `;
+}
+
+function renderCustomerManagementOverview(customer) {
+  const tags = splitTags(customer.tags || []);
+  const symptomTags = customerSymptomTags(customer);
+  const infoItems = [
+    customerManagementInfoItem("calendar", "วันที่เป็นลูกค้า", customer.firstPurchaseDate ? formatShortDate(customer.firstPurchaseDate) : ""),
+    customerManagementInfoItem("spark", "ช่องทางที่รู้จัก", customerManagementKnownChannel(customer)),
+    customerManagementInfoItem("clipboard", "หมายเหตุ", customer.note || customer.lastContactNote || ""),
+    customerManagementInfoItem("tag", "อาการ", symptomTags.length ? symptomTags.join(", ") : "")
+  ].filter(Boolean).join("");
+  return `
+    <div class="customer-management-overview-grid">
+      <section class="customer-management-panel">
+        <h3>ข้อมูลเพิ่มเติม</h3>
+        <div class="customer-management-info-list">
+          ${infoItems || `<div class="customer-management-empty">ยังไม่มีข้อมูลเพิ่มเติม</div>`}
+          ${tags.length ? `
+            <div class="customer-management-info-item customer-management-tags-row">
+              <span class="customer-management-info-icon" aria-hidden="true">${iconSvg("tag")}</span>
+              <span>แท็ก</span>
+              <div class="customer-management-tags">${tags.map(tag => `<b>${escapeHtml(tag)}</b>`).join("")}</div>
+            </div>
+          ` : ""}
+        </div>
+      </section>
+      ${renderCustomerManagementOrdersPanel(customer, { compact: true })}
+      ${renderCustomerManagementContactsPanel(customer, { compact: true })}
+    </div>
+  `;
+}
+
+function renderCustomerManagementOrdersPanel(customer, { compact = false } = {}) {
+  const orders = [...(customer.orders || [])].sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
+  const visible = compact ? orders.slice(0, 2) : orders;
+  return `
+    <section class="customer-management-panel customer-management-orders-panel">
+      <div class="customer-management-panel-head">
+        <h3>ประวัติออเดอร์</h3>
+        ${compact && orders.length > visible.length ? `<button type="button" data-customer-detail-tab="orders">ดูทั้งหมด</button>` : ""}
+      </div>
+      <div class="customer-management-order-list">
+        ${visible.map((order, index) => `
+          <article>
+            <div>
+              <strong>${escapeHtml(order.orderNumber || order.id || "-")}</strong>
+              <small>${formatShortDate(order.date)}</small>
+            </div>
+            <p>${escapeHtml(order.items || order.productName || "-")}</p>
+            <div class="customer-management-order-side">
+              <strong>${money(order.amount)} บาท</strong>
+              ${customerManagementOrderStatus(order, index) ? `<span>${escapeHtml(customerManagementOrderStatus(order, index))}</span>` : ""}
+            </div>
+          </article>
+        `).join("") || `<div class="customer-management-empty">ยังไม่มีประวัติออเดอร์</div>`}
+      </div>
+    </section>
+  `;
+}
+
+function renderCustomerManagementContactsPanel(customer, { compact = false } = {}) {
+  const logs = [...(customer.contactLogs || [])].sort((a, b) => String(b.createdAt || b.date || "").localeCompare(String(a.createdAt || a.date || "")));
+  const visible = compact ? logs.slice(0, 3) : logs;
+  return `
+    <section class="customer-management-panel customer-management-contact-panel">
+      <div class="customer-management-panel-head">
+        <h3>ประวัติการติดต่อ</h3>
+        ${compact && logs.length > visible.length ? `<button type="button" data-customer-detail-tab="contacts">ดูทั้งหมด</button>` : ""}
+      </div>
+      <div class="customer-management-timeline">
+        ${visible.map(log => {
+          const label = contactResultLabel(log.result || "บันทึกการติดต่อ");
+          const isLine = /line|แชท/i.test(`${log.result || ""} ${log.note || ""}`);
+          return `
+            <article>
+              <span class="customer-management-timeline-icon ${isLine ? "line" : "phone"}" aria-hidden="true">${isLine ? customerSourceIconInner("line", "LINE") : iconSvg("phone")}</span>
+              <div>
+                <strong>${escapeHtml(label)}</strong>
+                <p>${escapeHtml(localizedContactNote(log.note || "-"))}</p>
+                ${log.nextFollowUpDate ? `<small>นัดติดตาม ${formatShortDate(log.nextFollowUpDate)}</small>` : ""}
+              </div>
+              <time>${log.createdAt ? formatDateTime(log.createdAt).replace(/:00$/, "") : formatShortDate(log.date)}${log.staff ? `<br>โดย ${escapeHtml(log.staff)}` : ""}</time>
+            </article>
+          `;
+        }).join("") || `<div class="customer-management-empty">ยังไม่มีประวัติการติดต่อ</div>`}
+      </div>
+    </section>
+  `;
+}
+
+function renderCustomerManagementDetail(customer) {
+  const activeTab = ["overview", "orders", "contacts"].includes(app.customerManagementDetailTab)
+    ? app.customerManagementDetailTab
+    : "overview";
+  const tabContent = activeTab === "orders"
+    ? renderCustomerManagementOrdersPanel(customer)
+    : activeTab === "contacts"
+      ? renderCustomerManagementContactsPanel(customer)
+      : renderCustomerManagementOverview(customer);
+  const socialDisplayName = customerManagementSocialDisplayName(customer);
+  return `
+    <section class="customer-management-detail-view" data-customer-management-detail="${escapeHtml(customer.id)}">
+      <header class="customer-management-detail-topbar">
+        <button class="customer-management-back" type="button" data-close-customer-management-detail aria-label="กลับรายการลูกค้า">${iconSvg("arrow")}<span>รายการลูกค้า</span></button>
+        <div class="customer-management-detail-actions">
+          ${can("customers.edit") ? `<button class="button secondary compact-action" type="button" data-edit-customer="${escapeHtml(customer.id)}">${iconSvg("edit")}<span>แก้ไขข้อมูล</span></button>` : ""}
+          ${can("customers.delete") ? `<button class="button danger compact-action" type="button" data-delete-customer="${escapeHtml(customer.id)}">${iconSvg("trash")}<span>ลบลูกค้า</span></button>` : ""}
+        </div>
+      </header>
+      <article class="customer-management-profile-card">
+        <div class="customer-management-avatar" aria-hidden="true"></div>
+        <div class="customer-management-profile-main">
+          <div class="customer-management-name-row">
+            <h2>${escapeHtml(customer.name)}</h2>
+            ${vipBadge(customer.vipLevel)}
+          </div>
+          <div class="customer-management-profile-line">${iconSvg("phone")}<strong>${escapeHtml(customer.phone || "-")}</strong></div>
+          ${customer.address ? `<div class="customer-management-profile-line">${iconSvg("pin")}<span>${escapeHtml(customer.address)}</span></div>` : ""}
+          <div class="customer-management-social-row">
+            ${customerSourceIconHtml({ key: "facebook", name: "Facebook" })}
+            ${customerSourceIconHtml({ key: "line", name: "LINE" })}
+            <span>ชื่อลูกค้า: ${escapeHtml(socialDisplayName)}</span>
+          </div>
+        </div>
+        <div class="customer-management-type">
+          <span>${iconSvg("users")}ประเภทลูกค้า</span>
+          <strong>${escapeHtml(customerManagementTypeLabel(customer))}</strong>
+        </div>
+      </article>
+      <div class="customer-management-summary-cards">
+        <article class="gold"><span>${premiumRevenueIcon()}</span><small>ยอดซื้อรวม</small><strong>${money(customer.totalSpent)} บาท</strong></article>
+        <article class="blue"><span>${iconSvg("clipboard")}</span><small>จำนวนออเดอร์</small><strong>${money(customer.purchaseCount || 0)} ออเดอร์</strong></article>
+        <article class="purple"><span>${iconSvg("calendar")}</span><small>วันที่ซื้อล่าสุด</small><strong>${formatShortDate(customer.lastPurchaseDate)}</strong></article>
+        <article class="green"><span>${iconSvg("phone")}</span><small>ติดต่อล่าสุด</small><strong>${escapeHtml(latestCustomerContactDateTime(customer))}</strong></article>
+      </div>
+      <nav class="customer-management-tabs" aria-label="รายละเอียดลูกค้า">
+        ${[
+          ["overview", "ภาพรวม"],
+          ["orders", "ประวัติออเดอร์"],
+          ["contacts", "ประวัติการติดต่อ"]
+        ].map(([id, label]) => `
+          <button type="button" data-customer-detail-tab="${id}" class="${activeTab === id ? "is-active" : ""}" aria-pressed="${activeTab === id}">${label}</button>
+        `).join("")}
+      </nav>
+      <div class="customer-management-tab-panel">
+        ${tabContent}
+      </div>
+    </section>
   `;
 }
 
@@ -2606,6 +2808,9 @@ function activeCustomerGroup() {
 function resetCustomerManagementState(options = {}) {
   app.customerSearchDraft = "";
   app.filters.q = "";
+  app.customerManagementDetailId = "";
+  app.customerManagementDetailTab = "overview";
+  app.customerManagementListScrollTop = 0;
   if (options.resetGroup) app.customerGroupFilter = "all";
 }
 
@@ -2647,6 +2852,11 @@ function validateVipThresholdValues({ vip, vvip, superVip }) {
 }
 
 function renderCustomerManagementContent({ includeHero = true, extraClass = "" } = {}) {
+  if (app.customerManagementDetailId) {
+    const customer = (app.data?.customers || []).find(item => item.id === app.customerManagementDetailId);
+    if (customer) return renderCustomerManagementDetail(customer);
+    app.customerManagementDetailId = "";
+  }
   app.customerSearchDraft = app.filters.q || app.customerSearchDraft || "";
   if (!customerGroupDefinitions().some(group => group.id === app.customerGroupFilter)) app.customerGroupFilter = "all";
   const customers = sortByPriority(applyCustomerFilters());
@@ -4601,6 +4811,7 @@ function renderSearch() {
       ${renderCustomerManagementContent()}
     </section>
   `;
+  restoreCustomerManagementListScrollWhenReady();
 }
 
 const OPPORTUNITY_CHAT_RESULT = "แชทหาลูกค้าแล้ว";
@@ -8581,6 +8792,8 @@ async function saveCustomerContact(container, crmCompletedSubmit = false) {
 }
 
 function renderCustomerDetail(customer) {
+  const customerDialogShell = els.customerDialog?.querySelector(".grow-modal-shell");
+  if (customerDialogShell) customerDialogShell.removeAttribute("id");
   els.dialogCustomerName.textContent = customer.name;
   const opportunityCrmDate = app.view === "opportunities" && app.pendingOpportunityCrmCustomerId === customer.id
     ? (app.data.summary?.selectedDate || todayISO())
@@ -9393,6 +9606,7 @@ function syncViewFromLocation(event = null) {
     return;
   }
   const nextView = routeFromLocation();
+  const nextCustomerDetailId = nextView === "customers" ? String(event?.state?.customerManagementDetailId || "") : "";
   const previousBusinessPage = app.mobileBusinessPage || "main";
   const wasCustomerManagement = app.view === "customers" || app.view === "settingsCustomers" || (app.view === "settings" && previousBusinessPage === "customers");
   if (!app.currentUser && nextView !== "login") {
@@ -9435,12 +9649,58 @@ function syncViewFromLocation(event = null) {
     clearBusinessManagementScrollRestore();
     app.mobileBusinessPage = "main";
   }
+  app.customerManagementDetailId = nextCustomerDetailId;
+  if (!nextCustomerDetailId) app.customerManagementDetailTab = "overview";
   app.view = nextView;
   render();
   refreshSharedState().catch(error => console.warn("[state-sync]", error.message || error));
   if (nextView === "settings" && previousBusinessPage !== "main" && app.mobileBusinessPage === "main") {
     restoreBusinessManagementScrollWhenReady();
   }
+}
+
+function restoreCustomerManagementListScrollWhenReady() {
+  if (app.view !== "customers" || app.customerManagementDetailId) return;
+  const top = Math.max(0, Number(app.customerManagementListScrollTop || 0));
+  if (!top) return;
+  requestAnimationFrame(() => {
+    if (app.view !== "customers" || app.customerManagementDetailId) return;
+    const previousBehavior = document.documentElement.style.scrollBehavior;
+    document.documentElement.style.scrollBehavior = "auto";
+    window.scrollTo(0, Math.min(top, Math.max(0, document.documentElement.scrollHeight - window.innerHeight)));
+    document.documentElement.style.scrollBehavior = previousBehavior;
+  });
+}
+
+function openCustomerManagementDetail(customerId, { replaceHistory = false } = {}) {
+  const id = String(customerId || "").trim();
+  if (!id) return;
+  const customer = (app.data?.customers || []).find(item => item.id === id);
+  if (!customer) return showToast("ไม่พบข้อมูลลูกค้า", "error");
+  app.pendingOpportunityCrmCustomerId = "";
+  app.customerManagementListScrollTop = Math.max(0, Math.round(window.scrollY || document.documentElement.scrollTop || 0));
+  app.customerManagementDetailId = id;
+  app.customerManagementDetailTab = "overview";
+  if (app.view !== "customers") app.view = "customers";
+  const state = { ...(history.state || {}), customerManagementDetailId: id };
+  history[replaceHistory ? "replaceState" : "pushState"](state, "", viewToRoute.customers || "/customers");
+  render();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function closeCustomerManagementDetail({ fromHistory = false } = {}) {
+  if (!app.customerManagementDetailId) return;
+  app.customerManagementDetailId = "";
+  app.customerManagementDetailTab = "overview";
+  if (fromHistory) {
+    render();
+    return;
+  }
+  if (history.state?.customerManagementDetailId) {
+    history.back();
+    return;
+  }
+  render();
 }
 
 function setOrderSaveState(isSaving) {
@@ -9542,6 +9802,44 @@ function openDeleteOrderDialog(orderId) {
 function openDeleteCustomerDialog(customerId) {
   app.deletingCustomerId = customerId;
   els.deleteCustomerDialog.showModal();
+}
+
+function openCustomerEditDialog(customerId) {
+  const customer = (app.data?.customers || []).find(item => item.id === customerId);
+  if (!customer) return showToast("ไม่พบข้อมูลลูกค้า", "error");
+  if (!can("customers.edit")) return showToast("ไม่มีสิทธิ์แก้ไขลูกค้า", "error");
+  const customerDialogShell = els.customerDialog?.querySelector(".grow-modal-shell");
+  if (customerDialogShell) customerDialogShell.id = "customerEditForm";
+  els.dialogCustomerName.textContent = `แก้ไขข้อมูล ${customer.name}`;
+  els.customerDetail.innerHTML = `
+    <div class="customer-management-edit-form">
+      <div class="customer-ref-header">
+        <button class="customer-ref-back" type="button" data-close-customer aria-label="กลับ">${iconSvg("arrow")}</button>
+        <h2>แก้ไขข้อมูลลูกค้า</h2>
+        <button class="customer-ref-close" type="button" data-close-customer aria-label="ปิด">×</button>
+      </div>
+      <input type="hidden" name="customerId" value="${escapeHtml(customer.id)}">
+      <div class="customer-management-edit-summary">
+        <span class="avatar">${escapeHtml(initials(customer.name))}</span>
+        <div>
+          <strong>${escapeHtml(customer.name)}</strong>
+          <small>${escapeHtml(customer.phone || "-")}</small>
+        </div>
+        ${vipBadge(customer.vipLevel)}
+      </div>
+      <label>อาการ / แท็ก
+        <textarea name="tags" rows="4" placeholder="เช่น VIP, ลูกค้าประจำ">${escapeHtml(splitTags(customer.tags || []).join(", "))}</textarea>
+      </label>
+      <label>หมายเหตุ
+        <textarea name="note" rows="5" placeholder="บันทึกหมายเหตุของลูกค้า">${escapeHtml(customer.note || "")}</textarea>
+      </label>
+      <div class="dialog-actions grow-modal-footer">
+        <button class="button ghost" type="button" data-close-customer>ยกเลิก</button>
+        <button class="button primary" type="submit">บันทึกข้อมูล</button>
+      </div>
+    </div>
+  `;
+  els.customerDialog.showModal();
 }
 
 function resolveConfirmDialog(confirmed = false) {
@@ -10398,6 +10696,19 @@ document.addEventListener("click", async event => {
   if (deleteCustomerButton) {
     if (!can("customers.delete")) return showToast("ไม่มีสิทธิ์ลบลูกค้า", "error");
     openDeleteCustomerDialog(deleteCustomerButton.dataset.deleteCustomer);
+    return;
+  }
+
+  const editCustomerButton = event.target.closest("[data-edit-customer]");
+  if (editCustomerButton) {
+    openCustomerEditDialog(editCustomerButton.dataset.editCustomer);
+    return;
+  }
+
+  const closeCustomerManagementButton = event.target.closest("[data-close-customer-management-detail]");
+  if (closeCustomerManagementButton) {
+    closeCustomerManagementDetail();
+    return;
   }
 
   if (event.target.closest("[data-logout]")) els.logoutDialog.showModal();
@@ -10415,6 +10726,7 @@ document.addEventListener("click", async event => {
   const customerGroupFilter = event.target.closest("[data-customer-group-filter]");
   if (customerGroupFilter) {
     app.customerGroupFilter = customerGroupFilter.dataset.customerGroupFilter || "all";
+    app.customerManagementDetailId = "";
     applyCustomerSearchValue("");
     renderCustomerManagementCurrentView();
     return;
@@ -10422,7 +10734,15 @@ document.addEventListener("click", async event => {
 
   if (event.target.closest("[data-customer-search]")) {
     const searchInput = document.querySelector("[data-customer-search-input]");
+    app.customerManagementDetailId = "";
     applyCustomerSearchValue(searchInput?.value ?? app.customerSearchDraft);
+    renderCustomerManagementCurrentView();
+    return;
+  }
+
+  const customerDetailTab = event.target.closest("[data-customer-detail-tab]");
+  if (customerDetailTab && app.customerManagementDetailId) {
+    app.customerManagementDetailTab = customerDetailTab.dataset.customerDetailTab || "overview";
     renderCustomerManagementCurrentView();
     return;
   }
@@ -10608,10 +10928,20 @@ document.addEventListener("click", async event => {
     if (customer) renderCustomerDetail(customer);
   }
 
+  const customerManagementButton = event.target.closest("[data-open-customer-management]");
+  if (customerManagementButton && (app.view === "customers" || app.view === "settingsCustomers" || (app.view === "settings" && app.mobileBusinessPage === "customers"))) {
+    openCustomerManagementDetail(customerManagementButton.dataset.openCustomerManagement);
+    return;
+  }
+
   const row = event.target.closest("[data-customer]");
   if (row && !event.target.closest("button")) {
     const customer = app.data.customers.find(item => item.id === row.dataset.customer);
-    if (customer) renderCustomerDetail(customer);
+    if (customer && (app.view === "customers" || app.view === "settingsCustomers" || (app.view === "settings" && app.mobileBusinessPage === "customers"))) {
+      openCustomerManagementDetail(customer.id);
+    } else if (customer) {
+      renderCustomerDetail(customer);
+    }
   }
 
   const copyButton = event.target.closest("[data-copy]");
@@ -11310,6 +11640,8 @@ document.addEventListener("submit", async event => {
       app.deletingCustomerId = "";
       els.deleteCustomerDialog.close();
       els.customerDialog.close();
+      app.customerManagementDetailId = "";
+      app.customerManagementDetailTab = "overview";
       showToast("ลบลูกค้าแล้ว");
       await loadState();
     }
@@ -11673,6 +12005,13 @@ document.addEventListener("submit", async event => {
 
 window.addEventListener("hashchange", syncViewFromLocation);
 window.addEventListener("popstate", syncViewFromLocation);
+window.addEventListener("keydown", event => {
+  const row = event.target.closest?.("[data-customer]");
+  if (!row || !["Enter", " "].includes(event.key) || event.target.closest("button, a, input, select, textarea")) return;
+  if (!(app.view === "customers" || app.view === "settingsCustomers" || (app.view === "settings" && app.mobileBusinessPage === "customers"))) return;
+  event.preventDefault();
+  openCustomerManagementDetail(row.dataset.customer);
+});
 window.addEventListener("beforeunload", event => {
   if (!hasUnsavedPermissionChanges()) return;
   event.preventDefault();
