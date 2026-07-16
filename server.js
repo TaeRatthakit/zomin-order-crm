@@ -384,7 +384,9 @@ function normalizeThemePreference(value) {
 function sanitizeAvatarDataUrl(value) {
   const textValue = String(value || "").trim();
   if (!textValue) return "";
-  if (!/^data:image\/(?:png|jpeg|jpg|webp|gif);base64,/i.test(textValue)) return "";
+  if (!/^data:image\/(?:png|jpeg|jpg|webp|gif);base64,/i.test(textValue)) {
+    throw new Error("รองรับเฉพาะไฟล์รูปภาพ PNG, JPG, WebP หรือ GIF");
+  }
   if (Buffer.byteLength(textValue, "utf8") > 2_500_000) {
     throw new Error("รูปโปรไฟล์มีขนาดใหญ่เกินไป");
   }
@@ -4011,7 +4013,12 @@ async function handleApi(req, res) {
     if (!user) return json(res, 404, { ok: false, error: "ไม่พบผู้ใช้งาน" });
     const displayName = String(body.displayName || "").trim();
     if (!displayName) return json(res, 400, { ok: false, error: "กรุณาใส่ชื่อที่ต้องการแสดง" });
-    const avatar = sanitizeAvatarDataUrl(body.avatar);
+    let avatar = "";
+    try {
+      avatar = sanitizeAvatarDataUrl(body.avatar);
+    } catch (error) {
+      return json(res, 400, { ok: false, error: error.message || "รูปโปรไฟล์ไม่ถูกต้อง" });
+    }
     const savedUser = typeof persistUserProfile === "function"
       ? await persistUserProfile(currentUser.id, { displayName, avatar })
       : null;

@@ -18,10 +18,10 @@ const serviceWorker = fs.readFileSync(path.join(root, "public", "service-worker.
 const jsonAdapter = fs.readFileSync(path.join(root, "lib", "db", "json-adapter.js"), "utf8");
 const supabaseAdapter = fs.readFileSync(path.join(root, "lib", "db", "supabase-adapter.js"), "utf8");
 
-assert(html.indexOf('const preference = "system"') < html.indexOf("/styles.css?v=20260716-customer-popup-light-v1"), "theme bootstrap must default to System before stylesheet load");
+assert(html.indexOf('const preference = "system"') < html.indexOf("/styles.css?v=20260716-users-avatar-light-v1"), "theme bootstrap must default to System before stylesheet load");
 assert(html.includes('document.documentElement.dataset.theme = resolved'), "theme bootstrap must set resolved theme before render");
 assert(!html.includes("growup_theme_preference_v1"), "bootstrap must not read a shared theme key before authentication");
-assert(html.includes('/app.js?v=20260716-customer-popup-light-v1'), "app asset version must be bumped");
+assert(html.includes('/app.js?v=20260716-users-avatar-light-v1'), "app asset version must be bumped");
 
 assert(appJs.includes('const THEME_STORAGE_PREFIX = "growup-theme:"'), "theme storage must be namespaced per user");
 assert(!appJs.includes("growup_theme_preference_v1"), "client must not use a shared theme storage key");
@@ -32,7 +32,12 @@ assert(appJs.includes('applyThemePreference("system", { persistLocal: false })')
 assert(appJs.includes('window.matchMedia?.("(prefers-color-scheme: dark)")?.addEventListener?.("change"'), "System mode must react to device theme changes");
 assert(appJs.includes("[data-theme-select]"), "Display theme selector change handler missing");
 assert(html.includes("data-profile-theme-select"), "Profile dialog must include the personal theme selector for every authenticated user");
+assert(html.includes("data-clear-profile-image"), "Profile dialog must allow users to remove their own avatar");
 assert(appJs.includes("[data-profile-theme-select]"), "Profile theme selector change handler missing");
+assert(appJs.includes("profileAvatarRemovePending"), "Profile avatar removal must distinguish remove from unchanged avatar");
+assert(appJs.includes("PROFILE_AVATAR_ALLOWED_TYPES"), "Profile avatar upload must validate MIME types before reading");
+assert(appJs.includes("function userAvatarMarkup"), "Users list must render real user avatars before initials fallback");
+assert(appJs.includes("markAvatarImagesLoaded(els.content)"), "Users list avatars must register load/error fallback handlers");
 assert(appJs.includes("function saveCurrentUserThemePreference"), "Profile and Display theme selectors must share one save helper");
 assert(appJs.includes('if (app.themeSavePreference === normalized) return app.themeSavePromise'), "theme save helper must avoid duplicate save requests for one selection");
 assert(appJs.includes('document.querySelectorAll("[data-theme-select], [data-profile-theme-select]")'), "Profile and Display theme selectors must stay synchronized");
@@ -47,11 +52,13 @@ assert(serverJs.includes('theme: allowedThemes.has(preferences.theme) ? preferen
 assert(serverJs.includes('function normalizeThemePreference'), "server user theme normalization missing");
 assert(serverJs.includes('themePreference: normalizeThemePreference(user.themePreference)'), "public user payload must include normalized per-user theme preference");
 assert(serverJs.includes('/api/profile/theme'), "server per-user theme endpoint missing");
+assert(serverJs.includes('throw new Error("รองรับเฉพาะไฟล์รูปภาพ PNG, JPG, WebP หรือ GIF")'), "server must reject unsupported profile avatar MIME data URLs");
 
 assert(jsonAdapter.includes("function persistUserThemePreference"), "JSON adapter must persist per-user theme");
 assert(jsonAdapter.includes("user.themePreference"), "JSON adapter must store theme on the authenticated user object");
 assert(supabaseAdapter.includes("theme_preference_${userId}"), "Supabase adapter must persist theme with a per-user key");
 assert(supabaseAdapter.includes("themePreference: String"), "Supabase user mapping must return themePreference");
+assert(supabaseAdapter.includes("profile_avatar_${user.id}") && supabaseAdapter.includes("avatarRows"), "Supabase login path must include the current profile avatar");
 
 const finalLightLayerIndex = css.lastIndexOf('html[data-theme="light"]');
 const premiumLayerIndex = css.indexOf("/* Growup Pilot premium redesign layer */");
@@ -62,11 +69,13 @@ assert(css.includes("--light-card-solid: #ffffff"), "Light theme must expose cen
 assert(css.includes('html[data-theme="light"] body.desktop-app-shell:not(.login-view) .mobile-report-kpi'), "Light theme must cover Reports KPI cards");
 assert(css.includes('html[data-theme="light"] body.desktop-app-shell:not(.login-view) #orderList'), "Light theme must cover Orders table surface");
 assert(css.includes('html[data-theme="light"] body:not(.login-view) .grow-settings-row'), "Light theme must cover Business Management settings rows");
+assert(css.includes('html[data-theme="light"] body:not(.login-view) .settings-users-page .settings-user-tabs button'), "Light theme must cover Users & Permissions tabs");
+assert(css.includes('html[data-theme="light"] body:not(.login-view) .settings-users-page .mobile-business-avatar'), "Light theme must cover Users avatar initials fallback");
 assert(!css.includes('html[data-theme="dark"]'), "Dark theme must remain the unmodified baseline");
 
-assert(serviceWorker.includes('growup-pilot-pwa-v104-customer-popup-light'), "service worker cache name must be bumped");
-assert(serviceWorker.includes('/styles.css?v=20260716-customer-popup-light-v1'), "service worker must cache current stylesheet");
-assert(serviceWorker.includes('/app.js?v=20260716-customer-popup-light-v1'), "service worker must cache current app bundle");
+assert(serviceWorker.includes('growup-pilot-pwa-v105-users-avatar-light'), "service worker cache name must be bumped");
+assert(serviceWorker.includes('/styles.css?v=20260716-users-avatar-light-v1'), "service worker must cache current stylesheet");
+assert(serviceWorker.includes('/app.js?v=20260716-users-avatar-light-v1'), "service worker must cache current app bundle");
 
 async function runPerUserApiTest() {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "growup-theme-test-"));

@@ -122,6 +122,7 @@ const app = {
   confirmDialogResolve: null,
   teamSavePending: false,
   profileDraftImage: "",
+  profileAvatarRemovePending: false,
   businessLogoDraft: "",
   profileSaving: false,
   themeSavePromise: null,
@@ -1262,10 +1263,26 @@ function currentUserAvatar() {
   return String(app.currentUser?.avatar || "/mobile-home-avatar.png").trim();
 }
 
+function currentUserProfileAvatar() {
+  return String(app.currentUser?.avatar || "").trim();
+}
+
+const PROFILE_AVATAR_MAX_BYTES = 2_500_000;
+const PROFILE_AVATAR_ALLOWED_TYPES = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"]);
+
 function markAvatarLoaded(image) {
   if (!image) return;
   if (image.complete && image.naturalWidth > 0) image.classList.add("is-loaded");
   else image.addEventListener("load", () => image.classList.add("is-loaded"), { once: true });
+  image.addEventListener("error", () => {
+    image.classList.remove("is-loaded");
+    image.removeAttribute("src");
+    image.setAttribute("hidden", "");
+  }, { once: true });
+}
+
+function markAvatarImagesLoaded(root = document) {
+  root.querySelectorAll?.(".profile-avatar-image").forEach(markAvatarLoaded);
 }
 
 function setProfileSaveState(isSaving) {
@@ -1274,7 +1291,7 @@ function setProfileSaveState(isSaving) {
   if (!button) return;
   const displayName = String(els.profileForm?.elements.displayName?.value || "").trim();
   const nameChanged = displayName !== String(app.currentUser?.name || "").trim();
-  const imageChanged = Boolean(app.profileDraftImage);
+  const imageChanged = Boolean(app.profileDraftImage) || app.profileAvatarRemovePending;
   button.disabled = isSaving || !displayName || (!nameChanged && !imageChanged);
   button.dataset.loading = isSaving ? "true" : "false";
   button.textContent = isSaving ? "กำลังบันทึก..." : "บันทึกโปรไฟล์";
@@ -1282,7 +1299,8 @@ function setProfileSaveState(isSaving) {
 
 function syncProfileAvatarPreview() {
   if (!els.profileAvatarPreview) return;
-  const avatar = escapeHtml(app.profileDraftImage || currentUserAvatar());
+  const avatarValue = app.profileAvatarRemovePending ? "" : (app.profileDraftImage || currentUserProfileAvatar());
+  const avatar = escapeHtml(avatarValue);
   const initialText = escapeHtml(initials(app.currentUser?.name || "GP"));
   els.profileAvatarPreview.innerHTML = avatar
     ? `<span class="header-profile-avatar-core">${initialText}</span><img class="profile-avatar-image" src="${avatar}" alt="${escapeHtml(app.currentUser?.name || "Growup Pilot")}" loading="eager" decoding="async" width="92" height="92"><span class="header-profile-badge">👑</span>`
@@ -1293,6 +1311,7 @@ function syncProfileAvatarPreview() {
 function openProfileDialog() {
   if (!els.profileDialog || !els.profileForm || !app.currentUser) return;
   app.profileDraftImage = "";
+  app.profileAvatarRemovePending = false;
   els.profileForm.reset();
   if (els.profileForm.elements.displayName) {
     els.profileForm.elements.displayName.value = app.currentUser.name || "";
@@ -1321,6 +1340,21 @@ function avatarMarkup(name, avatar, className = "header-profile-avatar", interac
       <span class="header-profile-avatar-core">${initialText}</span>
       ${image}
       <span class="header-profile-badge">👑</span>
+    </span>
+  `;
+}
+
+function userAvatarMarkup(user, className = "mobile-business-avatar") {
+  const name = user?.name || user?.username || "GP";
+  const safeName = escapeHtml(name);
+  const safeAvatar = escapeHtml(user?.avatar || "");
+  const image = safeAvatar
+    ? `<img class="profile-avatar-image user-list-avatar-image" src="${safeAvatar}" alt="${safeName}" loading="lazy" decoding="async" width="44" height="44">`
+    : "";
+  return `
+    <span class="${className}" aria-hidden="true">
+      <span class="header-profile-avatar-core">${escapeHtml(initials(name))}</span>
+      ${image}
     </span>
   `;
 }
@@ -4367,7 +4401,7 @@ function renderMobileBusinessRoles() {
   ensurePermissionEditorLoaded();
   const activeTab = app.settingsUsersTab || "members";
   return `
-    <section class="mobile-business-page mobile-business-subpage">
+    <section class="mobile-business-page mobile-business-subpage settings-users-page">
       ${mobileBusinessHeader("ผู้ใช้งานและสิทธิ์", "จัดการสมาชิกและกำหนดสิทธิ์การเข้าถึงระบบ", "users")}
       <div class="settings-user-tabs mobile">
         <button type="button" class="${activeTab === "members" ? "active" : ""}" data-settings-users-tab="members">${iconSvg("users")} สมาชิก</button>
@@ -4378,7 +4412,7 @@ function renderMobileBusinessRoles() {
         <div class="mobile-business-user-list">
           ${users.map(user => `
             <button class="mobile-business-user" type="button" data-mobile-edit-user="${escapeHtml(user.id)}">
-              <span class="mobile-business-avatar">${escapeHtml(initials(user.name))}</span>
+              ${userAvatarMarkup(user)}
               <span><strong>${escapeHtml(user.name)}</strong><small>${escapeHtml(user.username || "ไม่มีชื่อเข้าใช้งาน")}</small><em>${escapeHtml(userRoleLabel(user.role))}</em></span>
               <b>${userStatusLabel(user)}</b>
             </button>
@@ -7315,7 +7349,7 @@ function settingsSubpageShell(kicker, title, description, inner, options = {}) {
     "ผู้ใช้งานและสิทธิ์": "users"
   }[kicker] || "settings");
   return `
-    <section class="mobile-business-page mobile-business-subpage settings-shared-page settings-subpage">
+    <section class="mobile-business-page mobile-business-subpage settings-shared-page settings-subpage ${escapeHtml(options.className || "")}">
       ${mobileBusinessHeader(title, description, icon, { settingsBack: backView, backLabel })}
       <div class="settings-shared-content">
         ${inner}
@@ -7513,7 +7547,7 @@ function renderTeamManagementPanels() {
             <tbody>
               ${app.data.users.map(user => `
                 <tr data-user-row="${escapeHtml(user.id)}" tabindex="0">
-                  <td data-label="ชื่อผู้ใช้งาน"><span class="user-row-name"><span class="mobile-business-avatar">${escapeHtml(initials(user.name))}</span><strong>${escapeHtml(user.name)}</strong></span></td>
+                  <td data-label="ชื่อผู้ใช้งาน"><span class="user-row-name">${userAvatarMarkup(user)}<strong>${escapeHtml(user.name)}</strong></span></td>
                   <td data-label="ชื่อเข้าใช้งาน">${escapeHtml(user.username || "-")}</td>
                   <td data-label="บทบาท">${badge(userRoleLabel(user.role))}</td>
                   <td data-label="สถานะ">${user.active ? "เปิดใช้งาน" : "ปิดใช้งาน"}</td>
@@ -8370,6 +8404,7 @@ function renderSettingsUsers() {
   if (isMobileViewport()) {
     app.mobileBusinessPage = app.mobileBusinessPage === "userEditor" ? "userEditor" : "roles";
     els.content.innerHTML = renderMobileBusinessRoles();
+    markAvatarImagesLoaded(els.content);
     return;
   }
   ensurePermissionEditorLoaded();
@@ -8384,8 +8419,10 @@ function renderSettingsUsers() {
         <button type="button" class="${activeTab === "permissions" ? "active" : ""}" data-settings-users-tab="permissions">${iconSvg("settings")} สิทธิ์การเข้าถึง</button>
       </div>
       ${activeTab === "permissions" ? renderPermissionsPanel() : renderTeamManagementPanels()}
-    `
+    `,
+    { className: "settings-users-page" }
   );
+  markAvatarImagesLoaded(els.content);
 }
 
 function renderSettingsImportExport() {
@@ -10209,8 +10246,19 @@ document.addEventListener("click", async event => {
     return;
   }
 
+  if (event.target.closest("[data-clear-profile-image]")) {
+    app.profileDraftImage = "";
+    app.profileAvatarRemovePending = true;
+    const input = document.querySelector("#profileImageInput");
+    if (input) input.value = "";
+    syncProfileAvatarPreview();
+    setProfileSaveState(false);
+    return;
+  }
+
   if (event.target.closest("[data-close-profile]")) {
     app.profileDraftImage = "";
+    app.profileAvatarRemovePending = false;
     els.profileDialog?.close();
     return;
   }
@@ -11503,11 +11551,22 @@ document.addEventListener("change", async event => {
   if (event.target?.id === "profileImageInput") {
     const file = event.target.files?.[0];
     if (!file) return;
+    if (!PROFILE_AVATAR_ALLOWED_TYPES.has(file.type)) {
+      event.target.value = "";
+      showToast("รองรับเฉพาะไฟล์รูปภาพ PNG, JPG, WebP หรือ GIF");
+      return;
+    }
+    if (file.size > PROFILE_AVATAR_MAX_BYTES) {
+      event.target.value = "";
+      showToast("รูปโปรไฟล์มีขนาดใหญ่เกินไป");
+      return;
+    }
     const reader = new FileReader();
     reader.onload = loadEvent => {
       const result = String(loadEvent.target?.result || "");
       if (!result) return;
       app.profileDraftImage = result;
+      app.profileAvatarRemovePending = false;
       syncProfileAvatarPreview();
       setProfileSaveState(false);
     };
@@ -11968,7 +12027,7 @@ document.addEventListener("submit", async event => {
       }
       setProfileSaveState(true);
       try {
-        const avatar = app.profileDraftImage || app.currentUser?.avatar || "";
+        const avatar = app.profileAvatarRemovePending ? "" : (app.profileDraftImage || app.currentUser?.avatar || "");
         const payload = await api("/api/profile", {
           method: "PUT",
           body: JSON.stringify({ displayName, avatar })
@@ -11985,7 +12044,11 @@ document.addEventListener("submit", async event => {
         }
         cacheMobileProfile(app.currentUser);
         app.profileDraftImage = "";
+        app.profileAvatarRemovePending = false;
         updateShell();
+        if (app.view === "settingsUsers") {
+          renderSettingsUsers();
+        }
         els.profileDialog?.close();
         showToast("บันทึกโปรไฟล์แล้ว");
       } finally {

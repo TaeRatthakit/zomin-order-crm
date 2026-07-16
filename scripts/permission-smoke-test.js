@@ -125,6 +125,34 @@ server.listen(0, "127.0.0.1", async () => {
     if ((adminState.users || []).length !== 1) fail("Admin received user list");
     if (adminState.currentPermissions["orders.delete"]) fail("Admin unexpectedly has order delete");
 
+    const avatarPng = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
+    const adminProfile = await (await expectStatus(baseUrl, "/api/profile", adminCookie, 200, {
+      method: "PUT",
+      body: JSON.stringify({ displayName: "Admin", avatar: avatarPng, userId: "u_owner" })
+    })).json();
+    if (adminProfile.user?.id !== "u_admin" || adminProfile.user?.avatar !== avatarPng) {
+      fail("Admin profile update must only update the authenticated admin avatar");
+    }
+    const ownerAfterAdminProfile = await (await expectStatus(baseUrl, "/api/state", ownerCookie, 200)).json();
+    const ownerUserAfterAdminProfile = (ownerAfterAdminProfile.users || []).find(user => user.id === "u_owner");
+    if (ownerUserAfterAdminProfile?.avatar === avatarPng) fail("Admin profile update changed the Owner avatar");
+
+    const staffProfile = await (await expectStatus(baseUrl, "/api/profile", staffCookie, 200, {
+      method: "PUT",
+      body: JSON.stringify({ displayName: "Staff", avatar: avatarPng, targetUserId: "u_owner" })
+    })).json();
+    if (staffProfile.user?.id !== "u_staff" || staffProfile.user?.avatar !== avatarPng) {
+      fail("Staff profile update must only update the authenticated staff avatar");
+    }
+    await expectStatus(baseUrl, "/api/profile", staffCookie, 400, {
+      method: "PUT",
+      body: JSON.stringify({ displayName: "Staff", avatar: "data:text/plain;base64,SGVsbG8=" })
+    });
+    await expectStatus(baseUrl, "/api/profile", staffCookie, 400, {
+      method: "PUT",
+      body: JSON.stringify({ displayName: "Staff", avatar: `data:image/png;base64,${"A".repeat(2_600_000)}` })
+    });
+
     await expectStatus(baseUrl, "/settings/users", adminCookie, 403);
     await expectStatus(baseUrl, "/api/permissions", adminCookie, 403);
     await expectStatus(baseUrl, "/api/team", adminCookie, 403, {
