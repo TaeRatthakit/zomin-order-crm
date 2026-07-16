@@ -22978,6 +22978,52 @@ html[data-theme="light"] body:not(.login-view) .mobile-business-page:not(.mobile
     color: var(--light-text-soft) !important;
   }
 
+  html[data-theme="light"] body.mobile-orders-view:not(.login-view) .mobile-order-row {
+    border-color: var(--light-border) !important;
+    background:
+      radial-gradient(circle at 50% 0, rgba(124, 58, 237, 0.045), transparent 45%),
+      #ffffff !important;
+    box-shadow: 0 8px 20px rgba(48, 38, 84, 0.08) !important;
+  }
+
+  html[data-theme="light"] body.mobile-orders-view:not(.login-view) .mobile-order-customer,
+  html[data-theme="light"] body.mobile-orders-view:not(.login-view) .mobile-order-products,
+  html[data-theme="light"] body.mobile-orders-view:not(.login-view) .mobile-order-product-name {
+    color: var(--light-text-strong) !important;
+  }
+
+  html[data-theme="light"] body.mobile-orders-view:not(.login-view) .mobile-order-date,
+  html[data-theme="light"] body.mobile-orders-view:not(.login-view) .mobile-order-phone,
+  html[data-theme="light"] body.mobile-orders-view:not(.login-view) .mobile-order-time {
+    color: var(--light-text-muted) !important;
+  }
+
+  html[data-theme="light"] body.mobile-orders-view:not(.login-view) .mobile-order-number {
+    color: var(--light-purple-readable) !important;
+  }
+
+  html[data-theme="light"] body.mobile-orders-view:not(.login-view) .mobile-order-total {
+    color: #92400e !important;
+  }
+
+  html[data-theme="light"] body.mobile-orders-view:not(.login-view) .mobile-order-product-thumb {
+    border-color: rgba(124, 58, 237, 0.16) !important;
+    background: rgba(124, 58, 237, 0.08) !important;
+    color: var(--light-purple-readable) !important;
+  }
+
+  html[data-theme="light"] body.mobile-orders-view:not(.login-view) .mobile-order-action-button {
+    border-color: rgba(109, 40, 217, 0.22) !important;
+    background: #f5f3ff !important;
+    color: var(--light-purple-readable) !important;
+  }
+
+  html[data-theme="light"] body.mobile-orders-view:not(.login-view) .mobile-order-action-button.delete {
+    border-color: rgba(185, 28, 28, 0.22) !important;
+    background: #fff1f2 !important;
+    color: #b91c1c !important;
+  }
+
   html[data-theme="light"] body.mobile-app-shell:not(.login-view) .mobile-setup-overview,
   html[data-theme="light"] body.mobile-app-shell:not(.login-view) .mobile-setup-step-card,
   html[data-theme="light"] body.mobile-app-shell:not(.login-view) .mobile-setup-guide-placeholder,
