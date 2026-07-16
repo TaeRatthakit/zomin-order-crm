@@ -4487,7 +4487,9 @@ function renderMobileOrders(selectedDate) {
             <article class="mobile-order-row">
               <div class="mobile-order-main">
                 <strong class="mobile-order-number">${escapeHtml(orderNumber)}</strong>
-                <strong class="mobile-order-customer">${escapeHtml(customerName)}</strong>
+                <div class="mobile-order-product-line">
+                  ${mobileOrderProductSummary(order)}
+                </div>
                 <strong class="mobile-order-total">฿${escapeHtml(mobileOrderMoney(order.amount))}</strong>
                 <span class="mobile-order-row-actions" aria-label="จัดการ ${escapeHtml(orderNumber)}">
                   ${can("orders.edit") ? `<button class="mobile-order-action-button" type="button" data-edit-order="${escapeHtml(order.id)}" aria-label="แก้ไข ${escapeHtml(orderNumber)}">
@@ -4498,9 +4500,7 @@ function renderMobileOrders(selectedDate) {
                   </button>` : ""}
                 </span>
               </div>
-              <div class="mobile-order-product-line">
-                ${mobileOrderProductSummary(order)}
-              </div>
+              <strong class="mobile-order-customer">${escapeHtml(customerName)}</strong>
               <div class="mobile-order-details">
                 <span class="mobile-order-phone"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.3 1.7.6 2.5a2 2 0 0 1-.5 2.1L8 9.5a16 16 0 0 0 6.5 6.5l1.2-1.2a2 2 0 0 1 2.1-.5c.8.3 1.6.5 2.5.6A2 2 0 0 1 22 16.9Z"/></svg>${escapeHtml(phone)}</span>
                 <span class="mobile-order-date"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v4"/><path d="M16 2v4"/><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18"/></svg>${escapeHtml(mobileOrderDate(order.date))}</span>

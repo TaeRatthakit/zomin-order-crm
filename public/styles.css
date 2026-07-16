@@ -11884,10 +11884,10 @@ body.desktop-app-shell:not(.login-view) .line-status-row span {
   body.mobile-orders-view .mobile-order-row {
     position: relative;
     display: grid;
-    gap: 7px;
+    gap: 6px;
     height: max-content;
     min-height: max-content;
-    padding: 10px 10px 9px;
+    padding: 10px 10px 8px;
     overflow: hidden;
     border: 1px solid rgba(55, 90, 116, 0.28);
     border-radius: 10px;
@@ -11915,8 +11915,8 @@ body.desktop-app-shell:not(.login-view) .line-status-row span {
   }
 
   body.mobile-orders-view .mobile-order-main {
-    grid-template-columns: minmax(58px, max-content) minmax(0, 1fr) minmax(82px, max-content) auto;
-    align-items: start;
+    grid-template-columns: minmax(56px, max-content) minmax(0, 1fr) minmax(76px, max-content) auto;
+    align-items: center;
   }
 
   body.mobile-orders-view .mobile-order-product-line {
@@ -11939,9 +11939,9 @@ body.desktop-app-shell:not(.login-view) .line-status-row span {
     color: #eceef2;
     display: -webkit-box;
     overflow: hidden;
-    font-size: 13.5px;
+    font-size: 13.25px;
     font-weight: 500;
-    line-height: 1.22;
+    line-height: 1.18;
     overflow-wrap: anywhere;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
@@ -11996,8 +11996,8 @@ body.desktop-app-shell:not(.login-view) .line-status-row span {
     gap: 5px;
     overflow: visible;
     color: #eceef2;
-    font-size: 13px;
-    line-height: 1.18;
+    font-size: 13.25px;
+    line-height: 1.16;
     white-space: normal;
   }
 
@@ -12043,7 +12043,7 @@ body.desktop-app-shell:not(.login-view) .line-status-row span {
 
   body.mobile-orders-view .mobile-order-total {
     color: #ffc400;
-    align-self: start;
+    align-self: center;
     font-size: 14px;
     font-weight: 600;
     text-align: right;
@@ -12052,7 +12052,7 @@ body.desktop-app-shell:not(.login-view) .line-status-row span {
 
   body.mobile-orders-view .mobile-order-row-actions {
     display: flex;
-    align-self: start;
+    align-self: center;
     align-items: center;
     justify-content: flex-end;
     gap: 5px;
