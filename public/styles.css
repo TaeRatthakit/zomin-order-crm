@@ -22842,6 +22842,230 @@ html[data-theme="light"] body:not(.login-view) .mobile-business-page:not(.mobile
   color: #7a6c91 !important;
 }
 
+@media (max-width: 780px) {
+  html[data-theme="light"] body.mobile-app-shell:not(.login-view),
+  html[data-theme="light"] body.mobile-home-view:not(.login-view),
+  html[data-theme="light"] body.mobile-reports-view:not(.login-view),
+  html[data-theme="light"] body.mobile-orders-view:not(.login-view),
+  html[data-theme="light"] body.mobile-opportunities-view:not(.login-view),
+  html[data-theme="light"] body.mobile-import-view:not(.login-view) {
+    background:
+      radial-gradient(circle at 0 0, rgba(124, 58, 237, 0.09), transparent 26%),
+      radial-gradient(circle at 100% 18%, rgba(37, 99, 235, 0.07), transparent 30%),
+      linear-gradient(180deg, #fbfaff 0%, #f5f1ff 100%) !important;
+    color: var(--light-text-primary) !important;
+  }
+
+  html[data-theme="light"] body.mobile-app-shell:not(.login-view) .main-panel,
+  html[data-theme="light"] body.mobile-app-shell:not(.login-view) .content-area {
+    background: transparent !important;
+    color: var(--light-text-primary) !important;
+  }
+
+  html[data-theme="light"] body.mobile-app-shell:not(.login-view) .sidebar,
+  html[data-theme="light"] body.mobile-home-view:not(.login-view) .sidebar {
+    border-top: 1px solid rgba(91, 73, 127, 0.20) !important;
+    background: rgba(255, 255, 255, 0.96) !important;
+    box-shadow: 0 -14px 34px rgba(48, 38, 84, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.86) !important;
+    backdrop-filter: blur(18px);
+    z-index: 80;
+  }
+
+  html[data-theme="light"] body.mobile-app-shell:not(.login-view) .nav-list,
+  html[data-theme="light"] body.mobile-home-view:not(.login-view) .nav-list {
+    background: transparent !important;
+  }
+
+  html[data-theme="light"] body.mobile-app-shell:not(.login-view) .nav-button,
+  html[data-theme="light"] body.mobile-home-view:not(.login-view) .nav-button {
+    background: transparent !important;
+    color: var(--light-text-primary) !important;
+    opacity: 1 !important;
+  }
+
+  html[data-theme="light"] body.mobile-app-shell:not(.login-view) .nav-button .nav-index,
+  html[data-theme="light"] body.mobile-home-view:not(.login-view) .nav-button .nav-index {
+    background: rgba(124, 58, 237, 0.08) !important;
+    border-color: rgba(124, 58, 237, 0.14) !important;
+    color: inherit !important;
+  }
+
+  html[data-theme="light"] body.mobile-app-shell:not(.login-view) .nav-button.active,
+  html[data-theme="light"] body.mobile-home-view:not(.login-view) .nav-button.active {
+    background: linear-gradient(135deg, #7c3aed, #5b21b6) !important;
+    color: #ffffff !important;
+    box-shadow: 0 8px 20px rgba(109, 40, 217, 0.24) !important;
+  }
+
+  html[data-theme="light"] body.mobile-app-shell:not(.login-view) .nav-button.active .nav-index,
+  html[data-theme="light"] body.mobile-home-view:not(.login-view) .nav-button.active .nav-index {
+    background: var(--light-purple-readable) !important;
+    border-color: rgba(109, 40, 217, 0.32) !important;
+    color: #ffffff !important;
+  }
+
+  html[data-theme="light"] body.mobile-home-view:not(.login-view) .topbar,
+  html[data-theme="light"] body.mobile-home-view:not(.login-view) .header-profile-trigger,
+  html[data-theme="light"] body.mobile-home-view:not(.login-view) .icon-button {
+    color: var(--light-text-primary) !important;
+  }
+
+  html[data-theme="light"] body.mobile-home-view:not(.login-view) .header-profile-copy strong,
+  html[data-theme="light"] body.mobile-home-view:not(.login-view) .mobile-kpi-card strong,
+  html[data-theme="light"] body.mobile-home-view:not(.login-view) .mobile-summary-head h3,
+  html[data-theme="light"] body.mobile-home-view:not(.login-view) .mobile-summary-row strong,
+  html[data-theme="light"] body.mobile-home-view:not(.login-view) .mobile-summary-donut strong,
+  html[data-theme="light"] body.mobile-home-view:not(.login-view) .mobile-alert-copy strong {
+    color: var(--light-text-strong) !important;
+  }
+
+  html[data-theme="light"] body.mobile-home-view:not(.login-view) .header-profile-copy span,
+  html[data-theme="light"] body.mobile-home-view:not(.login-view) .mobile-kpi-label,
+  html[data-theme="light"] body.mobile-home-view:not(.login-view) .mobile-summary-row,
+  html[data-theme="light"] body.mobile-home-view:not(.login-view) .mobile-summary-donut span,
+  html[data-theme="light"] body.mobile-home-view:not(.login-view) .mobile-summary-donut small,
+  html[data-theme="light"] body.mobile-home-view:not(.login-view) .mobile-alert-copy small,
+  html[data-theme="light"] body.mobile-home-view:not(.login-view) .mobile-alert-meta small {
+    color: var(--light-text-muted) !important;
+  }
+
+  html[data-theme="light"] body.mobile-home-view:not(.login-view) .date-pill,
+  html[data-theme="light"] body.mobile-home-view:not(.login-view) .mobile-kpi-card,
+  html[data-theme="light"] body.mobile-home-view:not(.login-view) .mobile-summary-card,
+  html[data-theme="light"] body.mobile-home-view:not(.login-view) .mobile-alerts-card,
+  html[data-theme="light"] body.mobile-home-view:not(.login-view) .mobile-summary-row {
+    border-color: var(--light-border) !important;
+    background: #ffffff !important;
+    color: var(--light-text-primary) !important;
+  }
+
+  html[data-theme="light"] body.mobile-home-view:not(.login-view) .mobile-summary-donut::before {
+    background: #ffffff !important;
+  }
+
+  html[data-theme="light"] body.mobile-orders-view:not(.login-view) .mobile-orders-search,
+  html[data-theme="light"] body.mobile-orders-view:not(.login-view) .mobile-orders-filter,
+  html[data-theme="light"] body.mobile-orders-view:not(.login-view) .mobile-orders-sort,
+  html[data-theme="light"] body.mobile-opportunities-view:not(.login-view) .mobile-opportunity-actions a,
+  html[data-theme="light"] body.mobile-opportunities-view:not(.login-view) .mobile-opportunity-actions button {
+    border-color: var(--light-border-visible) !important;
+    background: #ffffff !important;
+    color: var(--light-text-primary) !important;
+    box-shadow: 0 6px 16px rgba(48, 38, 84, 0.08) !important;
+  }
+
+  html[data-theme="light"] body.mobile-orders-view:not(.login-view) .mobile-orders-filter,
+  html[data-theme="light"] body.mobile-opportunities-view:not(.login-view) .mobile-opportunity-actions .chat {
+    border-color: rgba(109, 40, 217, 0.24) !important;
+    color: var(--light-purple-readable) !important;
+  }
+
+  html[data-theme="light"] body.mobile-opportunities-view:not(.login-view) .mobile-opportunity-actions .save {
+    border-color: rgba(37, 99, 235, 0.24) !important;
+    color: #1d4ed8 !important;
+  }
+
+  html[data-theme="light"] body.mobile-opportunities-view:not(.login-view) .mobile-opportunity-actions .reschedule {
+    border-color: rgba(22, 163, 74, 0.24) !important;
+    color: #047857 !important;
+  }
+
+  html[data-theme="light"] body.mobile-orders-view:not(.login-view) .mobile-orders-search input {
+    color: var(--light-text-primary) !important;
+  }
+
+  html[data-theme="light"] body.mobile-orders-view:not(.login-view) .mobile-orders-search input::placeholder {
+    color: var(--light-text-soft) !important;
+  }
+
+  html[data-theme="light"] body.mobile-app-shell:not(.login-view) .mobile-setup-overview,
+  html[data-theme="light"] body.mobile-app-shell:not(.login-view) .mobile-setup-step-card,
+  html[data-theme="light"] body.mobile-app-shell:not(.login-view) .mobile-setup-guide-placeholder,
+  html[data-theme="light"] body.mobile-app-shell:not(.login-view) .mobile-finance-formula-note,
+  html[data-theme="light"] body.mobile-app-shell:not(.login-view) .mobile-business-info-list {
+    border-color: var(--light-border) !important;
+    background: #ffffff !important;
+    color: var(--light-text-primary) !important;
+    box-shadow: 0 10px 24px rgba(48, 38, 84, 0.08) !important;
+  }
+
+  html[data-theme="light"] body.mobile-app-shell:not(.login-view) .mobile-setup-overview span,
+  html[data-theme="light"] body.mobile-app-shell:not(.login-view) .mobile-setup-overview p,
+  html[data-theme="light"] body.mobile-app-shell:not(.login-view) .mobile-setup-step-copy p,
+  html[data-theme="light"] body.mobile-app-shell:not(.login-view) .mobile-setup-guide-placeholder small,
+  html[data-theme="light"] body.mobile-app-shell:not(.login-view) .mobile-business-info-list span {
+    color: var(--light-text-muted) !important;
+    opacity: 1 !important;
+  }
+
+  html[data-theme="light"] body.mobile-app-shell:not(.login-view) .mobile-setup-overview strong,
+  html[data-theme="light"] body.mobile-app-shell:not(.login-view) .mobile-setup-step-copy h3,
+  html[data-theme="light"] body.mobile-app-shell:not(.login-view) .mobile-setup-guide-placeholder strong,
+  html[data-theme="light"] body.mobile-app-shell:not(.login-view) .mobile-business-info-list strong {
+    color: var(--light-text-strong) !important;
+  }
+
+  html[data-theme="light"] body.mobile-app-shell:not(.login-view) .mobile-setup-step-card > button {
+    border-color: rgba(109, 40, 217, 0.24) !important;
+    background: #ede9fe !important;
+    color: #4c1d95 !important;
+  }
+
+  html[data-theme="light"] body.mobile-app-shell:not(.login-view) .mobile-setup-step-card > button:disabled {
+    border-color: rgba(91, 73, 127, 0.18) !important;
+    background: #f1eef8 !important;
+    color: var(--light-text-muted) !important;
+    opacity: 1 !important;
+  }
+
+  html[data-theme="light"] body.mobile-app-shell:not(.login-view) .mobile-setup-guide-placeholder {
+    border-color: rgba(37, 99, 235, 0.18) !important;
+  }
+
+  html[data-theme="light"] body.mobile-app-shell:not(.login-view) .notification-overlay {
+    background: rgba(17, 24, 39, 0.24) !important;
+  }
+
+  html[data-theme="light"] body.mobile-app-shell:not(.login-view) .notification-surface {
+    border-color: var(--light-border-stronger) !important;
+    background:
+      radial-gradient(circle at 14% 0, rgba(124, 58, 237, 0.10), transparent 36%),
+      #ffffff !important;
+    color: var(--light-text-primary) !important;
+    box-shadow: 0 -12px 40px rgba(48, 38, 84, 0.18) !important;
+  }
+}
+
+html[data-theme="light"] body:not(.login-view) .notification-surface .notification-panel-header h2,
+html[data-theme="light"] body:not(.login-view) .notification-surface .notification-row-title,
+html[data-theme="light"] body:not(.login-view) .notification-surface .notification-row-meta b,
+html[data-theme="light"] body:not(.login-view) .notification-surface .notification-panel-empty strong {
+  color: var(--light-text-strong) !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .notification-surface .notification-panel-header p,
+html[data-theme="light"] body:not(.login-view) .notification-surface .notification-row-copy small,
+html[data-theme="light"] body:not(.login-view) .notification-surface .notification-row-meta,
+html[data-theme="light"] body:not(.login-view) .notification-surface .notification-panel-empty {
+  color: var(--light-text-muted) !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .notification-surface .notification-icon-control,
+html[data-theme="light"] body:not(.login-view) .notification-surface .notification-filter-tabs,
+html[data-theme="light"] body:not(.login-view) .notification-surface .notification-sort,
+html[data-theme="light"] body:not(.login-view) .notification-surface .notification-action-row {
+  border-color: var(--light-border) !important;
+  background: #ffffff !important;
+  color: var(--light-text-primary) !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .notification-surface .notification-action-row.is-unread,
+html[data-theme="light"] body:not(.login-view) .notification-surface .notification-filter-tabs button.active {
+  border-color: rgba(109, 40, 217, 0.28) !important;
+  background: rgba(124, 58, 237, 0.10) !important;
+  color: var(--light-purple-readable) !important;
+}
+
 html[data-theme="light"] body:not(.login-view) .workspace-hero,
 html[data-theme="light"] body:not(.login-view) .desktop-reference-hero,
 html[data-theme="light"] body.desktop-dashboard-view:not(.login-view) .desktop-reference-onboarding-card,
