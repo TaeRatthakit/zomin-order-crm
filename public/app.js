@@ -76,6 +76,17 @@ const app = {
   activeCustomerCallTimer: null,
   reportMonth: "",
   reportDate: "",
+  dateRangePicker: {
+    open: false,
+    applied: null,
+    draft: null,
+    visibleMonth: "",
+    selecting: "start",
+    restoreFocus: null,
+    historyArmed: false,
+    ignoreNextPopstate: false,
+    openStartedAt: 0
+  },
   layoutMode: "",
   ordersShowAll: false,
   customersShowAll: false,
@@ -418,6 +429,7 @@ const els = {
   subpageNav: document.querySelector("#subpageNav"),
   content: document.querySelector("#content"),
   workDate: document.querySelector("#workDate"),
+  workDateTrigger: document.querySelector("#workDateTrigger"),
   workDateDisplay: document.querySelector("#workDateDisplay"),
   toast: document.querySelector("#toast"),
   headerProfile: document.querySelector("#headerProfile"),
@@ -733,6 +745,294 @@ function formatMobileDatePill(dateValue) {
   if (!dateValue) return "-";
   const [y, m, d] = String(dateValue).split("-").map(Number);
   return `${String(d).padStart(2, "0")}/${String(m).padStart(2, "0")}/${String(y % 100).padStart(2, "0")}`;
+}
+
+function parseDateOnlyParts(dateValue) {
+  const match = String(dateValue || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+  return { year: Number(match[1]), month: Number(match[2]), day: Number(match[3]) };
+}
+
+function dateOnlyToLocalDate(dateValue) {
+  const parts = parseDateOnlyParts(dateValue);
+  if (!parts) return null;
+  return new Date(parts.year, parts.month - 1, parts.day, 12, 0, 0, 0);
+}
+
+function localDateToDateOnly(date) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return "";
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function addMonthsISO(dateValue, amount) {
+  const date = dateOnlyToLocalDate(dateValue);
+  if (!date) return "";
+  date.setMonth(date.getMonth() + Number(amount || 0), 1);
+  return localDateToDateOnly(date);
+}
+
+function startOfMonthISO(dateValue) {
+  const date = dateOnlyToLocalDate(dateValue);
+  if (!date) return "";
+  date.setDate(1);
+  return localDateToDateOnly(date);
+}
+
+function endOfMonthISO(dateValue) {
+  const date = dateOnlyToLocalDate(dateValue);
+  if (!date) return "";
+  date.setMonth(date.getMonth() + 1, 0);
+  return localDateToDateOnly(date);
+}
+
+function startOfYearISO(dateValue) {
+  const date = dateOnlyToLocalDate(dateValue);
+  if (!date) return "";
+  return `${date.getFullYear()}-01-01`;
+}
+
+function endOfYearISO(dateValue) {
+  const date = dateOnlyToLocalDate(dateValue);
+  if (!date) return "";
+  return `${date.getFullYear()}-12-31`;
+}
+
+function monthKeyFromDateOnly(dateValue) {
+  return String(dateValue || "").slice(0, 7);
+}
+
+function normalizeDateRange(start, end) {
+  const first = start || end || todayISO();
+  const last = end || start || first;
+  return first <= last ? { start: first, end: last } : { start: last, end: first };
+}
+
+function dateRangeDays(range) {
+  return diffDaysISO(range.start, range.end) + 1;
+}
+
+const DATE_RANGE_PRESETS = [
+  { key: "today", label: "วันนี้", range: today => ({ start: today, end: today }) },
+  { key: "yesterday", label: "เมื่อวานนี้", range: today => ({ start: addDaysISO(today, -1), end: addDaysISO(today, -1) }) },
+  { key: "today-yesterday", label: "วันนี้และเมื่อวานนี้", range: today => ({ start: addDaysISO(today, -1), end: today }) },
+  { key: "last-7", label: "7 วันที่ผ่านมา", range: today => ({ start: addDaysISO(today, -6), end: today }) },
+  { key: "last-14", label: "14 วันที่ผ่านมา", range: today => ({ start: addDaysISO(today, -13), end: today }) },
+  { key: "last-30", label: "30 วันที่ผ่านมา", range: today => ({ start: addDaysISO(today, -29), end: today }) },
+  { key: "last-90", label: "90 วันที่ผ่านมา", range: today => ({ start: addDaysISO(today, -89), end: today }) },
+  { key: "this-month", label: "เดือนนี้", range: today => ({ start: startOfMonthISO(today), end: today }) },
+  { key: "last-month", label: "เดือนที่แล้ว", range: today => {
+    const previousMonth = addMonthsISO(startOfMonthISO(today), -1);
+    return { start: previousMonth, end: endOfMonthISO(previousMonth) };
+  } },
+  { key: "this-year", label: "ปีนี้", range: today => ({ start: startOfYearISO(today), end: today }) },
+  { key: "last-year", label: "ปีที่แล้ว", range: today => {
+    const year = Number(String(today).slice(0, 4)) - 1;
+    return { start: `${year}-01-01`, end: `${year}-12-31` };
+  } },
+  { key: "all-time", label: "ตั้งแต่เปิดร้าน (ทั้งหมด)", range: () => {
+    const orderDates = (app.data?.orders || []).map(order => String(order.date || "")).filter(Boolean).sort();
+    return { start: orderDates[0] || todayISO(), end: orderDates[orderDates.length - 1] || todayISO() };
+  } },
+  { key: "custom", label: "กำหนดเอง", range: today => ({ start: today, end: today }) }
+];
+
+function dateRangePreset(key) {
+  return DATE_RANGE_PRESETS.find(preset => preset.key === key) || DATE_RANGE_PRESETS[0];
+}
+
+function buildPresetRange(key, today = todayISO()) {
+  return normalizeDateRange(...Object.values(dateRangePreset(key).range(today)));
+}
+
+function dateRangeMatchesPreset(range, key, today = todayISO()) {
+  const presetRange = buildPresetRange(key, today);
+  return range?.start === presetRange.start && range?.end === presetRange.end;
+}
+
+function labelForDateRange(range, presetKey = "") {
+  const normalized = normalizeDateRange(range?.start, range?.end);
+  const matchedPreset = presetKey && presetKey !== "custom" && dateRangeMatchesPreset(normalized, presetKey)
+    ? dateRangePreset(presetKey)
+    : DATE_RANGE_PRESETS.find(preset => preset.key !== "custom" && dateRangeMatchesPreset(normalized, preset.key));
+  if (matchedPreset) return matchedPreset.label;
+  if (normalized.start === normalized.end) return formatThaiDateCompact(normalized.start);
+  return `${formatThaiDateCompact(normalized.start)} - ${formatThaiDateCompact(normalized.end)}`;
+}
+
+function formatThaiDateCompact(dateValue) {
+  const parts = parseDateOnlyParts(dateValue);
+  if (!parts) return "-";
+  const date = new Date(parts.year, parts.month - 1, parts.day, 12);
+  return new Intl.DateTimeFormat("th-TH", {
+    timeZone: "Asia/Bangkok",
+    day: "numeric",
+    month: "short",
+    year: "numeric"
+  }).format(date);
+}
+
+function appliedDateRange() {
+  if (app.dateRangePicker.applied) return app.dateRangePicker.applied;
+  const selectedDate = els.workDate?.value || app.data?.summary?.selectedDate || todayISO();
+  app.dateRangePicker.applied = {
+    preset: "today",
+    ...normalizeDateRange(selectedDate, selectedDate),
+    compareEnabled: false,
+    compareMode: "previous-period",
+    compareStart: addDaysISO(selectedDate, -1),
+    compareEnd: addDaysISO(selectedDate, -1)
+  };
+  return app.dateRangePicker.applied;
+}
+
+function cloneDateRangeState(range = appliedDateRange()) {
+  return {
+    preset: range.preset || "custom",
+    start: range.start || todayISO(),
+    end: range.end || range.start || todayISO(),
+    compareEnabled: Boolean(range.compareEnabled),
+    compareMode: range.compareMode || "previous-period",
+    compareStart: range.compareStart || "",
+    compareEnd: range.compareEnd || ""
+  };
+}
+
+function previousPeriodRange(range) {
+  const days = Math.max(1, dateRangeDays(normalizeDateRange(range.start, range.end)));
+  const compareEnd = addDaysISO(range.start, -1);
+  return { compareStart: addDaysISO(compareEnd, -(days - 1)), compareEnd };
+}
+
+function syncComparisonDraft(draft) {
+  if (!draft.compareEnabled) return draft;
+  if (draft.compareMode === "previous-period") {
+    return { ...draft, ...previousPeriodRange(draft) };
+  }
+  return draft;
+}
+
+function monthOptionsHtml(selectedMonth) {
+  const labels = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+  return labels.map((label, index) => `<option value="${index + 1}" ${index + 1 === selectedMonth ? "selected" : ""}>${label}</option>`).join("");
+}
+
+function yearOptionsHtml(selectedYear) {
+  const start = selectedYear - 4;
+  return Array.from({ length: 9 }, (_, index) => start + index)
+    .map(year => `<option value="${year}" ${year === selectedYear ? "selected" : ""}>${year}</option>`)
+    .join("");
+}
+
+function calendarMonthHtml(monthDateOnly, draft) {
+  const parts = parseDateOnlyParts(startOfMonthISO(monthDateOnly));
+  if (!parts) return "";
+  const first = new Date(parts.year, parts.month - 1, 1, 12);
+  const daysInMonth = new Date(parts.year, parts.month, 0).getDate();
+  const leading = first.getDay();
+  const cells = [];
+  for (let index = 0; index < leading; index += 1) cells.push(`<span class="range-calendar-day is-empty" aria-hidden="true"></span>`);
+  for (let day = 1; day <= daysInMonth; day += 1) {
+    const dateValue = `${parts.year}-${String(parts.month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    const inRange = draft.start && draft.end && dateValue >= normalizeDateRange(draft.start, draft.end).start && dateValue <= normalizeDateRange(draft.start, draft.end).end;
+    const isStart = dateValue === draft.start;
+    const isEnd = dateValue === draft.end;
+    const compareInRange = draft.compareEnabled && draft.compareStart && draft.compareEnd && dateValue >= draft.compareStart && dateValue <= draft.compareEnd;
+    cells.push(`
+      <button class="range-calendar-day ${inRange ? "is-in-range" : ""} ${isStart ? "is-start" : ""} ${isEnd ? "is-end" : ""} ${compareInRange ? "is-compare" : ""}" type="button" data-range-date="${dateValue}" aria-label="${escapeHtml(formatThaiDateCompact(dateValue))}" aria-pressed="${isStart || isEnd ? "true" : "false"}">
+        <span>${day}</span>
+      </button>
+    `);
+  }
+  return `
+    <section class="range-calendar-month" data-month="${escapeHtml(monthKeyFromDateOnly(monthDateOnly))}">
+      <div class="range-calendar-month-head">
+        <select data-range-month="${escapeHtml(monthKeyFromDateOnly(monthDateOnly))}" aria-label="เลือกเดือน">${monthOptionsHtml(parts.month)}</select>
+        <select data-range-year="${escapeHtml(monthKeyFromDateOnly(monthDateOnly))}" aria-label="เลือกปี">${yearOptionsHtml(parts.year)}</select>
+      </div>
+      <div class="range-calendar-weekdays" aria-hidden="true">
+        ${["อา.", "จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส."].map(day => `<span>${day}</span>`).join("")}
+      </div>
+      <div class="range-calendar-grid">${cells.join("")}</div>
+    </section>
+  `;
+}
+
+function dateRangePresetHtml(draft) {
+  return DATE_RANGE_PRESETS.map(preset => `
+    <button class="range-preset ${draft.preset === preset.key ? "is-active" : ""}" type="button" data-range-preset="${escapeHtml(preset.key)}" aria-pressed="${draft.preset === preset.key ? "true" : "false"}">
+      <span class="range-preset-radio" aria-hidden="true"></span>
+      <span>${escapeHtml(preset.label)}</span>
+    </button>
+  `).join("");
+}
+
+function comparisonControlsHtml(draft) {
+  const compareDraft = syncComparisonDraft(draft);
+  return `
+    <section class="range-compare">
+      <label class="range-compare-toggle">
+        <input type="checkbox" data-range-compare-toggle ${compareDraft.compareEnabled ? "checked" : ""}>
+        <span>เปรียบเทียบช่วงเวลา</span>
+      </label>
+      <div class="range-compare-fields" ${compareDraft.compareEnabled ? "" : "hidden"}>
+        <select data-range-compare-mode aria-label="รูปแบบการเปรียบเทียบ">
+          <option value="previous-period" ${compareDraft.compareMode === "previous-period" ? "selected" : ""}>ช่วงก่อนหน้า (Previous period)</option>
+          <option value="custom" ${compareDraft.compareMode === "custom" ? "selected" : ""}>กำหนดเอง</option>
+        </select>
+        <input type="date" data-range-compare-start value="${escapeHtml(compareDraft.compareStart || "")}" ${compareDraft.compareMode === "previous-period" ? "readonly" : ""} aria-label="วันที่เริ่มเปรียบเทียบ">
+        <span class="range-date-separator">-</span>
+        <input type="date" data-range-compare-end value="${escapeHtml(compareDraft.compareEnd || "")}" ${compareDraft.compareMode === "previous-period" ? "readonly" : ""} aria-label="วันที่สิ้นสุดเปรียบเทียบ">
+      </div>
+    </section>
+  `;
+}
+
+function dateRangePickerHtml() {
+  const draft = syncComparisonDraft(app.dateRangePicker.draft || cloneDateRangeState());
+  app.dateRangePicker.draft = draft;
+  const visibleMonth = startOfMonthISO(app.dateRangePicker.visibleMonth || draft.start || todayISO());
+  const nextMonth = addMonthsISO(visibleMonth, 1);
+  const mobile = isMobileViewport();
+  const showCalendar = !mobile || draft.preset === "custom";
+  return `
+    <div id="dateRangePicker" class="range-picker-overlay ${mobile ? "is-mobile" : "is-desktop"}" data-range-overlay role="presentation">
+      <div class="range-picker-surface" role="dialog" aria-modal="true" aria-labelledby="rangePickerTitle" tabindex="-1">
+        <header class="range-picker-mobile-head">
+          <h2 id="rangePickerTitle">เลือกช่วงเวลา</h2>
+          <button class="range-icon-button" type="button" data-range-close aria-label="ปิด">×</button>
+        </header>
+        <div class="range-picker-body">
+          <aside class="range-presets" aria-label="ช่วงด่วน">
+            <strong>ช่วงด่วน</strong>
+            ${dateRangePresetHtml(draft)}
+          </aside>
+          <main class="range-main">
+            ${showCalendar ? `
+              <div class="range-calendar-nav">
+                <button class="range-icon-button" type="button" data-range-prev-month aria-label="เดือนก่อนหน้า">‹</button>
+                <button class="range-icon-button range-next-button" type="button" data-range-next-month aria-label="เดือนถัดไป">›</button>
+              </div>
+              <div class="range-calendars">
+                ${calendarMonthHtml(visibleMonth, draft)}
+                ${mobile ? "" : calendarMonthHtml(nextMonth, draft)}
+              </div>
+            ` : ""}
+            ${comparisonControlsHtml(draft)}
+          </main>
+        </div>
+        <footer class="range-picker-footer">
+          <div class="range-picker-summary">
+            <span aria-hidden="true">▣</span>
+            <div><strong>ช่วงวันที่เลือก: ${escapeHtml(labelForDateRange(draft, draft.preset))}</strong><small>รวม ${dateRangeDays(normalizeDateRange(draft.start, draft.end))} วัน · วันที่แสดงตามเวลากรุงเทพฯ</small></div>
+          </div>
+          <div class="range-picker-actions">
+            <button class="button secondary" type="button" data-range-cancel>ยกเลิก</button>
+            <button class="button primary" type="button" data-range-apply>อัปเดต</button>
+          </div>
+        </footer>
+      </div>
+    </div>
+  `;
 }
 
 function formatDateTime(dateValue) {
@@ -1389,6 +1689,152 @@ function syncMobileHeaderProfile() {
   markAvatarLoaded(els.headerProfile.querySelector(".profile-avatar-image"));
 }
 
+function ensureDateRangeAppliedFromSelectedDate() {
+  const selectedDate = els.workDate?.value || app.data?.summary?.selectedDate || todayISO();
+  const current = app.dateRangePicker.applied;
+  if (current && current.end === selectedDate) return current;
+  const matchedPreset = DATE_RANGE_PRESETS.find(preset => preset.key !== "custom" && dateRangeMatchesPreset({ start: current?.start || selectedDate, end: selectedDate }, preset.key));
+  app.dateRangePicker.applied = {
+    preset: matchedPreset?.key || (current?.start && current.start !== selectedDate ? "custom" : "today"),
+    start: current?.start && current.end === selectedDate ? current.start : selectedDate,
+    end: selectedDate,
+    compareEnabled: Boolean(current?.compareEnabled),
+    compareMode: current?.compareMode || "previous-period",
+    compareStart: current?.compareStart || addDaysISO(selectedDate, -1),
+    compareEnd: current?.compareEnd || addDaysISO(selectedDate, -1)
+  };
+  return app.dateRangePicker.applied;
+}
+
+function updateDatePillLabel() {
+  if (!els.workDateDisplay) return;
+  const range = ensureDateRangeAppliedFromSelectedDate();
+  els.workDateDisplay.textContent = labelForDateRange(range, range.preset);
+}
+
+function positionDesktopDatePicker(root) {
+  if (!root || isMobileViewport() || !els.workDateTrigger) return;
+  const surface = root.querySelector(".range-picker-surface");
+  const rect = els.workDateTrigger.getBoundingClientRect();
+  const margin = 16;
+  const width = Math.min(920, window.innerWidth - margin * 2);
+  const left = Math.max(margin, Math.min(rect.right - width, window.innerWidth - width - margin));
+  const top = Math.min(rect.bottom + 10, window.innerHeight - 120);
+  surface.style.setProperty("--range-left", `${left}px`);
+  surface.style.setProperty("--range-top", `${top}px`);
+  surface.style.setProperty("--range-width", `${width}px`);
+}
+
+function renderDateRangePicker() {
+  document.querySelector("[data-range-overlay]")?.remove();
+  if (!app.dateRangePicker.open) return;
+  document.body.insertAdjacentHTML("beforeend", dateRangePickerHtml());
+  const root = document.querySelector("[data-range-overlay]");
+  positionDesktopDatePicker(root);
+  document.body.classList.add("range-picker-open");
+  els.workDateTrigger?.setAttribute("aria-expanded", "true");
+  requestAnimationFrame(() => {
+    root?.classList.add("is-visible");
+    root?.querySelector(".range-picker-surface")?.focus();
+  });
+}
+
+function openDateRangePicker() {
+  if (app.dateRangePicker.open) return;
+  const applied = ensureDateRangeAppliedFromSelectedDate();
+  app.dateRangePicker.open = true;
+  app.dateRangePicker.restoreFocus = document.activeElement;
+  app.dateRangePicker.draft = cloneDateRangeState(applied);
+  app.dateRangePicker.visibleMonth = startOfMonthISO(applied.start || applied.end || todayISO());
+  app.dateRangePicker.selecting = "start";
+  app.dateRangePicker.openStartedAt = performance.now();
+  if (!app.dateRangePicker.historyArmed && history.pushState) {
+    history.pushState({ ...(history.state || {}), dateRangePicker: true }, "", location.href);
+    app.dateRangePicker.historyArmed = true;
+  }
+  renderDateRangePicker();
+  console.info("[Date picker] opened without API request", `${(performance.now() - app.dateRangePicker.openStartedAt).toFixed(2)} ms`);
+}
+
+function closeDateRangePicker({ restoreFocus = true, fromPopstate = false } = {}) {
+  if (!app.dateRangePicker.open) return;
+  const root = document.querySelector("[data-range-overlay]");
+  root?.classList.remove("is-visible");
+  window.setTimeout(() => root?.remove(), 160);
+  app.dateRangePicker.open = false;
+  app.dateRangePicker.draft = null;
+  document.body.classList.remove("range-picker-open");
+  els.workDateTrigger?.setAttribute("aria-expanded", "false");
+  if (app.dateRangePicker.historyArmed && !fromPopstate) {
+    app.dateRangePicker.historyArmed = false;
+    app.dateRangePicker.ignoreNextPopstate = true;
+    history.back();
+  } else if (fromPopstate) {
+    app.dateRangePicker.historyArmed = false;
+  }
+  if (restoreFocus) {
+    window.setTimeout(() => {
+      const target = app.dateRangePicker.restoreFocus;
+      if (target?.focus) target.focus();
+    }, 0);
+  }
+}
+
+function updateDatePickerDraft(nextDraft) {
+  app.dateRangePicker.draft = syncComparisonDraft({ ...app.dateRangePicker.draft, ...nextDraft });
+  if (app.dateRangePicker.draft.start) app.dateRangePicker.visibleMonth = startOfMonthISO(app.dateRangePicker.draft.start);
+  renderDateRangePicker();
+}
+
+function chooseDateRangePreset(key) {
+  const current = cloneDateRangeState(app.dateRangePicker.draft);
+  const range = key === "custom" && current.start && current.end
+    ? normalizeDateRange(current.start, current.end)
+    : buildPresetRange(key);
+  updateDatePickerDraft({ ...current, preset: key, ...range, compareStart: current.compareStart, compareEnd: current.compareEnd });
+}
+
+function chooseRangeDate(dateValue) {
+  const draft = cloneDateRangeState(app.dateRangePicker.draft);
+  if (app.dateRangePicker.selecting === "start" || !draft.start || (draft.start && draft.end)) {
+    app.dateRangePicker.selecting = "end";
+    updateDatePickerDraft({ ...draft, preset: "custom", start: dateValue, end: "" });
+    return;
+  }
+  const range = normalizeDateRange(draft.start, dateValue);
+  app.dateRangePicker.selecting = "start";
+  updateDatePickerDraft({ ...draft, preset: "custom", ...range });
+}
+
+function applyDateRangeDraft() {
+  const draft = syncComparisonDraft(cloneDateRangeState(app.dateRangePicker.draft));
+  const normalized = normalizeDateRange(draft.start, draft.end);
+  const applied = { ...draft, ...normalized };
+  app.dateRangePicker.applied = applied;
+  app.ordersShowAll = false;
+  app.customersShowAll = false;
+  app.reportDate = applied.end;
+  if (monthKeyFromDateOnly(app.reportMonth || "") !== monthKeyFromDateOnly(applied.end)) app.reportMonth = monthKeyFromDateOnly(applied.end);
+  if (els.workDate) els.workDate.value = applied.end;
+  if (isMobileViewport() && app.data) {
+    app.ordersFilterQ = "";
+    app.ordersFilterDraft = "";
+    app.mobileOrdersDateOnly = true;
+    app.data.summary = buildLocalSummary(applied.end);
+    updateDatePillLabel();
+    updateShell();
+    if (app.view === "orders") renderOrders();
+    else patchMobileDateView();
+  } else if (app.data) {
+    refreshDesktopDateSensitiveCustomers(applied.end);
+    app.data.summary = buildLocalSummary(applied.end);
+    updateDatePillLabel();
+    updateShell();
+    renderDesktopDateView();
+  }
+  closeDateRangePicker();
+}
+
 function updateShell() {
   document.body.classList.toggle("login-view", app.view === "login");
   document.body.classList.toggle("mobile-app-shell", isMobileViewport());
@@ -1401,8 +1847,7 @@ function updateShell() {
   document.body.classList.toggle("desktop-dashboard-view", !isMobileViewport() && app.view === "dashboard");
   if (!els.headerProfile) return;
   if (els.workDateDisplay) {
-    const dateValue = els.workDate?.value || app.data?.summary?.selectedDate || todayISO();
-    els.workDateDisplay.textContent = isMobileViewport() ? formatMobileDatePill(dateValue) : formatDatePill(dateValue);
+    updateDatePillLabel();
   }
   if (!app.currentUser || app.view === "login") {
     els.headerProfile.hidden = true;
@@ -9544,9 +9989,11 @@ function render(options = {}) {
 function handleViewportResize() {
   const nextMode = isMobileViewport() ? "mobile" : "desktop";
   if (app.layoutMode !== nextMode) {
+    if (app.dateRangePicker.open) renderDateRangePicker();
     render();
     return;
   }
+  if (app.dateRangePicker.open) positionDesktopDatePicker(document.querySelector("[data-range-overlay]"));
   renderNav();
   updateShell();
   renderSubpageNav();
@@ -9638,6 +10085,14 @@ async function setMobileNavView(view) {
 }
 
 function syncViewFromLocation(event = null) {
+  if (app.dateRangePicker.ignoreNextPopstate && event?.type === "popstate") {
+    app.dateRangePicker.ignoreNextPopstate = false;
+    return;
+  }
+  if (app.dateRangePicker.open && event?.type === "popstate") {
+    closeDateRangePicker({ fromPopstate: true });
+    return;
+  }
   if (app.notificationPanelOpen && event?.type === "popstate") {
     closeNotifications({ fromHistory: true });
     return;
@@ -10157,6 +10612,50 @@ els.productDialog?.addEventListener("close", () => {
 });
 
 document.addEventListener("click", async event => {
+  if (event.target.closest("#workDateTrigger")) {
+    event.preventDefault();
+    openDateRangePicker();
+    return;
+  }
+
+  const rangeOverlay = event.target.closest("[data-range-overlay]");
+  if (rangeOverlay) {
+    if (event.target === rangeOverlay || event.target.closest("[data-range-close], [data-range-cancel]")) {
+      event.preventDefault();
+      closeDateRangePicker();
+      return;
+    }
+    const presetButton = event.target.closest("[data-range-preset]");
+    if (presetButton) {
+      event.preventDefault();
+      chooseDateRangePreset(presetButton.dataset.rangePreset || "today");
+      return;
+    }
+    const dateButton = event.target.closest("[data-range-date]");
+    if (dateButton) {
+      event.preventDefault();
+      chooseRangeDate(dateButton.dataset.rangeDate);
+      return;
+    }
+    if (event.target.closest("[data-range-prev-month]")) {
+      event.preventDefault();
+      app.dateRangePicker.visibleMonth = addMonthsISO(app.dateRangePicker.visibleMonth || todayISO(), -1);
+      renderDateRangePicker();
+      return;
+    }
+    if (event.target.closest("[data-range-next-month]")) {
+      event.preventDefault();
+      app.dateRangePicker.visibleMonth = addMonthsISO(app.dateRangePicker.visibleMonth || todayISO(), 1);
+      renderDateRangePicker();
+      return;
+    }
+    if (event.target.closest("[data-range-apply]")) {
+      event.preventDefault();
+      applyDateRangeDraft();
+      return;
+    }
+  }
+
   const sourceTrigger = event.target.closest("[data-source-picker-trigger]");
   if (sourceTrigger && sourceTrigger.closest("#orderForm")) {
     const picker = sourceTrigger.closest("[data-source-picker]");
@@ -11365,6 +11864,31 @@ document.addEventListener("input", event => {
 });
 
 document.addEventListener("change", event => {
+  if (event.target?.matches?.("[data-range-month], [data-range-year]")) {
+    const surface = event.target.closest("[data-range-overlay]");
+    if (!surface) return;
+    const monthShell = event.target.closest("[data-month]");
+    const monthSelect = monthShell?.querySelector("[data-range-month]");
+    const yearSelect = monthShell?.querySelector("[data-range-year]");
+    const month = String(monthSelect?.value || "1").padStart(2, "0");
+    const year = String(yearSelect?.value || todayISO().slice(0, 4));
+    app.dateRangePicker.visibleMonth = `${year}-${month}-01`;
+    renderDateRangePicker();
+    return;
+  }
+  if (event.target?.matches?.("[data-range-compare-toggle]")) {
+    updateDatePickerDraft({ compareEnabled: event.target.checked });
+    return;
+  }
+  if (event.target?.matches?.("[data-range-compare-mode]")) {
+    updateDatePickerDraft({ compareMode: event.target.value === "custom" ? "custom" : "previous-period" });
+    return;
+  }
+  if (event.target?.matches?.("[data-range-compare-start], [data-range-compare-end]")) {
+    const key = event.target.matches("[data-range-compare-start]") ? "compareStart" : "compareEnd";
+    updateDatePickerDraft({ compareMode: "custom", [key]: event.target.value });
+    return;
+  }
   if (event.target?.matches?.("[data-profile-theme-select]")) {
     saveCurrentUserThemePreference(event.target.value)
       .then(result => {
@@ -11409,6 +11933,29 @@ document.addEventListener("change", event => {
 });
 
 document.addEventListener("keydown", event => {
+  if (app.dateRangePicker.open) {
+    const surface = document.querySelector("[data-range-overlay] .range-picker-surface");
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeDateRangePicker();
+      return;
+    }
+    if (event.key === "Tab" && surface) {
+      const focusable = [...surface.querySelectorAll("button, input, select, textarea, [tabindex]:not([tabindex='-1'])")]
+        .filter(item => !item.disabled && item.offsetParent !== null);
+      if (focusable.length) {
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      }
+    }
+  }
   if (event.key === "Escape" && app.notificationPanelOpen) {
     event.preventDefault();
     closeNotifications();

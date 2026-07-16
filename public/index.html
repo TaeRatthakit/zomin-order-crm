@@ -93,13 +93,15 @@
                   <svg class="topbar-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2v10"/><path d="M18.36 5.64a9 9 0 1 1-12.72 0"/></svg>
                 </button>
               </div>
-              <label class="date-picker date-pill">
+              <div class="date-picker date-pill">
                 <span class="sr-only">วันที่ทำงาน</span>
-                <input id="workDate" type="date">
+                <input id="workDate" type="hidden">
+                <button id="workDateTrigger" class="date-pill-trigger" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="dateRangePicker">
                 <svg class="date-pill-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="16" rx="3"></rect><path d="M8 2.5v4"></path><path d="M16 2.5v4"></path><path d="M3 9.5h18"></path></svg>
                 <span id="workDateDisplay" class="date-pill-display">01/07/2026</span>
                 <svg class="date-pill-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7 10 5 5 5-5"></path></svg>
-              </label>
+                </button>
+              </div>
             </div>
           </div>
           <div class="page-heading">
