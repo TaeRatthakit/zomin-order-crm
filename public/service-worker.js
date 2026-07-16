@@ -1,28 +1,28 @@
-const CACHE_NAME = "growup-pilot-pwa-v106-orders-hero-light";
+const CACHE_NAME = "growup-pilot-pwa-v107-mobile-icon";
 const CORE_ASSETS = [
   "/",
   "/index.html",
-  "/favicon.ico?v=20260701-favicon-restore",
-  "/favicon.png?v=20260701-favicon-restore",
-  "/favicon-16x16.png?v=20260701-favicon-restore",
-  "/favicon-32x32.png?v=20260701-favicon-restore",
-  "/favicon-48x48.png?v=20260701-favicon-restore",
-  "/apple-touch-icon.png?v=20260702-ios-enhanced-fullbleed",
+  "/favicon.ico?v=20260717-mobile-icon-v1",
+  "/favicon.png?v=20260717-mobile-icon-v1",
+  "/favicon-16x16.png?v=20260717-mobile-icon-v1",
+  "/favicon-32x32.png?v=20260717-mobile-icon-v1",
+  "/favicon-48x48.png?v=20260717-mobile-icon-v1",
+  "/apple-touch-icon.png?v=20260717-mobile-icon-v1",
   "/styles.css?v=20260716-orders-hero-light-v1",
-  "/app.js?v=20260716-orders-hero-light-v1",
+  "/app.js?v=20260717-mobile-icon-v1",
   "/desktop-dashboard-hero.webp?v=20260706-webp-v1",
   "/desktop-onboarding-rocket.webp?v=20260706-webp-v1",
   "/mobile-home-hero.png",
   "/mobile-home-avatar.png",
   "/import-worker.js",
   "/xlsx.full.min.js",
-  "/manifest.webmanifest?v=20260701-favicon-restore",
-  "/icons/login-logo-192.png?v=20260708-login-logo-fast-v1",
-  "/icons/apple-touch-icon.png?v=20260702-ios-enhanced-fullbleed",
-  "/icons/icon-192.png?v=20260701-favicon-restore",
-  "/icons/icon-512.png?v=20260701-favicon-restore",
-  "/icons/maskable-icon-192.png?v=20260701-favicon-restore",
-  "/icons/maskable-icon-512.png?v=20260701-favicon-restore"
+  "/manifest.webmanifest?v=20260717-mobile-icon-v1",
+  "/icons/login-logo-192.png?v=20260717-mobile-icon-v1",
+  "/icons/apple-touch-icon.png?v=20260717-mobile-icon-v1",
+  "/icons/icon-192.png?v=20260717-mobile-icon-v1",
+  "/icons/icon-512.png?v=20260717-mobile-icon-v1",
+  "/icons/maskable-icon-192.png?v=20260717-mobile-icon-v1",
+  "/icons/maskable-icon-512.png?v=20260717-mobile-icon-v1"
 ];
 
 self.addEventListener("install", event => {
