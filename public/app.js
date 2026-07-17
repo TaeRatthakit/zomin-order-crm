@@ -935,7 +935,7 @@ function cloneDateRangeState(range = appliedDateRange()) {
   return {
     preset: range.preset || "custom",
     start: range.start || todayISO(),
-    end: range.end || range.start || todayISO(),
+    end: Object.prototype.hasOwnProperty.call(range, "end") ? range.end : (range.start || todayISO()),
     compareEnabled: Boolean(range.compareEnabled),
     compareMode: range.compareMode || "previous-period",
     compareStart: range.compareStart || "",

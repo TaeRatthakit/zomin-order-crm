@@ -116,6 +116,13 @@ function aggregateOrders(orders, range) {
   };
 }
 
+function cloneDateRangeStateForTest(range) {
+  return {
+    start: range.start || "2026-07-17",
+    end: Object.prototype.hasOwnProperty.call(range, "end") ? range.end : (range.start || "2026-07-17")
+  };
+}
+
 const expectedPresetOrder = [
   "วันนี้",
   "เมื่อวานนี้",
@@ -148,6 +155,7 @@ assert(appJs.includes("function bangkokDateOnly"), "Bangkok date-only normalizer
 assert(appJs.includes("function dateInRange"), "shared inclusive date range helper exists");
 assert(appJs.includes("function ordersInDateRange"), "shared range order filter exists");
 assert(appJs.includes("rangeKey: summaryRangeKey"), "summary cache key includes start and end range");
+assert(appJs.includes('Object.prototype.hasOwnProperty.call(range, "end")'), "custom range draft preserves empty end while selecting");
 assert(appJs.includes("syncComparisonDraft"), "comparison state is calculated locally");
 assert(appJs.includes("previousPeriodRange"), "previous period comparison exists");
 assert(appJs.includes("applyDateRangeDraft"), "apply handler exists");
@@ -228,5 +236,7 @@ assert(crossYear.salesToday === 70 && crossYear.ordersToday === 1, "custom cross
 assert(dateRangeKey({ start: today, end: today }) !== dateRangeKey({ start: yesterday, end: today }), "cache key separates single-day and multi-day ranges");
 assert(dateInRange("2026-07-17T23:59:59+07:00", { start: today, end: today }), "late order on end date is included");
 assert(dateInRange("2026-07-16T17:30:00.000Z", { start: today, end: today }), "UTC timestamp at Bangkok next-day boundary is included in Bangkok day");
+assert(cloneDateRangeStateForTest({ start: "2026-07-12", end: "" }).end === "", "custom range keeps empty end until second date is selected");
+assert(cloneDateRangeStateForTest({ start: "2026-07-12" }).end === "2026-07-12", "applied single-day clone still fills missing end");
 
 console.log("date-range-picker tests passed");
