@@ -3092,7 +3092,7 @@ function renderLogin() {
     <section class="login-layout">
       <div class="login-desktop-card">
         <header class="login-page-header" aria-label="Growup Pilot">
-          <img class="login-page-logo" src="/icons/login-logo-192.png?v=20260717-mobile-icon-v1" alt="" aria-hidden="true" width="84" height="84" fetchpriority="high" loading="eager" decoding="async">
+          <img class="login-page-logo" src="/icons/login-logo-192.png?v=20260718-website-logo-v1" alt="" aria-hidden="true" width="84" height="84" fetchpriority="high" loading="eager" decoding="async">
           <strong>Growup<span>Pilot</span></strong>
           <p>ระบบจัดการธุรกิจของคุณ ให้เติบโตไปด้วยกัน</p>
         </header>
