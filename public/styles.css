@@ -22074,6 +22074,11 @@ html[data-theme="light"] .settings-switch-ui {
   color: var(--ink);
 }
 
+html[data-theme="light"] body:not(.login-view) .date-pill-icon {
+  color: var(--light-text-primary, var(--ink));
+  opacity: 1;
+}
+
 html[data-theme="light"] input::placeholder,
 html[data-theme="light"] textarea::placeholder,
 html[data-theme="light"] .muted,
