@@ -68,6 +68,7 @@ const app = {
   summaryRefreshTimer: null,
   mobileAnalyticsIndex: null,
   desktopAnalyticsIndex: null,
+  dashboardSummaryCache: null,
   currentUser: null,
   data: null,
   lineDebugRows: [],
@@ -769,6 +770,29 @@ function localDateToDateOnly(date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
+function bangkokDateOnly(value) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
+  if (text.includes("T")) {
+    const date = new Date(text);
+    if (!Number.isNaN(date.getTime())) {
+      const parts = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Asia/Bangkok",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit"
+      }).formatToParts(date).reduce((result, part) => {
+        if (part.type !== "literal") result[part.type] = part.value;
+        return result;
+      }, {});
+      if (parts.year && parts.month && parts.day) return `${parts.year}-${parts.month}-${parts.day}`;
+    }
+  }
+  const match = text.match(/^(\d{4}-\d{2}-\d{2})/);
+  return match?.[1] || "";
+}
+
 function addMonthsISO(dateValue, amount) {
   const date = dateOnlyToLocalDate(dateValue);
   if (!date) return "";
@@ -814,6 +838,23 @@ function normalizeDateRange(start, end) {
 
 function dateRangeDays(range) {
   return diffDaysISO(range.start, range.end) + 1;
+}
+
+function dateRangeKey(range) {
+  const normalized = normalizeDateRange(range?.start, range?.end);
+  return `${normalized.start}..${normalized.end}`;
+}
+
+function dateInRange(dateValue, range) {
+  const date = bangkokDateOnly(dateValue);
+  if (!date) return false;
+  const normalized = normalizeDateRange(range?.start, range?.end);
+  return date >= normalized.start && date <= normalized.end;
+}
+
+function ordersInDateRange(orders = app.data?.orders || [], range = appliedDateRange()) {
+  const normalized = normalizeDateRange(range?.start, range?.end);
+  return (orders || []).filter(order => dateInRange(order.date, normalized));
 }
 
 const DATE_RANGE_PRESETS = [
@@ -1393,6 +1434,7 @@ async function loadState() {
     app.lastStateLoadedAt = Date.now();
     app.desktopAnalyticsIndex = null;
     app.mobileAnalyticsIndex = null;
+    app.dashboardSummaryCache = null;
     if (app.data.currentUser) {
       app.currentUser = app.data.currentUser;
       app.data.currentUser = app.currentUser;
@@ -1839,14 +1881,14 @@ function applyDateRangeDraft() {
     app.ordersFilterQ = "";
     app.ordersFilterDraft = "";
     app.mobileOrdersDateOnly = true;
-    app.data.summary = buildLocalSummary(applied.end);
+    app.data.summary = buildLocalSummary(applied.end, applied);
     updateDatePillLabel();
     updateShell();
     if (app.view === "orders") renderOrders();
     else patchMobileDateView();
   } else if (app.data) {
     refreshDesktopDateSensitiveCustomers(applied.end);
-    app.data.summary = buildLocalSummary(applied.end);
+    app.data.summary = buildLocalSummary(applied.end, applied);
     updateDatePillLabel();
     updateShell();
     renderDesktopDateView();
@@ -1971,10 +2013,10 @@ function dashboardTrendSeries(metric, length = 10) {
   const selectedDate = app.data.summary?.selectedDate || todayISO();
   return Array.from({ length }, (_, index) => {
     const date = addDaysISO(selectedDate, index - (length - 1));
-    const dayOrders = app.data.orders.filter(order => order.date === date);
+    const dayOrders = app.data.orders.filter(order => bangkokDateOnly(order.date) === date);
     const daySales = dayOrders.reduce((sum, order) => sum + Number(order.amount || 0), 0);
     const month = monthKey(date);
-    const monthOrders = app.data.orders.filter(order => monthKey(order.date) === month && order.date <= date);
+    const monthOrders = app.data.orders.filter(order => monthKey(bangkokDateOnly(order.date)) === month && bangkokDateOnly(order.date) <= date);
     const dueCustomers = app.data.customers.filter(customer => customer.followUpDate && customer.followUpDate <= date);
     const silentCustomers = app.data.customers.filter(customer => !customer.lastPurchaseDate || !String(customer.lastPurchaseDate).startsWith(month));
     if (metric === "salesToday") return daySales;
@@ -2097,25 +2139,24 @@ function last7DaysSales() {
   return Array.from({ length: 7 }, (_, index) => {
     const date = addDaysISO(base, index - 6);
     const total = app.data.orders
-      .filter(order => order.date === date)
+      .filter(order => bangkokDateOnly(order.date) === date)
       .reduce((sum, order) => sum + Number(order.amount || 0), 0);
     return { date, total };
   });
 }
 
 function ordersToday() {
-  const selectedDate = app.data.summary?.selectedDate || todayISO();
-  return app.data.orders.filter(order => order.date === selectedDate);
+  return app.data.summary?.rangeOrders || ordersInDateRange(app.data.orders, dashboardSummaryRange(app.data.summary?.selectedDate || todayISO()));
 }
 
 function newCustomersToday() {
-  const selectedDate = app.data.summary?.selectedDate || todayISO();
-  return app.data.customers.filter(customer => customer.firstPurchaseDate === selectedDate);
+  const range = dashboardSummaryRange(app.data.summary?.selectedDate || todayISO());
+  return app.data.customers.filter(customer => dateInRange(customer.firstPurchaseDate, range));
 }
 
 function repeatCustomersToday() {
-  const selectedDate = app.data.summary?.selectedDate || todayISO();
-  const ids = new Set(app.data.orders.filter(order => order.date === selectedDate).map(order => order.customerId));
+  const rangeOrders = ordersToday();
+  const ids = new Set(rangeOrders.map(order => order.customerId));
   return app.data.customers.filter(customer => ids.has(customer.id) && Number(customer.purchaseCount || 0) > 1);
 }
 
@@ -3501,7 +3542,8 @@ function dashboardChangeText(currentValue, previousValue, unit = "") {
 
 function dashboardChannelRows(selectedDate) {
   const colors = ["#8b3dff", "#ffb11f", "#23c7ff", "#49e58f"];
-  const todaysOrders = app.data.orders.filter(order => order.date === selectedDate);
+  const range = dashboardSummaryRange(selectedDate);
+  const todaysOrders = ordersInDateRange(app.data.orders, range);
   const map = new Map();
   for (const order of todaysOrders) {
     const channel = summarizeSalesChannel(displayOrderChannel(order));
@@ -3730,9 +3772,9 @@ function desktopOpportunityTable(rows) {
 }
 
 function desktopDashboardChannelRows(selectedDate) {
-  const selectedMonth = String(selectedDate || todayISO()).slice(0, 7);
   const colors = ["#0878ff", "#15d67a", "#ff9f0a", "#8e2cff", "#969dd8"];
-  const orders = (app.data.orders || []).filter(order => String(order.date || "").startsWith(selectedMonth));
+  const range = dashboardSummaryRange(selectedDate);
+  const orders = ordersInDateRange(app.data.orders || [], range);
   const map = new Map();
   for (const order of orders) {
     const channel = summarizeSalesChannel(displayOrderChannel(order));
@@ -3832,9 +3874,9 @@ function renderDesktopDashboard(viewModel) {
   const yesterdayOrders = Number(s.ordersToday || 0) - Number(viewModel.ordersDelta.diff || 0);
   const yesterdayProfit = Number(estimatedProfitToday || 0) - Number(viewModel.profitDelta.diff || 0);
   const previousOpportunity = Number(revenueOpportunity || 0) - Number(viewModel.opportunityDelta.diff || 0);
-  const previousUnits = (app.data.orders || [])
-    .filter(order => order.date === addDaysISO(s.selectedDate, -1))
+  const previousUnits = ordersInDateRange(app.data.orders || [], previousPeriodRange({ start: s.startDate || s.selectedDate, end: s.endDate || s.selectedDate }))
     .reduce((sum, order) => sum + Number(order.jars || 0), 0);
+  const comparisonHint = s.isRange ? "เทียบกับช่วงก่อนหน้า" : "เทียบกับเมื่อวาน";
   els.content.innerHTML = `
     <section class="desktop-reference-dashboard" aria-label="แดชบอร์ด Growup Pilot">
       <div class="desktop-reference-dashboard-shell">
@@ -3863,10 +3905,10 @@ function renderDesktopDashboard(viewModel) {
         </section>
 
         <section class="desktop-reference-kpi-grid">
-          ${desktopReferenceKpiCard({ label: "ยอดขายวันนี้", value: `฿${money(s.salesToday)}`, deltaText: dashboardChangeText(s.salesToday, yesterdaySales), tone: "green", icon: "wallet", hint: "เทียบกับเมื่อวาน" })}
-          ${desktopReferenceKpiCard({ label: "ออเดอร์วันนี้", value: money(s.ordersToday || 0), deltaText: dashboardChangeText(s.ordersToday || 0, yesterdayOrders), tone: "orange", icon: "bag", hint: "เทียบกับเมื่อวาน" })}
-          ${desktopReferenceKpiCard({ label: "กำไรวันนี้", value: `฿${money(estimatedProfitToday)}`, deltaText: dashboardChangeText(estimatedProfitToday, yesterdayProfit), tone: "purple", icon: "database", hint: "เทียบกับเมื่อวาน" })}
-          ${desktopReferenceKpiCard({ label: "ขายได้วันนี้", value: `${money(unitsSoldToday)} ชิ้น`, deltaText: dashboardChangeText(unitsSoldToday, previousUnits), tone: "blue", icon: "box", hint: "เทียบกับเมื่อวาน" })}
+          ${desktopReferenceKpiCard({ label: "ยอดขายวันนี้", value: `฿${money(s.salesToday)}`, deltaText: dashboardChangeText(s.salesToday, yesterdaySales), tone: "green", icon: "wallet", hint: comparisonHint })}
+          ${desktopReferenceKpiCard({ label: "ออเดอร์วันนี้", value: money(s.ordersToday || 0), deltaText: dashboardChangeText(s.ordersToday || 0, yesterdayOrders), tone: "orange", icon: "bag", hint: comparisonHint })}
+          ${desktopReferenceKpiCard({ label: "กำไรวันนี้", value: `฿${money(estimatedProfitToday)}`, deltaText: dashboardChangeText(estimatedProfitToday, yesterdayProfit), tone: "purple", icon: "database", hint: comparisonHint })}
+          ${desktopReferenceKpiCard({ label: "ขายได้วันนี้", value: `${money(unitsSoldToday)} ชิ้น`, deltaText: dashboardChangeText(unitsSoldToday, previousUnits), tone: "blue", icon: "box", hint: comparisonHint })}
           ${desktopReferenceKpiCard({ label: "โอกาสสร้างยอดขายวันนี้", value: `฿${money(revenueOpportunity)}`, deltaText: dashboardChangeText(revenueOpportunity, previousOpportunity), tone: "pink", icon: "target", hint: `จาก ${money(viewModel.opportunityCount)} ลูกค้า` })}
         </section>
 
@@ -3946,19 +3988,24 @@ function renderDesktopDashboard(viewModel) {
 
 function renderDashboard() {
   const s = app.data.summary;
+  const selectedRange = dashboardSummaryRange(s.selectedDate, { start: s.startDate || s.selectedDate, end: s.endDate || s.selectedDate });
+  const previousRange = previousPeriodRange(selectedRange);
   const opportunities = opportunityCardsData();
   const yesterday = addDaysISO(s.selectedDate, -1);
-  const yesterdayOrders = app.data.orders.filter(order => order.date === yesterday);
+  const yesterdayOrders = ordersInDateRange(app.data.orders, previousRange);
   const yesterdaySales = yesterdayOrders.reduce((sum, order) => sum + Number(order.amount || 0), 0);
   const yesterdayOrderCount = yesterdayOrders.length;
   const monthStart = `${String(s.selectedDate).slice(0, 8)}01`;
-  const monthToDateOrders = app.data.orders.filter(order => order.date >= monthStart && order.date <= s.selectedDate);
+  const monthToDateOrders = app.data.orders.filter(order => {
+    const date = bangkokDateOnly(order.date);
+    return date >= monthStart && date <= s.selectedDate;
+  });
   const previousMonthReference = addDaysISO(monthStart, -1);
   const previousMonthKey = monthKey(previousMonthReference);
   const previousMonthOrders = app.data.orders.filter(order => monthKey(order.date) === previousMonthKey);
   const previousMonthSales = previousMonthOrders.reduce((sum, order) => sum + Number(order.amount || 0), 0);
   const revenueOpportunity = opportunities.reduce((sum, item) => sum + item.revenue, 0);
-  const todaysOrders = app.data.orders.filter(order => order.date === s.selectedDate);
+  const todaysOrders = s.rangeOrders || ordersInDateRange(app.data.orders, selectedRange);
   const todayProfitBreakdown = profitBreakdownForOrders(todaysOrders);
   const productCostsToday = todayProfitBreakdown.productCosts;
   const additionalCostsToday = todayProfitBreakdown.additionalCosts;
@@ -5097,8 +5144,9 @@ function mobileOrderProductSummary(order) {
 
 function mobileOrderRows(selectedDate) {
   const q = app.ordersFilterQ.trim().toLowerCase();
+  const range = dashboardSummaryRange(selectedDate);
   const rows = app.data.orders.filter(order => {
-    const dateMatch = Boolean(q) || !app.mobileOrdersDateOnly || order.date === selectedDate;
+    const dateMatch = Boolean(q) || !app.mobileOrdersDateOnly || dateInRange(order.date, range);
     const textMatch = !q || [
       order.orderNumber,
       order.items,
@@ -5218,6 +5266,7 @@ function renderMobileOrders(selectedDate) {
 
 function renderOrders() {
   const selectedDate = app.data.summary?.selectedDate || els.workDate.value || todayISO();
+  const selectedRange = dashboardSummaryRange(selectedDate);
   if (isMobileViewport()) {
     renderMobileOrders(els.workDate.value || selectedDate);
     return;
@@ -5225,7 +5274,7 @@ function renderOrders() {
   const q = app.ordersFilterQ.trim().toLowerCase();
   if (app.ordersFilterDraft === "") app.ordersFilterDraft = app.ordersFilterQ;
   const orders = app.data.orders.filter(order => {
-    const dateMatch = app.ordersShowAll || order.date === selectedDate;
+    const dateMatch = app.ordersShowAll || dateInRange(order.date, selectedRange);
     const textMatch = !q || [
       order.orderNumber,
       order.items,
@@ -5247,7 +5296,7 @@ function renderOrders() {
       <div class="page-identity workspace-hero orders-hero">
         <div class="page-identity-copy">
           <span class="page-kicker">Order Management Workspace</span>
-          <h2>${app.ordersShowAll ? "ออเดอร์ทั้งหมด" : `ออเดอร์วันที่ ${formatDate(selectedDate)}`}</h2>
+          <h2>${app.ordersShowAll ? "ออเดอร์ทั้งหมด" : `ออเดอร์วันที่ ${labelForDateRange(selectedRange, app.dateRangePicker.applied?.preset)}`}</h2>
           <p id="ordersCountText">${app.ordersShowAll ? `แสดง ${money(orders.length)} ออเดอร์จากทุกวัน` : `แสดง ${money(orders.length)} ออเดอร์จากวันที่เลือก`} พร้อมค้นหาและจัดการรายการในหน้าเดียว</p>
         </div>
         <div class="orders-header-actions">
@@ -5782,7 +5831,7 @@ function mobileAnalyticsIndex() {
   const ordersByDate = new Map();
   const ordersByMonth = new Map();
   for (const order of orders) {
-    const date = String(order.date || "");
+    const date = bangkokDateOnly(order.date);
     const month = monthKey(date);
     if (!ordersByDate.has(date)) ordersByDate.set(date, []);
     if (!ordersByMonth.has(month)) ordersByMonth.set(month, []);
@@ -5801,7 +5850,7 @@ function desktopAnalyticsIndex() {
   const ordersByDate = new Map();
   const ordersByMonth = new Map();
   for (const order of orders) {
-    const date = String(order.date || "");
+    const date = bangkokDateOnly(order.date);
     const month = monthKey(date);
     if (!ordersByDate.has(date)) ordersByDate.set(date, []);
     if (!ordersByMonth.has(month)) ordersByMonth.set(month, []);
@@ -5842,15 +5891,44 @@ function refreshDesktopDateSensitiveCustomers(selectedDate) {
   app.desktopAnalyticsIndex = null;
 }
 
-function buildLocalSummary(selectedDate = els.workDate.value || todayISO()) {
+function dashboardSummaryRange(selectedDate = els.workDate.value || todayISO(), range = null) {
+  const fallbackDate = selectedDate || todayISO();
+  const source = range?.start || range?.end
+    ? range
+    : app.dateRangePicker.applied?.start || app.dateRangePicker.applied?.end
+      ? app.dateRangePicker.applied
+      : { start: fallbackDate, end: fallbackDate };
+  return normalizeDateRange(source.start || fallbackDate, source.end || source.start || fallbackDate);
+}
+
+function buildLocalSummary(selectedDate = els.workDate.value || todayISO(), range = null) {
   const summaryDate = selectedDate || todayISO();
+  const summaryRange = dashboardSummaryRange(summaryDate, range);
+  const summaryRangeKey = dateRangeKey(summaryRange);
+  const cache = app.dashboardSummaryCache;
+  if (
+    cache?.orders === app.data.orders &&
+    cache?.customers === app.data.customers &&
+    cache?.selectedDate === summaryDate &&
+    cache?.rangeKey === summaryRangeKey
+  ) {
+    return cache.summary;
+  }
   const index = isMobileViewport() ? mobileAnalyticsIndex() : desktopAnalyticsIndex();
   const customerCounts = index?.customerCounts || {};
-  const todayOrders = index?.ordersByDate.get(summaryDate) || app.data.orders.filter(order => order.date === summaryDate);
-  const monthOrders = index?.ordersByMonth.get(monthKey(summaryDate)) || app.data.orders.filter(order => monthKey(order.date) === monthKey(summaryDate));
+  const todayOrders = summaryRange.start === summaryRange.end
+    ? (index?.ordersByDate.get(summaryDate) || app.data.orders.filter(order => bangkokDateOnly(order.date) === summaryDate))
+    : ordersInDateRange(app.data.orders, summaryRange);
+  const monthOrders = index?.ordersByMonth.get(monthKey(summaryDate)) || app.data.orders.filter(order => monthKey(bangkokDateOnly(order.date)) === monthKey(summaryDate));
   const dueCustomers = app.data.customers.filter(customer => customer.followUpDate && customer.followUpDate <= summaryDate);
-  return {
+  const summary = {
     selectedDate: summaryDate,
+    startDate: summaryRange.start,
+    endDate: summaryRange.end,
+    rangeKey: summaryRangeKey,
+    rangeDays: dateRangeDays(summaryRange),
+    isRange: summaryRange.start !== summaryRange.end,
+    rangeOrders: todayOrders,
     salesToday: todayOrders.reduce((sum, order) => sum + Number(order.amount || 0), 0),
     salesThisMonth: monthOrders.reduce((sum, order) => sum + Number(order.amount || 0), 0),
     ordersToday: todayOrders.length,
@@ -5873,6 +5951,14 @@ function buildLocalSummary(selectedDate = els.workDate.value || todayISO()) {
       NORMAL: dueCustomers.filter(customer => customer.vipLevel === "NORMAL").length
     }
   };
+  app.dashboardSummaryCache = {
+    orders: app.data.orders,
+    customers: app.data.customers,
+    selectedDate: summaryDate,
+    rangeKey: summaryRangeKey,
+    summary
+  };
+  return summary;
 }
 
 function syncDomTree(current, next) {
@@ -5942,7 +6028,7 @@ function queueSummaryRefresh() {
   clearTimeout(app.summaryRefreshTimer);
   app.summaryRefreshTimer = setTimeout(() => {
     if (!app.data) return;
-    app.data.summary = buildLocalSummary(app.data.summary?.selectedDate || els.workDate.value || todayISO());
+    app.data.summary = buildLocalSummary(app.data.summary?.selectedDate || els.workDate.value || todayISO(), appliedDateRange());
   if (["dashboard", "reports", "vip", "risk", "customers", "opportunities"].includes(app.view)) render();
   }, 0);
 }
@@ -5957,6 +6043,7 @@ function applyOrderMutation(mutation) {
   if (!mutation || !app.data) return;
   app.mobileAnalyticsIndex = null;
   app.desktopAnalyticsIndex = null;
+  app.dashboardSummaryCache = null;
   if (mutation.settings) app.data.settings = mutation.settings;
   const deletedOrderId = mutation.deletedOrderId || "";
   if (deletedOrderId) {
@@ -5983,9 +6070,10 @@ function applyOrderMutation(mutation) {
 
 function filteredOrdersForCurrentView() {
   const selectedDate = app.data.summary?.selectedDate || els.workDate.value || todayISO();
+  const selectedRange = dashboardSummaryRange(selectedDate);
   const q = app.ordersFilterQ.trim().toLowerCase();
   return app.data.orders.filter(order => {
-    const dateMatch = app.ordersShowAll || order.date === selectedDate;
+    const dateMatch = app.ordersShowAll || dateInRange(order.date, selectedRange);
     const textMatch = !q || [
       order.orderNumber,
       order.items,
@@ -11996,9 +12084,18 @@ document.addEventListener("change", async event => {
   if (event.target === els.workDate) {
     app.ordersShowAll = false;
     app.customersShowAll = false;
+    const selectedDate = event.target.value || todayISO();
+    app.dateRangePicker.applied = {
+      preset: "today",
+      ...normalizeDateRange(selectedDate, selectedDate),
+      compareEnabled: false,
+      compareMode: "previous-period",
+      compareStart: addDaysISO(selectedDate, -1),
+      compareEnd: addDaysISO(selectedDate, -1)
+    };
+    app.dashboardSummaryCache = null;
     if (isMobileViewport() && app.data) {
       const startedAt = performance.now();
-      const selectedDate = event.target.value || todayISO();
       console.info("[Mobile date] Date change start", { view: app.view, selectedDate });
       app.ordersFilterQ = "";
       app.ordersFilterDraft = "";
@@ -12020,7 +12117,6 @@ document.addEventListener("change", async event => {
     }
     if (app.data) {
       const startedAt = performance.now();
-      const selectedDate = event.target.value || todayISO();
       console.info("[Desktop date] Date change start", { view: app.view, selectedDate });
       const calculationStartedAt = performance.now();
       refreshDesktopDateSensitiveCustomers(selectedDate);

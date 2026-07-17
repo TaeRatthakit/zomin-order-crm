@@ -57,6 +57,65 @@ function presetRange(key, today) {
   throw new Error(`Unknown preset ${key}`);
 }
 
+function normalizeDateRange(start, end) {
+  const first = start || end || "2026-07-17";
+  const last = end || start || first;
+  return first <= last ? { start: first, end: last } : { start: last, end: first };
+}
+
+function dateRangeKey(range) {
+  const normalized = normalizeDateRange(range.start, range.end);
+  return `${normalized.start}..${normalized.end}`;
+}
+
+function bangkokDateOnly(value) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
+  if (text.includes("T")) {
+    const date = new Date(text);
+    if (!Number.isNaN(date.getTime())) {
+      const parts = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Asia/Bangkok",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit"
+      }).formatToParts(date).reduce((result, part) => {
+        if (part.type !== "literal") result[part.type] = part.value;
+        return result;
+      }, {});
+      return `${parts.year}-${parts.month}-${parts.day}`;
+    }
+  }
+  return text.match(/^(\d{4}-\d{2}-\d{2})/)?.[1] || "";
+}
+
+function dateInRange(value, range) {
+  const date = bangkokDateOnly(value);
+  const normalized = normalizeDateRange(range.start, range.end);
+  return date >= normalized.start && date <= normalized.end;
+}
+
+function aggregateOrders(orders, range) {
+  const rangeOrders = orders.filter(order => dateInRange(order.date, range));
+  const channelMap = new Map();
+  const productMap = new Map();
+  for (const order of rangeOrders) {
+    const channel = order.channel || "อื่นๆ";
+    channelMap.set(channel, (channelMap.get(channel) || 0) + Number(order.amount || 0));
+    const product = order.items || "สินค้า";
+    productMap.set(product, (productMap.get(product) || 0) + Number(order.jars || 0));
+  }
+  return {
+    salesToday: rangeOrders.reduce((sum, order) => sum + Number(order.amount || 0), 0),
+    ordersToday: rangeOrders.length,
+    jarsToday: rangeOrders.reduce((sum, order) => sum + Number(order.jars || 0), 0),
+    customers: new Set(rangeOrders.map(order => order.customerId)).size,
+    channels: [...channelMap.entries()],
+    products: [...productMap.entries()]
+  };
+}
+
 const expectedPresetOrder = [
   "วันนี้",
   "เมื่อวานนี้",
@@ -85,6 +144,10 @@ assert(!presetBlock.includes("สัปดาห์นี้"), "does not includ
 assert(!presetBlock.includes("สัปดาห์ที่แล้ว"), "does not include last-week preset");
 assert(appJs.includes('timeZone: "Asia/Bangkok"'), "Bangkok timezone is used for date labels/today");
 assert(appJs.includes("function parseDateOnlyParts"), "date-only parser avoids UTC Date parsing");
+assert(appJs.includes("function bangkokDateOnly"), "Bangkok date-only normalizer exists for timestamp orders");
+assert(appJs.includes("function dateInRange"), "shared inclusive date range helper exists");
+assert(appJs.includes("function ordersInDateRange"), "shared range order filter exists");
+assert(appJs.includes("rangeKey: summaryRangeKey"), "summary cache key includes start and end range");
 assert(appJs.includes("syncComparisonDraft"), "comparison state is calculated locally");
 assert(appJs.includes("previousPeriodRange"), "previous period comparison exists");
 assert(appJs.includes("applyDateRangeDraft"), "apply handler exists");
@@ -93,6 +156,12 @@ assert(appJs.includes("opened without API request"), "picker open measurement lo
 assert(!sourceBetween("function openDateRangePicker()", "function closeDateRangePicker").includes("loadState("), "opening picker does not call loadState");
 assert(!sourceBetween("function chooseDateRangePreset", "function chooseRangeDate").includes("loadState("), "selecting preset does not call loadState");
 assert(!sourceBetween("function chooseRangeDate", "function applyDateRangeDraft").includes("loadState("), "selecting calendar date does not call loadState");
+assert(sourceBetween("function applyDateRangeDraft", "function updateShell").includes("buildLocalSummary(applied.end, applied)"), "apply passes full range to dashboard summary");
+assert(sourceBetween("function buildLocalSummary", "function syncDomTree").includes("ordersInDateRange(app.data.orders, summaryRange)"), "summary aggregates multi-day orders inclusively");
+assert(sourceBetween("function renderDashboard", "const businessManagementItems").includes("ordersInDateRange(app.data.orders, selectedRange)"), "dashboard cards use applied range orders");
+assert(sourceBetween("function dashboardChannelRows", "function mobileDashboardAlertItems").includes("ordersInDateRange(app.data.orders, range)"), "mobile sales channels use applied range");
+assert(sourceBetween("function desktopDashboardChannelRows", "function desktopDashboardDonutGradient").includes("ordersInDateRange(app.data.orders || [], range)"), "desktop sales channels use applied range");
+assert(sourceBetween("function filteredOrdersForCurrentView", "function patchOrdersView").includes("dateInRange(order.date, selectedRange)"), "orders view uses applied range");
 assert(html.includes('id="workDate" type="hidden"'), "native date input is replaced by hidden compatibility field");
 assert(html.includes('id="workDateTrigger"'), "date trigger button exists");
 assert(css.includes(".range-picker-overlay.is-desktop"), "desktop popover styles exist");
@@ -118,5 +187,46 @@ for (const [key, today, start, end] of checks) {
   const range = presetRange(key, today);
   assert(range.start === start && range.end === end, `${key} boundary for ${today}`);
 }
+
+const today = "2026-07-17";
+const yesterday = "2026-07-16";
+const sampleOrders = [
+  { id: "today-1", date: today, amount: 100, jars: 1, customerId: "c1", channel: "LINE", items: "A" },
+  { id: "yesterday-1", date: yesterday, amount: 80, jars: 2, customerId: "c2", channel: "Facebook", items: "B" },
+  { id: "end-late", date: "2026-07-17T23:59:59+07:00", amount: 30, jars: 3, customerId: "c1", channel: "LINE", items: "A" },
+  { id: "bangkok-boundary", date: "2026-07-16T17:30:00.000Z", amount: 40, jars: 4, customerId: "c3", channel: "Shopee", items: "C" },
+  { id: "cross-month", date: "2026-08-01", amount: 55, jars: 5, customerId: "c4", channel: "LINE", items: "A" },
+  { id: "cross-year", date: "2027-01-01", amount: 70, jars: 6, customerId: "c5", channel: "LINE", items: "D" }
+];
+
+const todayOnly = aggregateOrders(sampleOrders, { start: today, end: today });
+assert(todayOnly.salesToday === 170, "today includes date-only, late end-date, and Bangkok UTC-boundary orders");
+assert(todayOnly.ordersToday === 3, "today order count includes Bangkok-normalized records");
+
+const yesterdayOnly = aggregateOrders(sampleOrders, { start: yesterday, end: yesterday });
+assert(yesterdayOnly.salesToday === 80 && yesterdayOnly.ordersToday === 1, "yesterday single-day aggregate remains correct");
+
+const todayAndYesterday = aggregateOrders(sampleOrders, presetRange("today-yesterday", today));
+assert(todayAndYesterday.salesToday === todayOnly.salesToday + yesterdayOnly.salesToday, "today and yesterday combine both days");
+assert(todayAndYesterday.ordersToday === todayOnly.ordersToday + yesterdayOnly.ordersToday, "combined range order count is additive");
+assert(todayAndYesterday.customers === 3, "combined range customers are deduped across relevant days");
+assert(todayAndYesterday.channels.reduce((sum, [, value]) => sum + value, 0) === todayAndYesterday.salesToday, "sales channel rows total combined range");
+assert(todayAndYesterday.products.reduce((sum, [, value]) => sum + value, 0) === todayAndYesterday.jarsToday, "product rows total combined range units");
+
+const sevenDay = aggregateOrders(sampleOrders, presetRange("last-7", today));
+assert(sevenDay.salesToday === todayAndYesterday.salesToday, "7-day range includes all orders in last seven days");
+
+const customTwoDay = aggregateOrders(sampleOrders, { start: yesterday, end: today });
+assert(customTwoDay.salesToday === todayAndYesterday.salesToday, "custom two-day range matches today-yesterday preset");
+
+const crossMonth = aggregateOrders(sampleOrders, { start: "2026-07-31", end: "2026-08-01" });
+assert(crossMonth.salesToday === 55 && crossMonth.ordersToday === 1, "custom cross-month range includes end month");
+
+const crossYear = aggregateOrders(sampleOrders, { start: "2026-12-31", end: "2027-01-01" });
+assert(crossYear.salesToday === 70 && crossYear.ordersToday === 1, "custom cross-year range includes end year");
+
+assert(dateRangeKey({ start: today, end: today }) !== dateRangeKey({ start: yesterday, end: today }), "cache key separates single-day and multi-day ranges");
+assert(dateInRange("2026-07-17T23:59:59+07:00", { start: today, end: today }), "late order on end date is included");
+assert(dateInRange("2026-07-16T17:30:00.000Z", { start: today, end: today }), "UTC timestamp at Bangkok next-day boundary is included in Bangkok day");
 
 console.log("date-range-picker tests passed");
