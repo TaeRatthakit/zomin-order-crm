@@ -51,7 +51,7 @@
         document.documentElement.dataset.theme = resolved;
       })();
     </script>
-    <link rel="stylesheet" href="/styles.css?v=20260717-sidebar-theme-v1">
+    <link rel="stylesheet" href="/styles.css?v=20260717-mobile-theme-sheet-v1">
   </head>
   <body>
     <div id="appStartupLoader" class="app-startup-loader" aria-hidden="true">
@@ -89,6 +89,11 @@
                   <svg class="topbar-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
                   <span id="headerNotificationBadge" class="notification-badge" hidden>0</span>
                 </button>
+                <button id="mobileThemeButton" class="icon-button mobile-theme-toggle" type="button" aria-label="เปลี่ยนธีม" title="เปลี่ยนธีม" aria-haspopup="dialog" aria-controls="mobileThemeSheetDialog" aria-expanded="false">
+                  <span class="mobile-theme-icon" data-mobile-theme-icon="dark" aria-hidden="true"><svg class="topbar-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 7.5A9 9 0 1 1 12 3Z"/></svg></span>
+                  <span class="mobile-theme-icon" data-mobile-theme-icon="light" aria-hidden="true"><svg class="topbar-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg></span>
+                  <span class="mobile-theme-icon" data-mobile-theme-icon="system" aria-hidden="true"><svg class="topbar-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3v18"/><path d="M12 3a9 9 0 0 1 0 18"/></svg></span>
+                </button>
                 <button id="headerLogoutButton" class="icon-button power-button" type="button" data-logout aria-label="ออกจากระบบ">
                   <svg class="topbar-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2v10"/><path d="M18.36 5.64a9 9 0 1 1-12.72 0"/></svg>
                 </button>
@@ -118,6 +123,33 @@
     </div>
 
     <div id="notificationOverlayRoot"></div>
+
+    <dialog id="mobileThemeSheetDialog" class="dialog mobile-theme-sheet-dialog">
+      <form class="mobile-theme-sheet" method="dialog">
+        <span class="mobile-sheet-handle" aria-hidden="true"></span>
+        <div class="mobile-theme-sheet-header">
+          <h2>เลือกธีมหน้าจอ</h2>
+          <button class="icon-button mobile-theme-sheet-close" type="button" data-close-mobile-theme-sheet aria-label="ปิด">×</button>
+        </div>
+        <div class="mobile-theme-options" role="listbox" aria-label="เลือกธีมหน้าจอ">
+          <button class="mobile-theme-option" type="button" data-mobile-theme-option="dark" role="option" aria-selected="false">
+            <span class="mobile-theme-option-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 7.5A9 9 0 1 1 12 3Z"/></svg></span>
+            <span class="mobile-theme-option-copy"><strong>มืด</strong><small>ใช้ธีมมืด</small></span>
+            <span class="mobile-theme-check" aria-hidden="true">✓</span>
+          </button>
+          <button class="mobile-theme-option" type="button" data-mobile-theme-option="light" role="option" aria-selected="false">
+            <span class="mobile-theme-option-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg></span>
+            <span class="mobile-theme-option-copy"><strong>สว่าง</strong><small>ใช้ธีมสว่าง</small></span>
+            <span class="mobile-theme-check" aria-hidden="true">✓</span>
+          </button>
+          <button class="mobile-theme-option" type="button" data-mobile-theme-option="system" role="option" aria-selected="false">
+            <span class="mobile-theme-option-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3v18"/><path d="M12 3a9 9 0 0 1 0 18"/></svg></span>
+            <span class="mobile-theme-option-copy"><strong>อัตโนมัติ</strong><small>เปลี่ยนตามการตั้งค่าของอุปกรณ์</small></span>
+            <span class="mobile-theme-check" aria-hidden="true">✓</span>
+          </button>
+        </div>
+      </form>
+    </dialog>
 
     <dialog id="customerDialog" class="dialog customer-drawer grow-modal grow-modal-large">
       <form class="grow-modal-shell" method="dialog">
@@ -470,9 +502,9 @@
       </form>
     </dialog>
 
-    <script src="/app.js?v=20260717-sidebar-theme-v1"></script>
+    <script src="/app.js?v=20260717-mobile-theme-sheet-v1"></script>
     <script>
-      const swUrl = "/service-worker.js?v=20260717-sidebar-theme-v1";
+      const swUrl = "/service-worker.js?v=20260717-mobile-theme-sheet-v1";
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", () => {
           navigator.serviceWorker.register(swUrl).then(registration => registration.update()).catch(() => {});

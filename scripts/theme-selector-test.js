@@ -18,10 +18,10 @@ const serviceWorker = fs.readFileSync(path.join(root, "public", "service-worker.
 const jsonAdapter = fs.readFileSync(path.join(root, "lib", "db", "json-adapter.js"), "utf8");
 const supabaseAdapter = fs.readFileSync(path.join(root, "lib", "db", "supabase-adapter.js"), "utf8");
 
-assert(html.indexOf('const preference = "system"') < html.indexOf("/styles.css?v=20260717-sidebar-theme-v1"), "theme bootstrap must default to System before stylesheet load");
+assert(html.indexOf('const preference = "system"') < html.indexOf("/styles.css?v=20260717-mobile-theme-sheet-v1"), "theme bootstrap must default to System before stylesheet load");
 assert(html.includes('document.documentElement.dataset.theme = resolved'), "theme bootstrap must set resolved theme before render");
 assert(!html.includes("growup_theme_preference_v1"), "bootstrap must not read a shared theme key before authentication");
-assert(html.includes('/app.js?v=20260717-sidebar-theme-v1'), "app asset version must be bumped");
+assert(html.includes('/app.js?v=20260717-mobile-theme-sheet-v1'), "app asset version must be bumped");
 
 assert(appJs.includes('const THEME_STORAGE_PREFIX = "growup-theme:"'), "theme storage must be namespaced per user");
 assert(!appJs.includes("growup_theme_preference_v1"), "client must not use a shared theme storage key");
@@ -42,18 +42,31 @@ assert(appJs.includes("profileAvatarRemovePending"), "Profile avatar removal mus
 assert(appJs.includes("PROFILE_AVATAR_ALLOWED_TYPES"), "Profile avatar upload must validate MIME types before reading");
 assert(appJs.includes("function userAvatarMarkup"), "Users list must render real user avatars before initials fallback");
 assert(appJs.includes("markAvatarImagesLoaded(els.content)"), "Users list avatars must register load/error fallback handlers");
-assert(appJs.includes("function saveCurrentUserThemePreference"), "Profile and Display theme selectors must share one save helper");
-assert(appJs.includes('if (app.themeSavePreference === normalized) return app.themeSavePromise'), "theme save helper must avoid duplicate save requests for one selection");
+assert(appJs.includes("function saveCurrentUserThemePreference"), "Theme controls must share one save helper");
+const saveHelperStart = appJs.indexOf("async function saveCurrentUserThemePreference");
+const saveHelperEnd = appJs.indexOf("function todayISO", saveHelperStart);
+const saveHelper = appJs.slice(saveHelperStart, saveHelperEnd);
+assert(saveHelper.includes('applyThemePreference(normalized, { persistLocal: true, userId })'), "theme must apply and update localStorage synchronously before API");
+assert(saveHelper.indexOf('applyThemePreference(normalized, { persistLocal: true, userId })') < saveHelper.indexOf('api("/api/profile/theme"'), "visible theme update must happen before the API request starts");
+assert(!saveHelper.includes("await app.themeSavePromise"), "theme switching must not wait for an older network request before updating UI");
+assert(saveHelper.includes("app.themeSaveSequence"), "background theme saves must guard against stale API responses");
 assert(appJs.includes('document.querySelectorAll("[data-theme-select]")'), "Display selector must stay synchronized");
 assert(appJs.includes('document.querySelectorAll("[data-theme-button]")'), "Sidebar theme buttons must stay synchronized");
 assert(appJs.includes('button.classList.toggle("is-active", active)') && appJs.includes('button.setAttribute("aria-pressed", active ? "true" : "false")'), "Sidebar theme buttons must expose active state");
+assert(appJs.includes('document.querySelectorAll("[data-mobile-theme-icon]")'), "Mobile header icon must reflect the current theme preference");
+assert(appJs.includes('document.querySelectorAll("[data-mobile-theme-option]")'), "Mobile bottom sheet options must expose active state");
 assert(appJs.includes('["dark", "มืด"') && appJs.includes('["light", "สว่าง"') && appJs.includes('["system", "อัตโนมัติ"'), "Theme controls must expose Thai Dark, Light, System labels");
 assert(appJs.includes('settingsUnifiedCard("ธีมหน้าจอ", "เปลี่ยนตามการตั้งค่าของอุปกรณ์"'), "Display settings theme selector must be localized");
 assert(appJs.includes('<label>ธีมหน้าจอ'), "Display settings theme heading must be localized");
 assert(appJs.includes('class="sidebar-theme-controls"') && appJs.indexOf('class="sidebar-upgrade-card"') < appJs.indexOf('${themeControlMarkup()}'), "Sidebar theme buttons must render directly below Upgrade Pro");
 assert(appJs.includes('data-theme-button="${value}"') && appJs.includes('aria-label="${label}" title="${label}"'), "Sidebar theme buttons must have Thai aria-labels and tooltips");
-assert(appJs.includes('const themeButton = event.target.closest("[data-theme-button]")'), "Sidebar/mobile theme button click handler missing");
-assert(appJs.includes('saveCurrentUserThemePreference(themeButton.dataset.themeButton)'), "Sidebar/mobile theme buttons must persist through the existing per-user save helper");
+assert(appJs.includes('const themeButton = event.target.closest("[data-theme-button]")'), "Sidebar theme button click handler missing");
+assert(appJs.includes('saveCurrentUserThemePreference(themeButton.dataset.themeButton)'), "Sidebar theme buttons must persist through the existing per-user save helper");
+assert(appJs.includes('if (event.target.closest("#mobileThemeButton"))') && appJs.includes("openMobileThemeSheet()"), "Mobile header theme button must open the bottom sheet");
+assert(appJs.includes('const mobileThemeOption = event.target.closest("[data-mobile-theme-option]")'), "Mobile bottom sheet option handler missing");
+assert(appJs.includes('saveCurrentUserThemePreference(mobileThemeOption.dataset.mobileThemeOption)'), "Mobile bottom sheet must persist through the existing per-user save helper");
+assert(appJs.includes("function openMobileThemeSheet") && appJs.includes("function closeMobileThemeSheet"), "Mobile theme bottom sheet open/close helpers missing");
+assert(appJs.includes('document.documentElement.dataset.themePreference\n    || app.currentUser?.themePreference'), "Auto mode must follow device changes using the current optimistic preference first");
 assert(appJs.includes('if (event.target?.matches?.("[data-theme-select]"))') && appJs.includes('saveCurrentUserThemePreference(event.target.value)'), "Display selector must switch and persist immediately");
 assert(appJs.includes('/api/profile/theme'), "theme must persist through the per-user profile theme endpoint");
 assert(!appJs.includes('app.data?.settings?.displayPreferences?.theme'), "theme must not be read from shared business settings");
@@ -89,9 +102,17 @@ assert(!css.includes('html[data-theme="dark"]'), "Dark theme must remain the unm
 assert(css.includes(".sidebar-theme-button") && css.includes("width: 30px;") && css.includes("height: 30px;"), "Desktop theme buttons must remain compact");
 assert(css.includes(".sidebar-theme-button.is-active"), "Sidebar theme buttons must have an active state");
 assert(css.includes("body.mobile-app-shell:not(.login-view) .brand,\n  body.mobile-app-shell:not(.login-view) .sidebar-footer {\n    display: none;"), "Mobile layout must keep the sidebar footer hidden");
-assert(serviceWorker.includes('growup-pilot-pwa-v108-sidebar-theme'), "service worker cache name must be bumped");
-assert(serviceWorker.includes('/styles.css?v=20260717-sidebar-theme-v1'), "service worker must cache current stylesheet");
-assert(serviceWorker.includes('/app.js?v=20260717-sidebar-theme-v1'), "service worker must cache current app bundle");
+assert(css.includes("@media (max-width: 820px)") && css.includes(".mobile-theme-toggle") && css.includes("min-width: 44px;") && css.includes("min-height: 44px;"), "Mobile header theme button must be mobile-only with a 44px touch target");
+assert(css.includes(".mobile-theme-sheet-dialog[open]") && css.includes("env(safe-area-inset-bottom)") && css.includes(".mobile-theme-option.is-active"), "Mobile bottom sheet must support safe-area and active option styling");
+assert(css.includes("body.mobile-app-shell:not(.login-view) .mobile-theme-toggle") && !css.includes("body.desktop-app-shell:not(.login-view) .mobile-theme-toggle"), "Mobile theme toggle must not modify desktop layout");
+const topbarHtml = html.slice(html.indexOf('<div class="topbar-icon-row">'), html.indexOf('<div class="date-picker date-pill">'));
+assert(topbarHtml.indexOf("headerNotificationButton") < topbarHtml.indexOf("mobileThemeButton") && topbarHtml.indexOf("mobileThemeButton") < topbarHtml.indexOf("headerLogoutButton"), "Mobile theme button must sit between notification and logout");
+assert(html.includes('id="mobileThemeButton"') && html.includes('aria-label="เปลี่ยนธีม"') && html.includes('title="เปลี่ยนธีม"'), "Mobile theme button must have Thai aria label and title");
+assert(html.includes('id="mobileThemeSheetDialog"') && html.includes("เลือกธีมหน้าจอ") && html.includes("ใช้ธีมมืด") && html.includes("ใช้ธีมสว่าง") && html.includes("เปลี่ยนตามการตั้งค่าของอุปกรณ์"), "Mobile bottom sheet must include Thai labels and descriptions");
+assert(html.includes('data-mobile-theme-option="dark"') && html.includes('data-mobile-theme-option="light"') && html.includes('data-mobile-theme-option="system"'), "Mobile bottom sheet must expose all three theme values");
+assert(serviceWorker.includes('growup-pilot-pwa-v109-mobile-theme-sheet'), "service worker cache name must be bumped");
+assert(serviceWorker.includes('/styles.css?v=20260717-mobile-theme-sheet-v1'), "service worker must cache current stylesheet");
+assert(serviceWorker.includes('/app.js?v=20260717-mobile-theme-sheet-v1'), "service worker must cache current app bundle");
 
 async function runPerUserApiTest() {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "growup-theme-test-"));

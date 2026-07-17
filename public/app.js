@@ -436,6 +436,8 @@ const els = {
   headerProfile: document.querySelector("#headerProfile"),
   headerNotificationButton: document.querySelector("#headerNotificationButton"),
   headerNotificationBadge: document.querySelector("#headerNotificationBadge"),
+  mobileThemeButton: document.querySelector("#mobileThemeButton"),
+  mobileThemeSheetDialog: document.querySelector("#mobileThemeSheetDialog"),
   notificationOverlayRoot: document.querySelector("#notificationOverlayRoot"),
   orderDialog: document.querySelector("#orderDialog"),
   orderForm: document.querySelector("#orderForm"),
@@ -571,6 +573,19 @@ function syncThemeControls(preference = document.documentElement.dataset.themePr
     button.classList.toggle("is-active", active);
     button.setAttribute("aria-pressed", active ? "true" : "false");
   });
+  document.querySelectorAll("[data-mobile-theme-icon]").forEach(icon => {
+    icon.hidden = icon.dataset.mobileThemeIcon !== normalized;
+  });
+  if (els.mobileThemeButton) {
+    els.mobileThemeButton.dataset.themePreference = normalized;
+    els.mobileThemeButton.setAttribute("aria-label", "เปลี่ยนธีม");
+    els.mobileThemeButton.setAttribute("title", "เปลี่ยนธีม");
+  }
+  document.querySelectorAll("[data-mobile-theme-option]").forEach(option => {
+    const active = option.dataset.mobileThemeOption === normalized;
+    option.classList.toggle("is-active", active);
+    option.setAttribute("aria-selected", active ? "true" : "false");
+  });
 }
 
 function updateCurrentUserTheme(user) {
@@ -587,30 +602,34 @@ function updateCurrentUserTheme(user) {
 
 async function saveCurrentUserThemePreference(preference) {
   const normalized = normalizeThemePreference(preference);
-  if (!app.currentUser?.id) {
-    applyThemePreference(normalized, { persistLocal: false });
-    return { saved: false };
-  }
-  if (app.themeSavePromise) {
-    if (app.themeSavePreference === normalized) return app.themeSavePromise;
-    await app.themeSavePromise;
-  }
+  const userId = app.currentUser?.id || "";
   const currentThemePreference = normalizeThemePreference(app.currentUser?.themePreference);
-  if (normalized === currentThemePreference) {
-    applyThemePreference(normalized, { userId: app.currentUser.id });
+  applyThemePreference(normalized, { persistLocal: true, userId });
+  if (!app.currentUser?.id) {
     return { saved: false };
   }
-  applyThemePreference(normalized, { persistLocal: false, userId: app.currentUser.id });
+  app.currentUser = { ...app.currentUser, themePreference: normalized };
+  if (app.data?.currentUser?.id === app.currentUser.id) app.data.currentUser = { ...app.data.currentUser, themePreference: normalized };
+  if (app.data?.users) {
+    app.data.users = app.data.users.map(user => user.id === app.currentUser.id ? { ...user, themePreference: normalized } : user);
+  }
+  if (normalized === currentThemePreference) {
+    return { saved: false };
+  }
+  app.themeSaveSequence = (app.themeSaveSequence || 0) + 1;
+  const sequence = app.themeSaveSequence;
   app.themeSavePreference = normalized;
   app.themeSavePromise = api("/api/profile/theme", {
     method: "PUT",
     body: JSON.stringify({ themePreference: normalized })
   }).then(payload => {
-    if (payload.user) updateCurrentUserTheme(payload.user);
+    if (sequence === app.themeSaveSequence && payload.user) updateCurrentUserTheme(payload.user);
     return { saved: true, user: payload.user };
   }).finally(() => {
-    app.themeSavePromise = null;
-    app.themeSavePreference = "";
+    if (sequence === app.themeSaveSequence) {
+      app.themeSavePromise = null;
+      app.themeSavePreference = "";
+    }
   });
   return app.themeSavePromise;
 }
@@ -1729,6 +1748,19 @@ function themeControlMarkup() {
       `).join("")}
     </div>
   `;
+}
+
+function openMobileThemeSheet() {
+  if (!els.mobileThemeSheetDialog || !isMobileViewport()) return;
+  syncThemeControls();
+  els.mobileThemeButton?.setAttribute("aria-expanded", "true");
+  if (!els.mobileThemeSheetDialog.open) els.mobileThemeSheetDialog.showModal();
+}
+
+function closeMobileThemeSheet() {
+  if (!els.mobileThemeSheetDialog) return;
+  els.mobileThemeButton?.setAttribute("aria-expanded", "false");
+  if (els.mobileThemeSheetDialog.open) els.mobileThemeSheetDialog.close();
 }
 
 function userAvatarMarkup(user, className = "mobile-business-avatar") {
@@ -10818,6 +10850,29 @@ document.addEventListener("click", async event => {
     document.body.classList.toggle("sidebar-open");
   }
 
+  if (event.target.closest("#mobileThemeButton")) {
+    openMobileThemeSheet();
+    return;
+  }
+
+  if (event.target === els.mobileThemeSheetDialog || event.target.closest("[data-close-mobile-theme-sheet]")) {
+    closeMobileThemeSheet();
+    return;
+  }
+
+  const mobileThemeOption = event.target.closest("[data-mobile-theme-option]");
+  if (mobileThemeOption) {
+    saveCurrentUserThemePreference(mobileThemeOption.dataset.mobileThemeOption)
+      .then(result => {
+        if (result.saved) showToast("บันทึกธีมแล้ว");
+      })
+      .catch(error => {
+        applyUserTheme(app.currentUser);
+        showToast(error.message);
+      });
+    return;
+  }
+
   const themeButton = event.target.closest("[data-theme-button]");
   if (themeButton) {
     saveCurrentUserThemePreference(themeButton.dataset.themeButton)
@@ -12767,6 +12822,9 @@ window.addEventListener("beforeunload", event => {
   event.returnValue = "";
 });
 window.addEventListener("resize", handleViewportResize);
+els.mobileThemeSheetDialog?.addEventListener("close", () => {
+  els.mobileThemeButton?.setAttribute("aria-expanded", "false");
+});
 window.addEventListener("focus", () => {
   refreshCurrentUser().catch(error => console.warn("[user-sync]", error.message || error));
   refreshSharedState({ force: true }).catch(error => console.warn("[state-sync]", error.message || error));
@@ -12785,8 +12843,8 @@ window.setInterval(() => {
   refreshCurrentUser().catch(error => console.warn("[user-sync]", error.message || error));
 }, 5000);
 window.matchMedia?.("(prefers-color-scheme: dark)")?.addEventListener?.("change", () => {
-  const preference = app.currentUser?.themePreference
-    || document.documentElement.dataset.themePreference
+  const preference = document.documentElement.dataset.themePreference
+    || app.currentUser?.themePreference
     || "system";
   applyThemePreference(preference, { persistLocal: false });
 });
