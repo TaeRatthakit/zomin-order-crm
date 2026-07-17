@@ -1,4 +1,4 @@
-const CACHE_NAME = "growup-pilot-pwa-v110-website-logo";
+const CACHE_NAME = "growup-pilot-pwa-v111-website-logo-transparent";
 const CORE_ASSETS = [
   "/",
   "/index.html",
@@ -8,8 +8,8 @@ const CORE_ASSETS = [
   "/favicon-32x32.png?v=20260717-mobile-icon-v1",
   "/favicon-48x48.png?v=20260717-mobile-icon-v1",
   "/apple-touch-icon.png?v=20260717-mobile-icon-v1",
-  "/styles.css?v=20260718-website-logo-v1",
-  "/app.js?v=20260718-website-logo-v1",
+  "/styles.css?v=20260718-website-logo-transparent-v1",
+  "/app.js?v=20260718-website-logo-transparent-v1",
   "/desktop-dashboard-hero.webp?v=20260706-webp-v1",
   "/desktop-onboarding-rocket.webp?v=20260706-webp-v1",
   "/mobile-home-hero.png",
@@ -17,8 +17,8 @@ const CORE_ASSETS = [
   "/import-worker.js",
   "/xlsx.full.min.js",
   "/manifest.webmanifest?v=20260717-mobile-icon-v1",
-  "/icons/logo.png?v=20260718-website-logo-v1",
-  "/icons/login-logo-192.png?v=20260718-website-logo-v1",
+  "/icons/logo.png?v=20260718-website-logo-transparent-v1",
+  "/icons/login-logo-192.png?v=20260718-website-logo-transparent-v1",
   "/icons/apple-touch-icon.png?v=20260717-mobile-icon-v1",
   "/icons/icon-192.png?v=20260717-mobile-icon-v1",
   "/icons/icon-512.png?v=20260717-mobile-icon-v1",
