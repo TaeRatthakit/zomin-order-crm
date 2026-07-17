@@ -3784,10 +3784,10 @@ body.desktop-app-shell .page-heading {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  min-width: 176px;
-  min-height: 58px;
-  padding: 0 16px;
-  border-radius: 22px;
+  min-width: 228px;
+  min-height: 42px;
+  padding: 0 12px;
+  border-radius: 14px;
   border: 1px solid rgba(171, 129, 255, 0.18);
   background: rgba(12, 16, 30, 0.88);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
@@ -3805,14 +3805,17 @@ body.desktop-app-shell .page-heading {
 
 .date-pill-display {
   color: #f7f7ff;
-  font-size: 1.1rem;
+  font-size: 0.92rem;
   font-weight: 700;
-  letter-spacing: -0.03em;
+  letter-spacing: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .date-pill-icon {
-  width: 22px;
-  height: 22px;
+  width: 19px;
+  height: 19px;
   color: #f7f7ff;
   flex: 0 0 auto;
 }
@@ -3892,8 +3895,8 @@ body.desktop-app-shell .page-heading {
 
 .range-picker-body {
   display: grid;
-  grid-template-columns: 228px minmax(0, 1fr);
-  min-height: 500px;
+  grid-template-columns: 220px minmax(0, 1fr);
+  min-height: 438px;
 }
 
 .range-presets {
@@ -3953,7 +3956,7 @@ body.desktop-app-shell .page-heading {
 .range-main {
   position: relative;
   min-width: 0;
-  padding: 20px 24px 0;
+  padding: 18px 22px 0;
 }
 
 .range-calendar-nav {
@@ -3988,8 +3991,8 @@ body.desktop-app-shell .page-heading {
 
 .range-calendars {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 26px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
 }
 
 .range-calendar-month {
@@ -4076,8 +4079,8 @@ body.desktop-app-shell .page-heading {
 }
 
 .range-compare {
-  margin-top: 22px;
-  padding: 14px 0 12px;
+  margin-top: 18px;
+  padding: 12px 0 10px;
   border-top: 1px solid rgba(171, 129, 255, 0.14);
 }
 
@@ -4097,7 +4100,7 @@ body.desktop-app-shell .page-heading {
 
 .range-compare-fields {
   display: grid;
-  grid-template-columns: minmax(180px, 1fr) minmax(130px, 0.8fr) auto minmax(130px, 0.8fr);
+  grid-template-columns: minmax(170px, 1fr) minmax(128px, 0.8fr) auto minmax(128px, 0.8fr);
   gap: 10px;
   align-items: center;
   margin-top: 8px;

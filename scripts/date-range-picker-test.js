@@ -154,6 +154,8 @@ assert(appJs.includes("function parseDateOnlyParts"), "date-only parser avoids U
 assert(appJs.includes("function bangkokDateOnly"), "Bangkok date-only normalizer exists for timestamp orders");
 assert(appJs.includes("function dateInRange"), "shared inclusive date range helper exists");
 assert(appJs.includes("function ordersInDateRange"), "shared range order filter exists");
+assert(appJs.includes("function labelForDateRangeTrigger"), "trigger has a readable selected date/range label");
+assert(appJs.includes("formatDatePillGregorian"), "trigger label uses Gregorian display dates");
 assert(appJs.includes("rangeKey: summaryRangeKey"), "summary cache key includes start and end range");
 assert(appJs.includes('Object.prototype.hasOwnProperty.call(range, "end")'), "custom range draft preserves empty end while selecting");
 assert(appJs.includes("syncComparisonDraft"), "comparison state is calculated locally");
@@ -174,7 +176,8 @@ assert(html.includes('id="workDate" type="hidden"'), "native date input is repla
 assert(html.includes('id="workDateTrigger"'), "date trigger button exists");
 assert(css.includes(".range-picker-overlay.is-desktop"), "desktop popover styles exist");
 assert(css.includes(".range-picker-overlay.is-mobile"), "mobile bottom sheet styles exist");
-assert(css.includes("grid-template-columns: repeat(2"), "desktop renders two visible month columns");
+assert(css.includes("grid-template-columns: minmax(0, 1fr)"), "desktop renders one visible month column");
+assert(appJs.includes("Math.min(760"), "desktop picker width is reduced");
 assert(css.includes("@media (max-width: 768px)"), "mobile responsive rules exist");
 assert(css.includes("position: sticky") && css.includes(".range-picker-footer"), "mobile action footer is sticky");
 assert(css.includes("prefers-reduced-motion"), "reduced motion is respected");

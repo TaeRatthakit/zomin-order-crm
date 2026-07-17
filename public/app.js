@@ -753,6 +753,18 @@ function formatMobileDatePill(dateValue) {
   return `${String(d).padStart(2, "0")}/${String(m).padStart(2, "0")}/${String(y % 100).padStart(2, "0")}`;
 }
 
+function formatDatePillGregorian(dateValue, { includeYear = true } = {}) {
+  const parts = parseDateOnlyParts(dateValue);
+  if (!parts) return "-";
+  const date = new Date(parts.year, parts.month - 1, parts.day, 12);
+  return new Intl.DateTimeFormat("th-TH-u-ca-gregory", {
+    timeZone: "Asia/Bangkok",
+    day: "numeric",
+    month: "short",
+    ...(includeYear ? { year: "numeric" } : {})
+  }).format(date);
+}
+
 function parseDateOnlyParts(dateValue) {
   const match = String(dateValue || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (!match) return null;
@@ -905,6 +917,22 @@ function labelForDateRange(range, presetKey = "") {
   return `${formatThaiDateCompact(normalized.start)} - ${formatThaiDateCompact(normalized.end)}`;
 }
 
+function labelForDateRangeTrigger(range, presetKey = "") {
+  const normalized = normalizeDateRange(range?.start, range?.end);
+  const matchedPreset = presetKey && presetKey !== "custom" && dateRangeMatchesPreset(normalized, presetKey)
+    ? dateRangePreset(presetKey)
+    : DATE_RANGE_PRESETS.find(preset => preset.key !== "custom" && dateRangeMatchesPreset(normalized, preset.key));
+  if (normalized.start === normalized.end) {
+    const dateText = formatDatePillGregorian(normalized.start);
+    return matchedPreset ? `${matchedPreset.label} • ${dateText}` : dateText;
+  }
+  const startYear = String(normalized.start).slice(0, 4);
+  const endYear = String(normalized.end).slice(0, 4);
+  const startText = formatDatePillGregorian(normalized.start, { includeYear: startYear !== endYear });
+  const endText = formatDatePillGregorian(normalized.end);
+  return `${startText} – ${endText}`;
+}
+
 function formatThaiDateCompact(dateValue) {
   const parts = parseDateOnlyParts(dateValue);
   if (!parts) return "-";
@@ -1037,7 +1065,6 @@ function dateRangePickerHtml() {
   const draft = syncComparisonDraft(app.dateRangePicker.draft || cloneDateRangeState());
   app.dateRangePicker.draft = draft;
   const visibleMonth = startOfMonthISO(app.dateRangePicker.visibleMonth || draft.start || todayISO());
-  const nextMonth = addMonthsISO(visibleMonth, 1);
   const mobile = isMobileViewport();
   const showCalendar = !mobile || draft.preset === "custom";
   return `
@@ -1060,7 +1087,6 @@ function dateRangePickerHtml() {
               </div>
               <div class="range-calendars">
                 ${calendarMonthHtml(visibleMonth, draft)}
-                ${mobile ? "" : calendarMonthHtml(nextMonth, draft)}
               </div>
             ` : ""}
             ${comparisonControlsHtml(draft)}
@@ -1770,7 +1796,7 @@ function ensureDateRangeAppliedFromSelectedDate() {
 function updateDatePillLabel() {
   if (!els.workDateDisplay) return;
   const range = ensureDateRangeAppliedFromSelectedDate();
-  els.workDateDisplay.textContent = labelForDateRange(range, range.preset);
+  els.workDateDisplay.textContent = labelForDateRangeTrigger(range, range.preset);
 }
 
 function positionDesktopDatePicker(root) {
@@ -1778,7 +1804,7 @@ function positionDesktopDatePicker(root) {
   const surface = root.querySelector(".range-picker-surface");
   const rect = els.workDateTrigger.getBoundingClientRect();
   const margin = 16;
-  const width = Math.min(920, window.innerWidth - margin * 2);
+  const width = Math.min(760, window.innerWidth - margin * 2);
   const left = Math.max(margin, Math.min(rect.right - width, window.innerWidth - width - margin));
   const top = Math.min(rect.bottom + 10, window.innerHeight - 120);
   surface.style.setProperty("--range-left", `${left}px`);
@@ -12103,7 +12129,7 @@ document.addEventListener("change", async event => {
       const calculationStartedAt = performance.now();
       app.data.summary = buildLocalSummary(selectedDate);
       const calculationTime = performance.now() - calculationStartedAt;
-      if (els.workDateDisplay) els.workDateDisplay.textContent = formatMobileDatePill(selectedDate);
+      updateDatePillLabel();
       updateShell();
       const domStartedAt = performance.now();
       if (app.view === "orders") renderOrders();
@@ -12122,7 +12148,7 @@ document.addEventListener("change", async event => {
       refreshDesktopDateSensitiveCustomers(selectedDate);
       app.data.summary = buildLocalSummary(selectedDate);
       const calculationTime = performance.now() - calculationStartedAt;
-      if (els.workDateDisplay) els.workDateDisplay.textContent = formatDatePill(selectedDate);
+      updateDatePillLabel();
       updateShell();
       const domStartedAt = performance.now();
       renderDesktopDateView();
