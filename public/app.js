@@ -3725,7 +3725,7 @@ function mobileDashboardAlertsCard(items) {
 }
 
 function renderMobileDashboard(viewModel) {
-  const { s, compactDate, salesDelta, ordersDelta, profitDelta, opportunityDelta, estimatedProfitToday, opportunityCount, channelRows, alerts } = viewModel;
+  const { s, compactDate, salesDelta, ordersDelta, profitDelta, estimatedProfitToday, opportunitySummary, channelRows, alerts } = viewModel;
   els.content.innerHTML = `
     <section class="section saas-page mobile-dashboard-page">
       <div class="mobile-dashboard-shell">
@@ -3744,7 +3744,7 @@ function renderMobileDashboard(viewModel) {
           ${mobileDashboardMetricCard({ label: "ยอดขายวันนี้", value: money(s.salesToday), deltaText: dashboardChangeText(s.salesToday, s.salesToday - salesDelta.diff), tone: "green", icon: "wallet" })}
           ${mobileDashboardMetricCard({ label: "ออเดอร์วันนี้", value: money(s.ordersToday || 0), deltaText: dashboardChangeText(s.ordersToday || 0, (s.ordersToday || 0) - ordersDelta.diff), tone: "amber", icon: "bag" })}
           ${mobileDashboardMetricCard({ label: "กำไรวันนี้", value: money(estimatedProfitToday), deltaText: dashboardChangeText(estimatedProfitToday, estimatedProfitToday - profitDelta.diff), tone: "violet", icon: "database" })}
-          ${mobileDashboardMetricCard({ label: "เพิ่มยอดขาย", value: money(opportunityCount), deltaText: dashboardChangeText(opportunityCount, Math.max(0, opportunityCount - 1)), tone: "cyan", icon: "target" })}
+          ${mobileDashboardMetricCard({ label: "โอกาสเพิ่มยอดขาย", value: `฿${money(opportunitySummary.totalOpportunity)}`, deltaText: `ลูกค้าที่ควรติดตาม ${money(opportunitySummary.dueCustomerCount)} ราย`, tone: "cyan", icon: "target" })}
         </section>
 
         ${mobileDashboardSummaryCard(channelRows, s.salesToday || 0)}
@@ -3866,15 +3866,16 @@ function desktopDashboardDonutGradient(rows) {
   }).join(", ");
 }
 
-function desktopReferenceKpiCard({ label, value, deltaText, tone, icon, hint }) {
+function desktopReferenceKpiCard({ label, value, deltaText, tone, icon, hint, detailText }) {
   const trend = String(deltaText).startsWith("-") ? "down" : "up";
+  const detail = detailText || `${trend === "down" ? "↓" : "↑"} ${deltaText.replace(/^[+-]/, "")}`;
   return `
     <article class="desktop-reference-kpi tone-${escapeHtml(tone)}">
       <span class="desktop-reference-kpi-icon" aria-hidden="true">${dashboardCardIcon(icon)}</span>
       <div class="desktop-reference-kpi-copy">
         <span>${escapeHtml(label)}</span>
         <strong>${escapeHtml(value)}</strong>
-        <small class="${trend}">${trend === "down" ? "↓" : "↑"} ${escapeHtml(deltaText.replace(/^[+-]/, ""))}</small>
+        <small class="${trend}">${escapeHtml(detail)}</small>
         <em>${escapeHtml(hint)}</em>
       </div>
     </article>
@@ -3910,7 +3911,7 @@ function desktopReferenceQuickActions() {
 }
 
 function renderDesktopDashboard(viewModel) {
-  const { s, estimatedProfitToday, revenueOpportunity, todaysOrders } = viewModel;
+  const { s, estimatedProfitToday, opportunitySummary, todaysOrders } = viewModel;
   const selectedMonth = String(s.selectedDate || todayISO()).slice(0, 7);
   const channelRows = desktopDashboardChannelRows(s.selectedDate);
   const monthOrders = (app.data.orders || []).filter(order => String(order.date || "").startsWith(selectedMonth));
@@ -3929,7 +3930,6 @@ function renderDesktopDashboard(viewModel) {
   const yesterdaySales = Number(s.salesToday || 0) - Number(viewModel.salesDelta.diff || 0);
   const yesterdayOrders = Number(s.ordersToday || 0) - Number(viewModel.ordersDelta.diff || 0);
   const yesterdayProfit = Number(estimatedProfitToday || 0) - Number(viewModel.profitDelta.diff || 0);
-  const previousOpportunity = Number(revenueOpportunity || 0) - Number(viewModel.opportunityDelta.diff || 0);
   const previousUnits = ordersInDateRange(app.data.orders || [], previousPeriodRange({ start: s.startDate || s.selectedDate, end: s.endDate || s.selectedDate }))
     .reduce((sum, order) => sum + Number(order.jars || 0), 0);
   const comparisonHint = s.isRange ? "เทียบกับช่วงก่อนหน้า" : "เทียบกับเมื่อวาน";
@@ -3965,7 +3965,7 @@ function renderDesktopDashboard(viewModel) {
           ${desktopReferenceKpiCard({ label: "ออเดอร์วันนี้", value: money(s.ordersToday || 0), deltaText: dashboardChangeText(s.ordersToday || 0, yesterdayOrders), tone: "orange", icon: "bag", hint: comparisonHint })}
           ${desktopReferenceKpiCard({ label: "กำไรวันนี้", value: `฿${money(estimatedProfitToday)}`, deltaText: dashboardChangeText(estimatedProfitToday, yesterdayProfit), tone: "purple", icon: "database", hint: comparisonHint })}
           ${desktopReferenceKpiCard({ label: "ขายได้วันนี้", value: `${money(unitsSoldToday)} ชิ้น`, deltaText: dashboardChangeText(unitsSoldToday, previousUnits), tone: "blue", icon: "box", hint: comparisonHint })}
-          ${desktopReferenceKpiCard({ label: "โอกาสสร้างยอดขายวันนี้", value: `฿${money(revenueOpportunity)}`, deltaText: dashboardChangeText(revenueOpportunity, previousOpportunity), tone: "pink", icon: "target", hint: `จาก ${money(viewModel.opportunityCount)} ลูกค้า` })}
+          ${desktopReferenceKpiCard({ label: "โอกาสเพิ่มยอดขาย", value: `฿${money(opportunitySummary.totalOpportunity)}`, deltaText: "0.0%", detailText: `ลูกค้าที่ควรติดตาม ${money(opportunitySummary.dueCustomerCount)} ราย`, tone: "pink", icon: "target", hint: `ยอดปิดได้แล้ววันนี้ ฿${money(opportunitySummary.closedRevenue)}` })}
         </section>
 
         <section class="desktop-reference-quick-grid" aria-label="เมนูลัด">
@@ -3980,7 +3980,7 @@ function renderDashboard() {
   const s = app.data.summary;
   const selectedRange = dashboardSummaryRange(s.selectedDate, { start: s.startDate || s.selectedDate, end: s.endDate || s.selectedDate });
   const previousRange = previousPeriodRange(selectedRange);
-  const opportunities = opportunityCardsData();
+  const opportunitySummary = opportunitySummaryFromModel(mobileOpportunityData());
   const yesterday = addDaysISO(s.selectedDate, -1);
   const yesterdayOrders = ordersInDateRange(app.data.orders, previousRange);
   const yesterdaySales = yesterdayOrders.reduce((sum, order) => sum + Number(order.amount || 0), 0);
@@ -3994,26 +3994,17 @@ function renderDashboard() {
   const previousMonthKey = monthKey(previousMonthReference);
   const previousMonthOrders = app.data.orders.filter(order => monthKey(order.date) === previousMonthKey);
   const previousMonthSales = previousMonthOrders.reduce((sum, order) => sum + Number(order.amount || 0), 0);
-  const revenueOpportunity = opportunities.reduce((sum, item) => sum + item.revenue, 0);
   const todaysOrders = s.rangeOrders || ordersInDateRange(app.data.orders, selectedRange);
   const todayProfitBreakdown = profitBreakdownForOrders(todaysOrders);
   const productCostsToday = todayProfitBreakdown.productCosts;
   const additionalCostsToday = todayProfitBreakdown.additionalCosts;
   const estimatedProfitToday = todayProfitBreakdown.profit;
-  const previousOpportunityRevenue = estimatedOpportunityRevenue(
-    app.data.customers.filter(customer => customer.followUpDate && customer.followUpDate <= yesterday),
-    0.36
-  ) + estimatedOpportunityRevenue(
-    app.data.customers.filter(customer => !customer.lastPurchaseDate || !String(customer.lastPurchaseDate).startsWith(previousMonthKey)),
-    0.18
-  );
   const salesDelta = dashboardDelta(s.salesToday, yesterdaySales, "currency");
   const salesMonthDelta = dashboardDelta(s.salesThisMonth || 0, previousMonthSales, "currency");
   const ordersDelta = dashboardDelta(s.ordersToday || 0, yesterdayOrderCount);
   const ordersMonthDelta = dashboardDelta(s.ordersThisMonth || 0, previousMonthOrders.length);
   const yesterdayProfit = profitBreakdownForOrders(yesterdayOrders).profit;
   const profitDelta = dashboardDelta(estimatedProfitToday, yesterdayProfit, "currency");
-  const opportunityDelta = dashboardDelta(revenueOpportunity, previousOpportunityRevenue, "currency");
   const compactDate = new Intl.DateTimeFormat("th-TH-u-ca-buddhist", {
     timeZone: "Asia/Bangkok",
     day: "numeric",
@@ -4028,15 +4019,12 @@ function renderDashboard() {
     salesMonthDelta,
     ordersDelta,
     profitDelta,
-    opportunityDelta,
     estimatedProfitToday,
     productCostsToday,
     additionalCostsToday,
-    revenueOpportunity,
-    opportunityCount: opportunities.reduce((sum, item) => sum + item.count, 0),
+    opportunitySummary,
     monthToDateOrders,
     todaysOrders,
-    opportunities,
     channelRows,
     alerts: mobileDashboardAlertItems()
   };
@@ -5497,6 +5485,14 @@ function mobileOpportunityData() {
   };
 }
 
+function opportunitySummaryFromModel(model = mobileOpportunityData()) {
+  return {
+    totalOpportunity: model.dueRows.reduce((sum, row) => sum + row.value, 0),
+    dueCustomerCount: model.dueRows.length,
+    closedRevenue: Number(model.closedRevenue || 0)
+  };
+}
+
 function mobileOpportunityRows(model) {
   const query = app.mobileOpportunitySearch.trim().toLocaleLowerCase("th");
   const filtered = model.rows.filter(row => {
@@ -5581,11 +5577,11 @@ function mobileOpportunityCustomerCard(row) {
 
 function renderMobileOpportunities() {
   const model = mobileOpportunityData();
+  const summary = opportunitySummaryFromModel(model);
   if (!app.mobileOpportunityFilter) {
     app.mobileOpportunityFilter = model.counts.today > 0 ? "today" : "overdue";
   }
   const rows = mobileOpportunityRows(model);
-  const totalOpportunity = model.dueRows.reduce((sum, row) => sum + row.value, 0);
   const filters = [
     ["today", "ควรโทรวันนี้", model.counts.today],
     ["overdue", "เลยกำหนดแล้ว", model.counts.overdue],
@@ -5598,17 +5594,17 @@ function renderMobileOpportunities() {
         <div class="purple">
           <span class="mobile-opportunity-summary-icon" aria-hidden="true">${iconSvg("users")}</span>
           <span>ลูกค้าที่ควรติดตาม</span>
-          <strong>${money(model.dueRows.length)} <small>ราย</small></strong>
+          <strong>${money(summary.dueCustomerCount)} <small>ราย</small></strong>
         </div>
         <div class="orange">
           <span class="mobile-opportunity-summary-icon" aria-hidden="true">${dashboardCardIcon("target")}</span>
           <span>โอกาสปิดยอดรวม</span>
-          <strong>฿ ${money(totalOpportunity)}</strong>
+          <strong>฿ ${money(summary.totalOpportunity)}</strong>
         </div>
         <div class="green">
           <span class="mobile-opportunity-summary-icon" aria-hidden="true">${dashboardCardIcon("profit")}</span>
           <span>ยอดปิดได้แล้ววันนี้</span>
-          <strong>฿ ${money(model.closedRevenue)}</strong>
+          <strong>฿ ${money(summary.closedRevenue)}</strong>
         </div>
       </div>
 
