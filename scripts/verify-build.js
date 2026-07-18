@@ -26,11 +26,11 @@ const requiredFiles = [
   "README_DEPLOY.md",
   "PROGRESS_REPORT.md",
   "public/manifest.webmanifest",
-  "public/icons/apple-touch-icon.png",
-  "public/icons/icon-192.png",
-  "public/icons/icon-512.png",
-  "public/icons/maskable-icon-192.png",
-  "public/icons/maskable-icon-512.png",
+  "public/icons/growup-apple-touch-icon-180-20260718-installed-app-v2.png",
+  "public/icons/growup-pwa-icon-any-192-20260718-installed-app-v2.png",
+  "public/icons/growup-pwa-icon-any-512-20260718-installed-app-v2.png",
+  "public/icons/growup-pwa-icon-maskable-192-20260718-installed-app-v2.png",
+  "public/icons/growup-pwa-icon-maskable-512-20260718-installed-app-v2.png",
   "vercel.json",
   "render.yaml"
 ];
