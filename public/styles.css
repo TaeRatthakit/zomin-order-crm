@@ -15863,39 +15863,8 @@ body.desktop-app-shell:not(.login-view) .line-status-row span {
 
   body.desktop-app-shell:not(.login-view) .mobile-report-heading,
   body.desktop-app-shell:not(.login-view) .mobile-report-kpi-grid,
-  body.desktop-app-shell:not(.login-view) .mobile-report-business-summary,
-  body.desktop-app-shell:not(.login-view) .desktop-report-controlbar {
+  body.desktop-app-shell:not(.login-view) .mobile-report-business-summary {
     grid-column: 1 / -1;
-  }
-
-  body.desktop-app-shell:not(.login-view) .desktop-report-controlbar {
-    display: flex;
-    justify-content: flex-end;
-    gap: 10px;
-    margin-bottom: -4px;
-  }
-
-  body.desktop-app-shell:not(.login-view) .desktop-report-controlbar .date-picker {
-    display: grid;
-    grid-template-columns: auto minmax(150px, 1fr);
-    align-items: center;
-    gap: 8px;
-    min-height: 42px;
-    padding: 0 12px;
-    border: 1px solid rgba(63, 96, 121, .34);
-    border-radius: 12px;
-    background: rgba(4, 17, 28, .82);
-    color: #cbd5e1;
-    font-size: 12px;
-    font-weight: 800;
-  }
-
-  body.desktop-app-shell:not(.login-view) .desktop-report-controlbar input {
-    min-height: 34px;
-    padding: 0;
-    border: 0;
-    background: transparent;
-    box-shadow: none;
   }
 
   body.desktop-app-shell:not(.login-view) .mobile-report-heading {
@@ -22348,7 +22317,6 @@ html[data-theme="light"] body.desktop-app-shell:not(.login-view) #orderList .wor
 html[data-theme="light"] body.desktop-app-shell:not(.login-view) .orders-search-input,
 html[data-theme="light"] body.desktop-app-shell:not(.login-view) .mobile-opportunity-search-row label,
 html[data-theme="light"] body.desktop-app-shell:not(.login-view) .mobile-opportunity-search-row input,
-html[data-theme="light"] body.desktop-app-shell:not(.login-view) .desktop-report-controlbar .date-picker,
 html[data-theme="light"] body.desktop-app-shell:not(.login-view) .orders-show-all input {
   border-color: var(--light-line-strong);
   background: var(--light-card-solid);

@@ -75,7 +75,6 @@ const app = {
   lineDebugSummary: {},
   activeCustomerCall: null,
   activeCustomerCallTimer: null,
-  reportMonth: "",
   reportDate: "",
   dateRangePicker: {
     open: false,
@@ -1933,7 +1932,6 @@ function applyDateRangeDraft() {
   app.ordersShowAll = false;
   app.customersShowAll = false;
   app.reportDate = applied.end;
-  if (monthKeyFromDateOnly(app.reportMonth || "") !== monthKeyFromDateOnly(applied.end)) app.reportMonth = monthKeyFromDateOnly(applied.end);
   if (els.workDate) els.workDate.value = applied.end;
   if (isMobileViewport() && app.data) {
     app.ordersFilterQ = "";
@@ -7321,10 +7319,6 @@ function mobileReportKpiCard({ label, value, suffix = "", comparison, tone, icon
   `;
 }
 
-function reportMonthOptions() {
-  return Array.from(new Set((app.data?.orders || []).map(order => monthKey(order.date)).filter(Boolean))).sort((a, b) => b.localeCompare(a));
-}
-
 function reportSalesChannelCardHtml(selectedMonth) {
   const monthOrders = (app.data?.orders || []).filter(order => monthKey(order.date) === selectedMonth);
   const channelSummary = reportAcquisitionChannelRows(monthOrders);
@@ -7545,24 +7539,9 @@ function renderMobileReports(selectedDate, selectedMonth) {
 
 function renderReports() {
   const selectedDate = app.reportDate || app.data.summary.selectedDate || todayISO();
-  const selectedMonth = app.reportMonth || selectedDate.slice(0, 7);
+  const selectedMonth = monthKeyFromDateOnly(selectedDate);
   renderMobileReports(selectedDate, selectedMonth);
   if (isMobileViewport()) return;
-  const desktopReportMonthOptions = reportMonthOptions();
-  const shell = els.content.querySelector(".mobile-reports-shell");
-  if (shell) {
-    shell.insertAdjacentHTML("afterbegin", `
-      <div class="desktop-report-controlbar">
-        <label class="date-picker compact card-picker" aria-label="เลือกเดือนรายงาน">
-          <span>เดือนรายงาน</span>
-          <input data-report-month type="month" value="${escapeHtml(selectedMonth)}" list="reportMonthOptions">
-          <datalist id="reportMonthOptions">
-            ${desktopReportMonthOptions.map(month => `<option value="${escapeHtml(month)}"></option>`).join("")}
-          </datalist>
-        </label>
-      </div>
-    `);
-  }
   return;
   const selectedYear = selectedMonth.slice(0, 4);
   const monthly = {};
@@ -7591,7 +7570,6 @@ function renderReports() {
   const selectedMonthMarketing = marketingPerformanceForPeriod({ month: selectedMonth });
   const repeatCustomers = app.data.customers.filter(customer => customer.purchaseCount > 1).length;
   const topCustomers = [...app.data.customers].sort((a, b) => b.totalSpent - a.totalSpent).slice(0, 5);
-  const monthOptions = Array.from(new Set(app.data.orders.map(order => monthKey(order.date)).filter(Boolean))).sort((a, b) => b.localeCompare(a));
   const channelRows = Object.entries(sourceTotals)
     .map(([channel, stats]) => ({ channel, count: stats.count, total: stats.total }))
     .sort((a, b) => b.total - a.total);
@@ -7623,12 +7601,6 @@ function renderReports() {
         <div class="panel stack panel-premium">
           <div class="card-head">
             <h2>ยอดขายรายเดือน</h2>
-            <label class="date-picker compact card-picker" aria-label="เลือกเดือนรายงานยอดขาย">
-              <input data-report-month type="month" value="${escapeHtml(selectedMonth)}" list="reportMonthOptions">
-              <datalist id="reportMonthOptions">
-                ${monthOptions.map(month => `<option value="${escapeHtml(month)}"></option>`).join("")}
-              </datalist>
-            </label>
           </div>
           <div class="bar-list">
             ${monthlyRows.map(([key, value]) => `
@@ -12100,6 +12072,7 @@ document.addEventListener("change", async event => {
     app.ordersShowAll = false;
     app.customersShowAll = false;
     const selectedDate = event.target.value || todayISO();
+    app.reportDate = selectedDate;
     app.dateRangePicker.applied = {
       preset: "today",
       ...normalizeDateRange(selectedDate, selectedDate),
@@ -12159,11 +12132,6 @@ document.addEventListener("change", async event => {
   if (event.target?.matches?.("[data-customers-show-all]")) {
     app.customersShowAll = event.target.checked;
     renderCustomerManagementCurrentView();
-  }
-
-  if (event.target?.matches?.("[data-report-month]")) {
-    app.reportMonth = event.target.value;
-    renderReports();
   }
 
   if (event.target?.matches?.("[data-marketing-date]")) {
