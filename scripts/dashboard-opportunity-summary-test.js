@@ -172,6 +172,13 @@ function assertSharedSummary(width, mode) {
   if (!textAfter(dashboardHtml, "โอกาสเพิ่มยอดขาย").includes("ลูกค้าที่ควรติดตาม 2 ราย")) {
     fail(`${mode} dashboard did not reuse the due customer count`);
   }
+  if (dashboardHtml.includes("สร้างแคมเปญและโปรโมทธุรกิจ")) {
+    fail(`${mode} dashboard still renders the Marketing quick action card`);
+  }
+  if (mode === "desktop") {
+    const quickActionCount = (dashboardHtml.match(/desktop-reference-quick-action/g) || []).length;
+    if (quickActionCount !== 5) fail(`desktop dashboard quick actions should reflow to 5 cards, got ${quickActionCount}`);
+  }
 }
 
 assertSharedSummary(1280, "desktop");
