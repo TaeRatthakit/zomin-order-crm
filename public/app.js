@@ -9971,7 +9971,6 @@ function patchProductOrderPickers() {
   `).join("")}`;
   select.value = products.some(product => product.id === previousValue) ? previousValue : "";
   if (!select.value && els.orderForm?.elements?.items) els.orderForm.elements.items.value = "";
-  updateOrderPackageOptions();
 }
 
 function setProductActionPending(productId, pending) {
@@ -10471,7 +10470,10 @@ async function submitOrder(form) {
     els.orderForm.elements.productId?.focus();
     return;
   }
-  applyQuantityMatchedOrderPackage(data);
+  const selectedProduct = orderSelectableProducts().find(item =>
+    item.id === data.productId || normalizeProductName(item.name) === normalizeProductName(data.items)
+  );
+  data.productId = selectedProduct?.id || "";
   const orderId = app.editingOrderId;
   const snapshot = cloneUiState();
   const clientMutationId = `tmp_${Date.now().toString(36)}`;
@@ -10602,63 +10604,16 @@ function orderSelectableProducts() {
   return normalizeProductRecords().filter(product => !product.archived);
 }
 
-function packageProducts() {
-  return orderSelectableProducts().filter(product => product.salesPackages.length);
-}
-
-function applyQuantityMatchedOrderPackage(data) {
-  const quantity = Number(data.jars || 0);
-  const product = orderSelectableProducts().find(item =>
-    item.id === data.productId || normalizeProductName(item.name) === normalizeProductName(data.items)
-  );
-  const matchedPackage = product?.salesPackages.find(item =>
-    item.enabled && Number(item.totalQuantityShipped || 0) === quantity
-  );
-  data.productId = product?.id || "";
-  data.packageId = matchedPackage?.id || "";
-  data.packageName = matchedPackage?.name || "";
-  data.paidQuantity = matchedPackage ? Number(matchedPackage.paidQuantity || 0) : 0;
-  data.freeQuantity = matchedPackage ? Number(matchedPackage.freeQuantity || 0) : 0;
-  data.totalQuantityShipped = matchedPackage ? Number(matchedPackage.totalQuantityShipped || 0) : 0;
-  data.packageExpenses = matchedPackage
-    ? normalizePackageExpenses(matchedPackage.expenses).map(expense => ({ ...expense }))
-    : [];
-}
-
-function renderOrderPackageExpenses(expenses = []) {
-  const list = document.querySelector("#orderPackageExpenseList");
-  if (!list) return;
-  list.innerHTML = normalizePackageExpenses(expenses).map(expense => `
-    <div class="package-expense-row" data-order-package-expense-id="${escapeHtml(expense.id)}">
-      <label>ชื่อ<input name="orderPackageExpenseName" value="${escapeHtml(expense.name)}"></label>
-      <label>จำนวนเงิน<input name="orderPackageExpenseAmount" type="number" min="0" step="0.01" value="${expense.amount}"></label>
-      <label class="inline"><input name="orderPackageExpenseEnabled" type="checkbox" ${expense.enabled ? "checked" : ""} style="width:auto"> ใช้</label>
-    </div>
-  `).join("");
-}
-
-function selectedOrderPackageProduct() {
+function selectedOrderProduct() {
   const productId = els.orderForm?.elements?.productId?.value || "";
   return orderSelectableProducts().find(product => product.id === productId) || null;
 }
 
-function updateOrderPackageOptions(selectedPackageId = "", expenses = []) {
-  const product = selectedOrderPackageProduct();
-  const select = els.orderForm?.elements?.packageId;
-  if (!select) return;
-  const packages = (product?.salesPackages || []).filter(item => item.enabled || item.id === selectedPackageId);
-  select.innerHTML = `<option value="">ไม่ใช้แพ็กเกจ</option>${packages.map(item => `
-    <option value="${escapeHtml(item.id)}" ${item.id === selectedPackageId ? "selected" : ""}>${escapeHtml(item.name)}</option>
-  `).join("")}`;
-  renderOrderPackageExpenses(expenses);
-}
-
-function setupOrderPackageFields(order = null) {
-  const section = document.querySelector("#orderPackageSection");
+function setupOrderProductField(order = null) {
+  const section = document.querySelector("#orderProductSection");
   const productSelect = els.orderForm?.elements?.productId;
   if (!section || !productSelect) return;
   const products = orderSelectableProducts();
-  section.hidden = false;
   productSelect.innerHTML = `<option value="">เลือกสินค้า</option>${products.map(product => `
     <option value="${escapeHtml(product.id)}">${escapeHtml(product.name)}</option>
   `).join("")}`;
@@ -10667,40 +10622,6 @@ function setupOrderPackageFields(order = null) {
     product.id === order?.productId || normalizeProductName(product.name) === normalizeProductName(order?.items)
   );
   productSelect.value = matchedProduct?.id || "";
-  updateOrderPackageOptions(order?.packageId || "", order?.packageExpenses || []);
-  for (const [name, value] of Object.entries({
-    paidQuantity: order?.paidQuantity || "",
-    freeQuantity: order?.freeQuantity || "",
-    totalQuantityShipped: order?.totalQuantityShipped || ""
-  })) {
-    if (els.orderForm.elements[name]) els.orderForm.elements[name].value = value;
-  }
-}
-
-function applySelectedOrderPackage() {
-  const product = selectedOrderPackageProduct();
-  const packageId = els.orderForm?.elements?.packageId?.value || "";
-  const item = product?.salesPackages.find(entry => entry.id === packageId);
-  if (!product || !item) {
-    renderOrderPackageExpenses([]);
-    return;
-  }
-  els.orderForm.elements.items.value = product.name;
-  els.orderForm.elements.paidQuantity.value = item.paidQuantity;
-  els.orderForm.elements.freeQuantity.value = item.freeQuantity;
-  els.orderForm.elements.totalQuantityShipped.value = item.totalQuantityShipped;
-  els.orderForm.elements.jars.value = item.totalQuantityShipped;
-  els.orderForm.elements.amount.value = item.salePrice;
-  renderOrderPackageExpenses(item.expenses);
-}
-
-function readOrderPackageExpenses() {
-  return [...document.querySelectorAll("[data-order-package-expense-id]")].map(row => ({
-    id: row.dataset.orderPackageExpenseId,
-    name: row.querySelector("[name='orderPackageExpenseName']")?.value.trim() || "ค่าใช้จ่าย",
-    amount: Math.max(0, Number(row.querySelector("[name='orderPackageExpenseAmount']")?.value || 0)),
-    enabled: Boolean(row.querySelector("[name='orderPackageExpenseEnabled']")?.checked)
-  }));
 }
 
 function openOrderDialog(order = null) {
@@ -10751,7 +10672,7 @@ function openOrderDialog(order = null) {
     els.orderForm.elements.date.value = isMobileViewport() ? `${dateValue}T${timeValue}` : dateValue;
     els.orderForm.elements.amount.value = app.data?.settings?.defaultJarPrice || 750;
   }
-  setupOrderPackageFields(order);
+  setupOrderProductField(order);
   const mobileRequiredFields = ["items", "orderNumber", "date", "sourceChannel", "name", "phone", "address", "jars", "amount"];
   for (const fieldName of mobileRequiredFields) {
     const field = els.orderForm.elements[fieldName];
@@ -12044,10 +11965,6 @@ document.addEventListener("drop", event => {
 });
 
 document.addEventListener("input", event => {
-  if (event.target?.name === "totalQuantityShipped" && event.target.form?.id === "orderForm") {
-    els.orderForm.elements.jars.value = event.target.value;
-  }
-
   if (event.target?.matches?.("[name='packagePaidQuantity'], [name='packageFreeQuantity']")) {
     const card = event.target.closest("[data-sales-package-id]");
     const paid = Number(card?.querySelector("[name='packagePaidQuantity']")?.value || 0);
@@ -12177,11 +12094,9 @@ document.addEventListener("change", event => {
   }
   if (event.target?.name === "originSourceChoice" && event.target.form === els.orderForm) syncOriginSourceFields();
   if (event.target === els.orderForm.elements.productId) {
-    const product = selectedOrderPackageProduct();
+    const product = selectedOrderProduct();
     if (product) els.orderForm.elements.items.value = product.name;
-    updateOrderPackageOptions();
   }
-  if (event.target === els.orderForm.elements.packageId) applySelectedOrderPackage();
   if (event.target?.matches?.("[name='additionalCostType'], [name='additionalCostEnabled']")) {
     updateAdditionalCostRowSummary(event.target.closest("[data-additional-cost-row]"));
     refreshAdditionalCostsSummary();
