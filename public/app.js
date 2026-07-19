@@ -9962,15 +9962,7 @@ function productStatusClass(status = "") {
 }
 
 function patchProductOrderPickers() {
-  const select = els.orderForm?.elements?.productId;
-  if (!select) return;
-  const previousValue = select.value;
-  const products = orderSelectableProducts();
-  select.innerHTML = `<option value="">เลือกสินค้า</option>${products.map(product => `
-    <option value="${escapeHtml(product.id)}">${escapeHtml(product.name)}</option>
-  `).join("")}`;
-  select.value = products.some(product => product.id === previousValue) ? previousValue : "";
-  if (!select.value && els.orderForm?.elements?.items) els.orderForm.elements.items.value = "";
+  setupOrderProductControl();
 }
 
 function setProductActionPending(productId, pending) {
@@ -10464,16 +10456,15 @@ async function submitOrder(form) {
   data.originSource = selectedOriginSource || normalizeCustomerSourceKey(preservedOriginSource) || "";
   data.originSourceOther = "";
   delete data.originSourceChoice;
+  const selectedProduct = syncOrderProductSelection();
+  data.productId = selectedProduct?.id || "";
+  data.items = selectedProduct?.name || data.items || "";
   if (!String(data.productId || "").trim()) {
     setOrderSaveState(false);
-    showToast("กรุณาเลือกสินค้าในระบบ", "error");
-    els.orderForm.elements.productId?.focus();
+    showToast("กรุณาเลือกสินค้า", "error");
+    els.orderForm.elements.items?.focus();
     return;
   }
-  const selectedProduct = orderSelectableProducts().find(item =>
-    item.id === data.productId || normalizeProductName(item.name) === normalizeProductName(data.items)
-  );
-  data.productId = selectedProduct?.id || "";
   const orderId = app.editingOrderId;
   const snapshot = cloneUiState();
   const clientMutationId = `tmp_${Date.now().toString(36)}`;
@@ -10609,19 +10600,46 @@ function selectedOrderProduct() {
   return orderSelectableProducts().find(product => product.id === productId) || null;
 }
 
-function setupOrderProductField(order = null) {
-  const section = document.querySelector("#orderProductSection");
-  const productSelect = els.orderForm?.elements?.productId;
-  if (!section || !productSelect) return;
+function orderProductByName(name = "") {
+  const normalizedName = normalizeProductName(name);
+  return orderSelectableProducts().find(product => normalizeProductName(product.name) === normalizedName) || null;
+}
+
+function setupOrderProductControl(order = null) {
+  const input = els.orderForm?.elements?.items;
+  const productIdInput = els.orderForm?.elements?.productId;
+  const options = document.querySelector("#orderProductOptions");
+  if (!input || !productIdInput || !options) return;
   const products = orderSelectableProducts();
-  productSelect.innerHTML = `<option value="">เลือกสินค้า</option>${products.map(product => `
-    <option value="${escapeHtml(product.id)}">${escapeHtml(product.name)}</option>
-  `).join("")}`;
-  productSelect.required = true;
+  options.innerHTML = products.map(product => `
+    <option value="${escapeHtml(product.name)}" data-product-id="${escapeHtml(product.id)}"></option>
+  `).join("");
+  const currentProductId = productIdInput.value;
   const matchedProduct = products.find(product =>
-    product.id === order?.productId || normalizeProductName(product.name) === normalizeProductName(order?.items)
+    product.id === order?.productId ||
+    product.id === currentProductId ||
+    normalizeProductName(product.name) === normalizeProductName(order?.items || input.value)
   );
-  productSelect.value = matchedProduct?.id || "";
+  productIdInput.value = matchedProduct?.id || "";
+  if (matchedProduct) input.value = matchedProduct.name;
+  else if (!order) input.value = "";
+}
+
+function syncOrderProductSelection({ applyPrice = false } = {}) {
+  const input = els.orderForm?.elements?.items;
+  const productIdInput = els.orderForm?.elements?.productId;
+  if (!input || !productIdInput) return null;
+  const product = orderProductByName(input.value);
+  productIdInput.value = product?.id || "";
+  if (product && applyPrice) {
+    const amountField = els.orderForm.elements.amount;
+    const defaultPrice = Number(app.data?.settings?.defaultJarPrice || 750);
+    const currentAmount = Number(amountField?.value || 0);
+    if (amountField && (!app.editingOrderId || !currentAmount || currentAmount === defaultPrice)) {
+      amountField.value = Number(product.salePrice || defaultPrice || 0);
+    }
+  }
+  return product;
 }
 
 function openOrderDialog(order = null) {
@@ -10672,19 +10690,19 @@ function openOrderDialog(order = null) {
     els.orderForm.elements.date.value = isMobileViewport() ? `${dateValue}T${timeValue}` : dateValue;
     els.orderForm.elements.amount.value = app.data?.settings?.defaultJarPrice || 750;
   }
-  setupOrderProductField(order);
+  setupOrderProductControl(order);
   const mobileRequiredFields = ["items", "orderNumber", "date", "sourceChannel", "name", "phone", "address", "jars", "amount"];
   for (const fieldName of mobileRequiredFields) {
     const field = els.orderForm.elements[fieldName];
     if (field) field.required = isMobileViewport() || ["date", "name", "phone", "jars", "amount"].includes(fieldName);
   }
   if (isMobileViewport()) {
-    els.orderForm.elements.items.placeholder = "ชื่อ สินค้า";
+    els.orderForm.elements.items.placeholder = "ค้นหาและเลือกสินค้า";
     els.orderForm.elements.orderNumber.placeholder = "เช่น 1/1";
     els.orderForm.elements.sourceChannel.placeholder = "เช่น F: สมใจ / L: somjai";
     els.orderForm.elements.freeGift.placeholder = "เช่น แถมกระบอกน้ำ";
   } else {
-    els.orderForm.elements.items.placeholder = "เช่น Zomin";
+    els.orderForm.elements.items.placeholder = "ค้นหาและเลือกสินค้า";
     els.orderForm.elements.orderNumber.placeholder = "เช่น 1/27";
     els.orderForm.elements.sourceChannel.placeholder = "เลือกหรือพิมพ์ช่องทางการสั่งซื้อ";
     els.orderForm.elements.freeGift.placeholder = "เช่น แถม 1 กระปุก, ค่าส่งฟรี";
@@ -11965,6 +11983,10 @@ document.addEventListener("drop", event => {
 });
 
 document.addEventListener("input", event => {
+  if (event.target?.name === "items" && event.target.form?.id === "orderForm") {
+    syncOrderProductSelection({ applyPrice: true });
+  }
+
   if (event.target?.matches?.("[name='packagePaidQuantity'], [name='packageFreeQuantity']")) {
     const card = event.target.closest("[data-sales-package-id]");
     const paid = Number(card?.querySelector("[name='packagePaidQuantity']")?.value || 0);
@@ -12093,9 +12115,8 @@ document.addEventListener("change", event => {
     setTeamSaveState(event.target.form, "idle");
   }
   if (event.target?.name === "originSourceChoice" && event.target.form === els.orderForm) syncOriginSourceFields();
-  if (event.target === els.orderForm.elements.productId) {
-    const product = selectedOrderProduct();
-    if (product) els.orderForm.elements.items.value = product.name;
+  if (event.target === els.orderForm.elements.items) {
+    syncOrderProductSelection({ applyPrice: true });
   }
   if (event.target?.matches?.("[name='additionalCostType'], [name='additionalCostEnabled']")) {
     updateAdditionalCostRowSummary(event.target.closest("[data-additional-cost-row]"));
