@@ -25340,8 +25340,28 @@ html[data-theme="light"] body:not(.login-view) .sidebar-theme-button.is-active {
   body.mobile-app-shell:not(.login-view) .topbar-icon-row,
   body.mobile-home-view:not(.login-view) .topbar-icon-row {
     align-items: center;
-    gap: 6px;
+    gap: 0;
+    margin-right: -5px;
     min-height: 44px;
+  }
+
+  body.mobile-home-view:not(.login-view) .topbar-icon-row .icon-button {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+    display: inline-grid;
+    place-items: center;
+    padding: 0;
+  }
+
+  body.mobile-home-view:not(.login-view) .topbar-icon-row .topbar-action-icon {
+    width: 23px;
+    height: 23px;
+  }
+
+  body.mobile-app-shell.mobile-home-view:not(.login-view) .date-pill {
+    transform: translateY(-10px);
   }
 
   .mobile-theme-sheet-dialog[open] {
