@@ -4667,8 +4667,7 @@ function mobileSetupWizardState() {
       complete: products.length > 0
     },
     {
-      title: "ตั้งต้นทุนสินค้า",
-      checklistTitle: "ตั้งต้นทุน",
+      title: "ตั้งต้นทุน",
       description: "กำหนดต้นทุนสินค้าเพื่อคำนวณกำไรได้แม่นยำ",
       icon: "chart",
       page: "finance",
