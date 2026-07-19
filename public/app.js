@@ -103,7 +103,7 @@ const app = {
   mobileOpportunityFilter: "",
   mobileOpportunitySearchDraft: "",
   mobileOpportunitySearch: "",
-  mobileOpportunitySort: "urgency",
+  mobileOpportunitySortDirection: "asc",
   pendingOpportunityCrmCustomerId: "",
   opportunityChatPendingIds: new Set(),
   customerCallEndingIds: new Set(),
@@ -5472,11 +5472,15 @@ function mobileOpportunityRows(model) {
     return searchable.includes(query);
   });
   return filtered.sort((a, b) => {
-    if (app.mobileOpportunitySort === "value") {
-      return b.value - a.value || a.days - b.days || a.customer.name.localeCompare(b.customer.name, "th");
-    }
-    return a.days - b.days || b.value - a.value || a.customer.name.localeCompare(b.customer.name, "th");
+    const urgencyCompare = a.days - b.days || b.value - a.value || a.customer.name.localeCompare(b.customer.name, "th");
+    return app.mobileOpportunitySortDirection === "desc" ? -urgencyCompare : urgencyCompare;
   });
+}
+
+function mobileOpportunitySortLabel() {
+  return app.mobileOpportunitySortDirection === "desc"
+    ? "เรียงโอกาสจากเร่งด่วนน้อยไปมาก"
+    : "เรียงโอกาสจากเร่งด่วนมากไปน้อย";
 }
 
 function mobileOpportunityStatus(row) {
@@ -5586,7 +5590,7 @@ function renderMobileOpportunities() {
           <input name="q" value="${escapeHtml(app.mobileOpportunitySearchDraft)}" placeholder="ค้นหาออเดอร์, ลูกค้า, เบอร์โทร" autocomplete="off">
         </label>
         <button class="mobile-opportunity-search-button" type="submit">ค้นหา</button>
-        <button class="mobile-opportunity-sort-button ${app.mobileOpportunitySort === "value" ? "value" : ""}" type="button" data-mobile-opportunity-sort aria-label="เรียงตาม${app.mobileOpportunitySort === "urgency" ? "มูลค่า" : "ความเร่งด่วน"}" title="ตอนนี้เรียงตาม${app.mobileOpportunitySort === "urgency" ? "ความเร่งด่วน" : "มูลค่า"}">${dashboardCardIcon("sort")}</button>
+        <button class="mobile-opportunity-sort-button" type="button" data-mobile-opportunity-sort aria-label="${mobileOpportunitySortLabel()}" title="${mobileOpportunitySortLabel()}">${dashboardCardIcon("sort")}</button>
       </form>
 
       <div class="mobile-opportunity-filter-row" role="tablist" aria-label="ตัวกรองเพิ่มยอดขาย">
@@ -11209,7 +11213,7 @@ document.addEventListener("click", async event => {
   }
 
   if (event.target.closest("[data-mobile-opportunity-sort]") && app.view === "opportunities") {
-    app.mobileOpportunitySort = app.mobileOpportunitySort === "urgency" ? "value" : "urgency";
+    app.mobileOpportunitySortDirection = app.mobileOpportunitySortDirection === "asc" ? "desc" : "asc";
     renderOpportunities();
     return;
   }
