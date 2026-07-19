@@ -7,7 +7,7 @@
     "start": "node server.js",
     "dev": "node server.js",
     "build": "node scripts/verify-build.js",
-    "test": "node scripts/report-range-summary-test.js && node scripts/report-business-summary-profit-test.js && node scripts/dashboard-opportunity-summary-test.js && node scripts/smoke-test.js",
+    "test": "node scripts/profit-calculation-regression-test.js && node scripts/report-range-summary-test.js && node scripts/report-business-summary-profit-test.js && node scripts/dashboard-opportunity-summary-test.js && node scripts/smoke-test.js",
     "test:opportunity-cycle": "node scripts/opportunity-cycle-test.js",
     "test:permissions": "node scripts/permission-smoke-test.js",
     "test:line-webhook": "node scripts/line-webhook-duplicate-test.js",

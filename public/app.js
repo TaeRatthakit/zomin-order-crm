@@ -2526,15 +2526,49 @@ function productCostForOrder(order, settings = app.data?.settings || {}) {
   const productName = normalizeProductName(order?.items || "Growup Formula");
   const productConfig = normalizeProductCostEntries(settings).find(item => item.name === productName);
   if (!productConfig?.enabled) return 0;
-  const quantity = order?.packageId
-    ? Number(order?.totalQuantityShipped || order?.jars || 0)
+  const salesPackage = salesPackageForOrder(order, settings);
+  const quantity = salesPackage
+    ? Number(order?.totalQuantityShipped || salesPackage.totalQuantityShipped || order?.jars || 0)
     : Number(order?.jars || 0);
   return quantity * Number(productConfig.costPerJar || 0);
 }
 
-function packageExpenseTotalForOrder(order) {
-  if (!order?.packageId) return 0;
-  return normalizePackageExpenses(order.packageExpenses)
+function moneyMatches(left, right) {
+  return Math.abs(Number(left || 0) - Number(right || 0)) < 0.000001;
+}
+
+function salesPackageForOrder(order = {}, settings = app.data?.settings || {}) {
+  const productId = String(order?.productId || "").trim();
+  const productName = normalizeProductName(order?.items || "");
+  const products = normalizeProductRecords(settings);
+  const product = products.find(item =>
+    (productId && String(item.id || "") === productId) ||
+    (productName && normalizeProductName(item.name) === productName)
+  );
+  if (!product) return null;
+  const packages = normalizeSalesPackages(product.salesPackages);
+  const packageId = String(order?.packageId || "").trim();
+  if (packageId) return packages.find(item => item.id === packageId) || null;
+  const revenue = Number(order?.amount || order?.revenueSnapshot || 0);
+  const shipped = Number(order?.totalQuantityShipped || order?.jars || 0);
+  if (!revenue || !shipped) return null;
+  const matches = packages.filter(item =>
+    item.enabled !== false &&
+    moneyMatches(item.salePrice, revenue) &&
+    moneyMatches(item.totalQuantityShipped, shipped)
+  );
+  return matches.length === 1 ? matches[0] : null;
+}
+
+function packageExpensesForOrder(order = {}, settings = app.data?.settings || {}) {
+  const explicitExpenses = normalizePackageExpenses(order?.packageExpenses);
+  if (explicitExpenses.length) return explicitExpenses;
+  const salesPackage = salesPackageForOrder(order, settings);
+  return salesPackage ? normalizePackageExpenses(salesPackage.expenses) : [];
+}
+
+function packageExpenseTotalForOrder(order, settings = app.data?.settings || {}) {
+  return packageExpensesForOrder(order, settings)
     .filter(expense => expense.enabled)
     .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
 }
@@ -2593,7 +2627,7 @@ function hasOrderProfitSnapshot(order = {}) {
 function fallbackProfitForOrder(order, settings) {
   const sales = Number(order?.amount || 0);
   const productCosts = productCostForOrder(order, settings);
-  const packageExpenses = packageExpenseTotalForOrder(order);
+  const packageExpenses = packageExpenseTotalForOrder(order, settings);
   const globalAdditionalCosts = additionalCostTotalForOrders([order], settings);
   const profitBeforeAds = sales - productCosts - packageExpenses - globalAdditionalCosts;
   return {
@@ -2609,14 +2643,18 @@ function fallbackProfitForOrder(order, settings) {
 
 function profitForOrder(order, settings = app.data?.settings || {}) {
   if (!hasOrderProfitSnapshot(order)) return fallbackProfitForOrder(order, settings);
-  const profitBeforeAds = Number(order.profitBeforeAdsSnapshot);
+  const snapshotPackageExpenses = Number(order.packageExpenseSnapshot);
+  const inferredPackageExpenses = packageExpenseTotalForOrder(order, settings);
+  const packageExpenses = snapshotPackageExpenses > 0 ? snapshotPackageExpenses : inferredPackageExpenses;
+  const packageExpenseAdjustment = Math.max(0, packageExpenses - snapshotPackageExpenses);
+  const profitBeforeAds = Number(order.profitBeforeAdsSnapshot) - packageExpenseAdjustment;
   const profitAfterAds = Number.isFinite(Number(order.profitAfterAdsSnapshot))
-    ? Number(order.profitAfterAdsSnapshot)
+    ? Number(order.profitAfterAdsSnapshot) - packageExpenseAdjustment
     : profitBeforeAds;
   return {
     sales: Number(order.revenueSnapshot),
     productCosts: Number(order.productCostSnapshot),
-    packageExpenses: Number(order.packageExpenseSnapshot),
+    packageExpenses,
     globalAdditionalCosts: Number(order.globalExpenseSnapshot),
     profitBeforeAds,
     profitAfterAds,
