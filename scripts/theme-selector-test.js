@@ -1,6 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
+const vm = require("vm");
 
 function assert(condition, message) {
   if (!condition) {
@@ -18,10 +19,10 @@ const serviceWorker = fs.readFileSync(path.join(root, "public", "service-worker.
 const jsonAdapter = fs.readFileSync(path.join(root, "lib", "db", "json-adapter.js"), "utf8");
 const supabaseAdapter = fs.readFileSync(path.join(root, "lib", "db", "supabase-adapter.js"), "utf8");
 
-assert(html.indexOf('const preference = "system"') < html.indexOf("/styles.css?v=20260717-mobile-theme-sheet-v1"), "theme bootstrap must default to System before stylesheet load");
+assert(html.indexOf('const preference = "system"') < html.indexOf("/styles.css?v=20260719-theme-race-v1"), "theme bootstrap must default to System before stylesheet load");
 assert(html.includes('document.documentElement.dataset.theme = resolved'), "theme bootstrap must set resolved theme before render");
 assert(!html.includes("growup_theme_preference_v1"), "bootstrap must not read a shared theme key before authentication");
-assert(html.includes('/app.js?v=20260717-mobile-theme-sheet-v1'), "app asset version must be bumped");
+assert(html.includes('/app.js?v=20260719-theme-race-v1'), "app asset version must be bumped");
 
 assert(appJs.includes('const THEME_STORAGE_PREFIX = "growup-theme:"'), "theme storage must be namespaced per user");
 assert(!appJs.includes("growup_theme_preference_v1"), "client must not use a shared theme storage key");
@@ -47,9 +48,13 @@ const saveHelperStart = appJs.indexOf("async function saveCurrentUserThemePrefer
 const saveHelperEnd = appJs.indexOf("function todayISO", saveHelperStart);
 const saveHelper = appJs.slice(saveHelperStart, saveHelperEnd);
 assert(saveHelper.includes('applyThemePreference(normalized, { persistLocal: true, userId })'), "theme must apply and update localStorage synchronously before API");
-assert(saveHelper.indexOf('applyThemePreference(normalized, { persistLocal: true, userId })') < saveHelper.indexOf('api("/api/profile/theme"'), "visible theme update must happen before the API request starts");
+assert(saveHelper.indexOf('applyThemePreference(normalized, { persistLocal: true, userId })') < saveHelper.indexOf('flushThemeSaveQueue()'), "visible theme update must happen before the API request starts");
 assert(!saveHelper.includes("await app.themeSavePromise"), "theme switching must not wait for an older network request before updating UI");
 assert(saveHelper.includes("app.themeSaveSequence"), "background theme saves must guard against stale API responses");
+assert(appJs.includes("function userWithActiveThemePreference"), "stale user payloads must be merged with the active optimistic theme");
+assert(appJs.includes("function flushThemeSaveQueue"), "theme saves must be serialized so the latest selection wins on the server");
+assert(appJs.includes("settleThemeSaveWaiters({ latestSequence, saved: true })"), "only the latest persisted selection should resolve as saved");
+assert(appJs.includes("rollbackThemePreference(userId, rollbackPreference)"), "latest save failure must roll back to the last persisted theme");
 assert(appJs.includes('document.querySelectorAll("[data-theme-select]")'), "Display selector must stay synchronized");
 assert(appJs.includes('document.querySelectorAll("[data-theme-button]")'), "Sidebar theme buttons must stay synchronized");
 assert(appJs.includes('button.classList.toggle("is-active", active)') && appJs.includes('button.setAttribute("aria-pressed", active ? "true" : "false")'), "Sidebar theme buttons must expose active state");
@@ -110,9 +115,231 @@ assert(topbarHtml.indexOf("headerNotificationButton") < topbarHtml.indexOf("mobi
 assert(html.includes('id="mobileThemeButton"') && html.includes('aria-label="เปลี่ยนธีม"') && html.includes('title="เปลี่ยนธีม"'), "Mobile theme button must have Thai aria label and title");
 assert(html.includes('id="mobileThemeSheetDialog"') && html.includes("เลือกธีมหน้าจอ") && html.includes("ใช้ธีมมืด") && html.includes("ใช้ธีมสว่าง") && html.includes("เปลี่ยนตามการตั้งค่าของอุปกรณ์"), "Mobile bottom sheet must include Thai labels and descriptions");
 assert(html.includes('data-mobile-theme-option="dark"') && html.includes('data-mobile-theme-option="light"') && html.includes('data-mobile-theme-option="system"'), "Mobile bottom sheet must expose all three theme values");
-assert(serviceWorker.includes('growup-pilot-pwa-v109-mobile-theme-sheet'), "service worker cache name must be bumped");
-assert(serviceWorker.includes('/styles.css?v=20260717-mobile-theme-sheet-v1'), "service worker must cache current stylesheet");
-assert(serviceWorker.includes('/app.js?v=20260717-mobile-theme-sheet-v1'), "service worker must cache current app bundle");
+assert(serviceWorker.includes('growup-pilot-pwa-v119-theme-race-v1'), "service worker cache name must be bumped");
+assert(serviceWorker.includes('/styles.css?v=20260719-theme-race-v1'), "service worker must cache current stylesheet");
+assert(serviceWorker.includes('/app.js?v=20260719-theme-race-v1'), "service worker must cache current app bundle");
+
+function createDummyElement() {
+  const element = {
+    hidden: false,
+    dataset: {},
+    style: {},
+    value: "",
+    innerHTML: "",
+    className: "",
+    elements: {},
+    classList: {
+      add() {},
+      remove() {},
+      toggle() {}
+    },
+    setAttribute(name, value) {
+      this[name] = String(value);
+    },
+    getAttribute(name) {
+      return this[name] || "";
+    },
+    removeAttribute(name) {
+      delete this[name];
+    },
+    addEventListener() {},
+    removeEventListener() {},
+    querySelector() {
+      return null;
+    },
+    querySelectorAll() {
+      return [];
+    },
+    closest() {
+      return null;
+    },
+    matches() {
+      return false;
+    }
+  };
+  return element;
+}
+
+function createThemeHarness({ initialTheme = "light", systemDark = true } = {}) {
+  const localStorageValues = new Map();
+  const documentElement = createDummyElement();
+  documentElement.removeAttribute = name => {
+    if (name === "data-theme-user") delete documentElement.dataset.themeUser;
+    else delete documentElement[name];
+  };
+  const pendingRequests = [];
+  const context = {
+    console,
+    location: { pathname: "/dashboard", hash: "", href: "https://example.test/dashboard", origin: "https://example.test" },
+    history: { state: {}, pushState() {}, replaceState() {}, back() {}, scrollRestoration: "auto" },
+    performance: { now: () => 0 },
+    CSS: { escape: value => String(value) },
+    Image: function Image() {},
+    FormData: function FormData() {},
+    requestAnimationFrame: callback => callback(),
+    setTimeout: () => 0,
+    clearTimeout() {},
+    setInterval: () => 0,
+    clearInterval() {},
+    document: {
+      documentElement,
+      body: createDummyElement(),
+      visibilityState: "visible",
+      querySelector() {
+        return createDummyElement();
+      },
+      querySelectorAll() {
+        return [];
+      },
+      addEventListener() {},
+      removeEventListener() {}
+    },
+    localStorage: {
+      getItem(key) {
+        return localStorageValues.has(key) ? localStorageValues.get(key) : null;
+      },
+      setItem(key, value) {
+        localStorageValues.set(key, String(value));
+      },
+      removeItem(key) {
+        localStorageValues.delete(key);
+      }
+    },
+    fetch(url, options) {
+      assert(String(url) === "/api/profile/theme", `unexpected fetch URL ${url}`);
+      return new Promise((resolve, reject) => {
+        pendingRequests.push({ url, options, resolve, reject });
+      });
+    }
+  };
+  context.window = {
+    ...context,
+    localStorage: context.localStorage,
+    matchMedia(query) {
+      return {
+        matches: query.includes("prefers-color-scheme: dark") ? systemDark : false,
+        addEventListener() {},
+        removeEventListener() {}
+      };
+    },
+    addEventListener() {},
+    removeEventListener() {}
+  };
+  context.globalThis = context;
+  vm.createContext(context);
+  const testableAppJs = appJs.replace(
+    /\nstartApp\(\);\s*$/,
+    "\nglobalThis.__themeTest = { app, saveCurrentUserThemePreference, updateCurrentUserTheme, applyThemePreference, applyUserTheme };\n"
+  );
+  vm.runInContext(testableAppJs, context, { filename: "public/app.js" });
+  const harness = context.__themeTest;
+  harness.app.currentUser = { id: "u1", name: "User One", themePreference: initialTheme };
+  harness.app.data = {
+    currentUser: harness.app.currentUser,
+    users: [harness.app.currentUser],
+    settings: { displayPreferences: {} }
+  };
+  harness.applyThemePreference(initialTheme, { persistLocal: true, userId: "u1" });
+  return {
+    ...harness,
+    context,
+    pendingRequests,
+    localStorageValues,
+    resolveRequest(index, themePreference) {
+      pendingRequests[index].resolve({
+        ok: true,
+        status: 200,
+        text: async () => JSON.stringify({
+          ok: true,
+          user: { id: "u1", name: "User One", themePreference }
+        })
+      });
+    },
+    rejectRequest(index, message = "save failed") {
+      pendingRequests[index].reject(new Error(message));
+    },
+    tick() {
+      return new Promise(resolve => setImmediate(resolve));
+    }
+  };
+}
+
+async function runClientThemeRaceTests() {
+  {
+    const h = createThemeHarness({ initialTheme: "light" });
+    const save = h.saveCurrentUserThemePreference("dark");
+    assert(h.context.document.documentElement.dataset.theme === "dark", "Light to Dark must apply immediately");
+    assert(h.app.currentUser.themePreference === "dark", "Light to Dark must update in-memory user immediately");
+    assert(h.localStorageValues.get("growup-theme:u1") === "dark", "Light to Dark must update per-user localStorage immediately");
+    h.updateCurrentUserTheme({ id: "u1", name: "User One", themePreference: "light" });
+    assert(h.context.document.documentElement.dataset.theme === "dark", "stale Light profile payload must not repaint over pending Dark");
+    h.resolveRequest(0, "dark");
+    const result = await save;
+    assert(result.saved === true, "Light to Dark should report one successful persisted selection");
+  }
+
+  {
+    const h = createThemeHarness({ initialTheme: "dark" });
+    const save = h.saveCurrentUserThemePreference("light");
+    assert(h.context.document.documentElement.dataset.theme === "light", "Dark to Light must apply immediately");
+    h.resolveRequest(0, "light");
+    const result = await save;
+    assert(result.saved === true, "Dark to Light should report one successful persisted selection");
+  }
+
+  {
+    const h = createThemeHarness({ initialTheme: "dark", systemDark: false });
+    const save = h.saveCurrentUserThemePreference("system");
+    assert(h.context.document.documentElement.dataset.themePreference === "system", "System selection must keep the System preference");
+    assert(h.context.document.documentElement.dataset.theme === "light", "System selection must resolve from device color scheme");
+    h.resolveRequest(0, "system");
+    const result = await save;
+    assert(result.saved === true, "System selection should persist");
+  }
+
+  {
+    const h = createThemeHarness({ initialTheme: "light" });
+    const first = h.saveCurrentUserThemePreference("dark");
+    const second = h.saveCurrentUserThemePreference("light");
+    assert(h.pendingRequests.length === 1, "rapid Light/Dark clicks must serialize network saves");
+    assert(h.context.document.documentElement.dataset.theme === "light", "latest rapid selection must remain visible while older save is delayed");
+    h.resolveRequest(0, "dark");
+    await h.tick();
+    assert(h.pendingRequests.length === 2, "latest rapid selection must be saved after the delayed older save completes");
+    assert(h.context.document.documentElement.dataset.theme === "light", "delayed older save response must not repaint over the latest selection");
+    h.resolveRequest(1, "light");
+    const firstResult = await first;
+    const secondResult = await second;
+    assert(firstResult.saved === false, "superseded rapid selection must not show a success toast");
+    assert(secondResult.saved === true, "latest rapid selection must show the single success toast");
+  }
+
+  {
+    const h = createThemeHarness({ initialTheme: "light" });
+    const save = h.saveCurrentUserThemePreference("dark");
+    h.rejectRequest(0, "theme save failed");
+    let failed = false;
+    try {
+      await save;
+    } catch {
+      failed = true;
+    }
+    assert(failed, "latest save failure must reject so the control can show an error toast");
+    assert(h.context.document.documentElement.dataset.theme === "light", "save failure must roll back to the previous persisted theme");
+    assert(h.app.currentUser.themePreference === "light", "save failure rollback must update in-memory user");
+    assert(h.localStorageValues.get("growup-theme:u1") === "light", "save failure rollback must update per-user localStorage");
+  }
+
+  {
+    const h = createThemeHarness({ initialTheme: "light" });
+    const save = h.saveCurrentUserThemePreference("dark");
+    h.resolveRequest(0, "dark");
+    await save;
+    const refreshed = createThemeHarness({ initialTheme: "dark" });
+    assert(refreshed.app.currentUser.themePreference === "dark", "refresh persistence must use the saved server theme");
+    assert(h.localStorageValues.get("growup-theme:u1") === "dark", "refresh persistence must have the saved per-user localStorage value");
+  }
+}
 
 async function runPerUserApiTest() {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "growup-theme-test-"));
@@ -170,7 +397,8 @@ async function runPerUserApiTest() {
   }
 }
 
-runPerUserApiTest()
+runClientThemeRaceTests()
+  .then(runPerUserApiTest)
   .then(() => console.log("Theme selector contract OK"))
   .catch(error => {
     console.error(error);

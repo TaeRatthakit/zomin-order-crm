@@ -139,6 +139,11 @@ const app = {
   profileSaving: false,
   themeSavePromise: null,
   themeSavePreference: "",
+  themeSaveSequence: 0,
+  themeSaveUserId: "",
+  themeSaveInFlight: false,
+  themeLastPersistedPreference: "",
+  themeSaveWaiters: [],
   settingsSavePending: false,
   mobileBusinessPage: "main",
   securityDetailKey: "",
@@ -483,7 +488,7 @@ async function restoreSession() {
       headers: { "Content-Type": "application/json" }
     });
     const payload = await res.json();
-    app.currentUser = payload.user?.id ? payload.user : null;
+    app.currentUser = payload.user?.id ? userWithActiveThemePreference(payload.user) : null;
     if (app.currentUser) applyUserTheme(app.currentUser);
     else applyThemePreference("system", { persistLocal: false });
     cacheMobileProfile(app.currentUser);
@@ -494,8 +499,8 @@ async function restoreSession() {
 }
 
 function saveSession(user) {
-  app.currentUser = user;
-  applyUserTheme(user);
+  app.currentUser = userWithActiveThemePreference(user);
+  applyUserTheme(app.currentUser);
 }
 
 function clearSession() {
@@ -578,6 +583,55 @@ function applyUserTheme(user = app.currentUser, { preferCache = false, persistLo
   applyThemePreference(preference, { persistLocal, userId });
 }
 
+function isThemeSaveActiveForUser(userId = app.currentUser?.id) {
+  return Boolean(
+    userId
+    && app.themeSaveUserId === String(userId)
+    && (app.themeSavePreference || app.themeSaveInFlight)
+  );
+}
+
+function userWithActiveThemePreference(user) {
+  if (!user?.id || !isThemeSaveActiveForUser(user.id) || !app.themeSavePreference) return user;
+  return { ...user, themePreference: normalizeThemePreference(app.themeSavePreference) };
+}
+
+function updateThemePreferenceInMemory(userId, preference) {
+  if (!userId) return;
+  const normalized = normalizeThemePreference(preference);
+  if (app.currentUser?.id === userId) {
+    app.currentUser = { ...app.currentUser, themePreference: normalized };
+  }
+  if (app.data?.currentUser?.id === userId) {
+    app.data.currentUser = { ...app.data.currentUser, themePreference: normalized };
+  }
+  if (app.data?.users) {
+    app.data.users = app.data.users.map(user => user.id === userId ? { ...user, themePreference: normalized } : user);
+  }
+}
+
+function settleThemeSaveWaiters({ latestSequence = app.themeSaveSequence, saved = false, error = null } = {}) {
+  const waiters = app.themeSaveWaiters.splice(0);
+  waiters.forEach(waiter => {
+    if (error && waiter.sequence === latestSequence) waiter.reject(error);
+    else waiter.resolve({ saved: saved && waiter.sequence === latestSequence });
+  });
+}
+
+function clearThemeSaveState() {
+  app.themeSavePreference = "";
+  app.themeSaveUserId = "";
+  app.themeSaveInFlight = false;
+  app.themeLastPersistedPreference = "";
+  app.themeSavePromise = null;
+}
+
+function rollbackThemePreference(userId, preference) {
+  const normalized = normalizeThemePreference(preference);
+  updateThemePreferenceInMemory(userId, normalized);
+  applyThemePreference(normalized, { persistLocal: true, userId });
+}
+
 function syncThemeControls(preference = document.documentElement.dataset.themePreference) {
   const normalized = normalizeThemePreference(preference);
   document.querySelectorAll("[data-theme-select]").forEach(select => {
@@ -606,14 +660,69 @@ function syncThemeControls(preference = document.documentElement.dataset.themePr
 
 function updateCurrentUserTheme(user) {
   if (!user?.id) return;
-  app.currentUser = user;
+  const nextUser = userWithActiveThemePreference(user);
+  app.currentUser = nextUser;
   if (app.data) {
-    app.data.currentUser = user;
-    app.data.users = (app.data.users || []).map(item => item.id === user.id ? { ...item, ...user } : item);
-    if (!app.data.users.some(item => item.id === user.id)) app.data.users.push(user);
+    app.data.currentUser = nextUser;
+    app.data.users = (app.data.users || []).map(item => item.id === nextUser.id ? { ...item, ...nextUser } : item);
+    if (!app.data.users.some(item => item.id === nextUser.id)) app.data.users.push(nextUser);
   }
-  applyUserTheme(user);
-  cacheMobileProfile(user);
+  applyUserTheme(nextUser);
+  cacheMobileProfile(nextUser);
+}
+
+function flushThemeSaveQueue() {
+  if (app.themeSaveInFlight) return app.themeSavePromise || Promise.resolve();
+  app.themeSavePromise = (async () => {
+    while (
+      app.themeSaveUserId
+      && app.themeSavePreference
+      && app.themeSavePreference !== app.themeLastPersistedPreference
+    ) {
+      const userId = app.themeSaveUserId;
+      const preference = normalizeThemePreference(app.themeSavePreference);
+      app.themeSaveInFlight = true;
+      try {
+        const payload = await api("/api/profile/theme", {
+          method: "PUT",
+          body: JSON.stringify({ themePreference: preference })
+        });
+        const persistedPreference = normalizeThemePreference(payload.user?.themePreference || preference);
+        app.themeLastPersistedPreference = persistedPreference;
+        if (payload.user) updateCurrentUserTheme(payload.user);
+        else updateThemePreferenceInMemory(userId, persistedPreference);
+
+        if (app.themeSavePreference === preference && persistedPreference === preference) {
+          const latestSequence = app.themeSaveSequence;
+          settleThemeSaveWaiters({ latestSequence, saved: true });
+          clearThemeSaveState();
+          break;
+        }
+      } catch (error) {
+        if (app.themeSavePreference === preference) {
+          const latestSequence = app.themeSaveSequence;
+          const rollbackPreference = app.themeLastPersistedPreference || normalizeThemePreference(app.currentUser?.themePreference);
+          rollbackThemePreference(userId, rollbackPreference);
+          settleThemeSaveWaiters({ latestSequence, error });
+          clearThemeSaveState();
+          break;
+        }
+      } finally {
+        app.themeSaveInFlight = false;
+      }
+    }
+    if (
+      app.themeSaveUserId
+      && app.themeSavePreference
+      && app.themeSavePreference === app.themeLastPersistedPreference
+    ) {
+      settleThemeSaveWaiters({ latestSequence: app.themeSaveSequence, saved: false });
+      clearThemeSaveState();
+    }
+  })().finally(() => {
+    if (!app.themeSavePreference && !app.themeSaveInFlight) app.themeSavePromise = null;
+  });
+  return app.themeSavePromise;
 }
 
 async function saveCurrentUserThemePreference(preference) {
@@ -624,30 +733,26 @@ async function saveCurrentUserThemePreference(preference) {
   if (!app.currentUser?.id) {
     return { saved: false };
   }
-  app.currentUser = { ...app.currentUser, themePreference: normalized };
-  if (app.data?.currentUser?.id === app.currentUser.id) app.data.currentUser = { ...app.data.currentUser, themePreference: normalized };
-  if (app.data?.users) {
-    app.data.users = app.data.users.map(user => user.id === app.currentUser.id ? { ...user, themePreference: normalized } : user);
+  const hasActiveSave = isThemeSaveActiveForUser(userId);
+  updateThemePreferenceInMemory(userId, normalized);
+  if (!hasActiveSave && normalized === currentThemePreference) {
+    return { saved: false };
   }
-  if (normalized === currentThemePreference) {
+  if (hasActiveSave && normalized === app.themeSavePreference) {
     return { saved: false };
   }
   app.themeSaveSequence = (app.themeSaveSequence || 0) + 1;
   const sequence = app.themeSaveSequence;
+  if (!hasActiveSave || app.themeSaveUserId !== userId) {
+    app.themeLastPersistedPreference = currentThemePreference;
+  }
+  app.themeSaveUserId = userId;
   app.themeSavePreference = normalized;
-  app.themeSavePromise = api("/api/profile/theme", {
-    method: "PUT",
-    body: JSON.stringify({ themePreference: normalized })
-  }).then(payload => {
-    if (sequence === app.themeSaveSequence && payload.user) updateCurrentUserTheme(payload.user);
-    return { saved: true, user: payload.user };
-  }).finally(() => {
-    if (sequence === app.themeSaveSequence) {
-      app.themeSavePromise = null;
-      app.themeSavePreference = "";
-    }
+  const saveResult = new Promise((resolve, reject) => {
+    app.themeSaveWaiters.push({ sequence, resolve, reject });
   });
-  return app.themeSavePromise;
+  flushThemeSaveQueue();
+  return saveResult;
 }
 
 function todayISO() {
@@ -1582,7 +1687,7 @@ async function loadState() {
     app.mobileAnalyticsIndex = null;
     app.dashboardSummaryCache = null;
     if (app.data.currentUser) {
-      app.currentUser = app.data.currentUser;
+      app.currentUser = userWithActiveThemePreference(app.data.currentUser);
       app.data.currentUser = app.currentUser;
       cacheMobileProfile(app.currentUser);
     }
@@ -1667,7 +1772,7 @@ async function refreshCurrentUser() {
       render();
       return;
     }
-    const nextUser = payload.user;
+    const nextUser = userWithActiveThemePreference(payload.user);
     if (userSyncSignature(nextUser) === previousSignature) return;
     invalidateStateRequests();
     app.currentUser = nextUser;
@@ -8201,13 +8306,14 @@ function userStatusLabel(user) {
 
 function applySavedUser(user) {
   if (!user?.id || !app.data) return;
+  const savedUser = userWithActiveThemePreference(user);
   app.data.users = app.data.users || [];
-  const index = app.data.users.findIndex(item => item.id === user.id);
-  if (index === -1) app.data.users.push(user);
-  else app.data.users[index] = { ...app.data.users[index], ...user };
-  if (app.currentUser?.id === user.id) {
+  const index = app.data.users.findIndex(item => item.id === savedUser.id);
+  if (index === -1) app.data.users.push(savedUser);
+  else app.data.users[index] = { ...app.data.users[index], ...savedUser };
+  if (app.currentUser?.id === savedUser.id) {
     invalidateStateRequests();
-    app.currentUser = { ...app.currentUser, ...user };
+    app.currentUser = userWithActiveThemePreference({ ...app.currentUser, ...savedUser });
     app.data.currentUser = app.currentUser;
     app.data.users[index === -1 ? app.data.users.length - 1 : index] = app.currentUser;
     cacheMobileProfile(app.currentUser);
@@ -12876,10 +12982,10 @@ document.addEventListener("submit", async event => {
           body: JSON.stringify({ displayName, avatar })
         });
         invalidateStateRequests();
-        app.currentUser = {
+        app.currentUser = userWithActiveThemePreference({
           ...payload.user,
           avatar: payload.user?.avatar || avatar
-        };
+        });
         if (app.data) {
           app.data.currentUser = app.currentUser;
           const userIndex = (app.data.users || []).findIndex(user => user.id === app.currentUser.id);

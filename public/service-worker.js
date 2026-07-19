@@ -1,4 +1,4 @@
-const CACHE_NAME = "growup-pilot-pwa-v118-home-light-clean-v3";
+const CACHE_NAME = "growup-pilot-pwa-v119-theme-race-v1";
 const CORE_ASSETS = [
   "/",
   "/index.html",
@@ -7,8 +7,8 @@ const CORE_ASSETS = [
   "/favicon-16x16.png?v=20260717-mobile-icon-v1",
   "/favicon-32x32.png?v=20260717-mobile-icon-v1",
   "/favicon-48x48.png?v=20260717-mobile-icon-v1",
-  "/styles.css?v=20260719-home-light-clean-v3",
-  "/app.js?v=20260719-home-light-clean-v3",
+  "/styles.css?v=20260719-theme-race-v1",
+  "/app.js?v=20260719-theme-race-v1",
   "/desktop-dashboard-hero.webp?v=20260706-webp-v1",
   "/desktop-dashboard-hero-light.jpg?v=20260719-home-light-clean-v2",
   "/desktop-onboarding-rocket.webp?v=20260706-webp-v1",
