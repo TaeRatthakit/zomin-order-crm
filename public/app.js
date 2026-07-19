@@ -3725,7 +3725,7 @@ function mobileDashboardAlertsCard(items) {
 }
 
 function renderMobileDashboard(viewModel) {
-  const { s, compactDate, salesDelta, ordersDelta, profitDelta, opportunityDelta, estimatedProfitToday, opportunityCount, channelRows, alerts } = viewModel;
+  const { s, compactDate, salesDelta, ordersDelta, profitDelta, estimatedProfitToday, opportunitySummary, channelRows, alerts } = viewModel;
   els.content.innerHTML = `
     <section class="section saas-page mobile-dashboard-page">
       <div class="mobile-dashboard-shell">
@@ -3744,7 +3744,7 @@ function renderMobileDashboard(viewModel) {
           ${mobileDashboardMetricCard({ label: "ยอดขายวันนี้", value: money(s.salesToday), deltaText: dashboardChangeText(s.salesToday, s.salesToday - salesDelta.diff), tone: "green", icon: "wallet" })}
           ${mobileDashboardMetricCard({ label: "ออเดอร์วันนี้", value: money(s.ordersToday || 0), deltaText: dashboardChangeText(s.ordersToday || 0, (s.ordersToday || 0) - ordersDelta.diff), tone: "amber", icon: "bag" })}
           ${mobileDashboardMetricCard({ label: "กำไรวันนี้", value: money(estimatedProfitToday), deltaText: dashboardChangeText(estimatedProfitToday, estimatedProfitToday - profitDelta.diff), tone: "violet", icon: "database" })}
-          ${mobileDashboardMetricCard({ label: "เพิ่มยอดขาย", value: money(opportunityCount), deltaText: dashboardChangeText(opportunityCount, Math.max(0, opportunityCount - 1)), tone: "cyan", icon: "target" })}
+          ${mobileDashboardMetricCard({ label: "โอกาสเพิ่มยอดขาย", value: `฿${money(opportunitySummary.totalOpportunity)}`, deltaText: `ลูกค้าที่ควรติดตาม ${money(opportunitySummary.dueCustomerCount)} ราย`, tone: "cyan", icon: "target" })}
         </section>
 
         ${mobileDashboardSummaryCard(channelRows, s.salesToday || 0)}
@@ -3866,15 +3866,16 @@ function desktopDashboardDonutGradient(rows) {
   }).join(", ");
 }
 
-function desktopReferenceKpiCard({ label, value, deltaText, tone, icon, hint }) {
+function desktopReferenceKpiCard({ label, value, deltaText, tone, icon, hint, detailText }) {
   const trend = String(deltaText).startsWith("-") ? "down" : "up";
+  const detail = detailText || `${trend === "down" ? "↓" : "↑"} ${deltaText.replace(/^[+-]/, "")}`;
   return `
     <article class="desktop-reference-kpi tone-${escapeHtml(tone)}">
       <span class="desktop-reference-kpi-icon" aria-hidden="true">${dashboardCardIcon(icon)}</span>
       <div class="desktop-reference-kpi-copy">
         <span>${escapeHtml(label)}</span>
         <strong>${escapeHtml(value)}</strong>
-        <small class="${trend}">${trend === "down" ? "↓" : "↑"} ${escapeHtml(deltaText.replace(/^[+-]/, ""))}</small>
+        <small class="${trend}">${escapeHtml(detail)}</small>
         <em>${escapeHtml(hint)}</em>
       </div>
     </article>
@@ -3897,8 +3898,7 @@ function desktopReferenceQuickActions() {
     { title: "จัดการสินค้า", detail: "เพิ่ม แก้ไข และจัดการสินค้าในร้าน", icon: "box", tone: "orange", view: "products" },
     { title: "รายงาน", detail: "ดูรายงานและสถิติธุรกิจแบบละเอียด", icon: "chart", tone: "blue", view: "reports" },
     { title: "เพิ่มยอดขาย", detail: "ติดตามและจัดการโอกาสการขาย", icon: "spark", tone: "green", view: "opportunities" },
-    { title: "เพิ่มลูกค้า", detail: "เพิ่มลูกค้าใหม่และติดต่ออย่างมีประสิทธิภาพ", icon: "users", tone: "violet", view: "customers" },
-    { title: "การตลาด", detail: "สร้างแคมเปญและโปรโมทธุรกิจ", icon: "send", tone: "pink", view: "marketing" }
+    { title: "เพิ่มลูกค้า", detail: "เพิ่มลูกค้าใหม่และติดต่ออย่างมีประสิทธิภาพ", icon: "users", tone: "violet", view: "customers" }
   ].filter(Boolean);
   return actions.map(action => `
     <button class="desktop-reference-quick-action tone-${escapeHtml(action.tone)}" type="button"
@@ -3910,7 +3910,7 @@ function desktopReferenceQuickActions() {
 }
 
 function renderDesktopDashboard(viewModel) {
-  const { s, estimatedProfitToday, revenueOpportunity, todaysOrders } = viewModel;
+  const { s, estimatedProfitToday, opportunitySummary, todaysOrders } = viewModel;
   const selectedMonth = String(s.selectedDate || todayISO()).slice(0, 7);
   const channelRows = desktopDashboardChannelRows(s.selectedDate);
   const monthOrders = (app.data.orders || []).filter(order => String(order.date || "").startsWith(selectedMonth));
@@ -3929,7 +3929,6 @@ function renderDesktopDashboard(viewModel) {
   const yesterdaySales = Number(s.salesToday || 0) - Number(viewModel.salesDelta.diff || 0);
   const yesterdayOrders = Number(s.ordersToday || 0) - Number(viewModel.ordersDelta.diff || 0);
   const yesterdayProfit = Number(estimatedProfitToday || 0) - Number(viewModel.profitDelta.diff || 0);
-  const previousOpportunity = Number(revenueOpportunity || 0) - Number(viewModel.opportunityDelta.diff || 0);
   const previousUnits = ordersInDateRange(app.data.orders || [], previousPeriodRange({ start: s.startDate || s.selectedDate, end: s.endDate || s.selectedDate }))
     .reduce((sum, order) => sum + Number(order.jars || 0), 0);
   const comparisonHint = s.isRange ? "เทียบกับช่วงก่อนหน้า" : "เทียบกับเมื่อวาน";
@@ -3965,7 +3964,7 @@ function renderDesktopDashboard(viewModel) {
           ${desktopReferenceKpiCard({ label: "ออเดอร์วันนี้", value: money(s.ordersToday || 0), deltaText: dashboardChangeText(s.ordersToday || 0, yesterdayOrders), tone: "orange", icon: "bag", hint: comparisonHint })}
           ${desktopReferenceKpiCard({ label: "กำไรวันนี้", value: `฿${money(estimatedProfitToday)}`, deltaText: dashboardChangeText(estimatedProfitToday, yesterdayProfit), tone: "purple", icon: "database", hint: comparisonHint })}
           ${desktopReferenceKpiCard({ label: "ขายได้วันนี้", value: `${money(unitsSoldToday)} ชิ้น`, deltaText: dashboardChangeText(unitsSoldToday, previousUnits), tone: "blue", icon: "box", hint: comparisonHint })}
-          ${desktopReferenceKpiCard({ label: "โอกาสสร้างยอดขายวันนี้", value: `฿${money(revenueOpportunity)}`, deltaText: dashboardChangeText(revenueOpportunity, previousOpportunity), tone: "pink", icon: "target", hint: `จาก ${money(viewModel.opportunityCount)} ลูกค้า` })}
+          ${desktopReferenceKpiCard({ label: "โอกาสเพิ่มยอดขาย", value: `฿${money(opportunitySummary.totalOpportunity)}`, deltaText: "0.0%", detailText: `ลูกค้าที่ควรติดตาม ${money(opportunitySummary.dueCustomerCount)} ราย`, tone: "pink", icon: "target", hint: `ยอดปิดได้แล้ววันนี้ ฿${money(opportunitySummary.closedRevenue)}` })}
         </section>
 
         <section class="desktop-reference-quick-grid" aria-label="เมนูลัด">
@@ -3980,7 +3979,7 @@ function renderDashboard() {
   const s = app.data.summary;
   const selectedRange = dashboardSummaryRange(s.selectedDate, { start: s.startDate || s.selectedDate, end: s.endDate || s.selectedDate });
   const previousRange = previousPeriodRange(selectedRange);
-  const opportunities = opportunityCardsData();
+  const opportunitySummary = opportunitySummaryFromModel(mobileOpportunityData());
   const yesterday = addDaysISO(s.selectedDate, -1);
   const yesterdayOrders = ordersInDateRange(app.data.orders, previousRange);
   const yesterdaySales = yesterdayOrders.reduce((sum, order) => sum + Number(order.amount || 0), 0);
@@ -3994,26 +3993,17 @@ function renderDashboard() {
   const previousMonthKey = monthKey(previousMonthReference);
   const previousMonthOrders = app.data.orders.filter(order => monthKey(order.date) === previousMonthKey);
   const previousMonthSales = previousMonthOrders.reduce((sum, order) => sum + Number(order.amount || 0), 0);
-  const revenueOpportunity = opportunities.reduce((sum, item) => sum + item.revenue, 0);
   const todaysOrders = s.rangeOrders || ordersInDateRange(app.data.orders, selectedRange);
   const todayProfitBreakdown = profitBreakdownForOrders(todaysOrders);
   const productCostsToday = todayProfitBreakdown.productCosts;
   const additionalCostsToday = todayProfitBreakdown.additionalCosts;
   const estimatedProfitToday = todayProfitBreakdown.profit;
-  const previousOpportunityRevenue = estimatedOpportunityRevenue(
-    app.data.customers.filter(customer => customer.followUpDate && customer.followUpDate <= yesterday),
-    0.36
-  ) + estimatedOpportunityRevenue(
-    app.data.customers.filter(customer => !customer.lastPurchaseDate || !String(customer.lastPurchaseDate).startsWith(previousMonthKey)),
-    0.18
-  );
   const salesDelta = dashboardDelta(s.salesToday, yesterdaySales, "currency");
   const salesMonthDelta = dashboardDelta(s.salesThisMonth || 0, previousMonthSales, "currency");
   const ordersDelta = dashboardDelta(s.ordersToday || 0, yesterdayOrderCount);
   const ordersMonthDelta = dashboardDelta(s.ordersThisMonth || 0, previousMonthOrders.length);
   const yesterdayProfit = profitBreakdownForOrders(yesterdayOrders).profit;
   const profitDelta = dashboardDelta(estimatedProfitToday, yesterdayProfit, "currency");
-  const opportunityDelta = dashboardDelta(revenueOpportunity, previousOpportunityRevenue, "currency");
   const compactDate = new Intl.DateTimeFormat("th-TH-u-ca-buddhist", {
     timeZone: "Asia/Bangkok",
     day: "numeric",
@@ -4028,15 +4018,12 @@ function renderDashboard() {
     salesMonthDelta,
     ordersDelta,
     profitDelta,
-    opportunityDelta,
     estimatedProfitToday,
     productCostsToday,
     additionalCostsToday,
-    revenueOpportunity,
-    opportunityCount: opportunities.reduce((sum, item) => sum + item.count, 0),
+    opportunitySummary,
     monthToDateOrders,
     todaysOrders,
-    opportunities,
     channelRows,
     alerts: mobileDashboardAlertItems()
   };
@@ -5497,6 +5484,14 @@ function mobileOpportunityData() {
   };
 }
 
+function opportunitySummaryFromModel(model = mobileOpportunityData()) {
+  return {
+    totalOpportunity: model.dueRows.reduce((sum, row) => sum + row.value, 0),
+    dueCustomerCount: model.dueRows.length,
+    closedRevenue: Number(model.closedRevenue || 0)
+  };
+}
+
 function mobileOpportunityRows(model) {
   const query = app.mobileOpportunitySearch.trim().toLocaleLowerCase("th");
   const filtered = model.rows.filter(row => {
@@ -5581,11 +5576,11 @@ function mobileOpportunityCustomerCard(row) {
 
 function renderMobileOpportunities() {
   const model = mobileOpportunityData();
+  const summary = opportunitySummaryFromModel(model);
   if (!app.mobileOpportunityFilter) {
     app.mobileOpportunityFilter = model.counts.today > 0 ? "today" : "overdue";
   }
   const rows = mobileOpportunityRows(model);
-  const totalOpportunity = model.dueRows.reduce((sum, row) => sum + row.value, 0);
   const filters = [
     ["today", "ควรโทรวันนี้", model.counts.today],
     ["overdue", "เลยกำหนดแล้ว", model.counts.overdue],
@@ -5598,17 +5593,17 @@ function renderMobileOpportunities() {
         <div class="purple">
           <span class="mobile-opportunity-summary-icon" aria-hidden="true">${iconSvg("users")}</span>
           <span>ลูกค้าที่ควรติดตาม</span>
-          <strong>${money(model.dueRows.length)} <small>ราย</small></strong>
+          <strong>${money(summary.dueCustomerCount)} <small>ราย</small></strong>
         </div>
         <div class="orange">
           <span class="mobile-opportunity-summary-icon" aria-hidden="true">${dashboardCardIcon("target")}</span>
           <span>โอกาสปิดยอดรวม</span>
-          <strong>฿ ${money(totalOpportunity)}</strong>
+          <strong>฿ ${money(summary.totalOpportunity)}</strong>
         </div>
         <div class="green">
           <span class="mobile-opportunity-summary-icon" aria-hidden="true">${dashboardCardIcon("profit")}</span>
           <span>ยอดปิดได้แล้ววันนี้</span>
-          <strong>฿ ${money(model.closedRevenue)}</strong>
+          <strong>฿ ${money(summary.closedRevenue)}</strong>
         </div>
       </div>
 
@@ -9807,7 +9802,6 @@ function patchProductOrderPickers() {
   `).join("")}`;
   select.value = products.some(product => product.id === previousValue) ? previousValue : "";
   if (!select.value && els.orderForm?.elements?.items) els.orderForm.elements.items.value = "";
-  updateOrderPackageOptions();
 }
 
 function setProductActionPending(productId, pending) {
@@ -10307,7 +10301,10 @@ async function submitOrder(form) {
     els.orderForm.elements.productId?.focus();
     return;
   }
-  applyQuantityMatchedOrderPackage(data);
+  const selectedProduct = orderSelectableProducts().find(item =>
+    item.id === data.productId || normalizeProductName(item.name) === normalizeProductName(data.items)
+  );
+  data.productId = selectedProduct?.id || "";
   const orderId = app.editingOrderId;
   const snapshot = cloneUiState();
   const clientMutationId = `tmp_${Date.now().toString(36)}`;
@@ -10438,63 +10435,16 @@ function orderSelectableProducts() {
   return normalizeProductRecords().filter(product => !product.archived);
 }
 
-function packageProducts() {
-  return orderSelectableProducts().filter(product => product.salesPackages.length);
-}
-
-function applyQuantityMatchedOrderPackage(data) {
-  const quantity = Number(data.jars || 0);
-  const product = orderSelectableProducts().find(item =>
-    item.id === data.productId || normalizeProductName(item.name) === normalizeProductName(data.items)
-  );
-  const matchedPackage = product?.salesPackages.find(item =>
-    item.enabled && Number(item.totalQuantityShipped || 0) === quantity
-  );
-  data.productId = product?.id || "";
-  data.packageId = matchedPackage?.id || "";
-  data.packageName = matchedPackage?.name || "";
-  data.paidQuantity = matchedPackage ? Number(matchedPackage.paidQuantity || 0) : 0;
-  data.freeQuantity = matchedPackage ? Number(matchedPackage.freeQuantity || 0) : 0;
-  data.totalQuantityShipped = matchedPackage ? Number(matchedPackage.totalQuantityShipped || 0) : 0;
-  data.packageExpenses = matchedPackage
-    ? normalizePackageExpenses(matchedPackage.expenses).map(expense => ({ ...expense }))
-    : [];
-}
-
-function renderOrderPackageExpenses(expenses = []) {
-  const list = document.querySelector("#orderPackageExpenseList");
-  if (!list) return;
-  list.innerHTML = normalizePackageExpenses(expenses).map(expense => `
-    <div class="package-expense-row" data-order-package-expense-id="${escapeHtml(expense.id)}">
-      <label>ชื่อ<input name="orderPackageExpenseName" value="${escapeHtml(expense.name)}"></label>
-      <label>จำนวนเงิน<input name="orderPackageExpenseAmount" type="number" min="0" step="0.01" value="${expense.amount}"></label>
-      <label class="inline"><input name="orderPackageExpenseEnabled" type="checkbox" ${expense.enabled ? "checked" : ""} style="width:auto"> ใช้</label>
-    </div>
-  `).join("");
-}
-
-function selectedOrderPackageProduct() {
+function selectedOrderProduct() {
   const productId = els.orderForm?.elements?.productId?.value || "";
   return orderSelectableProducts().find(product => product.id === productId) || null;
 }
 
-function updateOrderPackageOptions(selectedPackageId = "", expenses = []) {
-  const product = selectedOrderPackageProduct();
-  const select = els.orderForm?.elements?.packageId;
-  if (!select) return;
-  const packages = (product?.salesPackages || []).filter(item => item.enabled || item.id === selectedPackageId);
-  select.innerHTML = `<option value="">ไม่ใช้แพ็กเกจ</option>${packages.map(item => `
-    <option value="${escapeHtml(item.id)}" ${item.id === selectedPackageId ? "selected" : ""}>${escapeHtml(item.name)}</option>
-  `).join("")}`;
-  renderOrderPackageExpenses(expenses);
-}
-
-function setupOrderPackageFields(order = null) {
-  const section = document.querySelector("#orderPackageSection");
+function setupOrderProductField(order = null) {
+  const section = document.querySelector("#orderProductSection");
   const productSelect = els.orderForm?.elements?.productId;
   if (!section || !productSelect) return;
   const products = orderSelectableProducts();
-  section.hidden = false;
   productSelect.innerHTML = `<option value="">เลือกสินค้า</option>${products.map(product => `
     <option value="${escapeHtml(product.id)}">${escapeHtml(product.name)}</option>
   `).join("")}`;
@@ -10503,40 +10453,6 @@ function setupOrderPackageFields(order = null) {
     product.id === order?.productId || normalizeProductName(product.name) === normalizeProductName(order?.items)
   );
   productSelect.value = matchedProduct?.id || "";
-  updateOrderPackageOptions(order?.packageId || "", order?.packageExpenses || []);
-  for (const [name, value] of Object.entries({
-    paidQuantity: order?.paidQuantity || "",
-    freeQuantity: order?.freeQuantity || "",
-    totalQuantityShipped: order?.totalQuantityShipped || ""
-  })) {
-    if (els.orderForm.elements[name]) els.orderForm.elements[name].value = value;
-  }
-}
-
-function applySelectedOrderPackage() {
-  const product = selectedOrderPackageProduct();
-  const packageId = els.orderForm?.elements?.packageId?.value || "";
-  const item = product?.salesPackages.find(entry => entry.id === packageId);
-  if (!product || !item) {
-    renderOrderPackageExpenses([]);
-    return;
-  }
-  els.orderForm.elements.items.value = product.name;
-  els.orderForm.elements.paidQuantity.value = item.paidQuantity;
-  els.orderForm.elements.freeQuantity.value = item.freeQuantity;
-  els.orderForm.elements.totalQuantityShipped.value = item.totalQuantityShipped;
-  els.orderForm.elements.jars.value = item.totalQuantityShipped;
-  els.orderForm.elements.amount.value = item.salePrice;
-  renderOrderPackageExpenses(item.expenses);
-}
-
-function readOrderPackageExpenses() {
-  return [...document.querySelectorAll("[data-order-package-expense-id]")].map(row => ({
-    id: row.dataset.orderPackageExpenseId,
-    name: row.querySelector("[name='orderPackageExpenseName']")?.value.trim() || "ค่าใช้จ่าย",
-    amount: Math.max(0, Number(row.querySelector("[name='orderPackageExpenseAmount']")?.value || 0)),
-    enabled: Boolean(row.querySelector("[name='orderPackageExpenseEnabled']")?.checked)
-  }));
 }
 
 function openOrderDialog(order = null) {
@@ -10587,7 +10503,7 @@ function openOrderDialog(order = null) {
     els.orderForm.elements.date.value = isMobileViewport() ? `${dateValue}T${timeValue}` : dateValue;
     els.orderForm.elements.amount.value = app.data?.settings?.defaultJarPrice || 750;
   }
-  setupOrderPackageFields(order);
+  setupOrderProductField(order);
   const mobileRequiredFields = ["items", "orderNumber", "date", "sourceChannel", "name", "phone", "address", "jars", "amount"];
   for (const fieldName of mobileRequiredFields) {
     const field = els.orderForm.elements[fieldName];
@@ -11880,10 +11796,6 @@ document.addEventListener("drop", event => {
 });
 
 document.addEventListener("input", event => {
-  if (event.target?.name === "totalQuantityShipped" && event.target.form?.id === "orderForm") {
-    els.orderForm.elements.jars.value = event.target.value;
-  }
-
   if (event.target?.matches?.("[name='packagePaidQuantity'], [name='packageFreeQuantity']")) {
     const card = event.target.closest("[data-sales-package-id]");
     const paid = Number(card?.querySelector("[name='packagePaidQuantity']")?.value || 0);
@@ -12013,11 +11925,9 @@ document.addEventListener("change", event => {
   }
   if (event.target?.name === "originSourceChoice" && event.target.form === els.orderForm) syncOriginSourceFields();
   if (event.target === els.orderForm.elements.productId) {
-    const product = selectedOrderPackageProduct();
+    const product = selectedOrderProduct();
     if (product) els.orderForm.elements.items.value = product.name;
-    updateOrderPackageOptions();
   }
-  if (event.target === els.orderForm.elements.packageId) applySelectedOrderPackage();
   if (event.target?.matches?.("[name='additionalCostType'], [name='additionalCostEnabled']")) {
     updateAdditionalCostRowSummary(event.target.closest("[data-additional-cost-row]"));
     refreshAdditionalCostsSummary();

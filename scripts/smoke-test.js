@@ -988,15 +988,16 @@ async function main() {
     || !productClient.text.includes("function fallbackProfitForOrder")
     || !productClient.text.includes("function profitForOrder")
     || !productClient.text.includes("function productCostMoney")
-    || !productClient.text.includes("function applyQuantityMatchedOrderPackage")
     || !productClient.text.includes("function mobileOrderProductParts")
     || !productClient.text.includes("function mobileOrderProductSummary")
     || !productClient.text.includes("mobile-order-products")
     || !productClient.text.includes("delete data.originSourceChoice;")
     || !productClient.text.includes("showToast(\"กรุณาเลือกสินค้าในระบบ\"")
-    || !productClient.text.includes("applyQuantityMatchedOrderPackage(data);")
-    || !productClient.text.includes("Number(item.totalQuantityShipped || 0) === quantity")
-    || !productClient.text.includes("section.hidden = false")
+    || !productClient.text.includes("function setupOrderProductField")
+    || productClient.text.includes("function applyQuantityMatchedOrderPackage")
+    || productClient.text.includes("Number(item.totalQuantityShipped || 0) === quantity")
+    || productClient.text.includes("function readOrderPackageExpenses")
+    || productClient.text.includes("function applySelectedOrderPackage")
     || !productClient.text.includes("data-product-row-menu")
     || !productClient.text.includes("data-delete-product")
     || !productClient.text.includes("productActionPendingIds")
@@ -1034,11 +1035,17 @@ async function main() {
   const appShell = await request("/");
   if (
     appShell.status !== 200
-    || !appShell.text.includes('id="orderPackageSection"')
+    || !appShell.text.includes('id="orderProductSection"')
+    || !appShell.text.includes('name="productId"')
     || !appShell.text.includes('name="jars"')
     || !appShell.text.includes("จำนวน <i>*</i>")
+    || appShell.text.includes('name="packageId"')
+    || appShell.text.includes('name="paidQuantity"')
+    || appShell.text.includes('name="freeQuantity"')
+    || appShell.text.includes('name="totalQuantityShipped"')
+    || appShell.text.includes('id="orderPackageExpenseList"')
   ) {
-    fail("order quantity or existing package section is missing from the app shell");
+    fail("order form product picker or deprecated package controls regressed in the app shell");
   }
   const importWorker = await request("/import-worker.js");
   if (
