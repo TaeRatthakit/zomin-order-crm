@@ -563,15 +563,48 @@ function productCostForOrderSnapshot(order = {}, settings = {}) {
   const productConfig = normalizeSettingsCostRows(settings.productCosts, "costPerJar")
     .find(item => normalizedProductNameKey(item.name) === productNameKey);
   if (!productConfig?.enabled) return 0;
-  const quantity = order.packageId
-    ? Number(order.totalQuantityShipped || order.jars || 0)
+  const salesPackage = salesPackageForOrder(settings, order);
+  const quantity = salesPackage
+    ? Number(order.totalQuantityShipped || salesPackage.totalQuantityShipped || order.jars || 0)
     : Number(order.jars || 0);
   return quantity * Number(productConfig.costPerJar || 0);
 }
 
-function packageExpenseForOrderSnapshot(order = {}) {
-  if (!order.packageId) return 0;
-  return normalizePackageExpenses(order.packageExpenses)
+function moneyMatches(left, right) {
+  return Math.abs(Number(left || 0) - Number(right || 0)) < 0.000001;
+}
+
+function salesPackageForOrder(settings = {}, order = {}) {
+  const productId = String(order.productId || order.product_id || "").trim();
+  const productNameKey = normalizedProductNameKey(order.items || order.product || order.productName || "");
+  const product = normalizeProductRecords(settings.products).find(item =>
+    (productId && String(item.id || "") === productId) ||
+    (productNameKey && normalizedProductNameKey(item.name) === productNameKey)
+  );
+  if (!product) return null;
+  const packages = normalizeSalesPackages(product.salesPackages);
+  const packageId = String(order.packageId || order.package_id || "").trim();
+  if (packageId) return packages.find(item => item.id === packageId) || null;
+  const revenue = Number(order.amount || order.revenueSnapshot || 0);
+  const shipped = Number(order.totalQuantityShipped || order.jars || 0);
+  if (!revenue || !shipped) return null;
+  const matches = packages.filter(item =>
+    item.enabled !== false &&
+    moneyMatches(item.salePrice, revenue) &&
+    moneyMatches(item.totalQuantityShipped, shipped)
+  );
+  return matches.length === 1 ? matches[0] : null;
+}
+
+function packageExpensesForOrder(order = {}, settings = {}) {
+  const explicitExpenses = normalizePackageExpenses(order.packageExpenses);
+  if (explicitExpenses.length) return explicitExpenses;
+  const salesPackage = salesPackageForOrder(settings, order);
+  return salesPackage ? normalizePackageExpenses(salesPackage.expenses) : [];
+}
+
+function packageExpenseForOrderSnapshot(order = {}, settings = {}) {
+  return packageExpensesForOrder(order, settings)
     .filter(expense => expense.enabled)
     .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
 }
@@ -595,7 +628,7 @@ function calculateOrderProfitSnapshot(order = {}, settings = {}, {
 } = {}) {
   const revenueSnapshot = snapshotMoney(order.amount);
   const productCostSnapshot = snapshotMoney(productCostForOrderSnapshot(order, settings));
-  const packageExpenseSnapshot = snapshotMoney(packageExpenseForOrderSnapshot(order));
+  const packageExpenseSnapshot = snapshotMoney(packageExpenseForOrderSnapshot(order, settings));
   const globalExpenseSnapshot = snapshotMoney(globalExpenseForOrderSnapshot(order, settings));
   const profitBeforeAdsSnapshot = snapshotMoney(
     revenueSnapshot - productCostSnapshot - packageExpenseSnapshot - globalExpenseSnapshot
@@ -611,6 +644,36 @@ function calculateOrderProfitSnapshot(order = {}, settings = {}, {
     profitSnapshotCreatedAt: String(createdAt || timestamp),
     profitSnapshotUpdatedAt: timestamp,
     profitSnapshotSource: source
+  };
+}
+
+function effectiveOrderProfitSnapshot(order = {}, settings = {}) {
+  if (!hasOrderProfitSnapshot(order)) {
+    return calculateOrderProfitSnapshot(order, settings, { source: "fallback" });
+  }
+  const snapshotPackageExpense = Number(order.packageExpenseSnapshot || 0);
+  const inferredPackageExpense = packageExpenseForOrderSnapshot(order, settings);
+  const packageExpenseSnapshot = snapshotPackageExpense > 0
+    ? snapshotPackageExpense
+    : inferredPackageExpense;
+  const packageExpenseAdjustment = Math.max(0, packageExpenseSnapshot - snapshotPackageExpense);
+  const profitBeforeAdsSnapshot = snapshotMoney(Number(order.profitBeforeAdsSnapshot || 0) - packageExpenseAdjustment);
+  const profitAfterAdsSnapshot = snapshotMoney(
+    Number.isFinite(Number(order.profitAfterAdsSnapshot))
+      ? Number(order.profitAfterAdsSnapshot || 0) - packageExpenseAdjustment
+      : profitBeforeAdsSnapshot
+  );
+  return {
+    revenueSnapshot: Number(order.revenueSnapshot || 0),
+    productCostSnapshot: Number(order.productCostSnapshot || 0),
+    packageExpenseSnapshot,
+    globalExpenseSnapshot: Number(order.globalExpenseSnapshot || 0),
+    profitBeforeAdsSnapshot,
+    profitAfterAdsSnapshot,
+    profitSnapshotVersion: Number(order.profitSnapshotVersion || 0),
+    profitSnapshotCreatedAt: order.profitSnapshotCreatedAt || "",
+    profitSnapshotUpdatedAt: order.profitSnapshotUpdatedAt || "",
+    profitSnapshotSource: order.profitSnapshotSource || "snapshot"
   };
 }
 
@@ -856,13 +919,20 @@ function resolveActiveProductForOrder(settings = {}, payload = {}, options = {})
   }
   const packageId = String(payload.packageId || payload.package_id || "").trim();
   const salesPackages = normalizeSalesPackages(product.salesPackages);
-  const selectedPackage = packageId
+  let selectedPackage = packageId
     ? salesPackages.find(item => item.id === packageId && item.enabled !== false)
     : null;
   if (packageId && !selectedPackage) {
     const error = new Error(PRODUCT_RESOLUTION_ERROR);
     error.code = "PRODUCT_NOT_FOUND";
     throw error;
+  }
+  if (!selectedPackage) {
+    selectedPackage = salesPackageForOrder({ products: [product] }, {
+      ...payload,
+      productId: product.id,
+      items: product.name
+    });
   }
   return { product, package: selectedPackage };
 }
@@ -1118,8 +1188,12 @@ async function readProductSettingsForSave() {
 }
 
 function marketingPerformanceForDb(db, period = {}) {
+  const orders = (db.orders || []).map(order => ({
+    ...order,
+    ...effectiveOrderProfitSnapshot(order, db.settings || {})
+  }));
   return marketingPerformance({
-    orders: db.orders || [],
+    orders,
     records: db.settings?.adCostRecords || [],
     ...period,
     fallbackProfitForOrder: order => {
