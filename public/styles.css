@@ -7716,85 +7716,6 @@ small,
     font-weight: 800;
   }
 
-  .mobile-setup-step-card > button:disabled {
-    cursor: default;
-    color: #ae8cc0;
-    border-color: rgba(155, 92, 194, 0.28);
-    opacity: 0.76;
-  }
-
-  .mobile-setup-guide-placeholder {
-    grid-column: 1 / -1;
-    display: grid;
-    grid-template-columns: 34px minmax(0, 1fr);
-    gap: 9px;
-    align-items: center;
-    padding: 9px;
-    border: 1px dashed rgba(60, 138, 223, 0.34);
-    border-radius: 10px;
-    color: #419dff;
-    background: rgba(21, 80, 139, 0.08);
-  }
-
-  .mobile-setup-guide-placeholder > span:first-child {
-    display: grid;
-    place-items: center;
-  }
-
-  .mobile-setup-guide-placeholder .nav-icon {
-    width: 20px;
-    height: 20px;
-  }
-
-  .mobile-setup-guide-placeholder > span:last-child {
-    display: grid;
-    gap: 2px;
-  }
-
-  .mobile-setup-guide-placeholder strong {
-    color: #69adff;
-    font-size: 0.65rem;
-  }
-
-  .mobile-setup-guide-placeholder small {
-    color: #7c8799;
-    font-size: 0.58rem;
-  }
-
-  .mobile-setup-coming-soon-note {
-    display: grid;
-    grid-template-columns: 34px minmax(0, 1fr);
-    gap: 10px;
-    align-items: center;
-    padding: 13px;
-    border: 1px solid rgba(151, 84, 235, 0.3);
-    border-radius: 14px;
-    color: #c169ff;
-    background: linear-gradient(105deg, rgba(78, 32, 139, 0.16), rgba(9, 20, 37, 0.92));
-  }
-
-  .mobile-setup-coming-soon-note > .nav-icon {
-    width: 28px;
-    height: 28px;
-  }
-
-  .mobile-setup-coming-soon-note p {
-    display: grid;
-    gap: 3px;
-    margin: 0;
-  }
-
-  .mobile-setup-coming-soon-note strong {
-    color: #eee8f5;
-    font-size: 0.7rem;
-  }
-
-  .mobile-setup-coming-soon-note span {
-    color: #9690a0;
-    font-size: 0.61rem;
-    line-height: 1.4;
-  }
-
   .mobile-business-store-mark {
     display: grid;
     place-items: center;
@@ -24754,7 +24675,6 @@ html[data-theme="light"] body:not(.login-view) .mobile-business-page:not(.mobile
 
   html[data-theme="light"] body.mobile-app-shell:not(.login-view) .mobile-setup-overview,
   html[data-theme="light"] body.mobile-app-shell:not(.login-view) .mobile-setup-step-card,
-  html[data-theme="light"] body.mobile-app-shell:not(.login-view) .mobile-setup-guide-placeholder,
   html[data-theme="light"] body.mobile-app-shell:not(.login-view) .mobile-finance-formula-note,
   html[data-theme="light"] body.mobile-app-shell:not(.login-view) .mobile-business-info-list {
     border-color: var(--light-border) !important;
@@ -24766,7 +24686,6 @@ html[data-theme="light"] body:not(.login-view) .mobile-business-page:not(.mobile
   html[data-theme="light"] body.mobile-app-shell:not(.login-view) .mobile-setup-overview span,
   html[data-theme="light"] body.mobile-app-shell:not(.login-view) .mobile-setup-overview p,
   html[data-theme="light"] body.mobile-app-shell:not(.login-view) .mobile-setup-step-copy p,
-  html[data-theme="light"] body.mobile-app-shell:not(.login-view) .mobile-setup-guide-placeholder small,
   html[data-theme="light"] body.mobile-app-shell:not(.login-view) .mobile-business-info-list span {
     color: var(--light-text-muted) !important;
     opacity: 1 !important;
@@ -24774,7 +24693,6 @@ html[data-theme="light"] body:not(.login-view) .mobile-business-page:not(.mobile
 
   html[data-theme="light"] body.mobile-app-shell:not(.login-view) .mobile-setup-overview strong,
   html[data-theme="light"] body.mobile-app-shell:not(.login-view) .mobile-setup-step-copy h3,
-  html[data-theme="light"] body.mobile-app-shell:not(.login-view) .mobile-setup-guide-placeholder strong,
   html[data-theme="light"] body.mobile-app-shell:not(.login-view) .mobile-business-info-list strong {
     color: var(--light-text-strong) !important;
   }
@@ -24783,17 +24701,6 @@ html[data-theme="light"] body:not(.login-view) .mobile-business-page:not(.mobile
     border-color: rgba(109, 40, 217, 0.24) !important;
     background: #ede9fe !important;
     color: #4c1d95 !important;
-  }
-
-  html[data-theme="light"] body.mobile-app-shell:not(.login-view) .mobile-setup-step-card > button:disabled {
-    border-color: rgba(91, 73, 127, 0.18) !important;
-    background: #f1eef8 !important;
-    color: var(--light-text-muted) !important;
-    opacity: 1 !important;
-  }
-
-  html[data-theme="light"] body.mobile-app-shell:not(.login-view) .mobile-setup-guide-placeholder {
-    border-color: rgba(37, 99, 235, 0.18) !important;
   }
 
   html[data-theme="light"] body.mobile-app-shell:not(.login-view) .notification-overlay {
