@@ -25237,9 +25237,9 @@ html[data-theme="light"] body:not(.login-view) .sidebar-theme-button.is-active {
 
   body.mobile-app-shell:not(.login-view) .date-pill,
   body.mobile-home-view:not(.login-view) .date-pill {
-    width: min(190px, calc(100vw - 196px));
-    min-width: min(190px, calc(100vw - 196px));
-    max-width: min(190px, calc(100vw - 196px));
+    width: fit-content;
+    min-width: 0;
+    max-width: min(154px, calc(100vw - 236px));
     min-height: 44px;
     padding: 0 12px;
     display: flex;
@@ -25256,7 +25256,7 @@ html[data-theme="light"] body:not(.login-view) .sidebar-theme-button.is-active {
 
   body.mobile-app-shell:not(.login-view) .date-pill-display,
   body.mobile-home-view:not(.login-view) .date-pill-display {
-    flex: 1 1 auto;
+    flex: 0 1 auto;
     min-width: 0;
     color: #f2f3f6;
     font-size: 14px;

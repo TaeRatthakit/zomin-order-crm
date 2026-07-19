@@ -1124,21 +1124,18 @@ function labelForDateRangeTrigger(range, presetKey = "") {
   const normalized = normalizeDateRange(range?.start, range?.end);
   const matchedPreset = presetKey && presetKey !== "custom" && dateRangeMatchesPreset(normalized, presetKey)
     ? dateRangePreset(presetKey)
-    : DATE_RANGE_PRESETS.find(preset => preset.key !== "custom" && dateRangeMatchesPreset(normalized, preset.key));
-  const triggerPresetLabel = matchedPreset?.key === "yesterday" ? "เมื่อวาน" : matchedPreset?.label;
+    : null;
+  const compactDate = dateValue => {
+    const parts = parseDateOnlyParts(dateValue);
+    if (!parts) return "-";
+    return `${parts.day}/${parts.month}/${String(parts.year % 100).padStart(2, "0")}`;
+  };
+  const triggerPresetLabel = matchedPreset?.key === "today" ? "วันนี้" : matchedPreset?.key === "yesterday" ? "เมื่อวาน" : "";
   if (normalized.start === normalized.end) {
-    const dateText = formatDatePillGregorian(normalized.start);
-    return triggerPresetLabel ? `${triggerPresetLabel} • ${dateText}` : dateText;
+    const dateText = compactDate(normalized.start);
+    return triggerPresetLabel ? `${triggerPresetLabel} ${dateText}` : dateText;
   }
-  const startParts = parseDateOnlyParts(normalized.start);
-  const endParts = parseDateOnlyParts(normalized.end);
-  if (startParts && endParts && startParts.year === endParts.year && startParts.month === endParts.month) {
-    return `${startParts.day}–${formatDatePillGregorian(normalized.end)}`;
-  }
-  if (startParts && endParts && startParts.year === endParts.year) {
-    return `${formatDatePillGregorian(normalized.start, { includeYear: false })}–${formatDatePillGregorian(normalized.end)}`;
-  }
-  return `${formatDatePillGregorian(normalized.start)}–${formatDatePillGregorian(normalized.end)}`;
+  return `${compactDate(normalized.start)}–${compactDate(normalized.end)}`;
 }
 
 function dashboardKpiTitlesForRange(range, today = todayISO()) {
