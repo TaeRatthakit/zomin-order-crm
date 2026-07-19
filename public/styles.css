@@ -22157,6 +22157,35 @@ html[data-theme="light"] *:focus-visible {
   outline-color: rgba(109, 40, 217, 0.72);
 }
 
+html[data-theme="light"] body.login-view .login-page-header strong {
+  color: #241633;
+}
+
+html[data-theme="light"] body.login-view .login-page-header strong span {
+  color: #7c3aed;
+}
+
+html[data-theme="light"] body.login-view .login-page-header p {
+  color: #5c516c;
+}
+
+html[data-theme="light"] body.login-view .login-card-heading p {
+  color: #d8deea;
+}
+
+html[data-theme="light"] body.login-view .login-card label {
+  color: #c9d2e8;
+}
+
+html[data-theme="light"] body.login-view .login-card input {
+  color: #1f2937;
+}
+
+html[data-theme="light"] body.login-view .login-card input::placeholder {
+  color: #5f6676;
+  opacity: 1;
+}
+
 /* Light theme completion: ordinary data surfaces use light colors; premium artwork stays dark. */
 html[data-theme="light"] {
   --light-page: #f7f5ff;
