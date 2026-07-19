@@ -3893,13 +3893,13 @@ function desktopReferenceChannelIcon(name, index) {
 
 function desktopReferenceQuickActions() {
   const actions = [
-    { title: "สร้างออเดอร์", detail: "สร้างออเดอร์ใหม่ได้อย่างรวดเร็ว", icon: "spark", tone: "purple", attribute: "data-open-order" },
+    can("orders.create") ? { title: "สร้างออเดอร์", detail: "สร้างออเดอร์ใหม่ได้อย่างรวดเร็ว", icon: "spark", tone: "purple", attribute: "data-open-order" } : null,
     { title: "จัดการสินค้า", detail: "เพิ่ม แก้ไข และจัดการสินค้าในร้าน", icon: "box", tone: "orange", view: "products" },
     { title: "รายงาน", detail: "ดูรายงานและสถิติธุรกิจแบบละเอียด", icon: "chart", tone: "blue", view: "reports" },
     { title: "เพิ่มยอดขาย", detail: "ติดตามและจัดการโอกาสการขาย", icon: "spark", tone: "green", view: "opportunities" },
     { title: "เพิ่มลูกค้า", detail: "เพิ่มลูกค้าใหม่และติดต่ออย่างมีประสิทธิภาพ", icon: "users", tone: "violet", view: "customers" },
     { title: "การตลาด", detail: "สร้างแคมเปญและโปรโมทธุรกิจ", icon: "send", tone: "pink", view: "marketing" }
-  ];
+  ].filter(Boolean);
   return actions.map(action => `
     <button class="desktop-reference-quick-action tone-${escapeHtml(action.tone)}" type="button"
       ${action.view ? `data-view-shortcut="${escapeHtml(action.view)}"` : action.attribute}>
@@ -11290,7 +11290,7 @@ document.addEventListener("click", async event => {
     document.body.classList.remove("sidebar-open");
   }
 
-  if (event.target.closest("[data-open-order]") && app.view === "orders") {
+  if (event.target.closest("[data-open-order]")) {
     if (!can("orders.create")) return showToast("ไม่มีสิทธิ์เพิ่มออเดอร์", "error");
     openOrderDialog();
   }
