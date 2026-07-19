@@ -13454,7 +13454,7 @@ body.desktop-app-shell:not(.login-view) .line-status-row span {
     display: none;
   }
 
-  body.mobile-app-shell:not(.login-view) .header-profile-avatar-core {
+  body.mobile-app-shell:not(.login-view) .header-profile-avatar > .header-profile-avatar-core {
     position: absolute;
     inset: 0;
     width: 100%;
