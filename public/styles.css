@@ -22674,6 +22674,13 @@ html[data-theme="light"] body:not(.login-view) .mobile-summary-donut > div stron
   color: #f8fafc !important;
 }
 
+html[data-theme="light"] body:not(.login-view) .sales-channel-donut > div,
+html[data-theme="light"] body:not(.login-view) .sales-channel-donut > div span,
+html[data-theme="light"] body:not(.login-view) .sales-channel-donut > div small,
+html[data-theme="light"] body:not(.login-view) .sales-channel-donut > div strong {
+  color: #f8fafc !important;
+}
+
 html[data-theme="light"] body:not(.login-view) .mobile-summary-legend {
   border-color: var(--light-border-visible) !important;
   background: rgba(255, 255, 255, 0.72) !important;
