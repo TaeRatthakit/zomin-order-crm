@@ -692,7 +692,7 @@ body.mobile-app-shell:not(.login-view) .line-status-row span {
 
   body.mobile-reports-view .mobile-report-business-summary {
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 8px;
     padding: 10px;
     border: 1px solid rgba(157, 53, 255, 0.68);
@@ -16410,13 +16410,17 @@ body.desktop-app-shell:not(.login-view) .line-status-row span {
 
   body.desktop-app-shell:not(.login-view) .mobile-report-business-summary {
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(6, minmax(0, 1fr));
     gap: 10px;
     padding: 14px;
     border: 1px solid rgba(157, 53, 255, .72);
     border-radius: 16px;
     background: rgba(4, 13, 24, .42);
     box-shadow: 0 0 24px rgba(130, 42, 255, .14), inset 0 1px 0 rgba(255,255,255,.03);
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-report-business-summary .mobile-report-kpi > strong {
+    white-space: normal;
   }
 
   body.desktop-app-shell:not(.login-view) .mobile-opportunity-summary > div {
@@ -17189,6 +17193,12 @@ body.desktop-app-shell:not(.login-view) .line-status-row span {
     border-color: rgba(151, 53, 255, 0.78);
     background: linear-gradient(135deg, #51209d, #32116d);
     color: #f2eaff;
+  }
+}
+
+@media (min-width: 821px) and (max-width: 1180px) {
+  body.desktop-app-shell:not(.login-view) .mobile-report-business-summary {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 

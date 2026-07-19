@@ -7080,6 +7080,10 @@ function reportMonthRange(month) {
   return `1 - ${days} ${shortMonth} ${year + 543}`;
 }
 
+function reportAllTimeNetProfit() {
+  return marketingPerformanceForPeriod().profitAfterAds;
+}
+
 function reportDelta(currentValue, previousValue) {
   const current = Number(currentValue || 0);
   const previous = Number(previousValue || 0);
@@ -7533,6 +7537,7 @@ function reportBusinessSummaryHtml(selectedMonth) {
   const orders = app.data?.orders || [];
   const customers = app.data?.customers || [];
   const products = normalizeProductRecords();
+  const allTimeProfit = reportAllTimeNetProfit();
   const previousMonth = reportPreviousMonth(selectedMonth);
   const monthOrders = orders.filter(order => monthKey(order.date) === selectedMonth);
   const previousMonthOrders = orders.filter(order => monthKey(order.date) === previousMonth);
@@ -7545,7 +7550,8 @@ function reportBusinessSummaryHtml(selectedMonth) {
     { label: "ลูกค้าทั้งหมด", value: money(customers.length), suffix: "ราย", comparison: { ...reportDelta(monthCustomerIds.size, previousMonthCustomerIds.size), hint: "จากช่วงก่อนหน้า" }, tone: "green", icon: "target" },
     { label: "สินค้าทั้งหมด", value: money(products.length), suffix: "รายการ", comparison: { ...reportDelta(products.length, products.length), hint: "จากช่วงก่อนหน้า" }, tone: "amber", icon: "box" },
     { label: "ขายได้ทั้งหมด", value: money(units(orders)), suffix: "ชิ้น", comparison: { ...reportDelta(units(monthOrders), units(previousMonthOrders)), hint: "จากช่วงก่อนหน้า" }, tone: "blue", icon: "sales" },
-    { label: "ยอดขายรวม", value: money(sales(orders)), suffix: "บาท", comparison: { ...reportDelta(sales(monthOrders), sales(previousMonthOrders)), hint: "จากช่วงก่อนหน้า" }, tone: "blue", icon: "wallet" }
+    { label: "ยอดขายรวม", value: money(sales(orders)), suffix: "บาท", comparison: { ...reportDelta(sales(monthOrders), sales(previousMonthOrders)), hint: "จากช่วงก่อนหน้า" }, tone: "blue", icon: "wallet" },
+    { label: "กำไรทั้งหมด", value: money(allTimeProfit), suffix: "บาท", comparison: { text: "สะสมทั้งหมด", tone: "flat", hint: "หลังหักต้นทุนและค่าโฆษณา" }, tone: "green", icon: "database" }
   ];
   return `
         <section class="mobile-report-business-summary" aria-label="Business Summary">
