@@ -3895,7 +3895,7 @@ async function handleApi(req, res) {
   }
 
   if (req.method === "POST" && url.pathname === "/api/customer-sources") {
-    if (!await requirePermission(req, res, db, "system.business", "ไม่มีสิทธิ์ตั้งค่าธุรกิจ")) return;
+    if (!await requirePermission(req, res, db, "orders.create", "ไม่มีสิทธิ์เพิ่มออเดอร์")) return;
     const body = await readBody(req);
     const name = String(body.name || "").trim();
     if (!name) return json(res, 400, { ok: false, error: "กรุณาระบุช่องทางการขาย" });

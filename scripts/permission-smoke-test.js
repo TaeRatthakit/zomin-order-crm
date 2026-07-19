@@ -125,6 +125,13 @@ server.listen(0, "127.0.0.1", async () => {
     if ((adminState.users || []).length !== 1) fail("Admin received user list");
     if (adminState.currentPermissions["orders.delete"]) fail("Admin unexpectedly has order delete");
 
+    const staffState = await (await expectStatus(baseUrl, "/api/state", staffCookie, 200)).json();
+    if ((staffState.users || []).length !== 1) fail("Staff received user list");
+    if (!staffState.currentPermissions["orders.create"]) fail("Staff with Add order enabled did not receive orders.create");
+    if (staffState.currentPermissions["customers.import"]) fail("Staff unexpectedly has import permission");
+    if (staffState.currentPermissions["customers.edit"]) fail("Staff unexpectedly has standalone customer edit permission");
+    if (staffState.currentPermissions["system.business"]) fail("Staff unexpectedly has business settings permission");
+
     const avatarPng = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
     const adminProfile = await (await expectStatus(baseUrl, "/api/profile", adminCookie, 200, {
       method: "PUT",
@@ -164,6 +171,53 @@ server.listen(0, "127.0.0.1", async () => {
       method: "POST",
       body: JSON.stringify({ name: "Allowed", phone: "0899999999", items: "Test Product", jars: 1, amount: 750, date: "2026-07-11" })
     });
+    const staffSource = await (await expectStatus(baseUrl, "/api/customer-sources", staffCookie, 200, {
+      method: "POST",
+      body: JSON.stringify({ name: "Staff Manual Source" })
+    })).json();
+    if (staffSource.source?.key !== "staff_manual_source") fail("Staff order source was not saved through orders.create");
+    const staffOrderPayload = await (await expectStatus(baseUrl, "/api/orders", staffCookie, 200, {
+      method: "POST",
+      body: JSON.stringify({
+        orderNumber: "staff-allowed-1",
+        name: "Staff Allowed Customer",
+        phone: "0888888888",
+        address: "Staff test address",
+        items: "Test Product",
+        productId: "product_1",
+        jars: 2,
+        totalQuantityShipped: 2,
+        amount: 1500,
+        date: "2026-07-12",
+        originSource: staffSource.source.key,
+        tags: "staff-test"
+      })
+    })).json();
+    if (staffOrderPayload.mutation?.order?.customerName !== "Staff Allowed Customer") fail("Staff order was not returned in mutation");
+    if (staffOrderPayload.mutation?.customers?.[0]?.phone !== "0888888888") fail("Staff order did not create/update customer");
+    const productAfterStaffOrder = (staffOrderPayload.mutation?.settings?.products || []).find(product => product.id === "product_1");
+    if (Number(productAfterStaffOrder?.stockQuantity) !== 7) fail(`Staff order did not deduct stock correctly: ${productAfterStaffOrder?.stockQuantity}`);
+    await expectStatus(baseUrl, "/api/import", staffCookie, 403, {
+      method: "POST",
+      body: JSON.stringify({ type: "csv", content: "" })
+    });
+    const permissionsForStaffDeny = await (await expectStatus(baseUrl, "/api/permissions", ownerCookie, 200)).json();
+    permissionsForStaffDeny.rolePermissions.Staff["orders.create"] = false;
+    await expectStatus(baseUrl, "/api/permissions", ownerCookie, 200, {
+      method: "PUT",
+      body: JSON.stringify({ rolePermissions: permissionsForStaffDeny.rolePermissions })
+    });
+    const staffDeniedCookie = await login(baseUrl, "staff");
+    const deniedStaffState = await (await expectStatus(baseUrl, "/api/state", staffDeniedCookie, 200)).json();
+    if (deniedStaffState.currentPermissions["orders.create"]) fail("Staff denied Add order still received orders.create");
+    await expectStatus(baseUrl, "/api/customer-sources", staffDeniedCookie, 403, {
+      method: "POST",
+      body: JSON.stringify({ name: "Blocked Staff Source" })
+    });
+    await expectStatus(baseUrl, "/api/orders", staffDeniedCookie, 403, {
+      method: "POST",
+      body: JSON.stringify({ name: "Blocked Staff", phone: "0877777777", items: "Test Product", productId: "product_1", jars: 1, amount: 750, date: "2026-07-12" })
+    });
     await expectStatus(baseUrl, "/api/products", adminCookie, 403, {
       method: "POST",
       body: JSON.stringify({ name: "Blocked Product" })
@@ -173,6 +227,7 @@ server.listen(0, "127.0.0.1", async () => {
     const permissions = await (await expectStatus(baseUrl, "/api/permissions", ownerCookie, 200)).json();
     permissions.rolePermissions.Admin["orders.delete"] = true;
     permissions.rolePermissions.Admin["orders.export"] = true;
+    permissions.rolePermissions.Staff["orders.create"] = true;
     await expectStatus(baseUrl, "/api/permissions", ownerCookie, 200, {
       method: "PUT",
       body: JSON.stringify({ rolePermissions: permissions.rolePermissions })
