@@ -1124,6 +1124,24 @@ function labelForDateRangeTrigger(range, presetKey = "") {
   return `${startText} – ${endText}`;
 }
 
+function dashboardKpiTitlesForRange(range, today = todayISO()) {
+  const normalized = normalizeDateRange(range?.start, range?.end);
+  const yesterday = addDaysISO(today, -1);
+  const suffix = normalized.start === today && normalized.end === today
+    ? "วันนี้"
+    : normalized.start === yesterday && normalized.end === yesterday
+      ? "เมื่อวาน"
+      : normalized.start === startOfMonthISO(today) && normalized.end === today
+        ? "เดือนนี้"
+        : "ช่วงนี้";
+  return {
+    sales: `ยอดขาย${suffix}`,
+    orders: `ออเดอร์${suffix}`,
+    profit: `กำไร${suffix}`,
+    units: `ขายได้${suffix}`
+  };
+}
+
 function formatThaiDateCompact(dateValue) {
   const parts = parseDateOnlyParts(dateValue);
   if (!parts) return "-";
@@ -3948,6 +3966,7 @@ function mobileDashboardAlertsCard(items) {
 
 function renderMobileDashboard(viewModel) {
   const { s, compactDate, salesDelta, ordersDelta, profitDelta, estimatedProfitToday, opportunitySummary, channelRows, alerts } = viewModel;
+  const kpiTitles = dashboardKpiTitlesForRange({ start: s.startDate || s.selectedDate, end: s.endDate || s.selectedDate });
   els.content.innerHTML = `
     <section class="section saas-page mobile-dashboard-page">
       <div class="mobile-dashboard-shell">
@@ -3968,9 +3987,9 @@ function renderMobileDashboard(viewModel) {
         </section>
 
         <section class="mobile-kpi-grid">
-          ${mobileDashboardMetricCard({ label: "ยอดขายวันนี้", value: money(s.salesToday), deltaText: dashboardChangeText(s.salesToday, s.salesToday - salesDelta.diff), tone: "green", icon: "wallet" })}
-          ${mobileDashboardMetricCard({ label: "ออเดอร์วันนี้", value: money(s.ordersToday || 0), deltaText: dashboardChangeText(s.ordersToday || 0, (s.ordersToday || 0) - ordersDelta.diff), tone: "amber", icon: "bag" })}
-          ${mobileDashboardMetricCard({ label: "กำไรวันนี้", value: money(estimatedProfitToday), deltaText: dashboardChangeText(estimatedProfitToday, estimatedProfitToday - profitDelta.diff), tone: "violet", icon: "database" })}
+          ${mobileDashboardMetricCard({ label: kpiTitles.sales, value: money(s.salesToday), deltaText: dashboardChangeText(s.salesToday, s.salesToday - salesDelta.diff), tone: "green", icon: "wallet" })}
+          ${mobileDashboardMetricCard({ label: kpiTitles.orders, value: money(s.ordersToday || 0), deltaText: dashboardChangeText(s.ordersToday || 0, (s.ordersToday || 0) - ordersDelta.diff), tone: "amber", icon: "bag" })}
+          ${mobileDashboardMetricCard({ label: kpiTitles.profit, value: money(estimatedProfitToday), deltaText: dashboardChangeText(estimatedProfitToday, estimatedProfitToday - profitDelta.diff), tone: "violet", icon: "database" })}
           ${mobileDashboardMetricCard({ label: "โอกาสเพิ่มยอดขาย", value: `฿${money(opportunitySummary.totalOpportunity)}`, deltaText: `ลูกค้าที่ควรติดตาม ${money(opportunitySummary.dueCustomerCount)} ราย`, tone: "cyan", icon: "target" })}
         </section>
 
@@ -4180,6 +4199,7 @@ function desktopDashboardNotificationsCard() {
 
 function renderDesktopDashboard(viewModel) {
   const { s, estimatedProfitToday, opportunitySummary, todaysOrders } = viewModel;
+  const kpiTitles = dashboardKpiTitlesForRange({ start: s.startDate || s.selectedDate, end: s.endDate || s.selectedDate });
   const selectedMonth = String(s.selectedDate || todayISO()).slice(0, 7);
   const channelRows = desktopDashboardChannelRows(s.selectedDate);
   const monthOrders = (app.data.orders || []).filter(order => String(order.date || "").startsWith(selectedMonth));
@@ -4238,10 +4258,10 @@ function renderDesktopDashboard(viewModel) {
         </section>
 
         <section class="desktop-reference-kpi-grid">
-          ${desktopReferenceKpiCard({ label: "ยอดขายวันนี้", value: `฿${money(s.salesToday)}`, deltaText: dashboardChangeText(s.salesToday, yesterdaySales), tone: "green", icon: "wallet", hint: comparisonHint })}
-          ${desktopReferenceKpiCard({ label: "ออเดอร์วันนี้", value: money(s.ordersToday || 0), deltaText: dashboardChangeText(s.ordersToday || 0, yesterdayOrders), tone: "orange", icon: "bag", hint: comparisonHint })}
-          ${desktopReferenceKpiCard({ label: "กำไรวันนี้", value: `฿${money(estimatedProfitToday)}`, deltaText: dashboardChangeText(estimatedProfitToday, yesterdayProfit), tone: "purple", icon: "database", hint: comparisonHint })}
-          ${desktopReferenceKpiCard({ label: "ขายได้วันนี้", value: `${money(unitsSoldToday)} ชิ้น`, deltaText: dashboardChangeText(unitsSoldToday, previousUnits), tone: "blue", icon: "box", hint: comparisonHint })}
+          ${desktopReferenceKpiCard({ label: kpiTitles.sales, value: `฿${money(s.salesToday)}`, deltaText: dashboardChangeText(s.salesToday, yesterdaySales), tone: "green", icon: "wallet", hint: comparisonHint })}
+          ${desktopReferenceKpiCard({ label: kpiTitles.orders, value: money(s.ordersToday || 0), deltaText: dashboardChangeText(s.ordersToday || 0, yesterdayOrders), tone: "orange", icon: "bag", hint: comparisonHint })}
+          ${desktopReferenceKpiCard({ label: kpiTitles.profit, value: `฿${money(estimatedProfitToday)}`, deltaText: dashboardChangeText(estimatedProfitToday, yesterdayProfit), tone: "purple", icon: "database", hint: comparisonHint })}
+          ${desktopReferenceKpiCard({ label: kpiTitles.units, value: `${money(unitsSoldToday)} ชิ้น`, deltaText: dashboardChangeText(unitsSoldToday, previousUnits), tone: "blue", icon: "box", hint: comparisonHint })}
           ${desktopReferenceKpiCard({ label: "โอกาสเพิ่มยอดขาย", value: `฿${money(opportunitySummary.totalOpportunity)}`, deltaText: "0.0%", detailText: `ลูกค้าที่ควรติดตาม ${money(opportunitySummary.dueCustomerCount)} ราย`, tone: "pink", icon: "target", hint: `ยอดปิดได้แล้ววันนี้ ฿${money(opportunitySummary.closedRevenue)}` })}
         </section>
 

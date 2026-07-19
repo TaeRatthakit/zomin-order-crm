@@ -68,6 +68,24 @@ function dateRangeKey(range) {
   return `${normalized.start}..${normalized.end}`;
 }
 
+function dashboardKpiTitlesForRangeForTest(range, today = "2026-07-17") {
+  const normalized = normalizeDateRange(range.start, range.end);
+  const yesterday = addDaysISO(today, -1);
+  const suffix = normalized.start === today && normalized.end === today
+    ? "วันนี้"
+    : normalized.start === yesterday && normalized.end === yesterday
+      ? "เมื่อวาน"
+      : normalized.start === startOfMonthISO(today) && normalized.end === today
+        ? "เดือนนี้"
+        : "ช่วงนี้";
+  return {
+    sales: `ยอดขาย${suffix}`,
+    orders: `ออเดอร์${suffix}`,
+    profit: `กำไร${suffix}`,
+    units: `ขายได้${suffix}`
+  };
+}
+
 function bangkokDateOnly(value) {
   const text = String(value || "").trim();
   if (!text) return "";
@@ -155,6 +173,7 @@ assert(appJs.includes("function bangkokDateOnly"), "Bangkok date-only normalizer
 assert(appJs.includes("function dateInRange"), "shared inclusive date range helper exists");
 assert(appJs.includes("function ordersInDateRange"), "shared range order filter exists");
 assert(appJs.includes("function labelForDateRangeTrigger"), "trigger has a readable selected date/range label");
+assert(appJs.includes("function dashboardKpiTitlesForRange"), "home KPI titles are derived from applied date range");
 assert(appJs.includes("formatDatePillGregorian"), "trigger label uses Gregorian display dates");
 assert(appJs.includes("rangeKey: summaryRangeKey"), "summary cache key includes start and end range");
 assert(appJs.includes('Object.prototype.hasOwnProperty.call(range, "end")'), "custom range draft preserves empty end while selecting");
@@ -169,6 +188,10 @@ assert(!sourceBetween("function chooseRangeDate", "function applyDateRangeDraft"
 assert(sourceBetween("function applyDateRangeDraft", "function updateShell").includes("buildLocalSummary(applied.end, applied)"), "apply passes full range to dashboard summary");
 assert(sourceBetween("function buildLocalSummary", "function syncDomTree").includes("ordersInDateRange(app.data.orders, summaryRange)"), "summary aggregates multi-day orders inclusively");
 assert(sourceBetween("function renderDashboard", "const businessManagementItems").includes("ordersInDateRange(app.data.orders, selectedRange)"), "dashboard cards use applied range orders");
+assert(sourceBetween("function renderMobileDashboard", "function desktopInsightTable").includes("dashboardKpiTitlesForRange"), "mobile home KPI titles use applied range helper");
+assert(sourceBetween("function renderDesktopDashboard", "function renderDashboard").includes("dashboardKpiTitlesForRange"), "desktop home KPI titles use applied range helper");
+assert(!sourceBetween("function renderMobileDashboard", "function desktopInsightTable").includes('label: "ยอดขายวันนี้"'), "mobile home sales KPI title is not hard-coded to today");
+assert(!sourceBetween("function renderDesktopDashboard", "function renderDashboard").includes('label: "ขายได้วันนี้"'), "desktop home units KPI title is not hard-coded to today");
 assert(sourceBetween("function dashboardChannelRows", "function mobileDashboardAlertItems").includes("ordersInDateRange(app.data.orders, range)"), "mobile sales channels use applied range");
 assert(sourceBetween("function desktopDashboardChannelRows", "function desktopDashboardDonutGradient").includes("ordersInDateRange(app.data.orders || [], range)"), "desktop sales channels use applied range");
 assert(sourceBetween("function filteredOrdersForCurrentView", "function patchOrdersView").includes("dateInRange(order.date, selectedRange)"), "orders view uses applied range");
@@ -241,5 +264,32 @@ assert(dateInRange("2026-07-17T23:59:59+07:00", { start: today, end: today }), "
 assert(dateInRange("2026-07-16T17:30:00.000Z", { start: today, end: today }), "UTC timestamp at Bangkok next-day boundary is included in Bangkok day");
 assert(cloneDateRangeStateForTest({ start: "2026-07-12", end: "" }).end === "", "custom range keeps empty end until second date is selected");
 assert(cloneDateRangeStateForTest({ start: "2026-07-12" }).end === "2026-07-12", "applied single-day clone still fills missing end");
+
+assert(JSON.stringify(dashboardKpiTitlesForRangeForTest({ start: today, end: today })) === JSON.stringify({
+  sales: "ยอดขายวันนี้",
+  orders: "ออเดอร์วันนี้",
+  profit: "กำไรวันนี้",
+  units: "ขายได้วันนี้"
+}), "home KPI titles match today by actual dates");
+assert(JSON.stringify(dashboardKpiTitlesForRangeForTest({ start: yesterday, end: yesterday })) === JSON.stringify({
+  sales: "ยอดขายเมื่อวาน",
+  orders: "ออเดอร์เมื่อวาน",
+  profit: "กำไรเมื่อวาน",
+  units: "ขายได้เมื่อวาน"
+}), "home KPI titles match yesterday by actual dates");
+assert(JSON.stringify(dashboardKpiTitlesForRangeForTest({ start: "2026-07-01", end: today })) === JSON.stringify({
+  sales: "ยอดขายเดือนนี้",
+  orders: "ออเดอร์เดือนนี้",
+  profit: "กำไรเดือนนี้",
+  units: "ขายได้เดือนนี้"
+}), "home KPI titles match current month by actual dates");
+assert(JSON.stringify(dashboardKpiTitlesForRangeForTest({ start: yesterday, end: today })) === JSON.stringify({
+  sales: "ยอดขายช่วงนี้",
+  orders: "ออเดอร์ช่วงนี้",
+  profit: "กำไรช่วงนี้",
+  units: "ขายได้ช่วงนี้"
+}), "home KPI titles use range wording for other multi-day ranges");
+assert(sourceBetween("function renderMobileDashboard", "function desktopInsightTable").includes('label: "โอกาสเพิ่มยอดขาย"'), "mobile opportunity KPI title stays workflow-based");
+assert(sourceBetween("function renderDesktopDashboard", "function renderDashboard").includes('label: "โอกาสเพิ่มยอดขาย"'), "desktop opportunity KPI title stays workflow-based");
 
 console.log("date-range-picker tests passed");
