@@ -211,7 +211,7 @@ function assertSharedSummary(width, mode) {
     if (!dashboardHtml.includes('data-dark-src="/desktop-dashboard-hero.webp?v=20260706-webp-v1"')) {
       fail("desktop dashboard must keep the dark hero asset available for theme switching");
     }
-    if (dashboardHtml.includes("/mobile-home-hero-light-v3.webp?v=20260719-mobile-light-hero-v3")) {
+    if (dashboardHtml.includes("/mobile-home-hero-light-v4.webp?v=20260720-mobile-light-single-frame-v1")) {
       fail("desktop dashboard must not render the mobile light hero asset");
     }
     if (!dashboardHtml.includes(`<strong>${setup.percent}%</strong>`) || !dashboardHtml.includes(`เสร็จแล้ว ${setup.completeCount} จาก ${setup.steps.length} ขั้นตอน`) || !dashboardHtml.includes(`style="width:${setup.percent}%"`)) {
@@ -227,7 +227,7 @@ function assertSharedSummary(width, mode) {
     if (!dashboardHtml.includes("เปิดดู")) fail("desktop notification rows must preserve the existing row action label");
   }
   if (mode === "mobile") {
-    if (!dashboardHtml.includes("/mobile-home-hero-light-v3.webp?v=20260719-mobile-light-hero-v3")) {
+    if (!dashboardHtml.includes("/mobile-home-hero-light-v4.webp?v=20260720-mobile-light-single-frame-v1")) {
       fail("mobile light dashboard must render the separate light hero asset");
     }
     if (!dashboardHtml.includes('data-dark-src="/mobile-home-hero.png?v=20260703-mobile-hero-clean"')) {
@@ -311,6 +311,9 @@ if (indexHtml.includes("mobileHero = new Image()")) {
 }
 if (indexHtml.includes('rel="preload" as="image"') && indexHtml.includes("mobile-home-hero")) {
   fail("mobile hero should avoid HTML preloads because app theme preference can differ from system color scheme");
+}
+if (source.includes("mobile-hero-dots") || styles.includes("mobile-hero-dots")) {
+  fail("mobile hero carousel dots must not be rendered or styled");
 }
 if (!source.includes("data-dashboard-theme-image") || !source.includes("syncDashboardThemeAssets()")) {
   fail("dashboard theme assets must switch from the resolved theme without duplicating render paths");
