@@ -23630,6 +23630,25 @@ html[data-theme="light"] body:not(.login-view) .settings-switch-ui::after {
   box-shadow: 0 2px 8px rgba(48, 38, 84, 0.18) !important;
 }
 
+html[data-theme="light"] body:not(.login-view) .permission-switch .settings-switch-ui {
+  border-color: rgba(148, 163, 184, 0.46) !important;
+  background: #e5e7eb !important;
+  box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.10) !important;
+  transition: background 160ms ease, border-color 160ms ease, box-shadow 160ms ease !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .permission-switch input:checked + .settings-switch-ui {
+  border-color: rgba(91, 33, 182, 0.54) !important;
+  background: linear-gradient(90deg, #6d28d9, #8b5cf6) !important;
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.14), 0 7px 16px rgba(109, 40, 217, 0.24) !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .permission-switch .settings-switch-ui::after {
+  background: #ffffff !important;
+  box-shadow: 0 2px 7px rgba(30, 27, 75, 0.22) !important;
+  transition: transform 160ms ease, box-shadow 160ms ease !important;
+}
+
 html[data-theme="light"] body:not(.login-view) .table,
 html[data-theme="light"] body:not(.login-view) .workspace-table,
 html[data-theme="light"] body:not(.login-view) .rules-table,
