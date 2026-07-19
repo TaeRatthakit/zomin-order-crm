@@ -98,7 +98,9 @@ window.__dashboardOpportunityTest = {
   renderDashboard,
   renderMobileOpportunities,
   mobileOpportunityData,
-  opportunitySummaryFromModel
+  opportunitySummaryFromModel,
+  mobileSetupWizardState,
+  applyThemePreference
 };
 `);
   vm.runInNewContext(source, sandbox, { filename: APP_PATH });
@@ -180,6 +182,7 @@ function assertSharedSummary(width, mode) {
   api.app.data = fixtureState();
   api.app.currentUser = { id: "owner", role: "Owner", permissions: {} };
   api.app.mobileOpportunityFilter = "today";
+  api.applyThemePreference("light", { persistLocal: false });
 
   const opportunityHtml = api.renderMobileOpportunities();
   const opportunitySummary = api.opportunitySummaryFromModel(api.mobileOpportunityData());
@@ -201,6 +204,19 @@ function assertSharedSummary(width, mode) {
     fail(`${mode} dashboard still renders the Marketing quick action card`);
   }
   if (mode === "desktop") {
+    const setup = api.mobileSetupWizardState();
+    if (!dashboardHtml.includes("/desktop-dashboard-hero-light.jpg?v=20260719-home-light-v1")) {
+      fail("desktop light dashboard must render the separate light hero asset");
+    }
+    if (!dashboardHtml.includes('data-dark-src="/desktop-dashboard-hero.webp?v=20260706-webp-v1"')) {
+      fail("desktop dashboard must keep the dark hero asset available for theme switching");
+    }
+    if (dashboardHtml.includes("/mobile-home-hero-light.jpg?v=20260719-home-light-v1")) {
+      fail("desktop dashboard must not render the mobile light hero asset");
+    }
+    if (!dashboardHtml.includes(`<strong>${setup.percent}%</strong>`) || !dashboardHtml.includes(`เสร็จแล้ว ${setup.completeCount} จาก ${setup.steps.length} ขั้นตอน`) || !dashboardHtml.includes(`style="width:${setup.percent}%"`)) {
+      fail("desktop onboarding must keep dynamic setup percent and step values in live HTML");
+    }
     const quickActionCount = (dashboardHtml.match(/desktop-reference-quick-action/g) || []).length;
     if (quickActionCount !== 5) fail(`desktop dashboard quick actions should reflow to 5 cards, got ${quickActionCount}`);
     if (!dashboardHtml.includes("การแจ้งเตือนสำคัญ")) fail("desktop dashboard must render important notifications");
@@ -210,10 +226,49 @@ function assertSharedSummary(width, mode) {
     if ((dashboardHtml.match(/data-open-notification="/g) || []).length !== 3) fail("desktop notification rows must use existing notification deep-link actions");
     if (!dashboardHtml.includes("เปิดดู")) fail("desktop notification rows must preserve the existing row action label");
   }
+  if (mode === "mobile") {
+    if (!dashboardHtml.includes("/mobile-home-hero-light.jpg?v=20260719-home-light-v1")) {
+      fail("mobile light dashboard must render the separate light hero asset");
+    }
+    if (!dashboardHtml.includes('data-dark-src="/mobile-home-hero.png?v=20260703-mobile-hero-clean"')) {
+      fail("mobile dashboard must keep the dark hero asset available for theme switching");
+    }
+    if (dashboardHtml.includes("/desktop-dashboard-hero-light.jpg?v=20260719-home-light-v1")) {
+      fail("mobile dashboard must not render the desktop light hero asset");
+    }
+  }
 }
 
 assertSharedSummary(1280, "desktop");
 assertSharedSummary(390, "mobile");
+
+{
+  const sandbox = loadApp(1280);
+  const api = sandbox.window.__dashboardOpportunityTest;
+  api.app.data = fixtureState();
+  api.app.currentUser = { id: "owner", role: "Owner", permissions: {} };
+  api.applyThemePreference("dark", { persistLocal: false });
+  api.renderDashboard();
+  const dashboardHtml = sandbox.__content.innerHTML;
+  const activeSrcMatch = dashboardHtml.match(/<img[\s\S]*?class="desktop-reference-growth-image"[\s\S]*?src="([^"]+)"/);
+  if (!activeSrcMatch || activeSrcMatch[1] !== "/desktop-dashboard-hero.webp?v=20260706-webp-v1") {
+    fail("desktop dark dashboard must keep rendering the existing dark hero asset");
+  }
+}
+
+{
+  const sandbox = loadApp(390);
+  const api = sandbox.window.__dashboardOpportunityTest;
+  api.app.data = fixtureState();
+  api.app.currentUser = { id: "owner", role: "Owner", permissions: {} };
+  api.applyThemePreference("dark", { persistLocal: false });
+  api.renderDashboard();
+  const dashboardHtml = sandbox.__content.innerHTML;
+  const activeSrcMatch = dashboardHtml.match(/<img[\s\S]*?class="mobile-hero-image"[\s\S]*?src="([^"]+)"/);
+  if (!activeSrcMatch || activeSrcMatch[1] !== "/mobile-home-hero.png?v=20260703-mobile-hero-clean") {
+    fail("mobile dark dashboard must keep rendering the existing dark hero asset");
+  }
+}
 
 {
   const sandbox = loadApp(1280);
@@ -240,6 +295,18 @@ if (!source.includes("data-open-notification=") || !source.includes("data-open-n
 }
 if (!styles.includes("grid-template-columns: repeat(5, minmax(0, 1fr));")) {
   fail("desktop quick-action grid must use five equal columns");
+}
+if (!source.includes("data-dashboard-theme-image") || !source.includes("syncDashboardThemeAssets()")) {
+  fail("dashboard theme assets must switch from the resolved theme without duplicating render paths");
+}
+if (!source.includes("<strong>${setup.percent}%</strong>") || !source.includes('style="width:${setup.percent}%"')) {
+  fail("desktop onboarding percent and progress width must remain dynamic HTML values");
+}
+if (!styles.includes('html[data-theme="light"] body.desktop-dashboard-view:not(.login-view) .desktop-reference-growth-banner')) {
+  fail("desktop light hero styling must stay scoped to desktop dashboard");
+}
+if (!styles.includes('html[data-theme="light"] body.mobile-home-view:not(.login-view) .mobile-hero-card')) {
+  fail("mobile light hero styling must stay scoped to mobile home");
 }
 
 console.log("Dashboard opportunity summary test passed.");

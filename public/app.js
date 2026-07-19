@@ -554,6 +554,21 @@ function applyThemePreference(preference, { persistLocal = true, userId = app.cu
   else clearActiveThemeUser();
   if (persistLocal) cacheThemePreference(normalized, userId);
   syncThemeControls(normalized);
+  syncDashboardThemeAssets();
+}
+
+function dashboardThemeAssetSrc(darkSrc, lightSrc) {
+  return document.documentElement.dataset.theme === "light" ? lightSrc : darkSrc;
+}
+
+function syncDashboardThemeAssets(root = document) {
+  root.querySelectorAll?.("[data-dashboard-theme-image]").forEach(image => {
+    const darkSrc = image.dataset.darkSrc;
+    const lightSrc = image.dataset.lightSrc;
+    if (!darkSrc || !lightSrc) return;
+    const nextSrc = dashboardThemeAssetSrc(darkSrc, lightSrc);
+    if (image.getAttribute("src") !== nextSrc) image.setAttribute("src", nextSrc);
+  });
 }
 
 function applyUserTheme(user = app.currentUser, { preferCache = false, persistLocal = true } = {}) {
@@ -3834,7 +3849,10 @@ function renderMobileDashboard(viewModel) {
         <section class="mobile-hero-card">
           <img
             class="mobile-hero-image"
-            src="/mobile-home-hero.png?v=20260703-mobile-hero-clean"
+            src="${dashboardThemeAssetSrc("/mobile-home-hero.png?v=20260703-mobile-hero-clean", "/mobile-home-hero-light.jpg?v=20260719-home-light-v1")}"
+            data-dashboard-theme-image
+            data-dark-src="/mobile-home-hero.png?v=20260703-mobile-hero-clean"
+            data-light-src="/mobile-home-hero-light.jpg?v=20260719-home-light-v1"
             alt="จัดการธุรกิจให้เติบโต ไปกับ Growup Pilot"
             loading="eager"
             fetchpriority="high"
@@ -4081,7 +4099,16 @@ function renderDesktopDashboard(viewModel) {
       <div class="desktop-reference-dashboard-shell">
         <section class="desktop-reference-hero-grid">
           <article class="desktop-reference-growth-banner">
-            <img src="/desktop-dashboard-hero.webp?v=20260706-webp-v1" alt="จัดการธุรกิจให้เติบโต ไปกับ Growup Pilot" loading="eager" fetchpriority="high">
+            <img
+              class="desktop-reference-growth-image"
+              src="${dashboardThemeAssetSrc("/desktop-dashboard-hero.webp?v=20260706-webp-v1", "/desktop-dashboard-hero-light.jpg?v=20260719-home-light-v1")}"
+              data-dashboard-theme-image
+              data-dark-src="/desktop-dashboard-hero.webp?v=20260706-webp-v1"
+              data-light-src="/desktop-dashboard-hero-light.jpg?v=20260719-home-light-v1"
+              alt="จัดการธุรกิจให้เติบโต ไปกับ Growup Pilot"
+              loading="eager"
+              fetchpriority="high"
+            >
           </article>
           <article class="desktop-reference-onboarding">
             <div class="desktop-reference-onboarding-title">

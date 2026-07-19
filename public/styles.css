@@ -25660,3 +25660,111 @@ html[data-theme="light"] body:not(.login-view) .sidebar-theme-button.is-active {
 }
 
 @keyframes notification-sheet-in { from { opacity: 0; transform: translateY(46px); } to { opacity: 1; transform: translateY(0); } }
+
+/* Light-theme Home hero artwork is scoped separately for desktop and mobile. */
+html[data-theme="light"] body.desktop-dashboard-view:not(.login-view) .desktop-reference-growth-banner {
+  border-color: rgba(226, 218, 249, 0.86);
+  background: #fbfaff;
+  box-shadow: 0 14px 34px rgba(88, 67, 132, 0.14), inset 0 1px rgba(255, 255, 255, 0.92);
+}
+
+html[data-theme="light"] body.desktop-dashboard-view:not(.login-view) .desktop-reference-growth-banner img {
+  border-radius: inherit;
+}
+
+html[data-theme="light"] body.desktop-dashboard-view:not(.login-view) .desktop-reference-onboarding {
+  border-color: rgba(226, 218, 249, 0.88);
+  background:
+    radial-gradient(circle at 88% 14%, rgba(168, 85, 247, 0.20), transparent 25%),
+    radial-gradient(circle at 42% 96%, rgba(124, 58, 237, 0.10), transparent 42%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(249, 247, 255, 0.98));
+  box-shadow: 0 16px 36px rgba(88, 67, 132, 0.14), inset 0 1px rgba(255, 255, 255, 0.94);
+}
+
+html[data-theme="light"] body.desktop-dashboard-view:not(.login-view) .desktop-reference-onboarding-title {
+  text-shadow: none;
+}
+
+html[data-theme="light"] body.desktop-dashboard-view:not(.login-view) .desktop-reference-onboarding-title span {
+  color: #0f1b33 !important;
+  font-weight: 800;
+}
+
+html[data-theme="light"] body.desktop-dashboard-view:not(.login-view) .desktop-reference-onboarding-title strong {
+  color: #6d35df !important;
+  font-weight: 800;
+  text-shadow: 0 10px 22px rgba(124, 58, 237, 0.14);
+}
+
+html[data-theme="light"] body.desktop-dashboard-view:not(.login-view) .desktop-reference-onboarding::before,
+html[data-theme="light"] body.desktop-dashboard-view:not(.login-view) .desktop-reference-onboarding::after {
+  color: #b77bff;
+  filter: drop-shadow(0 0 10px rgba(168, 85, 247, 0.32));
+}
+
+html[data-theme="light"] body.desktop-dashboard-view:not(.login-view) .desktop-reference-onboarding-summary {
+  left: 18px;
+  right: 18px;
+  bottom: 16px;
+  grid-template-columns: 128px minmax(0, 1fr);
+  gap: 18px;
+  padding: 13px 14px;
+  border: 1px solid rgba(237, 232, 252, 0.96);
+  border-radius: 18px;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.92), rgba(250, 247, 255, 0.86));
+  box-shadow: 0 12px 28px rgba(104, 74, 155, 0.12), inset 0 1px rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(4px);
+}
+
+html[data-theme="light"] body.desktop-dashboard-view:not(.login-view) .desktop-reference-setup-ring {
+  width: 116px;
+  height: 116px;
+  background:
+    radial-gradient(circle, #ffffff 57%, transparent 59%),
+    conic-gradient(#8b5cf6 var(--setup-progress), #e7ddfb 0);
+  box-shadow: 0 10px 26px rgba(124, 58, 237, 0.15), inset 0 0 0 1px rgba(255, 255, 255, 0.88);
+}
+
+html[data-theme="light"] body.desktop-dashboard-view:not(.login-view) .desktop-reference-setup-ring strong {
+  color: #0f1b33 !important;
+  font-weight: 800;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.72);
+}
+
+html[data-theme="light"] body.desktop-dashboard-view:not(.login-view) .desktop-reference-setup-ring small,
+html[data-theme="light"] body.desktop-dashboard-view:not(.login-view) .desktop-reference-setup-copy > span {
+  color: #14213d !important;
+  font-weight: 700;
+  text-shadow: none;
+}
+
+html[data-theme="light"] body.desktop-dashboard-view:not(.login-view) .desktop-reference-setup-track {
+  background: #ebe5fb;
+  box-shadow: inset 0 1px 2px rgba(109, 53, 223, 0.10);
+}
+
+html[data-theme="light"] body.desktop-dashboard-view:not(.login-view) .desktop-reference-setup-track i {
+  background: linear-gradient(90deg, #8b5cf6, #7c3aed);
+  box-shadow: 0 6px 14px rgba(124, 58, 237, 0.26);
+}
+
+html[data-theme="light"] body.desktop-dashboard-view:not(.login-view) .desktop-reference-setup-copy button {
+  min-height: 48px;
+  border-color: rgba(124, 58, 237, 0.22);
+  background: linear-gradient(135deg, #9b5cf6, #6827dc);
+  color: #ffffff !important;
+  font-weight: 800;
+  text-shadow: 0 1px 4px rgba(46, 16, 101, 0.34);
+  box-shadow: 0 10px 20px rgba(109, 53, 223, 0.24), inset 0 1px rgba(255, 255, 255, 0.18);
+}
+
+html[data-theme="light"] body.mobile-home-view:not(.login-view) .mobile-hero-card {
+  padding: 0;
+  border-color: rgba(231, 224, 250, 0.94);
+  background: #fbfaff;
+  box-shadow: 0 18px 36px rgba(88, 67, 132, 0.14), inset 0 1px rgba(255, 255, 255, 0.94);
+}
+
+html[data-theme="light"] body.mobile-home-view:not(.login-view) .mobile-hero-image {
+  border-radius: inherit;
+}

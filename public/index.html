@@ -13,13 +13,17 @@
     <link rel="preload" as="image" href="/icons/logo.png?v=20260718-website-logo-transparent-v1" fetchpriority="high">
     <link rel="preload" as="image" href="/mobile-home-avatar.png" fetchpriority="high" media="(max-width: 780px)">
     <link rel="preload" as="image" type="image/png" href="/icons/login-logo-192.png?v=20260718-website-logo-transparent-v1" fetchpriority="high">
-    <link rel="preload" as="image" href="/mobile-home-hero.png?v=20260703-mobile-hero-clean" fetchpriority="high" media="(max-width: 780px)">
+    <link rel="preload" as="image" href="/mobile-home-hero-light.jpg?v=20260719-home-light-v1" fetchpriority="high" media="(max-width: 780px) and (prefers-color-scheme: light)">
+    <link rel="preload" as="image" href="/mobile-home-hero.png?v=20260703-mobile-hero-clean" fetchpriority="high" media="(max-width: 780px) and (prefers-color-scheme: dark)">
     <script>
       document.documentElement.classList.add("app-startup-pending");
       if (window.matchMedia("(max-width: 780px)").matches) {
+        const systemLight = window.matchMedia("(prefers-color-scheme: light)").matches;
         const mobileHero = new Image();
         mobileHero.decoding = "async";
-        mobileHero.src = "/mobile-home-hero.png?v=20260703-mobile-hero-clean";
+        mobileHero.src = systemLight
+          ? "/mobile-home-hero-light.jpg?v=20260719-home-light-v1"
+          : "/mobile-home-hero.png?v=20260703-mobile-hero-clean";
       }
     </script>
     <meta property="og:type" content="website">
@@ -41,7 +45,8 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=20260717-mobile-icon-v1">
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=20260717-mobile-icon-v1">
     <link rel="apple-touch-icon" sizes="180x180" href="/icons/growup-apple-touch-icon-180-20260718-installed-app-v2.png?v=20260718-installed-app-icon-v2">
-    <link rel="preload" as="image" type="image/webp" href="/desktop-dashboard-hero.webp?v=20260706-webp-v1" fetchpriority="high" media="(min-width: 769px)">
+    <link rel="preload" as="image" href="/desktop-dashboard-hero-light.jpg?v=20260719-home-light-v1" fetchpriority="high" media="(min-width: 769px) and (prefers-color-scheme: light)">
+    <link rel="preload" as="image" type="image/webp" href="/desktop-dashboard-hero.webp?v=20260706-webp-v1" fetchpriority="high" media="(min-width: 769px) and (prefers-color-scheme: dark)">
     <script>
       (() => {
         const preference = "system";
@@ -51,7 +56,7 @@
         document.documentElement.dataset.theme = resolved;
       })();
     </script>
-    <link rel="stylesheet" href="/styles.css?v=20260719-login-light-contrast-v1">
+    <link rel="stylesheet" href="/styles.css?v=20260719-home-light-hero-v1">
   </head>
   <body>
     <div id="appStartupLoader" class="app-startup-loader" aria-hidden="true">
@@ -492,9 +497,9 @@
       </form>
     </dialog>
 
-    <script src="/app.js?v=20260719-order-single-product-v1"></script>
+    <script src="/app.js?v=20260719-home-light-hero-v1"></script>
     <script>
-      const swUrl = "/service-worker.js?v=20260719-login-light-contrast-v1";
+      const swUrl = "/service-worker.js?v=20260719-home-light-hero-v1";
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", () => {
           navigator.serviceWorker.register(swUrl).then(registration => registration.update()).catch(() => {});
