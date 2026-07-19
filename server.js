@@ -2301,7 +2301,10 @@ function addOrder(db, payload) {
 
 function updateLineUpsaleOrder(db, order, payload = {}) {
   const previousOrder = { ...order };
-  const existingProduct = resolveStoredProductForOrder(db.settings || {}, order);
+  const resolvedPayload = applyResolvedProductToPayload(db.settings || {}, { ...order, ...payload }, {
+    allowContainsMatch: true,
+    preservePackageSnapshot: true
+  });
   const customer = db.customers.find(item => item.id === order.customerId);
   const previousCustomer = customer ? { ...customer, tags: [...(customer.tags || [])] } : null;
   previousOrder.tags = previousCustomer?.tags || [];
@@ -2323,7 +2326,7 @@ function updateLineUpsaleOrder(db, order, payload = {}) {
     const nextSourceChannel = orderChannel(payload) || order.sourceChannel || "LINE";
     Object.assign(order, {
       orderNumber: normalizeImportText(payload.orderNumber || order.orderNumber),
-      items: existingProduct.product.name,
+      items: resolvedPayload.items,
       customerName: normalizeImportText(payload.name || order.customerName || customer?.name || ""),
       phone: normalizePhone(payload.phone || order.phone || customer?.phone || ""),
       address: normalizeImportText(payload.address || order.address || customer?.address || ""),
@@ -2339,15 +2342,13 @@ function updateLineUpsaleOrder(db, order, payload = {}) {
       duplicateFingerprint: duplicateFingerprint(payload),
       socialName: String(payload.socialName || payload.social_name || order.socialName || "").trim(),
       freeGift: String(payload.freeGift ?? payload.free_gift ?? order.freeGift ?? "").trim(),
-      productId: String(existingProduct.product.id || order.productId || "").trim(),
-      packageId: String(existingProduct.package?.id || order.packageId || "").trim(),
-      packageName: String(existingProduct.package?.name || order.packageName || "").trim(),
-      paidQuantity: payload.paidQuantity !== undefined ? Math.max(0, Number(payload.paidQuantity || 0)) : Number(order.paidQuantity || 0),
-      freeQuantity: payload.freeQuantity !== undefined ? Math.max(0, Number(payload.freeQuantity || 0)) : Number(order.freeQuantity || 0),
-      totalQuantityShipped: payload.totalQuantityShipped !== undefined
-        ? Math.max(0, Number(payload.totalQuantityShipped || 0))
-        : Number(order.totalQuantityShipped || 0),
-      packageExpenses: payload.packageExpenses !== undefined ? normalizePackageExpenses(payload.packageExpenses) : normalizePackageExpenses(order.packageExpenses),
+      productId: String(resolvedPayload.productId || order.productId || "").trim(),
+      packageId: String(resolvedPayload.packageId || order.packageId || "").trim(),
+      packageName: String(resolvedPayload.packageName || order.packageName || "").trim(),
+      paidQuantity: Math.max(0, Number(resolvedPayload.paidQuantity || 0)),
+      freeQuantity: Math.max(0, Number(resolvedPayload.freeQuantity || 0)),
+      totalQuantityShipped: Math.max(0, Number(resolvedPayload.totalQuantityShipped || 0)),
+      packageExpenses: normalizePackageExpenses(resolvedPayload.packageExpenses),
       vipCardStatus: String(payload.vipCardStatus || payload.vip_card_status || order.vipCardStatus || "ยังไม่ได้ส่งบัตร").trim(),
       note: String(payload.note ?? order.note ?? "").trim(),
       rawText: String(payload.rawText || order.rawText || "").trim(),

@@ -785,6 +785,18 @@ function money(value) {
   return prefs.currency === "USD" ? `$${formatted}` : formatted;
 }
 
+function financialMoney(value) {
+  const numeric = Number(value || 0);
+  const prefs = app.data?.settings?.displayPreferences || {};
+  const locale = prefs.numberFormat === "1.234,56" ? "de-DE" : "th-TH";
+  const hasFraction = Math.abs(numeric - Math.round(numeric)) > 0.000001;
+  const formatted = numeric.toLocaleString(locale, {
+    minimumFractionDigits: hasFraction ? 2 : 0,
+    maximumFractionDigits: 2
+  });
+  return prefs.currency === "USD" ? `$${formatted}` : formatted;
+}
+
 function productCostMoney(value) {
   return Number(value || 0).toLocaleString("en-US", {
     minimumFractionDigits: 0,
@@ -4900,18 +4912,18 @@ function renderMobileBusinessProductDetail() {
         <div class="mobile-business-finance-grid">
           <article class="purple"><span>ต้นทุนต่อชิ้น</span><strong>${productCostMoney(unitCost)} บาท</strong></article>
           <article class="blue"><span>ขายแล้ว</span><strong>${money(units)} ชิ้น</strong></article>
-          <article class="orange"><span>ยอดขาย</span><strong>${money(breakdown.sales)} บาท</strong></article>
-          <article class="${breakdown.profit >= 0 ? "green" : "red"}"><span>กำไรสุทธิประมาณการ</span><strong>${money(breakdown.profit)} บาท</strong></article>
+          <article class="orange"><span>ยอดขาย</span><strong>${financialMoney(breakdown.sales)} บาท</strong></article>
+          <article class="${breakdown.profit >= 0 ? "green" : "red"}"><span>กำไรสุทธิประมาณการ</span><strong>${financialMoney(breakdown.profit)} บาท</strong></article>
         </div>
         <div class="mobile-business-info-list">
           <div><span>ราคาขาย</span><strong>${money(product.salePrice)} บาท</strong></div>
           <div><span>สต๊อกคงเหลือ</span><strong>${money(product.stockQuantity)} ชิ้น</strong></div>
           <div><span>สถานะ</span><strong>${escapeHtml(product.computedStatus)}</strong></div>
           <div><span>รายละเอียด</span><strong>${escapeHtml(product.description || "ยังไม่มีรายละเอียด")}</strong></div>
-          <div><span>ต้นทุนสินค้า</span><strong>${money(breakdown.productCosts)} บาท</strong></div>
-          <div><span>ค่าใช้จ่ายแพ็กเกจ</span><strong>${money(breakdown.packageExpenses)} บาท</strong></div>
-          <div><span>ค่าใช้จ่ายส่วนกลางตามออเดอร์</span><strong>${money(breakdown.globalAdditionalCosts)} บาท</strong></div>
-          <div><span>ค่าใช้จ่ายเพิ่มเติมรวม</span><strong>${money(breakdown.additionalCosts)} บาท</strong></div>
+          <div><span>ต้นทุนสินค้า</span><strong>${financialMoney(breakdown.productCosts)} บาท</strong></div>
+          <div><span>ค่าใช้จ่ายแพ็กเกจ</span><strong>${financialMoney(breakdown.packageExpenses)} บาท</strong></div>
+          <div><span>ค่าใช้จ่ายส่วนกลางตามออเดอร์</span><strong>${financialMoney(breakdown.globalAdditionalCosts)} บาท</strong></div>
+          <div><span>ค่าใช้จ่ายเพิ่มเติมรวม</span><strong>${financialMoney(breakdown.additionalCosts)} บาท</strong></div>
           <div><span>จำนวนออเดอร์</span><strong>${money(relatedOrders.length)} ออเดอร์</strong></div>
         </div>
         ${can("products.edit") ? `<button class="button primary mobile-business-full-button" type="button" data-edit-product="${escapeHtml(product.id)}">แก้ไขสินค้า</button>` : ""}
@@ -4936,12 +4948,12 @@ function renderMobileBusinessFinance() {
       <form class="mobile-finance-form" id="settingsForm">
         <input name="daysPerUnit" type="hidden" value="${Math.max(1, Number(settings.followUpDaysPerUnit || 15))}">
         <div class="mobile-business-finance-grid">
-          <article class="blue"><span>ยอดขายรวม</span><strong>${money(breakdown.sales)} บาท</strong></article>
-          <article class="purple"><span>ต้นทุนสินค้า</span><strong>${money(breakdown.productCosts)} บาท</strong></article>
-          <article class="orange"><span>ค่าใช้จ่ายเพิ่มเติม</span><strong id="additionalCostsTotal">${money(breakdown.additionalCosts)} บาท</strong></article>
-          <article class="${breakdown.profitBeforeAds >= 0 ? "green" : "red"}"><span>กำไรก่อนค่าโฆษณา</span><strong>${money(breakdown.profitBeforeAds)} บาท</strong></article>
-          <article class="blue"><span>ค่าโฆษณา</span><strong>${money(advertising.adCost)} บาท</strong></article>
-          <article class="${advertising.profitAfterAds >= 0 ? "green" : "red"}"><span>กำไรสุทธิหลังโฆษณา</span><strong>${money(advertising.profitAfterAds)} บาท</strong></article>
+          <article class="blue"><span>ยอดขายรวม</span><strong>${financialMoney(breakdown.sales)} บาท</strong></article>
+          <article class="purple"><span>ต้นทุนสินค้า</span><strong>${financialMoney(breakdown.productCosts)} บาท</strong></article>
+          <article class="orange"><span>ค่าใช้จ่ายเพิ่มเติม</span><strong id="additionalCostsTotal">${financialMoney(breakdown.additionalCosts)} บาท</strong></article>
+          <article class="${breakdown.profitBeforeAds >= 0 ? "green" : "red"}"><span>กำไรก่อนค่าโฆษณา</span><strong>${financialMoney(breakdown.profitBeforeAds)} บาท</strong></article>
+          <article class="blue"><span>ค่าโฆษณา</span><strong>${financialMoney(advertising.adCost)} บาท</strong></article>
+          <article class="${advertising.profitAfterAds >= 0 ? "green" : "red"}"><span>กำไรสุทธิหลังโฆษณา</span><strong>${financialMoney(advertising.profitAfterAds)} บาท</strong></article>
         </div>
 
         <div class="mobile-finance-section-head">
@@ -4964,8 +4976,8 @@ function renderMobileBusinessFinance() {
                 <label><span>ต้นทุน/หน่วย</span><input name="productCostAmount" type="number" min="0" step="0.01" value="${Number(cost?.costPerJar ?? product.costPerItem ?? 0)}"></label>
                 <input name="productCostEnabled" type="checkbox" checked hidden>
                 <div class="mobile-finance-product-metrics">
-                  <span>ยอดขาย <strong>${money(productBreakdown.sales)} บาท</strong></span>
-                  <span>กำไรขั้นต้น <strong>${money(productBreakdown.sales - productBreakdown.productCosts)} บาท</strong></span>
+                  <span>ยอดขาย <strong>${financialMoney(productBreakdown.sales)} บาท</strong></span>
+                  <span>กำไรขั้นต้น <strong>${financialMoney(productBreakdown.sales - productBreakdown.productCosts)} บาท</strong></span>
                 </div>
                 <button class="button ghost compact-action" type="button" data-business-product="${escapeHtml(product.id)}">ดูรายละเอียดกำไร</button>
               </article>
@@ -8624,20 +8636,20 @@ function renderSettingsFinance() {
         ${settingsUnifiedCard("ภาพรวมกำไร", "คำนวณจากออเดอร์และค่าใช้จ่ายจริงของวันที่เลือก", `
           <p class="settings-finance-label">สูตรการคำนวณกำไรวันนี้</p>
           <div class="settings-finance-equation">
-            <div class="settings-finance-pill sales"><span>ยอดขายวันนี้</span><strong>${money(todaySales)} บาท</strong></div>
+            <div class="settings-finance-pill sales"><span>ยอดขายวันนี้</span><strong>${financialMoney(todaySales)} บาท</strong></div>
             <span class="settings-finance-operator">-</span>
-            <div class="settings-finance-pill product"><span>ต้นทุนสินค้าวันนี้</span><strong>${money(todayProductCosts)} บาท</strong></div>
+            <div class="settings-finance-pill product"><span>ต้นทุนสินค้าวันนี้</span><strong>${financialMoney(todayProductCosts)} บาท</strong></div>
             <span class="settings-finance-operator">-</span>
-            <div class="settings-finance-pill extra"><span>ต้นทุนเพิ่มเติม</span><strong>${money(totalAdditionalCosts)} บาท</strong></div>
+            <div class="settings-finance-pill extra"><span>ต้นทุนเพิ่มเติม</span><strong>${financialMoney(totalAdditionalCosts)} บาท</strong></div>
             <span class="settings-finance-operator">=</span>
-            <div class="settings-finance-pill profit"><span>กำไรก่อนค่าโฆษณา</span><strong>${money(todayProfit)} บาท</strong></div>
+            <div class="settings-finance-pill profit"><span>กำไรก่อนค่าโฆษณา</span><strong>${financialMoney(todayProfit)} บาท</strong></div>
           </div>
           <div class="settings-finance-equation ad-adjusted-equation">
-            <div class="settings-finance-pill profit"><span>กำไรก่อนค่าโฆษณา</span><strong>${money(todayMarketing.profitBeforeAds)} บาท</strong></div>
+            <div class="settings-finance-pill profit"><span>กำไรก่อนค่าโฆษณา</span><strong>${financialMoney(todayMarketing.profitBeforeAds)} บาท</strong></div>
             <span class="settings-finance-operator">-</span>
-            <div class="settings-finance-pill extra"><span>ค่าโฆษณา</span><strong>${money(todayMarketing.adCost)} บาท</strong></div>
+            <div class="settings-finance-pill extra"><span>ค่าโฆษณา</span><strong>${financialMoney(todayMarketing.adCost)} บาท</strong></div>
             <span class="settings-finance-operator">=</span>
-            <div class="settings-finance-pill profit"><span>กำไรหลังค่าโฆษณา</span><strong>${money(todayMarketing.profitAfterAds)} บาท</strong></div>
+            <div class="settings-finance-pill profit"><span>กำไรหลังค่าโฆษณา</span><strong>${financialMoney(todayMarketing.profitAfterAds)} บาท</strong></div>
           </div>
         `, { className: "settings-finance-summary" })}
         ${settingsUnifiedCard("ต้นทุนสินค้า", "แต่ละสินค้าใช้ Cost / กระปุก ของตัวเอง", `
@@ -8656,7 +8668,7 @@ function renderSettingsFinance() {
           <div class="settings-cost-list" id="additionalCostList">${settingsAdditionalCostRows(settings)}</div>
           <div class="settings-total-row">
             <span>รวมต้นทุนเพิ่มเติมทั้งหมด</span>
-            <strong id="additionalCostsTotal">${money(totalAdditionalCosts)} บาท</strong>
+            <strong id="additionalCostsTotal">${financialMoney(totalAdditionalCosts)} บาท</strong>
           </div>
         `, { className: "settings-finance-block" })}
         <div class="settings-submit-bar">

@@ -35,12 +35,22 @@ const product = {
   ]
 };
 
+const ambiguousProduct = {
+  ...product,
+  id: "product_ambiguous",
+  name: "Ambiguous",
+  salesPackages: [
+    { ...product.salesPackages[0], id: "package_a" },
+    { ...product.salesPackages[0], id: "package_b" }
+  ]
+};
+
 const fixture = {
   notificationReads: [],
   settings: {
     businessName: "Growup Pilot",
     defaultJarPrice: 280,
-    products: [product],
+    products: [product, ambiguousProduct],
     productCosts: [{ id: product.id, name: product.name, costPerJar: 47, enabled: true }],
     additionalCosts: [{ id: "cod", name: "ค่า COD", amount: 2, type: "percent_sales", enabled: true }],
     adCostRecords: []
@@ -185,8 +195,83 @@ function loadClientProfitHelpers() {
   almostEqual(order.globalExpenseSnapshot, 20, "percentage COD cost calculated once from revenue");
   almostEqual(order.profitBeforeAdsSnapshot, 680.4, "canonical net profit before ads");
 
+  const edit = await request(`/api/orders/${encodeURIComponent(order.id)}`, {
+    method: "PUT",
+    headers: { cookie, "content-type": "application/json" },
+    body: JSON.stringify({ note: "edited without changing package" })
+  });
+  if (edit.status !== 200) fail(`order edit returned ${edit.status}: ${edit.text}`);
+  const editedState = JSON.parse((await request("/api/state?date=2026-07-20", { headers: { cookie } })).text);
+  const editedOrder = editedState.orders.find(row => row.id === order.id);
+  if (editedOrder.packageId !== "package_4_free_2") fail("edit did not preserve package identity");
+  almostEqual(editedOrder.packageExpenseSnapshot, 17.6, "edit preserved package expense snapshot");
+
+  const ambiguousCreate = await request("/api/orders", {
+    method: "POST",
+    headers: { cookie, "content-type": "application/json" },
+    body: JSON.stringify({
+      productId: ambiguousProduct.id,
+      items: ambiguousProduct.name,
+      name: "Ambiguous Test",
+      phone: "0800000001",
+      address: "Bangkok",
+      date: "2026-07-20",
+      jars: 6,
+      amount: 1000,
+      sourceChannel: "Facebook"
+    })
+  });
+  if (ambiguousCreate.status !== 200) fail(`ambiguous create returned ${ambiguousCreate.status}: ${ambiguousCreate.text}`);
+  const ambiguousState = JSON.parse((await request("/api/state?date=2026-07-20", { headers: { cookie } })).text);
+  const ambiguousOrder = ambiguousState.orders.find(row => row.customerName === "Ambiguous Test");
+  if (!ambiguousOrder) fail("ambiguous order not found");
+  if (ambiguousOrder.packageId) fail("ambiguous match silently chose a package");
+  almostEqual(ambiguousOrder.packageExpenseSnapshot, 0, "ambiguous package expense not inferred");
+
+  const lineMock = await request("/api/line/mock", {
+    method: "POST",
+    headers: { cookie, "content-type": "application/json" },
+    body: JSON.stringify({
+      text: [
+        "สินค้า: Zomin",
+        "ชื่อ: Line Test",
+        "โทร: 0800000002",
+        "ที่อยู่: Bangkok",
+        "2026-07-20",
+        "6 กระปุก รวม 1000 บาท",
+        "4 แถม 2"
+      ].join("\n")
+    })
+  });
+  if (lineMock.status !== 200) fail(`LINE mock returned ${lineMock.status}: ${lineMock.text}`);
+  const lineState = JSON.parse((await request("/api/state?date=2026-07-20", { headers: { cookie } })).text);
+  const lineOrder = lineState.orders.find(row => row.customerName === "Line Test");
+  if (!lineOrder) fail("LINE-created order not found");
+  if (lineOrder.packageId !== "package_4_free_2") fail("LINE path did not persist package identity");
+  almostEqual(lineOrder.packageExpenseSnapshot, 17.6, "LINE path persisted package expense snapshot");
+
+  const { importOrdersBatch } = require("../lib/db/json-adapter");
+  const importResult = importOrdersBatch([{
+    rowNumber: 1,
+    productId: product.id,
+    items: product.name,
+    name: "Import Test",
+    phone: "0800000003",
+    address: "Bangkok",
+    date: "2026-07-21",
+    jars: 6,
+    amount: 1000,
+    sourceChannel: "Import"
+  }]);
+  if (importResult.imported !== 1) fail(`import batch did not import expected row: ${JSON.stringify(importResult)}`);
+  const importedDb = JSON.parse(fs.readFileSync(process.env.JSON_DB_PATH, "utf8"));
+  const importedOrder = importedDb.orders.find(row => row.customerName === "Import Test");
+  if (!importedOrder) fail("imported order not found");
+  if (importedOrder.packageId !== "package_4_free_2") fail("import path did not persist package identity");
+  almostEqual(importedOrder.packageExpenseSnapshot, 17.6, "import path persisted package expense snapshot");
+
   const marketing = JSON.parse((await request("/api/marketing-performance?date=2026-07-20", { headers: { cookie } })).text);
-  almostEqual(marketing.performance.profitBeforeAds, 680.4, "server report profit consistency");
+  almostEqual(marketing.performance.profitBeforeAds, 680.4 + 980 + 680.4, "server report profit consistency across created orders");
 
   const helpers = loadClientProfitHelpers();
   helpers.app.data.settings = state.settings;
@@ -215,6 +300,19 @@ function loadClientProfitHelpers() {
     almostEqual(breakdown.globalAdditionalCosts, 20, `${label} COD cost`);
     almostEqual(breakdown.profitBeforeAds, 680.4, `${label} profit consistency`);
   }
+
+  const refreshed = JSON.parse((await request("/api/state?date=2026-07-20", { headers: { cookie } })).text);
+  const refreshedKnown = refreshed.orders.find(row => row.id === order.id);
+  almostEqual(refreshedKnown.profitBeforeAdsSnapshot, 680.4, "refresh kept stored profit");
+  const relogin = await request("/api/login", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ username: "admin", password: "admin123" })
+  });
+  const reloginCookie = header(relogin.headers, "set-cookie");
+  const reloginState = JSON.parse((await request("/api/state?date=2026-07-20", { headers: { cookie: reloginCookie } })).text);
+  const reloginKnown = reloginState.orders.find(row => row.id === order.id);
+  almostEqual(reloginKnown.profitBeforeAdsSnapshot, 680.4, "logout/login kept stored profit");
 
   console.log("Profit calculation regression passed");
 })().catch(error => {
