@@ -4011,6 +4011,48 @@ function desktopReferenceQuickActions() {
   `).join("");
 }
 
+function desktopDashboardImportantNotifications() {
+  return liveNotificationEvents().slice(0, 3);
+}
+
+function desktopDashboardNotificationRow(item) {
+  return `
+    <button class="desktop-dashboard-notification-row" type="button" data-open-notification="${escapeHtml(item.id)}">
+      <span class="desktop-dashboard-notification-icon tone-${escapeHtml(item.tone)}" aria-hidden="true">${iconSvg(item.icon)}</span>
+      <span class="desktop-dashboard-notification-copy">
+        <strong>${escapeHtml(item.title)}</strong>
+        <small>${escapeHtml(item.detail)}</small>
+      </span>
+      <span class="desktop-dashboard-notification-meta">
+        <time>${escapeHtml(notificationTimeLabel(item.time))}</time>
+        <b>เปิดดู</b>
+        <i aria-hidden="true">›</i>
+      </span>
+    </button>
+  `;
+}
+
+function desktopDashboardNotificationsCard() {
+  const activeCount = liveNotificationEvents().length;
+  const items = desktopDashboardImportantNotifications();
+  return `
+    <section class="desktop-dashboard-notifications-card" aria-label="การแจ้งเตือนสำคัญ">
+      <header class="desktop-dashboard-notifications-head">
+        <div>
+          <h2>การแจ้งเตือนสำคัญ</h2>
+          <span>${money(activeCount)} รายการที่ต้องดูแล</span>
+        </div>
+        <button class="desktop-dashboard-notifications-all" type="button" data-open-notifications>ดูทั้งหมด <b aria-hidden="true">→</b></button>
+      </header>
+      <div class="desktop-dashboard-notifications-list">
+        ${items.length
+          ? items.map(desktopDashboardNotificationRow).join("")
+          : `<div class="desktop-dashboard-notifications-empty"><strong>ยังไม่มีการแจ้งเตือนสำคัญ</strong><span>เมื่อมีรายการที่ต้องดำเนินการ ระบบจะแสดงไว้ที่นี่</span></div>`}
+      </div>
+    </section>
+  `;
+}
+
 function renderDesktopDashboard(viewModel) {
   const { s, estimatedProfitToday, opportunitySummary, todaysOrders } = viewModel;
   const selectedMonth = String(s.selectedDate || todayISO()).slice(0, 7);
@@ -4072,6 +4114,8 @@ function renderDesktopDashboard(viewModel) {
         <section class="desktop-reference-quick-grid" aria-label="เมนูลัด">
           ${desktopReferenceQuickActions()}
         </section>
+
+        ${desktopDashboardNotificationsCard()}
       </div>
     </section>
   `;

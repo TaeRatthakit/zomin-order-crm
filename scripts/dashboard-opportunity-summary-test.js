@@ -123,7 +123,9 @@ function fixtureState() {
       { id: "order-b", customerId: "cust-b", date: "2026-06-10", time: "10:00", amount: 2000, jars: 2, items: "B" },
       { id: "order-c", customerId: "cust-c", date: "2026-07-10", time: "11:00", amount: 3000, jars: 3, items: "C" },
       { id: "order-d", customerId: "cust-d", date: selectedDate, time: "12:00", amount: 4000, jars: 4, items: "D" },
-      { id: "closed-today", customerId: "cust-z", date: selectedDate, time: "13:00", amount: 555, jars: 1, items: "Closed" }
+      { id: "closed-today", customerId: "cust-z", date: selectedDate, time: "13:00", amount: 555, jars: 1, items: "Closed" },
+      { id: "dup-a", customerId: "dup-x", orderNumber: "DUP-001", date: selectedDate, time: "14:00", amount: 111, jars: 1, items: "A" },
+      { id: "dup-b", customerId: "dup-y", orderNumber: "DUP-001", date: selectedDate, time: "14:05", amount: 222, jars: 1, items: "B" }
     ],
     customers: [
       { id: "cust-a", name: "Customer A", followUpDate: selectedDate, vipLevel: "NORMAL", contactLogs: [] },
@@ -140,6 +142,29 @@ function fixtureState() {
     ],
     users: [],
     tags: []
+  };
+}
+
+function emptyNotificationState() {
+  const state = fixtureState();
+  return {
+    ...state,
+    orders: [],
+    customers: [],
+    notificationReadIds: [],
+    settings: {
+      ...state.settings,
+      notificationPreferences: {
+        categories: {
+          orderReview: true,
+          customerFollowUp: true,
+          lowStock: true,
+          vipReminder: true,
+          salesOpportunity: true
+        },
+        channels: { inApp: true }
+      }
+    }
   };
 }
 
@@ -178,16 +203,43 @@ function assertSharedSummary(width, mode) {
   if (mode === "desktop") {
     const quickActionCount = (dashboardHtml.match(/desktop-reference-quick-action/g) || []).length;
     if (quickActionCount !== 5) fail(`desktop dashboard quick actions should reflow to 5 cards, got ${quickActionCount}`);
+    if (!dashboardHtml.includes("การแจ้งเตือนสำคัญ")) fail("desktop dashboard must render important notifications");
+    if (!dashboardHtml.includes("data-open-notifications")) fail("desktop notification header must open the existing drawer");
+    const notificationRowCount = (dashboardHtml.match(/desktop-dashboard-notification-row/g) || []).length;
+    if (notificationRowCount !== 3) fail(`desktop notification section should show exactly 3 rows from this fixture, got ${notificationRowCount}`);
+    if ((dashboardHtml.match(/data-open-notification="/g) || []).length !== 3) fail("desktop notification rows must use existing notification deep-link actions");
+    if (!dashboardHtml.includes("เปิดดู")) fail("desktop notification rows must preserve the existing row action label");
   }
 }
 
 assertSharedSummary(1280, "desktop");
 assertSharedSummary(390, "mobile");
 
+{
+  const sandbox = loadApp(1280);
+  const api = sandbox.window.__dashboardOpportunityTest;
+  api.app.data = emptyNotificationState();
+  api.app.currentUser = { id: "owner", role: "Owner", permissions: {} };
+  api.renderDashboard();
+  const dashboardHtml = sandbox.__content.innerHTML;
+  if (!dashboardHtml.includes("ยังไม่มีการแจ้งเตือนสำคัญ")) fail("desktop notification section must render a clean empty state");
+  if ((dashboardHtml.match(/desktop-dashboard-notification-row/g) || []).length !== 0) fail("empty desktop notification state should not render rows");
+}
+
 const source = fs.readFileSync(APP_PATH, "utf8");
+const styles = fs.readFileSync(path.join(ROOT, "public", "styles.css"), "utf8");
 if (source.includes("โอกาสสร้างยอดขายวันนี้")) fail("old dashboard title is still present");
 if (!source.includes("const opportunitySummary = opportunitySummaryFromModel(mobileOpportunityData())")) {
   fail("dashboard is not wired to the /opportunities summary helper");
+}
+if (!source.includes("function desktopDashboardImportantNotifications()") || !source.includes("return liveNotificationEvents().slice(0, 3);")) {
+  fail("desktop dashboard notifications must reuse live notification events and cap at three rows");
+}
+if (!source.includes("data-open-notification=") || !source.includes("data-open-notifications")) {
+  fail("desktop notification actions must reuse the existing drawer and row deep-link attributes");
+}
+if (!styles.includes("grid-template-columns: repeat(5, minmax(0, 1fr));")) {
+  fail("desktop quick-action grid must use five equal columns");
 }
 
 console.log("Dashboard opportunity summary test passed.");
