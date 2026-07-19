@@ -4682,34 +4682,6 @@ function mobileSetupWizardState() {
       page: "products",
       action: "ไปที่แพ็กขาย",
       complete: products.some(product => product.salesPackages.length > 0)
-    },
-    {
-      title: "เชื่อม LINE OA",
-      description: "เตรียม LINE Official Account เพื่อรับออเดอร์อัตโนมัติ",
-      icon: "chat",
-      action: "การเชื่อมต่อจริง Coming Soon",
-      guide: "วิดีโอแนะนำการตั้งค่า LINE OA",
-      complete: false,
-      comingSoon: true
-    },
-    {
-      title: "เพิ่ม BOT เข้ากลุ่ม LINE",
-      checklistTitle: "เพิ่ม BOT เข้ากลุ่ม",
-      description: "เพิ่ม BOT เข้ากลุ่ม LINE ที่ใช้รับออเดอร์",
-      icon: "users",
-      action: "การเพิ่ม BOT จริง Coming Soon",
-      guide: "วิดีโอแนะนำการเพิ่ม BOT เข้ากลุ่ม",
-      complete: false,
-      comingSoon: true
-    },
-    {
-      title: "ทดสอบรับออเดอร์อัตโนมัติ",
-      description: "ทดลองส่งข้อความออเดอร์ เพื่อเตรียมตรวจสอบการนำเข้า",
-      icon: "send",
-      action: "Coming Soon",
-      guide: "ตัวอย่างข้อความออเดอร์",
-      complete: false,
-      comingSoon: true
     }
   ];
   const completeCount = steps.filter(step => step.complete).length;
@@ -4850,27 +4822,13 @@ function renderMobileSetupWizard() {
               <div class="mobile-setup-step-copy">
                 <h3>${escapeHtml(step.title)}</h3>
                 <p>${escapeHtml(step.description)}</p>
-                <span class="mobile-setup-step-badge">${step.complete ? "เสร็จสิ้น" : step.comingSoon ? "Coming Soon" : "รอตั้งค่า"}</span>
+                <span class="mobile-setup-step-badge">${step.complete ? "เสร็จสิ้น" : "รอตั้งค่า"}</span>
               </div>
-              ${step.page ? `
-                <button type="button" data-business-page="${escapeHtml(step.page)}">${escapeHtml(step.action)}</button>
-              ` : `
-                <button type="button" disabled>${escapeHtml(step.action)}</button>
-              `}
-              ${step.guide ? `
-                <div class="mobile-setup-guide-placeholder" aria-label="${escapeHtml(step.guide)}">
-                  <span>${iconSvg(step.icon)}</span>
-                  <span><strong>${escapeHtml(step.guide)}</strong><small>พื้นที่วิดีโอ / คู่มือ — Coming Soon</small></span>
-                </div>
-              ` : ""}
+              <button type="button" data-business-page="${escapeHtml(step.page)}">${escapeHtml(step.action)}</button>
             </article>
           </li>
         `).join("")}
       </ol>
-      <aside class="mobile-setup-coming-soon-note">
-        ${iconSvg("stars")}
-        <p><strong>ฟีเจอร์เชื่อมต่อและทดสอบจริงกำลังพัฒนา</strong><span>หน้านี้เป็น UI สำหรับแนะนำขั้นตอนเท่านั้น ยังไม่มีการเชื่อม LINE API</span></p>
-      </aside>
     </section>
   `;
 }
