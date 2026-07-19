@@ -16,8 +16,14 @@ fs.writeFileSync(tmpDb, JSON.stringify({
     vipThresholds: { vip: 5000, vvip: 10000, superVip: 20000 },
     messageTemplates: { normal: "", vip: "" },
     followUpDaysPerUnit: 15,
-    products: [{ id: "product_1", name: "Test Product", status: "พร้อมขาย", stockQuantity: 10, costPerItem: 100 }],
-    productCosts: [{ id: "product_1", name: "Test Product", costPerJar: 100, enabled: true }],
+    products: [
+      { id: "product_1", name: "Test Product", status: "พร้อมขาย", stockQuantity: 10, costPerItem: 100 },
+      { id: "product_empty", name: "Empty Product", status: "พร้อมขาย", stockQuantity: 0, costPerItem: 100 }
+    ],
+    productCosts: [
+      { id: "product_1", name: "Test Product", costPerJar: 100, enabled: true },
+      { id: "product_empty", name: "Empty Product", costPerJar: 100, enabled: true }
+    ],
     additionalCosts: [],
     lineWebhookEnabled: false,
     rolePermissions: {
@@ -178,6 +184,7 @@ server.listen(0, "127.0.0.1", async () => {
     if (staffSource.source?.key !== "staff_manual_source") fail("Staff order source was not saved through orders.create");
     if (!Array.isArray(staffSource.settings?.customerSources)) fail("Staff order source response did not return customerSources");
     if (staffSource.settings?.products || staffSource.settings?.profile_avatar_u_staff) fail("Staff order source response returned unrelated settings");
+    const phoneClientMutationId = "staff-phone-existing-source-mutation";
     const staffExistingSourceOrder = await (await expectStatus(baseUrl, "/api/orders", staffCookie, 200, {
       method: "POST",
       body: JSON.stringify({
@@ -191,11 +198,62 @@ server.listen(0, "127.0.0.1", async () => {
         totalQuantityShipped: 1,
         amount: 750,
         date: "2026-07-12",
-        originSource: "facebook",
-        tags: "staff-test"
+        sourceChannel: "โทร",
+        originSource: "phone",
+        tags: "staff-test",
+        clientMutationId: phoneClientMutationId
       })
     })).json();
-    if (staffExistingSourceOrder.mutation?.order?.originSource !== "facebook") fail("Staff order with existing source did not persist source");
+    if (staffExistingSourceOrder.mutation?.order?.originSource !== "phone") fail("Staff order with existing phone source did not persist source");
+    if (staffExistingSourceOrder.mutation?.order?.sourceChannel !== "โทร") fail("Staff order with existing phone source did not persist order channel");
+    if (staffExistingSourceOrder.mutation?.order?.clientMutationId !== phoneClientMutationId) fail("Staff phone source order did not persist clientMutationId");
+    const staffExistingSourceRetry = await (await expectStatus(baseUrl, "/api/orders", staffCookie, 200, {
+      method: "POST",
+      body: JSON.stringify({
+        orderNumber: "staff-existing-source-1",
+        name: "Staff Existing Source Customer",
+        phone: "0888888811",
+        address: "Staff existing source address",
+        items: "Test Product",
+        productId: "product_1",
+        jars: 1,
+        totalQuantityShipped: 1,
+        amount: 750,
+        date: "2026-07-12",
+        sourceChannel: "โทร",
+        originSource: "phone",
+        tags: "staff-test",
+        clientMutationId: phoneClientMutationId
+      })
+    })).json();
+    if (!staffExistingSourceRetry.idempotent) fail("Retry with same clientMutationId was not treated as idempotent");
+    if (staffExistingSourceRetry.mutation?.order?.id !== staffExistingSourceOrder.mutation?.order?.id) fail("Retry with same clientMutationId returned a different order");
+    const stateAfterPhoneRetry = await (await expectStatus(baseUrl, "/api/state?date=2026-07-12", staffCookie, 200)).json();
+    const phoneRetryOrders = (stateAfterPhoneRetry.orders || []).filter(order => order.clientMutationId === phoneClientMutationId);
+    if (phoneRetryOrders.length !== 1) fail(`Retry with same clientMutationId created ${phoneRetryOrders.length} orders`);
+    const productAfterPhoneRetry = (stateAfterPhoneRetry.settings?.products || []).find(product => product.id === "product_1");
+    if (Number(productAfterPhoneRetry?.stockQuantity) !== 8) fail("Idempotent retry deducted stock more than once");
+    const stockFailure = await (await expectStatus(baseUrl, "/api/orders", staffCookie, 409, {
+      method: "POST",
+      body: JSON.stringify({
+        orderNumber: "staff-phone-stock-failure",
+        name: "Staff Phone Stock Failure",
+        phone: "0888888812",
+        address: "Staff stock failure address",
+        items: "Empty Product",
+        productId: "product_empty",
+        jars: 1,
+        totalQuantityShipped: 1,
+        amount: 750,
+        date: "2026-07-12",
+        sourceChannel: "โทร",
+        originSource: "phone",
+        clientMutationId: "staff-phone-stock-failure-mutation"
+      })
+    })).json();
+    if (!/คงเหลือ 0 ชิ้น/.test(stockFailure.error || "")) fail("Stock failure did not return a useful Thai error");
+    const stateAfterStockFailure = await (await expectStatus(baseUrl, "/api/state?date=2026-07-12", staffCookie, 200)).json();
+    if ((stateAfterStockFailure.orders || []).some(order => order.orderNumber === "staff-phone-stock-failure")) fail("Failed stock save persisted an order");
     const staffOrderPayload = await (await expectStatus(baseUrl, "/api/orders", staffCookie, 200, {
       method: "POST",
       body: JSON.stringify({

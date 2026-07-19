@@ -20196,6 +20196,21 @@ body.mobile-orders-view #orderDialog.grow-modal .form-grid.grow-modal-body {
   color: rgba(209, 199, 226, 0.48);
 }
 
+.order-save-error {
+  margin: 0 clamp(18px, 4vw, 32px) 14px;
+  padding: 10px 12px;
+  border: 1px solid rgba(248, 113, 113, 0.45);
+  border-radius: 8px;
+  background: rgba(127, 29, 29, 0.28);
+  color: #fecaca;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.order-save-error[hidden] {
+  display: none;
+}
+
 .grow-modal-footer,
 #productForm .grow-modal-footer {
   position: sticky;
@@ -24191,6 +24206,12 @@ html[data-theme="light"] body:not(.login-view) .report-trend.down,
 html[data-theme="light"] body:not(.login-view) .import-summary-card.danger,
 html[data-theme="light"] body:not(.login-view) .form-error {
   color: #b91c1c !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .order-save-error {
+  border-color: rgba(220, 38, 38, 0.28) !important;
+  background: #fef2f2 !important;
+  color: #991b1b !important;
 }
 
 html[data-theme="light"] body:not(.login-view) .notification-panel {

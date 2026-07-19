@@ -3,6 +3,7 @@ const path = require("path");
 
 const appJs = fs.readFileSync(path.join(__dirname, "..", "public", "app.js"), "utf8");
 const css = fs.readFileSync(path.join(__dirname, "..", "public", "styles.css"), "utf8");
+const indexHtml = fs.readFileSync(path.join(__dirname, "..", "public", "index.html"), "utf8");
 
 function fail(message) {
   throw new Error(message);
@@ -61,7 +62,12 @@ assert(dialogCloseIndex > orderApiIndex, "order dialog must stay open until /api
 assert(formResetIndex > orderApiIndex, "order form must keep values until /api/orders succeeds");
 assert(submitOrderBody.includes("if (!payload.mutation?.order?.id)"), "submitOrder must reject incomplete order API responses");
 assert(!submitOrderBody.includes("optimisticOrderFromForm(data, orderId, clientMutationId)"), "submitOrder must not show optimistic order success before persistence");
-assert((submitOrderBody.match(/timeoutMs: 45000/g) || []).length >= 2, "order submit source/order requests must use bounded timeouts");
+assert(submitOrderBody.includes("timeoutMs: 60000"), "customer source creation must use a bounded but realistic timeout");
+assert(submitOrderBody.includes("timeoutMs: 120000"), "order save must not abort slow valid production writes too early");
+assert(submitOrderBody.includes("form.dataset.clientMutationId || `tmp_${Date.now().toString(36)}`"), "order retries must reuse the same clientMutationId while the form remains open");
+assert(submitOrderBody.includes("delete form.dataset.clientMutationId;"), "successful order saves must clear the retry clientMutationId");
+assert(submitOrderBody.includes("setOrderSaveError(error.message"), "failed order saves must keep the useful API error visible in the dialog");
+assert(submitOrderBody.includes("setOrderSaveError(\"\");"), "order saves must clear stale dialog errors before retry/success");
 
 const setOrderSaveStateStart = appJs.indexOf("function setOrderSaveState");
 assert(setOrderSaveStateStart >= 0 && setOrderSaveStateStart < submitOrderStart, "setOrderSaveState() not found");
@@ -88,6 +94,10 @@ assert(
   submitListenerBody.includes('showToast(error.message, currentFormId === "orderForm" ? "error" : "")'),
   "failed order saves must render an error toast instead of default success styling"
 );
+
+assert(indexHtml.includes('id="orderSaveError"') && indexHtml.includes('role="alert"'), "order dialog must include a persistent error alert");
+assert(css.includes(".order-save-error") && css.includes(".order-save-error[hidden]"), "order save error alert CSS missing");
+assert(css.includes('html[data-theme="light"] body:not(.login-view) .order-save-error'), "light theme order error alert CSS missing");
 
 assert(css.includes(".permission-switch input"), "permission checkbox hiding CSS missing");
 assert(css.includes("opacity: 0"), "permission checkbox should be visually hidden");

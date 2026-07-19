@@ -443,6 +443,7 @@ const els = {
   orderForm: document.querySelector("#orderForm"),
   orderDialogTitle: document.querySelector("#orderDialogTitle"),
   orderSubmitButton: document.querySelector("#orderSubmitButton"),
+  orderSaveError: document.querySelector("#orderSaveError"),
   deleteOrderDialog: document.querySelector("#deleteOrderDialog"),
   deleteOrderForm: document.querySelector("#deleteOrderForm"),
   mobileDeleteOrderNumber: document.querySelector("#mobileDeleteOrderNumber"),
@@ -10435,8 +10436,16 @@ function setOrderSaveState(isSaving) {
   else els.orderSubmitButton.textContent = app.editingOrderId ? "บันทึกการแก้ไข" : "บันทึกออเดอร์";
 }
 
+function setOrderSaveError(message = "") {
+  if (!els.orderSaveError) return;
+  const detail = String(message || "").trim();
+  els.orderSaveError.textContent = detail;
+  els.orderSaveError.hidden = !detail;
+}
+
 async function submitOrder(form) {
   if (app.orderSavePending) return;
+  setOrderSaveError("");
   setOrderSaveState(true);
   const data = Object.fromEntries(new FormData(form).entries());
   const selectedChoice = String(data.originSourceChoice || "").trim();
@@ -10444,7 +10453,8 @@ async function submitOrder(form) {
   const originSourceOther = String(data.originSourceOther || "").trim();
   if (selectedChoice === ADD_CUSTOMER_SOURCE_VALUE && !originSourceOther) {
     setOrderSaveState(false);
-    showToast("กรุณาระบุช่องทางการขายใหม่");
+    setOrderSaveError("กรุณาระบุช่องทางการขายใหม่");
+    showToast("กรุณาระบุช่องทางการขายใหม่", "error");
     els.orderForm.elements.originSourceOther?.focus();
     return;
   }
@@ -10453,7 +10463,7 @@ async function submitOrder(form) {
       const payload = await api("/api/customer-sources", {
         method: "POST",
         body: JSON.stringify({ name: originSourceOther }),
-        timeoutMs: 45000
+        timeoutMs: 60000
       });
       if (payload.settings && app.data?.settings) {
         app.data.settings = { ...app.data.settings, ...payload.settings };
@@ -10479,19 +10489,21 @@ async function submitOrder(form) {
   data.items = selectedProduct?.name || data.items || "";
   if (!String(data.productId || "").trim()) {
     setOrderSaveState(false);
+    setOrderSaveError("กรุณาเลือกสินค้า");
     showToast("กรุณาเลือกสินค้า", "error");
     els.orderForm.elements.items?.focus();
     return;
   }
   const orderId = app.editingOrderId;
-  const clientMutationId = `tmp_${Date.now().toString(36)}`;
+  const clientMutationId = form.dataset.clientMutationId || `tmp_${Date.now().toString(36)}`;
+  form.dataset.clientMutationId = clientMutationId;
   try {
     data.selectedDate = app.data.summary?.selectedDate || els.workDate.value || todayISO();
     data.clientMutationId = clientMutationId;
     const payload = await api(orderId ? `/api/orders/${encodeURIComponent(orderId)}` : "/api/orders", {
       method: orderId ? "PUT" : "POST",
       body: JSON.stringify(data),
-      timeoutMs: 45000
+      timeoutMs: 120000
     });
     if (!payload.mutation?.order?.id) {
       throw new Error(orderId ? "แก้ไขออเดอร์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" : "บันทึกออเดอร์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
@@ -10500,10 +10512,13 @@ async function submitOrder(form) {
     patchOrdersView(payload.mutation);
     refreshVisibleCustomerPanels(payload.mutation);
     app.editingOrderId = "";
+    delete form.dataset.clientMutationId;
     els.orderDialog.close();
     form.reset();
+    setOrderSaveError("");
     showToast(orderId ? "แก้ไขออเดอร์แล้ว" : "บันทึกออเดอร์แล้ว");
   } catch (error) {
+    setOrderSaveError(error.message || "บันทึกออเดอร์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
     throw error;
   } finally {
     setOrderSaveState(false);
@@ -10659,9 +10674,11 @@ function openOrderDialog(order = null) {
   }
   app.editingOrderId = order?.id || "";
   setOrderSaveState(false);
+  setOrderSaveError("");
   const dateField = els.orderForm.elements.date;
   dateField.type = isMobileViewport() ? "datetime-local" : "date";
   els.orderForm.reset();
+  delete els.orderForm.dataset.clientMutationId;
   delete els.orderForm.dataset.originSourceValue;
   els.orderDialogTitle.textContent = order ? "แก้ไขออเดอร์" : "เพิ่มออเดอร์";
   els.orderSubmitButton.textContent = order ? "บันทึกการแก้ไข" : "บันทึกออเดอร์";

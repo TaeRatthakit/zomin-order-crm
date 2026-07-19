@@ -2205,6 +2205,7 @@ function addOrder(db, payload) {
     socialName: String(payload.socialName || payload.social_name || "").trim(),
     freeGift: String(payload.freeGift || payload.free_gift || "").trim(),
     productId: String(resolvedPayload.productId || "").trim(),
+    clientMutationId: String(payload.clientMutationId || payload.client_mutation_id || "").trim(),
     packageId: String(resolvedPayload.packageId || "").trim(),
     packageName: String(resolvedPayload.packageName || "").trim(),
     paidQuantity: Math.max(0, Number(resolvedPayload.paidQuantity || 0)),
@@ -4091,6 +4092,20 @@ async function handleApi(req, res) {
     const currentUser = await requirePermission(req, res, db, "orders.create", "ไม่มีสิทธิ์เพิ่มออเดอร์");
     if (!currentUser) return;
     const body = await readBody(req);
+    const clientMutationId = String(body.clientMutationId || body.client_mutation_id || "").trim();
+    if (clientMutationId) {
+      const existingOrder = (db.orders || []).find(order => String(order.clientMutationId || order.client_mutation_id || "").trim() === clientMutationId);
+      if (existingOrder) {
+        const existingMutation = orderMutationPayload(db, {
+          orderId: existingOrder.id,
+          selectedDate: body.selectedDate || toDateOnly()
+        });
+        existingMutation.clientMutationId = clientMutationId;
+        if (existingMutation.order?.id) {
+          return json(res, 200, { ok: true, mutation: existingMutation, idempotent: true });
+        }
+      }
+    }
     let order;
     try {
       order = addOrder(db, { ...body, createdBy: currentUser.id });
