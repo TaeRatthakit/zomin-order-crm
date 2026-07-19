@@ -205,13 +205,13 @@ function assertSharedSummary(width, mode) {
   }
   if (mode === "desktop") {
     const setup = api.mobileSetupWizardState();
-    if (!dashboardHtml.includes("/desktop-dashboard-hero-light.jpg?v=20260719-home-light-v1")) {
+    if (!dashboardHtml.includes("/desktop-dashboard-hero-light.jpg?v=20260719-home-light-clean-v2")) {
       fail("desktop light dashboard must render the separate light hero asset");
     }
     if (!dashboardHtml.includes('data-dark-src="/desktop-dashboard-hero.webp?v=20260706-webp-v1"')) {
       fail("desktop dashboard must keep the dark hero asset available for theme switching");
     }
-    if (dashboardHtml.includes("/mobile-home-hero-light.jpg?v=20260719-home-light-v1")) {
+    if (dashboardHtml.includes("/mobile-home-hero-light.jpg?v=20260719-home-light-clean-v2")) {
       fail("desktop dashboard must not render the mobile light hero asset");
     }
     if (!dashboardHtml.includes(`<strong>${setup.percent}%</strong>`) || !dashboardHtml.includes(`เสร็จแล้ว ${setup.completeCount} จาก ${setup.steps.length} ขั้นตอน`) || !dashboardHtml.includes(`style="width:${setup.percent}%"`)) {
@@ -227,13 +227,13 @@ function assertSharedSummary(width, mode) {
     if (!dashboardHtml.includes("เปิดดู")) fail("desktop notification rows must preserve the existing row action label");
   }
   if (mode === "mobile") {
-    if (!dashboardHtml.includes("/mobile-home-hero-light.jpg?v=20260719-home-light-v1")) {
+    if (!dashboardHtml.includes("/mobile-home-hero-light.jpg?v=20260719-home-light-clean-v2")) {
       fail("mobile light dashboard must render the separate light hero asset");
     }
     if (!dashboardHtml.includes('data-dark-src="/mobile-home-hero.png?v=20260703-mobile-hero-clean"')) {
       fail("mobile dashboard must keep the dark hero asset available for theme switching");
     }
-    if (dashboardHtml.includes("/desktop-dashboard-hero-light.jpg?v=20260719-home-light-v1")) {
+    if (dashboardHtml.includes("/desktop-dashboard-hero-light.jpg?v=20260719-home-light-clean-v2")) {
       fail("mobile dashboard must not render the desktop light hero asset");
     }
   }
@@ -295,6 +295,9 @@ if (!source.includes("data-open-notification=") || !source.includes("data-open-n
 }
 if (!styles.includes("grid-template-columns: repeat(5, minmax(0, 1fr));")) {
   fail("desktop quick-action grid must use five equal columns");
+}
+if (!styles.includes("object-fit: cover;") || !styles.includes("isolation: isolate;")) {
+  fail("light hero images must be clipped and cover their single card boundary");
 }
 if (!source.includes("data-dashboard-theme-image") || !source.includes("syncDashboardThemeAssets()")) {
   fail("dashboard theme assets must switch from the resolved theme without duplicating render paths");

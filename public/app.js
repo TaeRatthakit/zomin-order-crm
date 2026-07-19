@@ -3849,10 +3849,10 @@ function renderMobileDashboard(viewModel) {
         <section class="mobile-hero-card">
           <img
             class="mobile-hero-image"
-            src="${dashboardThemeAssetSrc("/mobile-home-hero.png?v=20260703-mobile-hero-clean", "/mobile-home-hero-light.jpg?v=20260719-home-light-v1")}"
+            src="${dashboardThemeAssetSrc("/mobile-home-hero.png?v=20260703-mobile-hero-clean", "/mobile-home-hero-light.jpg?v=20260719-home-light-clean-v2")}"
             data-dashboard-theme-image
             data-dark-src="/mobile-home-hero.png?v=20260703-mobile-hero-clean"
-            data-light-src="/mobile-home-hero-light.jpg?v=20260719-home-light-v1"
+            data-light-src="/mobile-home-hero-light.jpg?v=20260719-home-light-clean-v2"
             alt="จัดการธุรกิจให้เติบโต ไปกับ Growup Pilot"
             loading="eager"
             fetchpriority="high"
@@ -4101,10 +4101,10 @@ function renderDesktopDashboard(viewModel) {
           <article class="desktop-reference-growth-banner">
             <img
               class="desktop-reference-growth-image"
-              src="${dashboardThemeAssetSrc("/desktop-dashboard-hero.webp?v=20260706-webp-v1", "/desktop-dashboard-hero-light.jpg?v=20260719-home-light-v1")}"
+              src="${dashboardThemeAssetSrc("/desktop-dashboard-hero.webp?v=20260706-webp-v1", "/desktop-dashboard-hero-light.jpg?v=20260719-home-light-clean-v2")}"
               data-dashboard-theme-image
               data-dark-src="/desktop-dashboard-hero.webp?v=20260706-webp-v1"
-              data-light-src="/desktop-dashboard-hero-light.jpg?v=20260719-home-light-v1"
+              data-light-src="/desktop-dashboard-hero-light.jpg?v=20260719-home-light-clean-v2"
               alt="จัดการธุรกิจให้เติบโต ไปกับ Growup Pilot"
               loading="eager"
               fetchpriority="high"
