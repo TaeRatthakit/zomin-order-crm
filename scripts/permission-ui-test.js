@@ -61,6 +61,24 @@ assert(dialogCloseIndex > orderApiIndex, "order dialog must stay open until /api
 assert(formResetIndex > orderApiIndex, "order form must keep values until /api/orders succeeds");
 assert(submitOrderBody.includes("if (!payload.mutation?.order?.id)"), "submitOrder must reject incomplete order API responses");
 assert(!submitOrderBody.includes("optimisticOrderFromForm(data, orderId, clientMutationId)"), "submitOrder must not show optimistic order success before persistence");
+assert((submitOrderBody.match(/timeoutMs: 45000/g) || []).length >= 2, "order submit source/order requests must use bounded timeouts");
+
+const setOrderSaveStateStart = appJs.indexOf("function setOrderSaveState");
+assert(setOrderSaveStateStart >= 0 && setOrderSaveStateStart < submitOrderStart, "setOrderSaveState() not found");
+const setOrderSaveStateBody = appJs.slice(setOrderSaveStateStart, submitOrderStart);
+assert(setOrderSaveStateBody.includes("els.orderSubmitButton.textContent = \"กำลังบันทึก...\""), "saving state must show a loading label");
+assert(
+  setOrderSaveStateBody.includes("else els.orderSubmitButton.textContent = app.editingOrderId ? \"บันทึกการแก้ไข\" : \"บันทึกออเดอร์\""),
+  "order save state must always restore the submit label when loading ends"
+);
+
+const apiStart = appJs.indexOf("async function api");
+const apiEnd = appJs.indexOf("function elementId", apiStart);
+assert(apiStart >= 0 && apiEnd > apiStart, "api() helper not found");
+const apiBody = appJs.slice(apiStart, apiEnd);
+assert(apiBody.includes("AbortController"), "api() must support request timeouts");
+assert(apiBody.includes("คำขอใช้เวลานานเกินไป"), "api() timeout errors must be user-visible");
+assert(apiBody.includes("window.clearTimeout(timeoutId)"), "api() must clear timeout handles");
 
 const submitListenerStart = appJs.indexOf('document.addEventListener("submit"');
 const submitListenerEnd = appJs.indexOf('window.addEventListener("hashchange"', submitListenerStart);

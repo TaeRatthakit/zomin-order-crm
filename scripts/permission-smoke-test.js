@@ -176,6 +176,26 @@ server.listen(0, "127.0.0.1", async () => {
       body: JSON.stringify({ name: "Staff Manual Source" })
     })).json();
     if (staffSource.source?.key !== "staff_manual_source") fail("Staff order source was not saved through orders.create");
+    if (!Array.isArray(staffSource.settings?.customerSources)) fail("Staff order source response did not return customerSources");
+    if (staffSource.settings?.products || staffSource.settings?.profile_avatar_u_staff) fail("Staff order source response returned unrelated settings");
+    const staffExistingSourceOrder = await (await expectStatus(baseUrl, "/api/orders", staffCookie, 200, {
+      method: "POST",
+      body: JSON.stringify({
+        orderNumber: "staff-existing-source-1",
+        name: "Staff Existing Source Customer",
+        phone: "0888888811",
+        address: "Staff existing source address",
+        items: "Test Product",
+        productId: "product_1",
+        jars: 1,
+        totalQuantityShipped: 1,
+        amount: 750,
+        date: "2026-07-12",
+        originSource: "facebook",
+        tags: "staff-test"
+      })
+    })).json();
+    if (staffExistingSourceOrder.mutation?.order?.originSource !== "facebook") fail("Staff order with existing source did not persist source");
     const staffOrderPayload = await (await expectStatus(baseUrl, "/api/orders", staffCookie, 200, {
       method: "POST",
       body: JSON.stringify({
@@ -195,9 +215,10 @@ server.listen(0, "127.0.0.1", async () => {
     })).json();
     if (staffOrderPayload.mutation?.order?.customerName !== "Staff Allowed Customer") fail("Staff order was not returned in mutation");
     if (staffOrderPayload.mutation?.order?.createdBy !== "u_staff") fail("Staff order did not record authenticated creator");
+    if (staffOrderPayload.mutation?.order?.originSource !== staffSource.source.key) fail("Staff custom source order did not persist source");
     if (staffOrderPayload.mutation?.customers?.[0]?.phone !== "0888888888") fail("Staff order did not create/update customer");
     const productAfterStaffOrder = (staffOrderPayload.mutation?.settings?.products || []).find(product => product.id === "product_1");
-    if (Number(productAfterStaffOrder?.stockQuantity) !== 7) fail(`Staff order did not deduct stock correctly: ${productAfterStaffOrder?.stockQuantity}`);
+    if (Number(productAfterStaffOrder?.stockQuantity) !== 6) fail(`Staff order did not deduct stock correctly: ${productAfterStaffOrder?.stockQuantity}`);
     const staffStateAfterOrder = await (await expectStatus(baseUrl, "/api/state?date=2026-07-12", staffCookie, 200)).json();
     const persistedStaffOrder = (staffStateAfterOrder.orders || []).find(order => order.orderNumber === "staff-allowed-1");
     if (!persistedStaffOrder) fail("Staff order did not appear in reloaded order state");
@@ -206,7 +227,7 @@ server.listen(0, "127.0.0.1", async () => {
     const persistedStaffCustomer = (staffStateAfterOrder.customers || []).find(customer => customer.phone === "0888888888");
     if (!persistedStaffCustomer) fail("Staff-created customer did not persist");
     const productAfterReload = (staffStateAfterOrder.settings?.products || []).find(product => product.id === "product_1");
-    if (Number(productAfterReload?.stockQuantity) !== 7) fail("Staff order stock deduction did not persist after reload");
+    if (Number(productAfterReload?.stockQuantity) !== 6) fail("Staff order stock deduction did not persist after reload");
     await expectStatus(baseUrl, "/api/import", staffCookie, 403, {
       method: "POST",
       body: JSON.stringify({ type: "csv", content: "" })

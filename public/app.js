@@ -1510,28 +1510,44 @@ function showToast(message, status = "") {
 }
 
 async function api(path, options = {}) {
-  const res = await fetch(path, {
-    credentials: "same-origin",
-    headers: {
-      "Content-Type": "application/json",
-      ...(options.headers || {})
-    },
-    ...options
-  });
-  const text = await res.text();
-  let payload = {};
+  const { timeoutMs = 0, ...fetchOptions } = options;
+  const controller = timeoutMs && !fetchOptions.signal ? new AbortController() : null;
+  let timeoutId = null;
+  if (controller) {
+    fetchOptions.signal = controller.signal;
+    timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+  }
   try {
-    payload = text ? JSON.parse(text) : {};
-  } catch {
-    payload = { ok: res.ok, raw: text };
-  }
-  if (!res.ok || payload.ok === false) {
-    const error = new Error(payload.error || "บันทึกไม่สำเร็จ");
-    error.status = res.status;
-    error.payload = payload;
+    const res = await fetch(path, {
+      credentials: "same-origin",
+      headers: {
+        "Content-Type": "application/json",
+        ...(fetchOptions.headers || {})
+      },
+      ...fetchOptions
+    });
+    const text = await res.text();
+    let payload = {};
+    try {
+      payload = text ? JSON.parse(text) : {};
+    } catch {
+      payload = { ok: res.ok, raw: text };
+    }
+    if (!res.ok || payload.ok === false) {
+      const error = new Error(payload.error || "บันทึกไม่สำเร็จ");
+      error.status = res.status;
+      error.payload = payload;
+      throw error;
+    }
+    return payload;
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      throw new Error("คำขอใช้เวลานานเกินไป กรุณาลองใหม่อีกครั้ง");
+    }
     throw error;
+  } finally {
+    if (timeoutId) window.clearTimeout(timeoutId);
   }
-  return payload;
 }
 
 function elementId(element) {
@@ -10416,6 +10432,7 @@ function setOrderSaveState(isSaving) {
   els.orderSubmitButton.disabled = isSaving;
   els.orderSubmitButton.dataset.loading = isSaving ? "true" : "false";
   if (isSaving) els.orderSubmitButton.textContent = "กำลังบันทึก...";
+  else els.orderSubmitButton.textContent = app.editingOrderId ? "บันทึกการแก้ไข" : "บันทึกออเดอร์";
 }
 
 async function submitOrder(form) {
@@ -10435,7 +10452,8 @@ async function submitOrder(form) {
     try {
       const payload = await api("/api/customer-sources", {
         method: "POST",
-        body: JSON.stringify({ name: originSourceOther })
+        body: JSON.stringify({ name: originSourceOther }),
+        timeoutMs: 45000
       });
       if (payload.settings && app.data?.settings) {
         app.data.settings = { ...app.data.settings, ...payload.settings };
@@ -10472,7 +10490,8 @@ async function submitOrder(form) {
     data.clientMutationId = clientMutationId;
     const payload = await api(orderId ? `/api/orders/${encodeURIComponent(orderId)}` : "/api/orders", {
       method: orderId ? "PUT" : "POST",
-      body: JSON.stringify(data)
+      body: JSON.stringify(data),
+      timeoutMs: 45000
     });
     if (!payload.mutation?.order?.id) {
       throw new Error(orderId ? "แก้ไขออเดอร์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" : "บันทึกออเดอร์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");

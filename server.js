@@ -3904,7 +3904,7 @@ async function handleApi(req, res) {
     if (!source) return json(res, 400, { ok: false, error: "ช่องทางการขายไม่ถูกต้อง" });
     const defaultSource = DEFAULT_CUSTOMER_SOURCE_CHANNELS.find(item => item.key === source.key);
     if (defaultSource) {
-      return json(res, 200, { ok: true, source: defaultSource, settings: publicSettings(db.settings || {}) });
+      return json(res, 200, { ok: true, source: defaultSource, settings: { customerSources: normalizeCustomerSources(db.settings?.customerSources) } });
     }
     db.settings = db.settings || {};
     const sources = normalizeCustomerSources(db.settings.customerSources);
@@ -3915,7 +3915,7 @@ async function handleApi(req, res) {
       await writeDb(db);
     }
     const saved = existing || db.settings.customerSources.find(item => item.key === source.key) || source;
-    return json(res, 200, { ok: true, source: saved, settings: publicSettings(db.settings || {}) });
+    return json(res, 200, { ok: true, source: saved, settings: { customerSources: normalizeCustomerSources(db.settings.customerSources) } });
   }
 
   if (req.method === "POST" && url.pathname === "/api/ad-costs") {
