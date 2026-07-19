@@ -211,7 +211,7 @@ function assertSharedSummary(width, mode) {
     if (!dashboardHtml.includes('data-dark-src="/desktop-dashboard-hero.webp?v=20260706-webp-v1"')) {
       fail("desktop dashboard must keep the dark hero asset available for theme switching");
     }
-    if (dashboardHtml.includes("/mobile-home-hero-light.jpg?v=20260719-home-light-clean-v2")) {
+    if (dashboardHtml.includes("/mobile-home-hero-light-v3.webp?v=20260719-mobile-light-hero-v3")) {
       fail("desktop dashboard must not render the mobile light hero asset");
     }
     if (!dashboardHtml.includes(`<strong>${setup.percent}%</strong>`) || !dashboardHtml.includes(`เสร็จแล้ว ${setup.completeCount} จาก ${setup.steps.length} ขั้นตอน`) || !dashboardHtml.includes(`style="width:${setup.percent}%"`)) {
@@ -227,7 +227,7 @@ function assertSharedSummary(width, mode) {
     if (!dashboardHtml.includes("เปิดดู")) fail("desktop notification rows must preserve the existing row action label");
   }
   if (mode === "mobile") {
-    if (!dashboardHtml.includes("/mobile-home-hero-light.jpg?v=20260719-home-light-clean-v2")) {
+    if (!dashboardHtml.includes("/mobile-home-hero-light-v3.webp?v=20260719-mobile-light-hero-v3")) {
       fail("mobile light dashboard must render the separate light hero asset");
     }
     if (!dashboardHtml.includes('data-dark-src="/mobile-home-hero.png?v=20260703-mobile-hero-clean"')) {
@@ -235,6 +235,9 @@ function assertSharedSummary(width, mode) {
     }
     if (dashboardHtml.includes("/desktop-dashboard-hero-light.jpg?v=20260719-home-light-clean-v2")) {
       fail("mobile dashboard must not render the desktop light hero asset");
+    }
+    if (!dashboardHtml.includes('width="1058"') || !dashboardHtml.includes('height="560"')) {
+      fail("mobile hero must declare explicit dimensions to prevent layout shift");
     }
   }
 }
@@ -298,6 +301,16 @@ if (!styles.includes("grid-template-columns: repeat(5, minmax(0, 1fr));")) {
 }
 if (!styles.includes("object-fit: cover;") || !styles.includes("isolation: isolate;")) {
   fail("light hero images must be clipped and cover their single card boundary");
+}
+if (!styles.includes("aspect-ratio: 1058 / 560;")) {
+  fail("mobile hero card must preserve the current image aspect ratio");
+}
+const indexHtml = fs.readFileSync(path.join(ROOT, "public", "index.html"), "utf8");
+if (indexHtml.includes("mobileHero = new Image()")) {
+  fail("mobile hero should rely on one preload path and avoid duplicate image preloads");
+}
+if (indexHtml.includes('rel="preload" as="image"') && indexHtml.includes("mobile-home-hero")) {
+  fail("mobile hero should avoid HTML preloads because app theme preference can differ from system color scheme");
 }
 if (!source.includes("data-dashboard-theme-image") || !source.includes("syncDashboardThemeAssets()")) {
   fail("dashboard theme assets must switch from the resolved theme without duplicating render paths");

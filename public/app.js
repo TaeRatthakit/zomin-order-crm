@@ -3954,10 +3954,12 @@ function renderMobileDashboard(viewModel) {
         <section class="mobile-hero-card">
           <img
             class="mobile-hero-image"
-            src="${dashboardThemeAssetSrc("/mobile-home-hero.png?v=20260703-mobile-hero-clean", "/mobile-home-hero-light.jpg?v=20260719-home-light-clean-v2")}"
+            src="${dashboardThemeAssetSrc("/mobile-home-hero.png?v=20260703-mobile-hero-clean", "/mobile-home-hero-light-v3.webp?v=20260719-mobile-light-hero-v3")}"
             data-dashboard-theme-image
             data-dark-src="/mobile-home-hero.png?v=20260703-mobile-hero-clean"
-            data-light-src="/mobile-home-hero-light.jpg?v=20260719-home-light-clean-v2"
+            data-light-src="/mobile-home-hero-light-v3.webp?v=20260719-mobile-light-hero-v3"
+            width="1058"
+            height="560"
             alt="จัดการธุรกิจให้เติบโต ไปกับ Growup Pilot"
             loading="eager"
             fetchpriority="high"
