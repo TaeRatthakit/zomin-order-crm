@@ -50,6 +50,7 @@ const viewToRoute = Object.fromEntries(Object.entries(routeToView).map(([path, v
 const MISSING_CHANNEL_LABEL = "อื่นๆ";
 const MOBILE_PROFILE_CACHE_KEY = "growup_mobile_profile_v1";
 const THEME_STORAGE_PREFIX = "growup-theme:";
+const APPLIED_DATE_RANGE_STORAGE_PREFIX = "growup-applied-date-range:";
 const THEME_OPTIONS = new Set(["dark", "light", "system"]);
 
 const app = {
@@ -925,6 +926,57 @@ function dateRangeMatchesPreset(range, key, today = todayISO()) {
   return range?.start === presetRange.start && range?.end === presetRange.end;
 }
 
+function appliedDateRangeStorageKey(user = app.currentUser) {
+  const id = String(user?.id || user?.username || "").trim();
+  return id ? `${APPLIED_DATE_RANGE_STORAGE_PREFIX}${id}` : "";
+}
+
+function sanitizeStoredDateRange(value) {
+  if (!value || typeof value !== "object") return null;
+  const normalized = normalizeDateRange(value.start, value.end);
+  if (!parseDateOnlyParts(normalized.start) || !parseDateOnlyParts(normalized.end)) return null;
+  const preset = DATE_RANGE_PRESETS.some(item => item.key === value.preset) ? value.preset : "custom";
+  return {
+    preset,
+    ...normalized,
+    compareEnabled: Boolean(value.compareEnabled),
+    compareMode: value.compareMode === "custom" ? "custom" : "previous-period",
+    compareStart: String(value.compareStart || ""),
+    compareEnd: String(value.compareEnd || "")
+  };
+}
+
+function readStoredAppliedDateRange(user = app.currentUser) {
+  const key = appliedDateRangeStorageKey(user);
+  if (!key) return null;
+  try {
+    return sanitizeStoredDateRange(JSON.parse(window.localStorage.getItem(key) || "null"));
+  } catch {
+    return null;
+  }
+}
+
+function persistAppliedDateRange(range, user = app.currentUser) {
+  const key = appliedDateRangeStorageKey(user);
+  const normalized = sanitizeStoredDateRange(range);
+  if (!key || !normalized) return;
+  try {
+    window.localStorage.setItem(key, JSON.stringify(normalized));
+  } catch {
+    // Persistence is a convenience for reloads; the in-memory applied range remains authoritative.
+  }
+}
+
+function restoreAppliedDateRangeFromStorage() {
+  const stored = readStoredAppliedDateRange();
+  if (!stored) return null;
+  app.dateRangePicker.applied = stored;
+  app.reportDate = stored.end;
+  if (els.workDate) els.workDate.value = stored.end;
+  if (app.data) app.data.summary = buildLocalSummary(stored.end, stored);
+  return stored;
+}
+
 function labelForDateRange(range, presetKey = "") {
   const normalized = normalizeDateRange(range?.start, range?.end);
   const matchedPreset = presetKey && presetKey !== "custom" && dateRangeMatchesPreset(normalized, presetKey)
@@ -966,6 +1018,19 @@ function formatThaiDateCompact(dateValue) {
 function appliedDateRange() {
   if (app.dateRangePicker.applied) return app.dateRangePicker.applied;
   const selectedDate = els.workDate?.value || app.data?.summary?.selectedDate || todayISO();
+  const restoredStart = app.data?.summary?.startDate || "";
+  const restoredEnd = app.data?.summary?.endDate || "";
+  if (restoredStart || restoredEnd) {
+    app.dateRangePicker.applied = {
+      preset: "custom",
+      ...normalizeDateRange(restoredStart || selectedDate, restoredEnd || restoredStart || selectedDate),
+      compareEnabled: false,
+      compareMode: "previous-period",
+      compareStart: "",
+      compareEnd: ""
+    };
+    return app.dateRangePicker.applied;
+  }
   app.dateRangePicker.applied = {
     preset: "today",
     ...normalizeDateRange(selectedDate, selectedDate),
@@ -993,6 +1058,11 @@ function previousPeriodRange(range) {
   const days = Math.max(1, dateRangeDays(normalizeDateRange(range.start, range.end)));
   const compareEnd = addDaysISO(range.start, -1);
   return { compareStart: addDaysISO(compareEnd, -(days - 1)), compareEnd };
+}
+
+function previousReportRange(range) {
+  const previous = previousPeriodRange(range);
+  return { start: previous.compareStart, end: previous.compareEnd };
 }
 
 function syncComparisonDraft(draft) {
@@ -1485,6 +1555,7 @@ async function loadState() {
       cacheMobileProfile(app.currentUser);
     }
     applyUserTheme(app.currentUser);
+    restoreAppliedDateRangeFromStorage();
   } catch (error) {
     if (error.status === 401) {
       clearSession();
@@ -1933,6 +2004,7 @@ function applyDateRangeDraft() {
   app.customersShowAll = false;
   app.reportDate = applied.end;
   if (els.workDate) els.workDate.value = applied.end;
+  persistAppliedDateRange(applied);
   if (isMobileViewport() && app.data) {
     app.ordersFilterQ = "";
     app.ordersFilterDraft = "";
@@ -2476,11 +2548,24 @@ function adCostForRecord(record, orders = app.data?.orders || []) {
   return record.value;
 }
 
-function marketingPerformanceForPeriod({ date = "", month = "" } = {}) {
+function marketingPerformanceForPeriod({ date = "", month = "", range = null } = {}) {
   const allOrders = app.data?.orders || [];
-  const periodOrders = allOrders.filter(order => date ? order.date === date : month ? monthKey(order.date) === month : true);
+  const normalizedRange = range?.start || range?.end ? normalizeDateRange(range.start, range.end) : null;
+  const periodOrders = allOrders.filter(order => date
+    ? order.date === date
+    : month
+      ? monthKey(order.date) === month
+      : normalizedRange
+        ? dateInRange(order.date, normalizedRange)
+        : true);
   const records = normalizeAdCostRecords()
-    .filter(record => record.enabled && (date ? record.date === date : month ? monthKey(record.date) === month : true))
+    .filter(record => record.enabled && (date
+      ? record.date === date
+      : month
+        ? monthKey(record.date) === month
+        : normalizedRange
+          ? dateInRange(record.date, normalizedRange)
+          : true))
     .map(record => ({ ...record, cost: adCostForRecord(record, allOrders) }));
   const breakdown = profitBreakdownForOrders(periodOrders);
   const adCost = records.reduce((sum, record) => sum + record.cost, 0);
@@ -7007,6 +7092,88 @@ function reportDelta(currentValue, previousValue) {
   return { text: "0%", tone: "flat" };
 }
 
+function reportRangeLabel(range) {
+  const normalized = normalizeDateRange(range?.start, range?.end);
+  if (normalized.start === normalized.end) return formatThaiDateCompact(normalized.start);
+  const start = parseDateOnlyParts(normalized.start);
+  const end = parseDateOnlyParts(normalized.end);
+  if (!start || !end) return "";
+  const monthLabel = month => new Intl.DateTimeFormat("th-TH", { month: "short" })
+    .format(new Date(Date.UTC(2026, month - 1, 1)));
+  const buddhistYear = year => year + 543;
+  if (start.year === end.year && start.month === end.month) {
+    return `${start.day}–${end.day} ${monthLabel(end.month)} ${buddhistYear(end.year)}`;
+  }
+  if (start.year === end.year) {
+    return `${start.day} ${monthLabel(start.month)}–${end.day} ${monthLabel(end.month)} ${buddhistYear(end.year)}`;
+  }
+  return `${start.day} ${monthLabel(start.month)} ${buddhistYear(start.year)}–${end.day} ${monthLabel(end.month)} ${buddhistYear(end.year)}`;
+}
+
+function reportSummaryHeading(range, presetKey = "") {
+  const normalized = normalizeDateRange(range?.start, range?.end);
+  const rangeText = reportRangeLabel(normalized);
+  if (normalized.start === normalized.end) {
+    if (presetKey === "today") return { title: "สรุปวันนี้", rangeText: "" };
+    if (presetKey === "yesterday") return { title: "สรุปเมื่อวาน", rangeText: "" };
+    return { title: `สรุปวันที่ ${rangeText}`, rangeText: "" };
+  }
+  const titles = {
+    "last-7": "สรุป 7 วันล่าสุด",
+    "last-30": "สรุป 30 วันล่าสุด",
+    "this-month": "สรุปเดือนนี้",
+    "last-month": "สรุปเดือนที่แล้ว"
+  };
+  if (presetKey && /^last-(14|90)$/.test(presetKey)) {
+    return { title: `สรุป ${dateRangeDays(normalized)} วันล่าสุด`, rangeText };
+  }
+  return { title: titles[presetKey] || "สรุปช่วงที่เลือก", rangeText };
+}
+
+function reportComparisonHint(range) {
+  const normalized = normalizeDateRange(range?.start, range?.end);
+  return normalized.start === normalized.end
+    ? "เทียบกับวันก่อนหน้า"
+    : "เทียบกับช่วงก่อนหน้า";
+}
+
+function reportRangeSummaryModel(range = appliedDateRange()) {
+  const reportRange = normalizeDateRange(range?.start, range?.end);
+  const previousRange = previousReportRange(reportRange);
+  const rangeOrders = ordersInDateRange(app.data?.orders || [], reportRange);
+  const previousOrders = ordersInDateRange(app.data?.orders || [], previousRange);
+  const rangeMarketing = marketingPerformanceForPeriod({ range: reportRange });
+  const previousMarketing = marketingPerformanceForPeriod({ range: previousRange });
+  const units = rows => rows.reduce((sum, order) => sum + Number(order.jars || 0), 0);
+  const heading = reportSummaryHeading(reportRange, range.preset || "custom");
+  return {
+    range: reportRange,
+    previousRange,
+    heading,
+    comparisonHint: reportComparisonHint(reportRange),
+    orders: rangeOrders,
+    previousOrders,
+    sales: rangeMarketing.sales,
+    previousSales: previousMarketing.sales,
+    orderCount: rangeOrders.length,
+    previousOrderCount: previousOrders.length,
+    profitBeforeAds: rangeMarketing.profitBeforeAds,
+    previousProfitBeforeAds: previousMarketing.profitBeforeAds,
+    unitsSold: units(rangeOrders),
+    previousUnitsSold: units(previousOrders),
+    adCost: rangeMarketing.adCost,
+    previousAdCost: previousMarketing.adCost,
+    profitAfterAds: rangeMarketing.profitAfterAds,
+    previousProfitAfterAds: previousMarketing.profitAfterAds,
+    roas: rangeMarketing.roas,
+    previousRoas: previousMarketing.roas
+  };
+}
+
+function reportSummaryHeadingHtml(heading) {
+  return `${escapeHtml(heading.title)}${heading.rangeText ? ` <small>(${escapeHtml(heading.rangeText)})</small>` : ""}`;
+}
+
 const ADD_CUSTOMER_SOURCE_VALUE = "__add_source__";
 const DEFAULT_CUSTOMER_SOURCE_CHANNELS = [
   { key: "facebook", name: "Facebook", color: "#1769e8", iconKey: "facebook" },
@@ -7387,23 +7554,18 @@ function reportBusinessSummaryHtml(selectedMonth) {
   `;
 }
 
-function renderMobileReports(selectedDate, selectedMonth) {
+function renderMobileReports(selectedDate, selectedMonth, selectedRange = appliedDateRange()) {
   const orders = app.data.orders || [];
   const customers = app.data.customers || [];
-  const todayOrders = orders.filter(order => order.date === selectedDate);
+  const rangeSummary = reportRangeSummaryModel(selectedRange);
   const monthOrders = orders.filter(order => monthKey(order.date) === selectedMonth);
-  const yesterdayOrders = orders.filter(order => order.date === addDaysISO(selectedDate, -1));
   const previousMonth = reportPreviousMonth(selectedMonth);
   const previousMonthOrders = orders.filter(order => monthKey(order.date) === previousMonth);
   const sales = rows => rows.reduce((sum, order) => sum + Number(order.amount || 0), 0);
   const units = rows => rows.reduce((sum, order) => sum + Number(order.jars || 0), 0);
   const profit = rows => profitBreakdownForOrders(rows).profit;
-  const todaySales = sales(todayOrders);
   const monthSales = sales(monthOrders);
-  const todayProfit = profit(todayOrders);
   const monthProfit = profit(monthOrders);
-  const todayMarketing = marketingPerformanceForPeriod({ date: selectedDate });
-  const yesterdayMarketing = marketingPerformanceForPeriod({ date: addDaysISO(selectedDate, -1) });
   const monthMarketing = marketingPerformanceForPeriod({ month: selectedMonth });
   const previousMonthMarketing = marketingPerformanceForPeriod({ month: previousMonth });
 
@@ -7445,14 +7607,14 @@ function renderMobileReports(selectedDate, selectedMonth) {
       image: configuredProducts.find(product => normalizeProductName(product.name) === row.name)?.image || ""
     }));
 
-  const todayCards = [
-    { label: "ยอดขายวันนี้", value: `฿${money(todaySales)}`, comparison: { ...reportDelta(todaySales, sales(yesterdayOrders)), hint: "เทียบกับเมื่อวาน" }, tone: "green", icon: "wallet" },
-    { label: "ออเดอร์วันนี้", value: money(todayOrders.length), suffix: "ออเดอร์", comparison: { ...reportDelta(todayOrders.length, yesterdayOrders.length), hint: "เทียบกับเมื่อวาน" }, tone: "amber", icon: "orders" },
-    { label: "กำไรวันนี้ (ก่อน Ads)", value: `฿${money(todayProfit)}`, comparison: { ...reportDelta(todayProfit, profit(yesterdayOrders)), hint: "ตัวเลขกำไรเดิม" }, tone: "violet", icon: "database" },
-    { label: "ขายได้วันนี้", value: money(units(todayOrders)), suffix: "ชิ้น", comparison: { ...reportDelta(units(todayOrders), units(yesterdayOrders)), hint: "เทียบกับเมื่อวาน" }, tone: "blue", icon: "sales" },
-    { label: "ค่าโฆษณาวันนี้", value: `฿${money(todayMarketing.adCost)}`, comparison: { ...reportDelta(todayMarketing.adCost, yesterdayMarketing.adCost), hint: "ค่าใช้จ่ายการตลาด" }, tone: "blue", icon: "wallet" },
-    { label: "กำไรหลัง Ads", value: `฿${money(todayMarketing.profitAfterAds)}`, comparison: { ...reportDelta(todayMarketing.profitAfterAds, yesterdayMarketing.profitAfterAds), hint: "กำไรก่อน Ads - ค่าโฆษณา" }, tone: "green", icon: "database" },
-    { label: "ROAS วันนี้", value: marketingNumber(todayMarketing.roas), comparison: { ...reportDelta(todayMarketing.roas, yesterdayMarketing.roas), hint: "ยอดขาย ÷ ค่าโฆษณา" }, tone: "amber", icon: "chart" }
+  const rangeCards = [
+    { label: "ยอดขาย", value: `฿${money(rangeSummary.sales)}`, comparison: { ...reportDelta(rangeSummary.sales, rangeSummary.previousSales), hint: rangeSummary.comparisonHint }, tone: "green", icon: "wallet" },
+    { label: "ออเดอร์", value: money(rangeSummary.orderCount), suffix: "ออเดอร์", comparison: { ...reportDelta(rangeSummary.orderCount, rangeSummary.previousOrderCount), hint: rangeSummary.comparisonHint }, tone: "amber", icon: "orders" },
+    { label: "กำไรก่อน Ads", value: `฿${money(rangeSummary.profitBeforeAds)}`, comparison: { ...reportDelta(rangeSummary.profitBeforeAds, rangeSummary.previousProfitBeforeAds), hint: rangeSummary.comparisonHint }, tone: "violet", icon: "database" },
+    { label: "ขายได้", value: money(rangeSummary.unitsSold), suffix: "ชิ้น", comparison: { ...reportDelta(rangeSummary.unitsSold, rangeSummary.previousUnitsSold), hint: rangeSummary.comparisonHint }, tone: "blue", icon: "sales" },
+    { label: "ค่าโฆษณา", value: `฿${money(rangeSummary.adCost)}`, comparison: { ...reportDelta(rangeSummary.adCost, rangeSummary.previousAdCost), hint: rangeSummary.comparisonHint }, tone: "blue", icon: "wallet" },
+    { label: "กำไรหลัง Ads", value: `฿${money(rangeSummary.profitAfterAds)}`, comparison: { ...reportDelta(rangeSummary.profitAfterAds, rangeSummary.previousProfitAfterAds), hint: rangeSummary.comparisonHint }, tone: "green", icon: "database" },
+    { label: "ROAS", value: marketingNumber(rangeSummary.roas), comparison: { ...reportDelta(rangeSummary.roas, rangeSummary.previousRoas), hint: rangeSummary.comparisonHint }, tone: "amber", icon: "chart" }
   ];
   const monthCards = [
     { label: "ยอดขายเดือนนี้", value: `฿${money(monthSales)}`, comparison: { ...reportDelta(monthSales, sales(previousMonthOrders)), hint: "เทียบกับเดือนที่แล้ว" }, tone: "green", icon: "wallet" },
@@ -7467,9 +7629,9 @@ function renderMobileReports(selectedDate, selectedMonth) {
   els.content.innerHTML = `
     <section class="section saas-page mobile-reports-page">
       <div class="mobile-reports-shell">
-        <h2 class="mobile-report-heading">สรุปวันนี้</h2>
+        <h2 class="mobile-report-heading">${reportSummaryHeadingHtml(rangeSummary.heading)}</h2>
         <div class="mobile-report-kpi-grid">
-          ${todayCards.map(mobileReportKpiCard).join("")}
+          ${rangeCards.map(mobileReportKpiCard).join("")}
         </div>
 
         <h2 class="mobile-report-heading">สรุปเดือนนี้ <small>(${escapeHtml(reportMonthRange(selectedMonth))})</small></h2>
@@ -7533,9 +7695,10 @@ function renderMobileReports(selectedDate, selectedMonth) {
 }
 
 function renderReports() {
-  const selectedDate = app.reportDate || app.data.summary.selectedDate || todayISO();
+  const selectedRange = appliedDateRange();
+  const selectedDate = selectedRange.end || app.reportDate || app.data.summary.selectedDate || todayISO();
   const selectedMonth = monthKeyFromDateOnly(selectedDate);
-  renderMobileReports(selectedDate, selectedMonth);
+  renderMobileReports(selectedDate, selectedMonth, selectedRange);
   if (isMobileViewport()) return;
   return;
   const selectedYear = selectedMonth.slice(0, 4);
@@ -12076,6 +12239,7 @@ document.addEventListener("change", async event => {
       compareStart: addDaysISO(selectedDate, -1),
       compareEnd: addDaysISO(selectedDate, -1)
     };
+    persistAppliedDateRange(app.dateRangePicker.applied);
     app.dashboardSummaryCache = null;
     if (isMobileViewport() && app.data) {
       const startedAt = performance.now();
