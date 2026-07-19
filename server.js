@@ -28,6 +28,7 @@ const {
   readSettingsPatch,
   readNotificationReadIds,
   persistNotificationReadIds,
+  readOrderSaveContext,
   uploadProductImageObject,
   productImagePublicBaseUrl,
   verifyPublicProductImageUrl
@@ -230,6 +231,28 @@ function json(res, status, payload, extraHeaders = {}) {
     ...extraHeaders
   });
   res.end(JSON.stringify(payload));
+}
+
+function timingHeaderValue(timings = {}) {
+  return Object.entries(timings)
+    .filter(([, value]) => Number.isFinite(Number(value)))
+    .map(([key, value]) => `${key.replace(/Ms$/, "").toLowerCase()};dur=${Math.max(0, Number(value))}`)
+    .join(", ");
+}
+
+function timingDebugHeader(value = {}) {
+  try {
+    return encodeURIComponent(JSON.stringify(value));
+  } catch {
+    return "";
+  }
+}
+
+function orderSaveHeaders(timings = {}, detail = {}) {
+  return {
+    "Server-Timing": timingHeaderValue(timings),
+    "X-Order-Save-Timings": timingDebugHeader({ ...timings, detail })
+  };
 }
 
 function text(res, status, body, contentType = "text/plain; charset=utf-8") {
@@ -1629,6 +1652,115 @@ async function requirePermissionFast(req, res, permission, error = "ไม่ม
     return null;
   }
   return publicUser(user);
+}
+
+async function handleOrderCreateFast(req, res) {
+  if (typeof readOrderSaveContext !== "function" || typeof persistOrderMutation !== "function") return false;
+  const routeStartedAt = Date.now();
+  const timings = {};
+  const sessionUser = requireUser(req, res);
+  if (!sessionUser) return true;
+  const authStartedAt = Date.now();
+  const bodyStartedAt = Date.now();
+  const bodyPromise = readBody(req);
+  const userPromise = typeof readUserById === "function" ? readUserById(sessionUser.id) : Promise.resolve(null);
+  const permissionSettingsPromise = typeof readSettingsPatch === "function"
+    ? readSettingsPatch(["rolePermissions"])
+    : Promise.resolve({});
+  const dbPromise = readOrderSaveContext();
+  const [body, user, permissionSettings, db] = await Promise.all([
+    bodyPromise,
+    userPromise,
+    permissionSettingsPromise,
+    dbPromise
+  ]);
+  timings.bodyMs = Date.now() - bodyStartedAt;
+  timings.authMs = Date.now() - authStartedAt;
+  timings.dbReadMs = readOrderSaveContext.lastTimings?.totalMs || 0;
+  if (!user || user.active === false) {
+    sessionExpiredResponse(req, res);
+    return true;
+  }
+  const currentUser = publicUser(user);
+  if (!hasPermission(currentUser, permissionSettings, "orders.create")) {
+    json(res, 403, { ok: false, error: "ไม่มีสิทธิ์เพิ่มออเดอร์" });
+    return true;
+  }
+  const clientMutationId = String(body.clientMutationId || body.client_mutation_id || "").trim();
+  if (clientMutationId) {
+    const existingOrder = (db.orders || []).find(order => String(order.clientMutationId || order.client_mutation_id || "").trim() === clientMutationId);
+    if (existingOrder) {
+      const existingMutation = orderMutationPayload(db, {
+        orderId: existingOrder.id,
+        selectedDate: body.selectedDate || toDateOnly()
+      });
+      existingMutation.clientMutationId = clientMutationId;
+      if (existingMutation.order?.id) {
+        json(res, 200, { ok: true, mutation: existingMutation, idempotent: true }, orderSaveHeaders({
+          ...timings,
+          totalMs: Date.now() - routeStartedAt
+        }, { dbRead: readOrderSaveContext.lastTimings || null }));
+        return true;
+      }
+    }
+  }
+  let order;
+  try {
+    const addStartedAt = Date.now();
+    order = addOrder(db, { ...body, createdBy: currentUser.id });
+    timings.addOrderMs = Date.now() - addStartedAt;
+    const inventoryStartedAt = Date.now();
+    adjustInventoryForOrderChange(db, null, order);
+    timings.inventoryMs = Date.now() - inventoryStartedAt;
+  } catch (error) {
+    if (error.code === "ORDER_DUPLICATE") {
+      json(res, 409, { ok: false, error: "ออเดอร์นี้มีอยู่แล้ว" });
+      return true;
+    }
+    if (error.code === "INSUFFICIENT_STOCK") {
+      json(res, 409, {
+        ok: false,
+        error: error.message,
+        product: error.product,
+        availableStock: error.availableStock,
+        requestedQuantity: error.requestedQuantity
+      });
+      return true;
+    }
+    if (error.code === "PRODUCT_NOT_FOUND") {
+      json(res, 409, { ok: false, error: PRODUCT_RESOLUTION_ERROR });
+      return true;
+    }
+    throw error;
+  }
+  const mutationStartedAt = Date.now();
+  const mutation = orderMutationPayload(db, {
+    orderId: order.id,
+    selectedDate: body.selectedDate || toDateOnly()
+  });
+  timings.mutationMs = Date.now() - mutationStartedAt;
+  mutation.clientMutationId = String(body.clientMutationId || "");
+  if (!mutation.order?.id) {
+    json(res, 500, { ok: false, error: "บันทึกออเดอร์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" });
+    return true;
+  }
+  const persistStartedAt = Date.now();
+  const persistTimings = await persistOrderMutation(mutation, db.settings);
+  timings.persistMs = Date.now() - persistStartedAt;
+  timings.totalMs = Date.now() - routeStartedAt;
+  const dbReadTimings = readOrderSaveContext.lastTimings || null;
+  console.info("[order-save:server]", JSON.stringify({
+    method: "POST_FAST",
+    orderId: order.id,
+    timings,
+    persist: persistTimings,
+    dbRead: dbReadTimings
+  }));
+  json(res, 200, { ok: true, mutation, timings: { ...timings, persist: persistTimings, dbRead: dbReadTimings } }, orderSaveHeaders(timings, {
+    persist: persistTimings,
+    dbRead: dbReadTimings
+  }));
+  return true;
 }
 
 function normalizeUserRole(role) {
@@ -3871,6 +4003,10 @@ async function handleApi(req, res) {
     });
   }
 
+  if (req.method === "POST" && url.pathname === "/api/orders") {
+    if (await handleOrderCreateFast(req, res)) return;
+  }
+
   const dbReadStartedAt = Date.now();
   const db = await readDb();
   const dbReadMs = Date.now() - dbReadStartedAt;
@@ -4164,9 +4300,15 @@ async function handleApi(req, res) {
   }
 
   if (req.method === "POST" && url.pathname === "/api/orders") {
+    const routeStartedAt = requestStartedAt;
+    const timings = { dbReadMs };
+    const authStartedAt = Date.now();
     const currentUser = await requirePermission(req, res, db, "orders.create", "ไม่มีสิทธิ์เพิ่มออเดอร์");
     if (!currentUser) return;
+    timings.authMs = Date.now() - authStartedAt;
+    const bodyStartedAt = Date.now();
     const body = await readBody(req);
+    timings.bodyMs = Date.now() - bodyStartedAt;
     const clientMutationId = String(body.clientMutationId || body.client_mutation_id || "").trim();
     if (clientMutationId) {
       const existingOrder = (db.orders || []).find(order => String(order.clientMutationId || order.client_mutation_id || "").trim() === clientMutationId);
@@ -4183,8 +4325,12 @@ async function handleApi(req, res) {
     }
     let order;
     try {
+      const addStartedAt = Date.now();
       order = addOrder(db, { ...body, createdBy: currentUser.id });
+      timings.addOrderMs = Date.now() - addStartedAt;
+      const inventoryStartedAt = Date.now();
       adjustInventoryForOrderChange(db, null, order);
+      timings.inventoryMs = Date.now() - inventoryStartedAt;
     } catch (error) {
       if (error.code === "ORDER_DUPLICATE") {
         return json(res, 409, { ok: false, error: "ออเดอร์นี้มีอยู่แล้ว" });
@@ -4203,32 +4349,42 @@ async function handleApi(req, res) {
       }
       throw error;
     }
+    const mutationStartedAt = Date.now();
     const mutation = orderMutationPayload(db, {
       orderId: order.id,
       selectedDate: body.selectedDate || toDateOnly()
     });
+    timings.mutationMs = Date.now() - mutationStartedAt;
     mutation.clientMutationId = String(body.clientMutationId || "");
-    let persistedDb = db;
-    if (typeof persistOrderMutation === "function") {
-      await persistOrderMutation(mutation, db.settings);
-      persistedDb = await readDb();
-    } else {
-      await writeDb(db);
-    }
-    const persistedMutation = orderMutationPayload(persistedDb, {
-      orderId: order.id,
-      selectedDate: body.selectedDate || toDateOnly()
-    });
-    persistedMutation.clientMutationId = mutation.clientMutationId;
-    if (!persistedMutation.order?.id) {
+    if (!mutation.order?.id) {
       return json(res, 500, { ok: false, error: "บันทึกออเดอร์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" });
     }
-    return json(res, 200, { ok: true, mutation: persistedMutation });
+    const persistStartedAt = Date.now();
+    const persistTimings = typeof persistOrderMutation === "function"
+      ? await persistOrderMutation(mutation, db.settings)
+      : (await writeDb(db), { totalMs: Date.now() - persistStartedAt });
+    timings.persistMs = Date.now() - persistStartedAt;
+    timings.totalMs = Date.now() - routeStartedAt;
+    console.info("[order-save:server]", JSON.stringify({
+      method: "POST",
+      orderId: order.id,
+      timings,
+      persist: persistTimings,
+      dbRead: readDb.lastTimings || null
+    }));
+    return json(res, 200, { ok: true, mutation, timings: { ...timings, persist: persistTimings, dbRead: readDb.lastTimings || null } }, orderSaveHeaders(timings, {
+      persist: persistTimings,
+      dbRead: readDb.lastTimings || null
+    }));
   }
 
   if (req.method === "PUT" && url.pathname.startsWith("/api/orders/")) {
+    const routeStartedAt = requestStartedAt;
+    const timings = { dbReadMs };
     const id = url.pathname.split("/").pop();
+    const bodyStartedAt = Date.now();
     const body = await readBody(req);
+    timings.bodyMs = Date.now() - bodyStartedAt;
     const bodyKeys = Object.keys(body || {});
     const statusOnly = bodyKeys.length > 0 && bodyKeys.every(key => [
       "status",
@@ -4239,7 +4395,9 @@ async function handleApi(req, res) {
       "clientMutationId"
     ].includes(key));
     const orderPermission = statusOnly ? "orders.status" : "orders.edit";
+    const authStartedAt = Date.now();
     if (!await requirePermission(req, res, db, orderPermission, "ไม่มีสิทธิ์แก้ไขออเดอร์")) return;
+    timings.authMs = Date.now() - authStartedAt;
     const order = db.orders.find(item => item.id === id);
     if (!order) return json(res, 404, { ok: false, error: "ไม่พบออเดอร์" });
     const previousOrder = { ...order };
@@ -4257,9 +4415,11 @@ async function handleApi(req, res) {
       : { originSource: order.originSource, originSourceOther: order.originSourceOther || "" };
     let resolvedPayload = null;
     try {
+      const resolveStartedAt = Date.now();
       resolvedPayload = statusOnly
         ? null
         : applyResolvedProductToPayload(db.settings || {}, { ...order, ...body }, { preservePackageSnapshot: true });
+      timings.productResolveMs = Date.now() - resolveStartedAt;
     } catch (error) {
       if (error.code === "PRODUCT_NOT_FOUND") {
         return json(res, 409, { ok: false, error: PRODUCT_RESOLUTION_ERROR });
@@ -4296,9 +4456,13 @@ async function handleApi(req, res) {
       vipCardStatus: body.vipCardStatus ?? order.vipCardStatus,
       note: body.note ?? order.note
     });
+    const snapshotStartedAt = Date.now();
     applyOrderProfitSnapshot(order, db.settings || {}, "edited");
+    timings.profitSnapshotMs = Date.now() - snapshotStartedAt;
     try {
+      const inventoryStartedAt = Date.now();
       adjustInventoryForOrderChange(db, previousOrder, order);
+      timings.inventoryMs = Date.now() - inventoryStartedAt;
     } catch (error) {
       Object.assign(order, previousOrder);
       if (error.code === "INSUFFICIENT_STOCK") {
@@ -4315,15 +4479,31 @@ async function handleApi(req, res) {
       }
       throw error;
     }
+    const mutationStartedAt = Date.now();
     const mutation = orderMutationPayload(db, {
       orderId: order.id,
       previousCustomerIds,
       selectedDate: body.selectedDate || toDateOnly()
     });
+    timings.mutationMs = Date.now() - mutationStartedAt;
     mutation.clientMutationId = String(body.clientMutationId || "");
-    if (typeof persistOrderMutation === "function") await persistOrderMutation(mutation, db.settings);
-    else await writeDb(db);
-    return json(res, 200, { ok: true, mutation });
+    const persistStartedAt = Date.now();
+    const persistTimings = typeof persistOrderMutation === "function"
+      ? await persistOrderMutation(mutation, db.settings)
+      : (await writeDb(db), { totalMs: Date.now() - persistStartedAt });
+    timings.persistMs = Date.now() - persistStartedAt;
+    timings.totalMs = Date.now() - routeStartedAt;
+    console.info("[order-save:server]", JSON.stringify({
+      method: "PUT",
+      orderId: order.id,
+      timings,
+      persist: persistTimings,
+      dbRead: readDb.lastTimings || null
+    }));
+    return json(res, 200, { ok: true, mutation, timings: { ...timings, persist: persistTimings, dbRead: readDb.lastTimings || null } }, orderSaveHeaders(timings, {
+      persist: persistTimings,
+      dbRead: readDb.lastTimings || null
+    }));
   }
 
   if (req.method === "DELETE" && url.pathname.startsWith("/api/orders/")) {

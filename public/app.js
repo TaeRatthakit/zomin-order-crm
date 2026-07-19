@@ -1661,6 +1661,7 @@ function showToast(message, status = "") {
 }
 
 async function api(path, options = {}) {
+  const startedAt = performance.now();
   const { timeoutMs = 0, ...fetchOptions } = options;
   const controller = timeoutMs && !fetchOptions.signal ? new AbortController() : null;
   let timeoutId = null;
@@ -1677,7 +1678,9 @@ async function api(path, options = {}) {
       },
       ...fetchOptions
     });
+    const responseStartedAt = performance.now();
     const text = await res.text();
+    const textReadAt = performance.now();
     let payload = {};
     try {
       payload = text ? JSON.parse(text) : {};
@@ -1690,6 +1693,19 @@ async function api(path, options = {}) {
       error.payload = payload;
       throw error;
     }
+    if (payload && typeof payload === "object") {
+      Object.defineProperty(payload, "__meta", {
+        value: {
+          fetchMs: responseStartedAt - startedAt,
+          textMs: textReadAt - responseStartedAt,
+          parseMs: performance.now() - textReadAt,
+          totalMs: performance.now() - startedAt,
+          serverTiming: res.headers.get("Server-Timing") || "",
+          orderSaveTimings: res.headers.get("X-Order-Save-Timings") || ""
+        },
+        enumerable: false
+      });
+    }
     return payload;
   } catch (error) {
     if (error?.name === "AbortError") {
@@ -1698,6 +1714,50 @@ async function api(path, options = {}) {
     throw error;
   } finally {
     if (timeoutId) window.clearTimeout(timeoutId);
+  }
+}
+
+function orderSaveDebugEnabled() {
+  return /(?:^|[?&])debugOrderSave=1(?:&|$)/.test(window.location.search);
+}
+
+function createOrderSaveProfiler(label) {
+  const startedAt = app.orderSaveClickStartedAt || performance.now();
+  const marks = [];
+  const mark = (name, detail = {}) => {
+    marks.push({
+      name,
+      atMs: Number((performance.now() - startedAt).toFixed(2)),
+      ...detail
+    });
+  };
+  mark("click-to-submit");
+  return {
+    mark,
+    async finish(apiMeta = {}, serverTimings = null) {
+      await waitForTwoFrames();
+      mark("success-ui-painted");
+      const totalMs = Number((performance.now() - startedAt).toFixed(2));
+      const report = { label, totalMs, marks, api: apiMeta, server: serverTimings };
+      console.info("[order-save:frontend]", report);
+      app.lastOrderSaveTiming = report;
+      app.orderSaveClickStartedAt = 0;
+    },
+    cancel(reason) {
+      mark("cancel", { reason });
+      app.orderSaveClickStartedAt = 0;
+      if (orderSaveDebugEnabled()) console.info("[order-save:frontend]", { label, marks });
+    }
+  };
+}
+
+function decodedOrderSaveTimings(meta = {}) {
+  const value = meta.orderSaveTimings || "";
+  if (!value) return null;
+  try {
+    return JSON.parse(decodeURIComponent(value));
+  } catch {
+    return null;
   }
 }
 
@@ -6379,7 +6439,7 @@ function applyOrderMutation(mutation) {
   app.mobileAnalyticsIndex = null;
   app.desktopAnalyticsIndex = null;
   app.dashboardSummaryCache = null;
-  if (mutation.settings) app.data.settings = mutation.settings;
+  if (mutation.settings) app.data.settings = { ...(app.data.settings || {}), ...mutation.settings };
   const deletedOrderId = mutation.deletedOrderId || "";
   if (deletedOrderId) {
     app.data.orders = app.data.orders.filter(order => order.id !== deletedOrderId);
@@ -10694,9 +10754,12 @@ function setOrderSaveError(message = "") {
 
 async function submitOrder(form) {
   if (app.orderSavePending) return;
+  const profiler = createOrderSaveProfiler(app.editingOrderId ? "edit-order" : "create-order");
   setOrderSaveError("");
   setOrderSaveState(true);
+  profiler.mark("saving-state-on");
   const data = Object.fromEntries(new FormData(form).entries());
+  profiler.mark("form-read");
   const selectedChoice = String(data.originSourceChoice || "").trim();
   let selectedOriginSource = normalizeCustomerSourceKey(selectedChoice);
   const originSourceOther = String(data.originSourceOther || "").trim();
@@ -10705,15 +10768,18 @@ async function submitOrder(form) {
     setOrderSaveError("กรุณาระบุช่องทางการขายใหม่");
     showToast("กรุณาระบุช่องทางการขายใหม่", "error");
     els.orderForm.elements.originSourceOther?.focus();
+    profiler.cancel("missing-origin-source");
     return;
   }
   if (selectedChoice === ADD_CUSTOMER_SOURCE_VALUE) {
     try {
+      profiler.mark("customer-source-api-start");
       const payload = await api("/api/customer-sources", {
         method: "POST",
         body: JSON.stringify({ name: originSourceOther }),
         timeoutMs: 60000
       });
+      profiler.mark("customer-source-api-done", { apiMs: Number(payload.__meta?.totalMs?.toFixed?.(2) || 0) });
       if (payload.settings && app.data?.settings) {
         app.data.settings = { ...app.data.settings, ...payload.settings };
       }
@@ -10721,6 +10787,7 @@ async function submitOrder(form) {
       refreshCustomerSourceSelect(selectedOriginSource);
     } catch (error) {
       setOrderSaveState(false);
+      profiler.cancel("customer-source-api-error");
       throw error;
     }
   }
@@ -10741,6 +10808,7 @@ async function submitOrder(form) {
     setOrderSaveError("กรุณาเลือกสินค้า");
     showToast("กรุณาเลือกสินค้า", "error");
     els.orderForm.elements.items?.focus();
+    profiler.cancel("missing-product");
     return;
   }
   const orderId = app.editingOrderId;
@@ -10749,28 +10817,46 @@ async function submitOrder(form) {
   try {
     data.selectedDate = app.data.summary?.selectedDate || els.workDate.value || todayISO();
     data.clientMutationId = clientMutationId;
+    profiler.mark("order-api-start");
     const payload = await api(orderId ? `/api/orders/${encodeURIComponent(orderId)}` : "/api/orders", {
       method: orderId ? "PUT" : "POST",
       body: JSON.stringify(data),
       timeoutMs: 120000
     });
+    profiler.mark("order-api-done", {
+      apiMs: Number(payload.__meta?.totalMs?.toFixed?.(2) || 0),
+      serverTiming: payload.__meta?.serverTiming || ""
+    });
     if (!payload.mutation?.order?.id) {
       throw new Error(orderId ? "แก้ไขออเดอร์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" : "บันทึกออเดอร์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
     }
+    const applyStartedAt = performance.now();
     applyOrderMutation(payload.mutation);
+    profiler.mark("mutation-applied", { stepMs: Number((performance.now() - applyStartedAt).toFixed(2)) });
+    const patchStartedAt = performance.now();
     patchOrdersView(payload.mutation);
+    profiler.mark("orders-view-patched", { stepMs: Number((performance.now() - patchStartedAt).toFixed(2)) });
+    const customerPanelStartedAt = performance.now();
     refreshVisibleCustomerPanels(payload.mutation);
+    profiler.mark("customer-panels-refreshed", { stepMs: Number((performance.now() - customerPanelStartedAt).toFixed(2)) });
     app.editingOrderId = "";
     delete form.dataset.clientMutationId;
+    const closeStartedAt = performance.now();
     els.orderDialog.close();
     form.reset();
     setOrderSaveError("");
+    profiler.mark("modal-closed", { stepMs: Number((performance.now() - closeStartedAt).toFixed(2)) });
+    const toastStartedAt = performance.now();
     showToast(orderId ? "แก้ไขออเดอร์แล้ว" : "บันทึกออเดอร์แล้ว");
+    profiler.mark("success-toast-shown", { stepMs: Number((performance.now() - toastStartedAt).toFixed(2)) });
+    profiler.finish(payload.__meta || {}, decodedOrderSaveTimings(payload.__meta || {}));
   } catch (error) {
+    profiler.cancel("order-api-error");
     setOrderSaveError(error.message || "บันทึกออเดอร์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
     throw error;
   } finally {
     setOrderSaveState(false);
+    profiler.mark("saving-state-off");
   }
 }
 
@@ -11052,6 +11138,10 @@ els.productDialog?.addEventListener("close", () => {
 });
 
 document.addEventListener("click", async event => {
+  if (event.target.closest("#orderSubmitButton")) {
+    app.orderSaveClickStartedAt = performance.now();
+  }
+
   if (event.target.closest("#workDateTrigger")) {
     event.preventDefault();
     openDateRangePicker();
