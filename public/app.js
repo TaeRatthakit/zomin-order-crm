@@ -12796,7 +12796,7 @@ document.addEventListener("submit", async event => {
     app.settingsSavePending = false;
     setSettingsSaveState("idle");
     setProfileSaveState(false);
-    showToast(error.message);
+    showToast(error.message, currentFormId === "orderForm" ? "error" : "");
     return;
   }
   setProfileSaveState(false);

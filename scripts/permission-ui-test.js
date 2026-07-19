@@ -62,6 +62,15 @@ assert(formResetIndex > orderApiIndex, "order form must keep values until /api/o
 assert(submitOrderBody.includes("if (!payload.mutation?.order?.id)"), "submitOrder must reject incomplete order API responses");
 assert(!submitOrderBody.includes("optimisticOrderFromForm(data, orderId, clientMutationId)"), "submitOrder must not show optimistic order success before persistence");
 
+const submitListenerStart = appJs.indexOf('document.addEventListener("submit"');
+const submitListenerEnd = appJs.indexOf('window.addEventListener("hashchange"', submitListenerStart);
+assert(submitListenerStart >= 0 && submitListenerEnd > submitListenerStart, "submit listener not found");
+const submitListenerBody = appJs.slice(submitListenerStart, submitListenerEnd);
+assert(
+  submitListenerBody.includes('showToast(error.message, currentFormId === "orderForm" ? "error" : "")'),
+  "failed order saves must render an error toast instead of default success styling"
+);
+
 assert(css.includes(".permission-switch input"), "permission checkbox hiding CSS missing");
 assert(css.includes("opacity: 0"), "permission checkbox should be visually hidden");
 assert(css.includes("inset: 0") && css.includes("width: 100%") && css.includes("height: 100%"), "permission input must cover the switch touch target");
