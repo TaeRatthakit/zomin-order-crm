@@ -6426,7 +6426,6 @@ small,
 
   body.mobile-home-view .mobile-kpi-card {
     min-height: 139px;
-    height: 139px;
     padding: 12px 4px 9px;
     gap: 5px;
     border-radius: 12px;
@@ -6506,12 +6505,11 @@ small,
   }
 
   body.mobile-home-view .mobile-kpi-label {
-    overflow: hidden;
     color: #e7e8ed;
     font-size: 11px;
     font-weight: 400;
     line-height: 1.15;
-    white-space: nowrap;
+    overflow-wrap: anywhere;
   }
 
   body.mobile-home-view .mobile-kpi-card strong {
@@ -6520,6 +6518,8 @@ small,
     font-weight: 400;
     line-height: 1;
     letter-spacing: 0;
+    min-width: 0;
+    overflow-wrap: anywhere;
   }
 
   body.mobile-home-view .mobile-kpi-delta {
@@ -6527,6 +6527,8 @@ small,
     font-size: 13px;
     font-weight: 400;
     line-height: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
   }
 
   body.mobile-home-view .mobile-summary-card,
@@ -13412,10 +13414,6 @@ body.desktop-app-shell:not(.login-view) .line-status-row span {
 
   body.mobile-home-view .mobile-hero-card {
     padding-bottom: 0;
-  }
-
-  body.mobile-home-view .mobile-kpi-delta {
-    white-space: nowrap;
   }
 
   #profileDialog {
