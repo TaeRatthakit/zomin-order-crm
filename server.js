@@ -2214,6 +2214,7 @@ function addOrder(db, payload) {
     vipCardStatus,
     note,
     rawText: String(payload.rawText || "").trim(),
+    createdBy: String(payload.createdBy || payload.created_by || "").trim(),
     createdAt: nowIso,
     updatedAt: nowIso
   };
@@ -4087,11 +4088,12 @@ async function handleApi(req, res) {
   }
 
   if (req.method === "POST" && url.pathname === "/api/orders") {
-    if (!await requirePermission(req, res, db, "orders.create", "ไม่มีสิทธิ์เพิ่มออเดอร์")) return;
+    const currentUser = await requirePermission(req, res, db, "orders.create", "ไม่มีสิทธิ์เพิ่มออเดอร์");
+    if (!currentUser) return;
     const body = await readBody(req);
     let order;
     try {
-      order = addOrder(db, body);
+      order = addOrder(db, { ...body, createdBy: currentUser.id });
       adjustInventoryForOrderChange(db, null, order);
     } catch (error) {
       if (error.code === "ORDER_DUPLICATE") {
@@ -4116,9 +4118,22 @@ async function handleApi(req, res) {
       selectedDate: body.selectedDate || toDateOnly()
     });
     mutation.clientMutationId = String(body.clientMutationId || "");
-    if (typeof persistOrderMutation === "function") await persistOrderMutation(mutation, db.settings);
-    else await writeDb(db);
-    return json(res, 200, { ok: true, mutation });
+    let persistedDb = db;
+    if (typeof persistOrderMutation === "function") {
+      await persistOrderMutation(mutation, db.settings);
+      persistedDb = await readDb();
+    } else {
+      await writeDb(db);
+    }
+    const persistedMutation = orderMutationPayload(persistedDb, {
+      orderId: order.id,
+      selectedDate: body.selectedDate || toDateOnly()
+    });
+    persistedMutation.clientMutationId = mutation.clientMutationId;
+    if (!persistedMutation.order?.id) {
+      return json(res, 500, { ok: false, error: "บันทึกออเดอร์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" });
+    }
+    return json(res, 200, { ok: true, mutation: persistedMutation });
   }
 
   if (req.method === "PUT" && url.pathname.startsWith("/api/orders/")) {

@@ -10466,21 +10466,7 @@ async function submitOrder(form) {
     return;
   }
   const orderId = app.editingOrderId;
-  const snapshot = cloneUiState();
   const clientMutationId = `tmp_${Date.now().toString(36)}`;
-  const optimisticOrder = optimisticOrderFromForm(data, orderId, clientMutationId);
-  applyOrderMutation({
-    order: optimisticOrder,
-    affectedCustomerIds: [optimisticOrder.customerId],
-    customers: [],
-    deletedCustomerIds: [],
-    clientMutationId
-  });
-  patchOrdersView({ order: optimisticOrder, clientMutationId, affectedCustomerIds: [optimisticOrder.customerId] });
-  app.editingOrderId = "";
-  els.orderDialog.close();
-  form.reset();
-  showToast(orderId ? "แก้ไขออเดอร์แล้ว" : "บันทึกออเดอร์แล้ว");
   try {
     data.selectedDate = app.data.summary?.selectedDate || els.workDate.value || todayISO();
     data.clientMutationId = clientMutationId;
@@ -10488,11 +10474,17 @@ async function submitOrder(form) {
       method: orderId ? "PUT" : "POST",
       body: JSON.stringify(data)
     });
+    if (!payload.mutation?.order?.id) {
+      throw new Error(orderId ? "แก้ไขออเดอร์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" : "บันทึกออเดอร์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+    }
     applyOrderMutation(payload.mutation);
     patchOrdersView(payload.mutation);
     refreshVisibleCustomerPanels(payload.mutation);
+    app.editingOrderId = "";
+    els.orderDialog.close();
+    form.reset();
+    showToast(orderId ? "แก้ไขออเดอร์แล้ว" : "บันทึกออเดอร์แล้ว");
   } catch (error) {
-    restoreUiState(snapshot);
     throw error;
   } finally {
     setOrderSaveState(false);

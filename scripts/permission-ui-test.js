@@ -47,6 +47,21 @@ const changeHandler = appJs.slice(changeHandlerStart, appJs.indexOf('document.ad
 assert(changeHandler.includes("[data-permission-role]"), "role selector change handler missing");
 assert(changeHandler.includes("[data-permission-toggle]"), "permission toggle change handler missing");
 
+const submitOrderStart = appJs.indexOf("async function submitOrder");
+const submitOrderEnd = appJs.indexOf("function openDeleteOrderDialog", submitOrderStart);
+assert(submitOrderStart >= 0 && submitOrderEnd > submitOrderStart, "submitOrder() not found");
+const submitOrderBody = appJs.slice(submitOrderStart, submitOrderEnd);
+const orderApiIndex = submitOrderBody.indexOf("const payload = await api(orderId ? `/api/orders/");
+const successToastIndex = submitOrderBody.indexOf("showToast(orderId ? \"แก้ไขออเดอร์แล้ว\" : \"บันทึกออเดอร์แล้ว\")");
+const dialogCloseIndex = submitOrderBody.indexOf("els.orderDialog.close();");
+const formResetIndex = submitOrderBody.indexOf("form.reset();");
+assert(orderApiIndex >= 0, "submitOrder must await the order API");
+assert(successToastIndex > orderApiIndex, "order success toast must happen only after /api/orders succeeds");
+assert(dialogCloseIndex > orderApiIndex, "order dialog must stay open until /api/orders succeeds");
+assert(formResetIndex > orderApiIndex, "order form must keep values until /api/orders succeeds");
+assert(submitOrderBody.includes("if (!payload.mutation?.order?.id)"), "submitOrder must reject incomplete order API responses");
+assert(!submitOrderBody.includes("optimisticOrderFromForm(data, orderId, clientMutationId)"), "submitOrder must not show optimistic order success before persistence");
+
 assert(css.includes(".permission-switch input"), "permission checkbox hiding CSS missing");
 assert(css.includes("opacity: 0"), "permission checkbox should be visually hidden");
 assert(css.includes("inset: 0") && css.includes("width: 100%") && css.includes("height: 100%"), "permission input must cover the switch touch target");
