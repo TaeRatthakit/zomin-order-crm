@@ -51,7 +51,7 @@
         document.documentElement.dataset.theme = resolved;
       })();
     </script>
-    <link rel="stylesheet" href="/styles.css?v=20260719-order-form-no-packages-v1">
+    <link rel="stylesheet" href="/styles.css?v=20260719-order-single-product-v1">
   </head>
   <body>
     <div id="appStartupLoader" class="app-startup-loader" aria-hidden="true">
@@ -225,12 +225,9 @@
           <button class="icon-button" type="button" data-close-order aria-label="ปิด">×</button>
         </div>
         <div class="form-grid grow-modal-body">
-          <label><span class="order-field-label">สินค้า <i>*</i></span><input name="items" placeholder="เช่น Zomin"></label>
-          <section class="span-2 order-product-section" id="orderProductSection">
-            <div class="sales-package-grid">
-              <label>สินค้าในระบบ<select name="productId"></select></label>
-            </div>
-          </section>
+          <label><span class="order-field-label">สินค้า <i>*</i></span><input name="items" list="orderProductOptions" autocomplete="off" placeholder="ค้นหาและเลือกสินค้า" required></label>
+          <input name="productId" type="hidden">
+          <datalist id="orderProductOptions"></datalist>
           <label><span class="order-field-label">เลขออเดอร์ <i>*</i></span><input name="orderNumber" placeholder="เช่น 1/27"></label>
           <label><span class="order-field-label">วันที่ซื้อ <i>*</i></span><input name="date" type="date" required></label>
           <label><span class="order-field-label">ช่องทางการสั่งซื้อ <i>*</i></span>
@@ -494,9 +491,9 @@
       </form>
     </dialog>
 
-    <script src="/app.js?v=20260719-order-form-no-packages-v1"></script>
+    <script src="/app.js?v=20260719-order-single-product-v1"></script>
     <script>
-      const swUrl = "/service-worker.js?v=20260719-order-form-no-packages-v1";
+      const swUrl = "/service-worker.js?v=20260719-order-single-product-v1";
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", () => {
           navigator.serviceWorker.register(swUrl).then(registration => registration.update()).catch(() => {});

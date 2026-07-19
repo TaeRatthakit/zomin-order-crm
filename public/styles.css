@@ -11265,21 +11265,18 @@ body.desktop-app-shell:not(.login-view) .line-status-row span {
 .product-package-list,
 .sales-package-card,
 .package-expense-list,
-.order-package-section,
-.order-product-section {
+.order-package-section {
   display: grid;
   gap: 12px;
 }
 
-.order-package-section,
-.order-product-section {
+.order-package-section {
   padding: 14px;
   border: 1px solid rgba(168, 126, 255, 0.16);
   border-radius: 16px;
 }
 
-.order-package-section[hidden],
-.order-product-section[hidden] {
+.order-package-section[hidden] {
   display: none;
 }
 
@@ -20269,7 +20266,6 @@ body.mobile-orders-view #orderDialog.grow-modal .form-grid.grow-modal-body {
 }
 
 #orderDialog .order-package-section,
-#orderDialog .order-product-section,
 #productForm .sales-package-card,
 #productForm .package-expense-row {
   border-color: rgba(167, 139, 250, 0.18);

@@ -992,8 +992,10 @@ async function main() {
     || !productClient.text.includes("function mobileOrderProductSummary")
     || !productClient.text.includes("mobile-order-products")
     || !productClient.text.includes("delete data.originSourceChoice;")
-    || !productClient.text.includes("showToast(\"กรุณาเลือกสินค้าในระบบ\"")
-    || !productClient.text.includes("function setupOrderProductField")
+    || !productClient.text.includes("showToast(\"กรุณาเลือกสินค้า\"")
+    || !productClient.text.includes("function setupOrderProductControl")
+    || !productClient.text.includes("function syncOrderProductSelection")
+    || productClient.text.includes("function setupOrderProductField")
     || productClient.text.includes("function applyQuantityMatchedOrderPackage")
     || productClient.text.includes("Number(item.totalQuantityShipped || 0) === quantity")
     || productClient.text.includes("function readOrderPackageExpenses")
@@ -1033,19 +1035,31 @@ async function main() {
     fail("product actions do not enforce one request, rollback, or immediate row removal");
   }
   const appShell = await request("/");
+  const orderFormHtml = appShell.text.slice(
+    appShell.text.indexOf('<form id="orderForm"'),
+    appShell.text.indexOf('<dialog id="deleteOrderDialog"')
+  );
+  const productLabelCount = (orderFormHtml.match(/order-field-label">สินค้า <i>\*<\/i><\/span>/g) || []).length;
   if (
     appShell.status !== 200
-    || !appShell.text.includes('id="orderProductSection"')
-    || !appShell.text.includes('name="productId"')
-    || !appShell.text.includes('name="jars"')
-    || !appShell.text.includes("จำนวน <i>*</i>")
-    || appShell.text.includes('name="packageId"')
-    || appShell.text.includes('name="paidQuantity"')
-    || appShell.text.includes('name="freeQuantity"')
-    || appShell.text.includes('name="totalQuantityShipped"')
-    || appShell.text.includes('id="orderPackageExpenseList"')
+    || !orderFormHtml
+    || productLabelCount !== 1
+    || !orderFormHtml.includes('name="items" list="orderProductOptions"')
+    || !orderFormHtml.includes('name="productId" type="hidden"')
+    || !orderFormHtml.includes('id="orderProductOptions"')
+    || orderFormHtml.includes('<select name="productId"')
+    || !orderFormHtml.includes('name="jars"')
+    || !orderFormHtml.includes("จำนวน <i>*</i>")
+    || orderFormHtml.includes('id="orderProductSection"')
+    || orderFormHtml.includes("สินค้าในระบบ")
+    || orderFormHtml.includes("order-product-section")
+    || orderFormHtml.includes('name="packageId"')
+    || orderFormHtml.includes('name="paidQuantity"')
+    || orderFormHtml.includes('name="freeQuantity"')
+    || orderFormHtml.includes('name="totalQuantityShipped"')
+    || orderFormHtml.includes('id="orderPackageExpenseList"')
   ) {
-    fail("order form product picker or deprecated package controls regressed in the app shell");
+    fail("order form must keep one searchable product control without legacy product/package wrappers");
   }
   const importWorker = await request("/import-worker.js");
   if (
