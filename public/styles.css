@@ -6366,16 +6366,6 @@ small,
     font-weight: 400;
   }
 
-  body.mobile-home-view .topbar-side-right {
-    display: block;
-  }
-
-  body.mobile-home-view .topbar-icon-row {
-    height: 35px;
-    margin: 0 5px 8px 0;
-    gap: 9px;
-  }
-
   body.mobile-home-view .icon-button {
     width: 34px;
     height: 34px;
@@ -6384,12 +6374,6 @@ small,
     background: transparent;
     color: #c8c9ce;
     box-shadow: none;
-  }
-
-  body.mobile-home-view .topbar-action-icon {
-    width: 27px;
-    height: 27px;
-    stroke-width: 1.65;
   }
 
   body.mobile-home-view .notification-badge {
@@ -6401,26 +6385,6 @@ small,
     border: 0;
     font-size: 9px;
     line-height: 18px;
-  }
-
-  body.mobile-home-view .date-pill {
-    width: 114px;
-    min-width: 114px;
-    min-height: 35px;
-    padding: 0 10px;
-    border-radius: 12px;
-    border-color: rgba(113, 124, 156, 0.34);
-    background: rgba(4, 11, 23, 0.84);
-  }
-
-  body.mobile-home-view .date-pill-display {
-    font-size: 14px;
-    font-weight: 400;
-  }
-
-  body.mobile-home-view .date-pill-icon {
-    width: 15px;
-    height: 15px;
   }
 
   body.mobile-home-view .mobile-dashboard-page {
@@ -12117,16 +12081,6 @@ body.desktop-app-shell:not(.login-view) .line-status-row span {
     display: none;
   }
 
-  body.mobile-orders-view .topbar-side-right {
-    display: block;
-  }
-
-  body.mobile-orders-view .topbar-icon-row {
-    height: 34px;
-    margin: 8px 5px 10px 0;
-    gap: 10px;
-  }
-
   body.mobile-orders-view .icon-button {
     width: 34px;
     height: 34px;
@@ -12135,12 +12089,6 @@ body.desktop-app-shell:not(.login-view) .line-status-row span {
     background: transparent;
     color: #d7d9df;
     box-shadow: none;
-  }
-
-  body.mobile-orders-view .topbar-action-icon {
-    width: 27px;
-    height: 27px;
-    stroke-width: 1.65;
   }
 
   body.mobile-orders-view .notification-badge {
@@ -12152,27 +12100,6 @@ body.desktop-app-shell:not(.login-view) .line-status-row span {
     border: 0;
     font-size: 9px;
     line-height: 18px;
-  }
-
-  body.mobile-orders-view .date-pill {
-    width: 118px;
-    min-width: 118px;
-    min-height: 38px;
-    padding: 0 11px;
-    border-radius: 13px;
-    border-color: rgba(95, 125, 151, 0.3);
-    background: rgba(4, 16, 27, 0.88);
-  }
-
-  body.mobile-orders-view .date-pill-display {
-    color: #f2f3f6;
-    font-size: 14px;
-    font-weight: 400;
-  }
-
-  body.mobile-orders-view .date-pill-icon {
-    width: 18px;
-    height: 18px;
   }
 
   body.mobile-orders-view .mobile-orders-page {
@@ -13381,16 +13308,6 @@ body.desktop-app-shell:not(.login-view) .line-status-row span {
     opacity: 1;
   }
 
-  body.mobile-app-shell:not(.login-view) .topbar-side-right {
-    display: block;
-  }
-
-  body.mobile-app-shell:not(.login-view) .topbar-icon-row {
-    height: 34px;
-    margin: 8px 5px 10px 0;
-    gap: 10px;
-  }
-
   body.mobile-app-shell:not(.login-view) .icon-button {
     width: 34px;
     height: 34px;
@@ -13399,12 +13316,6 @@ body.desktop-app-shell:not(.login-view) .line-status-row span {
     background: transparent;
     color: #d7d9df;
     box-shadow: none;
-  }
-
-  body.mobile-app-shell:not(.login-view) .topbar-action-icon {
-    width: 27px;
-    height: 27px;
-    stroke-width: 1.65;
   }
 
   body.mobile-app-shell:not(.login-view) .notification-badge {
@@ -13437,51 +13348,6 @@ body.desktop-app-shell:not(.login-view) .line-status-row span {
     color: #aeb2bd;
     font-size: 10px;
     font-weight: 400;
-  }
-
-  body.mobile-app-shell:not(.login-view) .date-pill {
-    width: 116px;
-    min-width: 116px;
-    min-height: 42px;
-    padding: 0 12px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    box-sizing: border-box;
-    border-radius: 14px;
-    border-color: rgba(95, 125, 151, 0.3);
-    background: rgba(4, 16, 27, 0.88);
-    overflow: hidden;
-  }
-
-  body.mobile-app-shell:not(.login-view) .date-pill-display {
-    flex: 1 1 auto;
-    min-width: 0;
-    color: #f2f3f6;
-    font-size: 14px;
-    font-weight: 400;
-    line-height: 1;
-    text-align: left;
-    white-space: nowrap;
-  }
-
-  body.mobile-app-shell:not(.login-view) .date-pill-icon {
-    width: 18px;
-    height: 18px;
-    flex: 0 0 auto;
-    position: static;
-    pointer-events: none;
-  }
-
-  body.mobile-app-shell:not(.login-view) .date-pill-chevron {
-    display: none;
-  }
-
-  body.mobile-app-shell.mobile-home-view:not(.login-view) .date-pill {
-    width: 116px;
-    max-width: 116px;
-    min-width: 116px;
   }
 
   body.mobile-app-shell:not(.login-view) .page-heading {
@@ -25337,14 +25203,24 @@ html[data-theme="light"] body:not(.login-view) .sidebar-theme-button.is-active {
     stroke-width: 1.65;
   }
 
-  body.mobile-app-shell:not(.login-view) .topbar-icon-row,
-  body.mobile-home-view:not(.login-view) .topbar-icon-row {
-    align-items: center;
-    gap: 0;
-    margin-right: -5px;
-    min-height: 44px;
+  body.mobile-app-shell:not(.login-view) .topbar-side-right,
+  body.mobile-home-view:not(.login-view) .topbar-side-right {
+    display: grid;
+    justify-items: end;
   }
 
+  body.mobile-app-shell:not(.login-view) .topbar-icon-row,
+  body.mobile-home-view:not(.login-view) .topbar-icon-row {
+    height: 44px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0;
+    margin: 0 -5px 0 0;
+  }
+
+  body.mobile-app-shell:not(.login-view) .topbar-icon-row .icon-button,
   body.mobile-home-view:not(.login-view) .topbar-icon-row .icon-button {
     width: 44px;
     height: 44px;
@@ -25355,13 +25231,55 @@ html[data-theme="light"] body:not(.login-view) .sidebar-theme-button.is-active {
     padding: 0;
   }
 
+  body.mobile-app-shell:not(.login-view) .topbar-icon-row .topbar-action-icon,
   body.mobile-home-view:not(.login-view) .topbar-icon-row .topbar-action-icon {
     width: 23px;
     height: 23px;
   }
 
-  body.mobile-app-shell.mobile-home-view:not(.login-view) .date-pill {
+  body.mobile-app-shell:not(.login-view) .date-pill,
+  body.mobile-home-view:not(.login-view) .date-pill {
+    width: min(190px, calc(100vw - 196px));
+    min-width: min(190px, calc(100vw - 196px));
+    max-width: min(190px, calc(100vw - 196px));
+    min-height: 44px;
+    padding: 0 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    box-sizing: border-box;
+    border-radius: 14px;
+    border-color: rgba(95, 125, 151, 0.3);
+    background: rgba(4, 16, 27, 0.88);
+    overflow: hidden;
     transform: translateY(-10px);
+  }
+
+  body.mobile-app-shell:not(.login-view) .date-pill-display,
+  body.mobile-home-view:not(.login-view) .date-pill-display {
+    flex: 1 1 auto;
+    min-width: 0;
+    color: #f2f3f6;
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1;
+    text-align: left;
+    white-space: nowrap;
+  }
+
+  body.mobile-app-shell:not(.login-view) .date-pill-icon,
+  body.mobile-home-view:not(.login-view) .date-pill-icon {
+    width: 18px;
+    height: 18px;
+    flex: 0 0 auto;
+    position: static;
+    pointer-events: none;
+  }
+
+  body.mobile-app-shell:not(.login-view) .date-pill-chevron,
+  body.mobile-home-view:not(.login-view) .date-pill-chevron {
+    display: none;
   }
 
   .mobile-theme-sheet-dialog[open] {
