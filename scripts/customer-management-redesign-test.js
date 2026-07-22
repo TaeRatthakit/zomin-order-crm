@@ -71,6 +71,7 @@ assert(lightCustomerCellRule.includes("background: #ffffff !important"), "Deskto
 assert(lightCustomerCellRule.includes("color: #172033 !important"), "Desktop Light customer table cells must use readable text");
 assert(lightCustomerCellRule.includes("padding: 15px 14px"), "Desktop Light customer table cells must keep readable vertical spacing");
 assert(css.includes(`${lightCustomerScope} .workspace-table-wrap`) && css.includes("background: #ffffff !important"), "Desktop Light customer table wrapper must not add a purple gradient behind rows");
+assert(css.includes(`${lightCustomerScope} .workspace-table-wrap::before`) && css.includes("content: none;") && css.includes("background: none;"), "Desktop Light customer table wrapper must disable the base purple overlay pseudo-element");
 assert(css.includes(`${lightCustomerScope} .workspace-table thead th`) && css.includes("background: #faf8ff !important") && css.includes("color: #32254d !important"), "Desktop Light customer table headings must use a readable light header");
 assert(css.includes(`${lightCustomerScope} .workspace-table tbody tr {\n    background: #ffffff !important`), "Desktop Light customer table rows must use a clean white surface");
 assert(css.includes(`${lightCustomerScope} .workspace-table tbody tr:nth-child(even) td {\n    background: #fdfbff !important`), "Desktop Light customer alternate row cells must use only a very light purple tint");

@@ -25369,6 +25369,11 @@ html[data-theme="light"] body:not(.login-view) .notification-surface .notificati
     box-shadow: 0 12px 28px rgba(76, 56, 124, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.92) !important;
   }
 
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) :is(.customers-page:not(.settings-customers-management):not(.embedded-customer-management), .customer-management-business-page .customers-page.embedded-customer-management) .workspace-table-wrap::before {
+    content: none;
+    background: none;
+  }
+
   html[data-theme="light"] body.desktop-app-shell:not(.login-view) :is(.customers-page:not(.settings-customers-management):not(.embedded-customer-management), .customer-management-business-page .customers-page.embedded-customer-management) .workspace-table {
     background: #ffffff;
   }
