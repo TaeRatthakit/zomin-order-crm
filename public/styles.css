@@ -23048,6 +23048,19 @@ html[data-theme="light"] body:not(.login-view) .security-center-card.is-active {
     #ffffff !important;
 }
 
+html[data-theme="light"] body:not(.login-view) .security-card-meta {
+  border-top-color: #e9e3f7 !important;
+  background: var(--light-surface-tint) !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .security-card-meta small {
+  color: color-mix(in srgb, var(--light-purple-accent) 48%, var(--light-text-muted)) !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .security-card-meta b {
+  color: var(--light-text) !important;
+}
+
 html[data-theme="light"] body:not(.login-view) .settings-premium-page .settings-inline-back,
 html[data-theme="light"] body:not(.login-view) .mobile-business-back,
 html[data-theme="light"] body:not(.login-view) .security-detail-close,
