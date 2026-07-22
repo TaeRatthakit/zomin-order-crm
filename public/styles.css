@@ -23777,6 +23777,32 @@ html[data-theme="light"] body:not(.login-view) .mobile-marketing-kpis strong {
   color: #0b1220 !important;
 }
 
+html[data-theme="light"] body:not(.login-view) .mobile-marketing-table {
+  border-color: #e5e7eb !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .mobile-marketing-table .mobile-finance-section-head h3 {
+  color: #4b5563 !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .mobile-marketing-table .mobile-finance-section-head p,
+html[data-theme="light"] body:not(.login-view) .mobile-marketing-table .mobile-report-empty {
+  color: #6b7280 !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .mobile-marketing-table-row {
+  border-bottom-color: #e5e7eb !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .mobile-marketing-table-row > strong,
+html[data-theme="light"] body:not(.login-view) .mobile-marketing-table-row > span {
+  color: #111827 !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .mobile-marketing-table-row small {
+  color: #4b5563 !important;
+}
+
 html[data-theme="light"] body:not(.login-view) .settings-finance-label,
 html[data-theme="light"] body:not(.login-view) .settings-finance-operator,
 html[data-theme="light"] body:not(.login-view) .settings-total-row strong,
