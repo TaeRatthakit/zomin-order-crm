@@ -5159,15 +5159,53 @@ function marketingMetricCard(label, value, tone = "blue") {
   return `<article class="${escapeHtml(tone)}"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></article>`;
 }
 
+function groupedMarketingPerformanceRows(rows, type) {
+  const labelKey = type === "product" ? "productName" : "platformName";
+  const idKey = type === "product" ? "productId" : "platformId";
+  const groups = new Map();
+  rows.forEach(row => {
+    const label = String(row[labelKey] || "").trim() || "ไม่ระบุ";
+    const key = normalizeProductName(label).toLocaleLowerCase("th-TH");
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(row);
+  });
+  return [...groups.values()].flatMap(group => {
+    const ids = [...new Set(group.map(row => String(row[idKey] || "").trim()).filter(Boolean))];
+    if (group.length === 1 || ids.length > 1) return group;
+    const first = group[0];
+    const sales = group.reduce((sum, row) => sum + Number(row.sales || 0), 0);
+    const adCost = group.reduce((sum, row) => sum + Number(row.adCost || 0), 0);
+    const orderCount = group.reduce((sum, row) => sum + Number(row.orderCount || 0), 0);
+    const profitBeforeAds = group.reduce((sum, row) => sum + Number(row.profitBeforeAds || 0), 0);
+    const profitAfterAds = group.reduce((sum, row) => sum + Number(row.profitAfterAds || 0), 0);
+    return [{
+      ...first,
+      [idKey]: ids[0] || "",
+      sales,
+      orderCount,
+      profitBeforeAds,
+      adCost,
+      profitAfterAds,
+      roas: adCost ? sales / adCost : 0,
+      adCostPercent: sales ? adCost / sales * 100 : 0,
+      costPerOrder: orderCount ? adCost / orderCount : 0
+    }];
+  }).sort((a, b) => Number(b.sales || 0) - Number(a.sales || 0));
+}
+
+function marketingRoasDisplay(row) {
+  return Number(row.adCost || 0) ? marketingNumber(row.roas) : "—";
+}
+
 function marketingPerformanceRows(rows, type) {
   const labelKey = type === "product" ? "productName" : "platformName";
-  return rows.map(row => `
+  return groupedMarketingPerformanceRows(rows, type).map(row => `
     <div class="mobile-marketing-table-row">
       <strong>${escapeHtml(row[labelKey])}</strong>
       <span><small>ยอดขาย</small>฿ ${money(row.sales)}</span>
       <span><small>ค่าโฆษณา</small>฿ ${money(row.adCost)}</span>
       <span><small>กำไรหลัง Ads</small>฿ ${money(row.profitAfterAds)}</span>
-      <span><small>ROAS</small>${marketingNumber(row.roas)}</span>
+      <span><small>ROAS</small>${escapeHtml(marketingRoasDisplay(row))}</span>
     </div>
   `).join("") || `<div class="mobile-report-empty">ยังไม่มีข้อมูลในช่วงเวลานี้</div>`;
 }
