@@ -62,4 +62,18 @@ assert(lightCustomerHeroRule.includes("#ffffff") && lightCustomerHeroRule.includ
 assert(!lightCustomerHeroRule.includes("rgba(5, 17, 29") && !lightCustomerHeroRule.includes("rgba(4, 12, 23"), "Desktop Light customer hero rule must not retain the dark surface colors");
 assert(!css.includes("html[data-theme=\"light\"] body.desktop-app-shell:not(.login-view) .customers-page:not(.settings-customers-management):not(.embedded-customer-management) .customers-hero"), "Old standalone-only selector must be corrected instead of remaining as an ineffective selector");
 
+const darkDesktopCellIndex = css.indexOf("body.desktop-app-shell:not(.login-view) .workspace-table tbody td");
+const lightCustomerCellSelector = `${lightCustomerScope} .workspace-table tbody td`;
+const lightCustomerCellIndex = css.indexOf(lightCustomerCellSelector);
+assert(darkDesktopCellIndex !== -1 && lightCustomerCellIndex > darkDesktopCellIndex, "Desktop Light customer table cell rule must load after the dark desktop table baseline");
+const lightCustomerCellRule = css.slice(lightCustomerCellIndex, css.indexOf("}", lightCustomerCellIndex));
+assert(lightCustomerCellRule.includes("background: transparent !important"), "Desktop Light customer table cells must clear the dark cell background");
+assert(lightCustomerCellRule.includes("color: #172033 !important"), "Desktop Light customer table cells must use readable text");
+assert(css.includes(`${lightCustomerScope} .workspace-table thead th`) && css.includes("background: #f8f5ff !important") && css.includes("color: #493a64 !important"), "Desktop Light customer table headings must use a readable light header");
+assert(css.includes(`${lightCustomerScope} .workspace-table tbody tr {\n    background: #ffffff !important`), "Desktop Light customer table rows must use a clean white surface");
+assert(css.includes(`${lightCustomerScope} .table-identity small`) && css.includes("color: #667085 !important"), "Desktop Light customer address text must remain muted but readable");
+assert(css.includes(`${lightCustomerScope} .workspace-table .badge`) && css.includes("background: #efe4ff !important") && css.includes("color: #5b21b6 !important"), "Desktop Light customer badges must remain pastel purple with readable text");
+assert(css.includes(`${lightCustomerScope} .table-actions .button.secondary`) && css.includes("color: #6d28d9 !important"), "Desktop Light customer edit action must stay compact and recognizable");
+assert(css.includes(`${lightCustomerScope} .table-actions .button.danger`) && css.includes("color: #be123c !important"), "Desktop Light customer delete action must stay compact and recognizable");
+
 console.log("Customer Management redesign static tests passed");

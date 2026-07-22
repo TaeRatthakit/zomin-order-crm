@@ -25362,6 +25362,75 @@ html[data-theme="light"] body:not(.login-view) .notification-surface .notificati
       linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(251, 249, 255, 0.96)) !important;
     box-shadow: 0 14px 32px rgba(76, 56, 124, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.88) !important;
   }
+
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) :is(.customers-page:not(.settings-customers-management):not(.embedded-customer-management), .customer-management-business-page .customers-page.embedded-customer-management) .workspace-table-wrap {
+    border-color: rgba(226, 218, 249, 0.92) !important;
+    background:
+      radial-gradient(circle at 10% 0, rgba(124, 58, 237, 0.035), transparent 36%),
+      linear-gradient(145deg, #ffffff, #fbfaff) !important;
+    box-shadow: 0 14px 32px rgba(76, 56, 124, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.88) !important;
+  }
+
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) :is(.customers-page:not(.settings-customers-management):not(.embedded-customer-management), .customer-management-business-page .customers-page.embedded-customer-management) .workspace-table thead th {
+    border-color: rgba(226, 218, 249, 0.92) !important;
+    background: #f8f5ff !important;
+    color: #493a64 !important;
+    font-weight: 750;
+  }
+
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) :is(.customers-page:not(.settings-customers-management):not(.embedded-customer-management), .customer-management-business-page .customers-page.embedded-customer-management) .workspace-table tbody tr {
+    background: #ffffff !important;
+    color: var(--light-text-primary) !important;
+    box-shadow: none !important;
+  }
+
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) :is(.customers-page:not(.settings-customers-management):not(.embedded-customer-management), .customer-management-business-page .customers-page.embedded-customer-management) .workspace-table tbody tr:nth-child(even) {
+    background: #fcfaff !important;
+  }
+
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) :is(.customers-page:not(.settings-customers-management):not(.embedded-customer-management), .customer-management-business-page .customers-page.embedded-customer-management) .workspace-table tbody tr:hover,
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) :is(.customers-page:not(.settings-customers-management):not(.embedded-customer-management), .customer-management-business-page .customers-page.embedded-customer-management) .workspace-table tbody tr:focus-within {
+    background: #f7f2ff !important;
+  }
+
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) :is(.customers-page:not(.settings-customers-management):not(.embedded-customer-management), .customer-management-business-page .customers-page.embedded-customer-management) .workspace-table tbody td {
+    border-color: rgba(226, 218, 249, 0.92) !important;
+    background: transparent !important;
+    color: #172033 !important;
+    font-weight: 650;
+  }
+
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) :is(.customers-page:not(.settings-customers-management):not(.embedded-customer-management), .customer-management-business-page .customers-page.embedded-customer-management) .table-identity,
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) :is(.customers-page:not(.settings-customers-management):not(.embedded-customer-management), .customer-management-business-page .customers-page.embedded-customer-management) .table-identity strong {
+    color: #111827 !important;
+  }
+
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) :is(.customers-page:not(.settings-customers-management):not(.embedded-customer-management), .customer-management-business-page .customers-page.embedded-customer-management) .table-identity small {
+    color: #667085 !important;
+    opacity: 1 !important;
+  }
+
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) :is(.customers-page:not(.settings-customers-management):not(.embedded-customer-management), .customer-management-business-page .customers-page.embedded-customer-management) .workspace-table .badge {
+    border-color: rgba(124, 58, 237, 0.20) !important;
+    background: #efe4ff !important;
+    color: #5b21b6 !important;
+    opacity: 1 !important;
+  }
+
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) :is(.customers-page:not(.settings-customers-management):not(.embedded-customer-management), .customer-management-business-page .customers-page.embedded-customer-management) .table-actions .button.secondary,
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) :is(.customers-page:not(.settings-customers-management):not(.embedded-customer-management), .customer-management-business-page .customers-page.embedded-customer-management) .table-actions .button.ghost {
+    border-color: rgba(124, 58, 237, 0.20) !important;
+    background: #f7f0ff !important;
+    color: #6d28d9 !important;
+    box-shadow: none !important;
+  }
+
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) :is(.customers-page:not(.settings-customers-management):not(.embedded-customer-management), .customer-management-business-page .customers-page.embedded-customer-management) .table-actions .button.danger {
+    border-color: rgba(225, 29, 72, 0.18) !important;
+    background: #fff1f2 !important;
+    color: #be123c !important;
+    box-shadow: none !important;
+  }
 }
 
 html[data-theme="light"] body:not(.login-view) .workspace-hero,
