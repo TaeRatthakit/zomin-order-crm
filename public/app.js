@@ -2871,8 +2871,9 @@ function marketingPerformanceForPeriod({ date = "", month = "", range = null } =
     productMap.get(key).adCost += record.cost;
   });
 
+  const platformRecords = records.filter(record => Number(record.cost || 0) > 0);
   const platformMap = new Map();
-  records.forEach(record => {
+  platformRecords.forEach(record => {
     const key = record.platformId || `name:${record.platformName.toLocaleLowerCase("th-TH")}`;
     if (!platformMap.has(key)) {
       platformMap.set(key, {
@@ -2887,7 +2888,7 @@ function marketingPerformanceForPeriod({ date = "", month = "", range = null } =
     platformMap.get(key).adCost += record.cost;
   });
   const allocationGroups = new Map();
-  records.forEach(record => {
+  platformRecords.forEach(record => {
     const key = `${record.date}|${productKey(record.productId, record.productName)}`;
     if (!allocationGroups.has(key)) allocationGroups.set(key, []);
     allocationGroups.get(key).push(record);

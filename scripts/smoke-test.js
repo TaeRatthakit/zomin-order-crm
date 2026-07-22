@@ -908,6 +908,30 @@ async function main() {
     fail("advertising cost mutated an existing order profit snapshot");
   }
 
+  const zeroCostAdDate = shiftDate(adTestDate, -2);
+  const zeroCostAd = await request("/api/ad-costs", {
+    method: "POST",
+    headers: { cookie, "content-type": "application/json" },
+    body: JSON.stringify({
+      date: zeroCostAdDate,
+      productId: savedZomin.id,
+      productName: "Zomin",
+      platformId: "facebook_ads",
+      costMode: "fixed_amount",
+      value: 0,
+      enabled: true
+    })
+  });
+  if (zeroCostAd.status !== 200) fail("zero-cost ad placeholder creation failed");
+  const zeroCostPerformance = JSON.parse((await request(
+    `/api/marketing-performance?date=${zeroCostAdDate}`,
+    { headers: { cookie } }
+  )).text).performance;
+  if (zeroCostPerformance.adCost !== 0) fail("zero-cost ad placeholder changed total ad cost");
+  if (zeroCostPerformance.platformPerformance.length) {
+    fail("zero-cost ad placeholder created a platform performance row");
+  }
+
   const historicalAdDate = shiftDate(adTestDate, -1);
   const historicalAd = await request("/api/ad-costs", {
     method: "POST",
