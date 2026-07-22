@@ -22177,6 +22177,32 @@ html[data-theme="light"] .mobile-business-ranking > div {
   box-shadow: 0 14px 34px rgba(76, 56, 124, 0.10), inset 0 1px 0 rgba(255, 255, 255, 0.74);
 }
 
+html[data-theme="light"] body.desktop-dashboard-view:not(.login-view) .desktop-reference-quick-icon {
+  background: #f3e8ff;
+  border: 1px solid rgba(124, 58, 237, 0.10);
+  box-shadow: 0 10px 24px rgba(76, 56, 124, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.82);
+}
+
+html[data-theme="light"] body.desktop-dashboard-view:not(.login-view) .desktop-reference-quick-action.tone-orange .desktop-reference-quick-icon {
+  background: #fff4e6;
+  border-color: rgba(245, 158, 11, 0.14);
+}
+
+html[data-theme="light"] body.desktop-dashboard-view:not(.login-view) .desktop-reference-quick-action.tone-blue .desktop-reference-quick-icon {
+  background: #eef5ff;
+  border-color: rgba(37, 99, 235, 0.12);
+}
+
+html[data-theme="light"] body.desktop-dashboard-view:not(.login-view) .desktop-reference-quick-action.tone-green .desktop-reference-quick-icon {
+  background: #ecfbf3;
+  border-color: rgba(22, 163, 74, 0.12);
+}
+
+html[data-theme="light"] body.desktop-dashboard-view:not(.login-view) .desktop-reference-quick-action.tone-violet .desktop-reference-quick-icon {
+  background: #f7eeff;
+  border-color: rgba(124, 58, 237, 0.10);
+}
+
 html[data-theme="light"] body.desktop-app-shell:not(.login-view) .dashboard-kpi-card.blue,
 html[data-theme="light"] body.desktop-dashboard-view:not(.login-view) .desktop-reference-kpi.tone-blue,
 html[data-theme="light"] body.desktop-app-shell:not(.login-view) .mobile-report-kpi.tone-blue {
