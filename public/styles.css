@@ -23769,6 +23769,14 @@ html[data-theme="light"] body:not(.login-view) .mobile-business-finance-grid str
   font-weight: 900;
 }
 
+html[data-theme="light"] body:not(.login-view) .mobile-marketing-kpis span {
+  color: #4b5563 !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .mobile-marketing-kpis strong {
+  color: #0b1220 !important;
+}
+
 html[data-theme="light"] body:not(.login-view) .settings-finance-label,
 html[data-theme="light"] body:not(.login-view) .settings-finance-operator,
 html[data-theme="light"] body:not(.login-view) .settings-total-row strong,

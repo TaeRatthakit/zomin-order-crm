@@ -5204,6 +5204,7 @@ function renderMobileBusinessMarketingPerformance() {
         ${marketingMetricCard("ROAS เดือน", marketingNumber(month.roas), "purple")}
         ${marketingMetricCard("ค่าโฆษณา %", `${marketingNumber(month.adCostPercent)}%`, "orange")}
         ${marketingMetricCard("ค่าใช้จ่ายต่อออเดอร์", `฿ ${money(month.costPerOrder)}`, "blue")}
+        ${marketingMetricCard("จำนวนออเดอร์เดือนนี้", money(month.orderCount), "orange")}
       </div>
       <section class="mobile-marketing-table">
         <div class="mobile-finance-section-head"><div><h3>ประสิทธิภาพรายสินค้า</h3><p>ยอดขาย กำไร และค่าโฆษณาแยกตามสินค้า</p></div></div>
