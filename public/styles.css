@@ -23563,6 +23563,284 @@ html[data-theme="light"] body:not(.login-view) .import-status.paused {
   color: #1d4ed8 !important;
 }
 
+/* Light theme refinement for Finance, Cost/Profit details, and Edit Product modal. */
+html[data-theme="light"] body:not(.login-view) .settings-finance-summary,
+html[data-theme="light"] body:not(.login-view) .settings-finance-block,
+html[data-theme="light"] body:not(.login-view) .mobile-business-subpage .mobile-business-detail-card,
+html[data-theme="light"] body:not(.login-view) .mobile-business-subpage .mobile-finance-form {
+  border-color: rgba(91, 73, 127, 0.16) !important;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(250, 248, 255, 0.96)) !important;
+  color: var(--light-text) !important;
+  box-shadow: 0 16px 36px rgba(48, 38, 84, 0.09) !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .settings-finance-equation {
+  padding: 0 !important;
+  border-color: transparent !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .settings-finance-pill,
+html[data-theme="light"] body:not(.login-view) .mobile-business-finance-grid article {
+  position: relative;
+  justify-items: start;
+  min-height: 76px;
+  padding: 15px 16px 15px 58px;
+  border-color: rgba(91, 73, 127, 0.14) !important;
+  border-radius: 14px;
+  background: #ffffff !important;
+  text-align: left;
+  box-shadow: 0 10px 24px rgba(48, 38, 84, 0.07) !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .settings-finance-pill::before,
+html[data-theme="light"] body:not(.login-view) .mobile-business-finance-grid article::before {
+  content: "";
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  background: var(--finance-kpi-chip, rgba(124, 58, 237, 0.11));
+  transform: translateY(-50%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.82);
+}
+
+html[data-theme="light"] body:not(.login-view) .settings-finance-pill::after,
+html[data-theme="light"] body:not(.login-view) .mobile-business-finance-grid article::after {
+  content: "";
+  position: absolute;
+  left: 25px;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--finance-kpi-accent, #7c3aed);
+  border-radius: 4px;
+  transform: translateY(-50%);
+}
+
+html[data-theme="light"] body:not(.login-view) .settings-finance-pill.sales,
+html[data-theme="light"] body:not(.login-view) .mobile-business-finance-grid article.blue {
+  --finance-kpi-chip: rgba(37, 99, 235, 0.10);
+  --finance-kpi-accent: #2563eb;
+}
+
+html[data-theme="light"] body:not(.login-view) .settings-finance-pill.product,
+html[data-theme="light"] body:not(.login-view) .mobile-business-finance-grid article.purple {
+  --finance-kpi-chip: rgba(244, 63, 94, 0.10);
+  --finance-kpi-accent: #e11d48;
+}
+
+html[data-theme="light"] body:not(.login-view) .settings-finance-pill.extra,
+html[data-theme="light"] body:not(.login-view) .mobile-business-finance-grid article.orange {
+  --finance-kpi-chip: rgba(245, 158, 11, 0.13);
+  --finance-kpi-accent: #f97316;
+}
+
+html[data-theme="light"] body:not(.login-view) .settings-finance-pill.profit,
+html[data-theme="light"] body:not(.login-view) .mobile-business-finance-grid article.green {
+  --finance-kpi-chip: rgba(22, 163, 74, 0.11);
+  --finance-kpi-accent: #16a34a;
+}
+
+html[data-theme="light"] body:not(.login-view) .mobile-business-finance-grid article.red {
+  --finance-kpi-chip: rgba(220, 38, 38, 0.10);
+  --finance-kpi-accent: #dc2626;
+}
+
+html[data-theme="light"] body:not(.login-view) .settings-finance-pill span,
+html[data-theme="light"] body:not(.login-view) .mobile-business-finance-grid span {
+  color: var(--light-text-soft) !important;
+  font-weight: 800;
+}
+
+html[data-theme="light"] body:not(.login-view) .settings-finance-pill strong,
+html[data-theme="light"] body:not(.login-view) .mobile-business-finance-grid strong {
+  color: var(--light-text-strong) !important;
+  font-weight: 900;
+}
+
+html[data-theme="light"] body:not(.login-view) .settings-finance-label,
+html[data-theme="light"] body:not(.login-view) .settings-finance-operator,
+html[data-theme="light"] body:not(.login-view) .settings-total-row strong,
+html[data-theme="light"] body:not(.login-view) .mobile-business-product-record b,
+html[data-theme="light"] body:not(.login-view) .mobile-finance-product-metrics strong,
+html[data-theme="light"] body:not(.login-view) .mobile-finance-product > .button {
+  color: var(--light-purple-accent) !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .mobile-business-subhead {
+  border-color: rgba(91, 73, 127, 0.14) !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .mobile-business-subhead h2,
+html[data-theme="light"] body:not(.login-view) .mobile-business-product-hero h3,
+html[data-theme="light"] body:not(.login-view) .mobile-finance-product-name strong,
+html[data-theme="light"] body:not(.login-view) .mobile-business-info-list strong,
+html[data-theme="light"] body:not(.login-view) .settings-cost-summary strong {
+  color: var(--light-text-strong) !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .mobile-business-subhead p,
+html[data-theme="light"] body:not(.login-view) .mobile-business-product-hero p,
+html[data-theme="light"] body:not(.login-view) .mobile-finance-product-name span,
+html[data-theme="light"] body:not(.login-view) .mobile-finance-product label span,
+html[data-theme="light"] body:not(.login-view) .mobile-finance-product-metrics > span,
+html[data-theme="light"] body:not(.login-view) .mobile-business-info-list span,
+html[data-theme="light"] body:not(.login-view) .settings-cost-summary span {
+  color: var(--light-text-muted) !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .mobile-business-info-list {
+  border-color: rgba(91, 73, 127, 0.14) !important;
+  background: #ffffff !important;
+  box-shadow: 0 10px 24px rgba(48, 38, 84, 0.06) !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .mobile-business-info-list > div {
+  border-color: rgba(91, 73, 127, 0.12) !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .mobile-finance-product,
+html[data-theme="light"] body:not(.login-view) .mobile-finance-expense-list .settings-cost-row,
+html[data-theme="light"] body:not(.login-view) .settings-cost-row {
+  border-color: rgba(91, 73, 127, 0.15) !important;
+  background: #ffffff !important;
+  color: var(--light-text) !important;
+  box-shadow: 0 10px 24px rgba(48, 38, 84, 0.07) !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .mobile-finance-product-metrics > span {
+  border: 1px solid rgba(124, 58, 237, 0.10);
+  background: #f6f2ff !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .mobile-finance-product input[type="number"],
+html[data-theme="light"] body:not(.login-view) .settings-cost-field input,
+html[data-theme="light"] body:not(.login-view) .settings-cost-field select {
+  border-color: rgba(91, 73, 127, 0.26) !important;
+  background: #ffffff !important;
+  color: var(--light-text-strong) !important;
+  box-shadow: inset 0 1px 2px rgba(48, 38, 84, 0.05) !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .mobile-finance-product > .button,
+html[data-theme="light"] body:not(.login-view) .settings-cost-actions .button.ghost {
+  border-color: rgba(124, 58, 237, 0.18) !important;
+  background: #faf7ff !important;
+  box-shadow: none !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .mobile-finance-formula-note,
+html[data-theme="light"] body:not(.login-view) .mobile-finance-helper-card,
+html[data-theme="light"] body:not(.login-view) .settings-expense-helper-card {
+  border-color: rgba(124, 58, 237, 0.14) !important;
+  background: #faf7ff !important;
+  color: var(--light-text-muted) !important;
+  box-shadow: 0 10px 24px rgba(48, 38, 84, 0.06) !important;
+}
+
+html[data-theme="light"] #productForm.product-modal-form.grow-modal-shell,
+html[data-theme="light"] #productForm.product-modal-form {
+  border-color: rgba(91, 73, 127, 0.18) !important;
+  background:
+    linear-gradient(145deg, #ffffff, #faf8ff) !important;
+  color: var(--light-text) !important;
+  box-shadow: 0 28px 80px rgba(48, 38, 84, 0.18) !important;
+}
+
+html[data-theme="light"] #productDialog.product-dialog::backdrop {
+  background: rgba(246, 243, 252, 0.72) !important;
+  backdrop-filter: blur(12px) saturate(1.05) !important;
+}
+
+html[data-theme="light"] #productForm.product-modal-form.grow-modal-shell::before {
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.06), transparent 32%) !important;
+}
+
+html[data-theme="light"] #productForm .product-modal-content,
+html[data-theme="light"] #productForm .grow-modal-body {
+  background: transparent !important;
+}
+
+html[data-theme="light"] #productForm .grow-modal-header,
+html[data-theme="light"] #productForm .dialog-header {
+  border-color: rgba(91, 73, 127, 0.14) !important;
+  background: rgba(255, 255, 255, 0.96) !important;
+}
+
+html[data-theme="light"] #productForm .grow-modal-footer,
+html[data-theme="light"] #productForm .product-modal-actions {
+  border-color: rgba(91, 73, 127, 0.14) !important;
+  background: rgba(250, 248, 255, 0.96) !important;
+}
+
+html[data-theme="light"] #productForm .grow-modal-icon {
+  border-color: rgba(124, 58, 237, 0.20) !important;
+  background: linear-gradient(145deg, #a78bfa, #7c3aed) !important;
+  color: #ffffff !important;
+  box-shadow: 0 10px 22px rgba(124, 58, 237, 0.22) !important;
+}
+
+html[data-theme="light"] #productForm .sales-package-card,
+html[data-theme="light"] #productForm .package-expense-row,
+html[data-theme="light"] #productForm .package-expense-empty {
+  border-color: rgba(91, 73, 127, 0.15) !important;
+  background: #ffffff !important;
+  color: var(--light-text) !important;
+  box-shadow: 0 8px 18px rgba(48, 38, 84, 0.06) !important;
+}
+
+html[data-theme="light"] #productForm .sales-package-card.is-open {
+  border-color: rgba(124, 58, 237, 0.34) !important;
+  box-shadow: 0 0 0 1px rgba(124, 58, 237, 0.10), 0 12px 28px rgba(48, 38, 84, 0.10) !important;
+}
+
+html[data-theme="light"] #productForm .sales-package-summary {
+  background: #ffffff !important;
+  color: var(--light-text) !important;
+}
+
+html[data-theme="light"] #productForm .sales-package-summary:is(:hover, :focus-visible) {
+  background: #fbf8ff !important;
+}
+
+html[data-theme="light"] #productForm .sales-package-summary-main i {
+  background: rgba(124, 58, 237, 0.10) !important;
+  color: var(--light-purple-accent) !important;
+}
+
+html[data-theme="light"] #productForm .sales-package-summary-main strong,
+html[data-theme="light"] #productForm .sales-package-summary-metrics b {
+  color: var(--light-text-strong) !important;
+}
+
+html[data-theme="light"] #productForm .sales-package-summary-main small.is-active {
+  color: #15803d !important;
+  background: #dcfce7 !important;
+}
+
+html[data-theme="light"] #productForm .sales-package-summary-main small.is-paused {
+  color: #b91c1c !important;
+  background: #fee2e2 !important;
+}
+
+html[data-theme="light"] #productForm .sales-package-summary-metrics,
+html[data-theme="light"] #productForm .sales-package-card-head,
+html[data-theme="light"] #productForm .package-expense-head,
+html[data-theme="light"] #productForm .package-expense-empty,
+html[data-theme="light"] #productForm .product-image-editor-copy span,
+html[data-theme="light"] #productForm .product-package-editor-head span {
+  color: var(--light-text-muted) !important;
+}
+
+html[data-theme="light"] #productForm .sales-package-summary-metrics em {
+  color: var(--light-purple-accent) !important;
+}
+
 .customer-management-detail-view {
   max-width: 1120px;
   margin: 0 auto;
