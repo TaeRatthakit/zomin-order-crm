@@ -5173,17 +5173,13 @@ function marketingPerformanceRows(rows, type) {
 }
 
 function renderMobileBusinessMarketingPerformance() {
-  app.marketingDate = app.marketingDate || todayISO();
-  app.marketingMonth = app.marketingMonth || app.marketingDate.slice(0, 7);
-  const today = marketingPerformanceForPeriod({ date: app.marketingDate });
-  const month = marketingPerformanceForPeriod({ month: app.marketingMonth });
+  const selectedDate = els.workDate?.value || app.data?.summary?.selectedDate || todayISO();
+  const selectedMonth = selectedDate.slice(0, 7);
+  const today = marketingPerformanceForPeriod({ date: selectedDate });
+  const month = marketingPerformanceForPeriod({ month: selectedMonth });
   return `
     <section class="mobile-business-page mobile-business-subpage mobile-marketing-page">
       ${mobileBusinessHeader("Dashboard Marketing Performance", "ดูภาพรวมประสิทธิภาพการตลาดโดยไม่เปลี่ยนกำไรเดิม", "chart")}
-      <div class="mobile-marketing-filters">
-        <label>วันที่<input data-marketing-date type="date" value="${escapeHtml(app.marketingDate)}"></label>
-        <label>เดือน<input data-marketing-month type="month" value="${escapeHtml(app.marketingMonth)}"></label>
-      </div>
       <h3 class="mobile-business-inner-title">ภาพรวมวันที่เลือก</h3>
       <div class="mobile-business-finance-grid mobile-marketing-kpis">
         ${marketingMetricCard("ค่าโฆษณา", `฿ ${money(today.adCost)}`, "blue")}
@@ -6370,6 +6366,10 @@ function patchMobileDateView() {
 }
 
 function renderDesktopDateView() {
+  if (app.view === "settings" && app.mobileBusinessPage === "marketingPerformance") {
+    renderSettings();
+    return;
+  }
   const renderer = {
     dashboard: renderDashboard,
     reports: renderReports,
