@@ -25198,11 +25198,11 @@ html[data-theme="light"] body:not(.login-view) .notification-surface .notificati
 }
 
 @media (min-width: 1024px) {
-  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .customers-page:not(.settings-customers-management):not(.embedded-customer-management) {
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) :is(.customers-page:not(.settings-customers-management):not(.embedded-customer-management), .customer-management-business-page .customers-page.embedded-customer-management) {
     gap: 18px;
   }
 
-  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .customers-page:not(.settings-customers-management):not(.embedded-customer-management) .customers-hero {
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) :is(.customers-page:not(.settings-customers-management):not(.embedded-customer-management), .customer-management-business-page .customers-page.embedded-customer-management) .customers-hero {
     position: relative;
     overflow: hidden;
     gap: 22px;
@@ -25217,7 +25217,7 @@ html[data-theme="light"] body:not(.login-view) .notification-surface .notificati
     box-shadow: 0 16px 38px rgba(76, 56, 124, 0.10), inset 0 1px 0 rgba(255, 255, 255, 0.92);
   }
 
-  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .customers-page:not(.settings-customers-management):not(.embedded-customer-management) .customers-hero::before {
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) :is(.customers-page:not(.settings-customers-management):not(.embedded-customer-management), .customer-management-business-page .customers-page.embedded-customer-management) .customers-hero::before {
     content: "";
     position: absolute;
     inset: 0 0 0 auto;
@@ -25231,12 +25231,12 @@ html[data-theme="light"] body:not(.login-view) .notification-surface .notificati
     opacity: 0.78;
   }
 
-  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .customers-page:not(.settings-customers-management):not(.embedded-customer-management) .customers-hero .page-identity-copy {
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) :is(.customers-page:not(.settings-customers-management):not(.embedded-customer-management), .customer-management-business-page .customers-page.embedded-customer-management) .customers-hero .page-identity-copy {
     gap: 8px;
     max-width: 520px;
   }
 
-  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .customers-page:not(.settings-customers-management):not(.embedded-customer-management) .customers-hero .page-kicker {
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) :is(.customers-page:not(.settings-customers-management):not(.embedded-customer-management), .customer-management-business-page .customers-page.embedded-customer-management) .customers-hero .page-kicker {
     width: fit-content;
     padding: 5px 10px;
     border: 1px solid rgba(124, 58, 237, 0.12);
@@ -25248,25 +25248,25 @@ html[data-theme="light"] body:not(.login-view) .notification-surface .notificati
     letter-spacing: 0.02em;
   }
 
-  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .customers-page:not(.settings-customers-management):not(.embedded-customer-management) .customers-hero .page-identity-copy h2 {
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) :is(.customers-page:not(.settings-customers-management):not(.embedded-customer-management), .customer-management-business-page .customers-page.embedded-customer-management) .customers-hero .page-identity-copy h2 {
     color: #171126 !important;
     font-size: 25px;
     font-weight: 850;
     letter-spacing: 0;
   }
 
-  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .customers-page:not(.settings-customers-management):not(.embedded-customer-management) .customers-hero .page-identity-copy p {
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) :is(.customers-page:not(.settings-customers-management):not(.embedded-customer-management), .customer-management-business-page .customers-page.embedded-customer-management) .customers-hero .page-identity-copy p {
     max-width: 470px;
     color: var(--light-text-secondary) !important;
     font-size: 13px;
   }
 
-  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .customers-page:not(.settings-customers-management):not(.embedded-customer-management) .customers-hero .customer-summary-grid {
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) :is(.customers-page:not(.settings-customers-management):not(.embedded-customer-management), .customer-management-business-page .customers-page.embedded-customer-management) .customers-hero .customer-summary-grid {
     width: min(100%, 1100px);
     gap: 12px;
   }
 
-  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .customers-page:not(.settings-customers-management):not(.embedded-customer-management) .customer-summary-card {
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) :is(.customers-page:not(.settings-customers-management):not(.embedded-customer-management), .customer-management-business-page .customers-page.embedded-customer-management) .customer-summary-card {
     min-height: 88px;
     grid-template-columns: 40px minmax(0, 1fr);
     gap: 12px;
@@ -25280,9 +25280,9 @@ html[data-theme="light"] body:not(.login-view) .notification-surface .notificati
     box-shadow: 0 10px 26px rgba(76, 56, 124, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.86) !important;
   }
 
-  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .customers-page:not(.settings-customers-management):not(.embedded-customer-management) .customer-summary-card:hover,
-  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .customers-page:not(.settings-customers-management):not(.embedded-customer-management) .customer-summary-card:focus-visible,
-  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .customers-page:not(.settings-customers-management):not(.embedded-customer-management) .customer-summary-card.is-active {
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) :is(.customers-page:not(.settings-customers-management):not(.embedded-customer-management), .customer-management-business-page .customers-page.embedded-customer-management) .customer-summary-card:hover,
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) :is(.customers-page:not(.settings-customers-management):not(.embedded-customer-management), .customer-management-business-page .customers-page.embedded-customer-management) .customer-summary-card:focus-visible,
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) :is(.customers-page:not(.settings-customers-management):not(.embedded-customer-management), .customer-management-business-page .customers-page.embedded-customer-management) .customer-summary-card.is-active {
     border-color: rgba(124, 58, 237, 0.34) !important;
     background:
       radial-gradient(circle at 18% 0, rgba(124, 58, 237, 0.13), transparent 44%),
@@ -25290,28 +25290,28 @@ html[data-theme="light"] body:not(.login-view) .notification-surface .notificati
     box-shadow: 0 14px 30px rgba(109, 40, 217, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.94) !important;
   }
 
-  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .customers-page:not(.settings-customers-management):not(.embedded-customer-management) .customer-summary-card.new {
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) :is(.customers-page:not(.settings-customers-management):not(.embedded-customer-management), .customer-management-business-page .customers-page.embedded-customer-management) .customer-summary-card.new {
     border-color: rgba(37, 99, 235, 0.14) !important;
     background:
       radial-gradient(circle at 18% 0, rgba(37, 99, 235, 0.08), transparent 44%),
       rgba(255, 255, 255, 0.72) !important;
   }
 
-  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .customers-page:not(.settings-customers-management):not(.embedded-customer-management) .customer-summary-card.repeat {
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) :is(.customers-page:not(.settings-customers-management):not(.embedded-customer-management), .customer-management-business-page .customers-page.embedded-customer-management) .customer-summary-card.repeat {
     border-color: rgba(22, 163, 74, 0.14) !important;
     background:
       radial-gradient(circle at 18% 0, rgba(22, 163, 74, 0.08), transparent 44%),
       rgba(255, 255, 255, 0.72) !important;
   }
 
-  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .customers-page:not(.settings-customers-management):not(.embedded-customer-management) .customer-summary-card.super-vip {
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) :is(.customers-page:not(.settings-customers-management):not(.embedded-customer-management), .customer-management-business-page .customers-page.embedded-customer-management) .customer-summary-card.super-vip {
     border-color: rgba(245, 158, 11, 0.18) !important;
     background:
       radial-gradient(circle at 18% 0, rgba(245, 158, 11, 0.10), transparent 44%),
       rgba(255, 255, 255, 0.72) !important;
   }
 
-  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .customers-page:not(.settings-customers-management):not(.embedded-customer-management) .customer-summary-icon {
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) :is(.customers-page:not(.settings-customers-management):not(.embedded-customer-management), .customer-management-business-page .customers-page.embedded-customer-management) .customer-summary-icon {
     width: 40px;
     height: 40px;
     border-radius: 12px;
@@ -25319,40 +25319,40 @@ html[data-theme="light"] body:not(.login-view) .notification-surface .notificati
     color: var(--light-purple-readable) !important;
   }
 
-  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .customers-page:not(.settings-customers-management):not(.embedded-customer-management) .customer-summary-card.new .customer-summary-icon,
-  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .customers-page:not(.settings-customers-management):not(.embedded-customer-management) .customer-summary-card.vvip .customer-summary-icon {
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) :is(.customers-page:not(.settings-customers-management):not(.embedded-customer-management), .customer-management-business-page .customers-page.embedded-customer-management) .customer-summary-card.new .customer-summary-icon,
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) :is(.customers-page:not(.settings-customers-management):not(.embedded-customer-management), .customer-management-business-page .customers-page.embedded-customer-management) .customer-summary-card.vvip .customer-summary-icon {
     background: rgba(37, 99, 235, 0.09) !important;
     color: #2563eb !important;
   }
 
-  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .customers-page:not(.settings-customers-management):not(.embedded-customer-management) .customer-summary-card.repeat .customer-summary-icon {
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) :is(.customers-page:not(.settings-customers-management):not(.embedded-customer-management), .customer-management-business-page .customers-page.embedded-customer-management) .customer-summary-card.repeat .customer-summary-icon {
     background: rgba(22, 163, 74, 0.09) !important;
     color: #15803d !important;
   }
 
-  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .customers-page:not(.settings-customers-management):not(.embedded-customer-management) .customer-summary-card.super-vip .customer-summary-icon {
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) :is(.customers-page:not(.settings-customers-management):not(.embedded-customer-management), .customer-management-business-page .customers-page.embedded-customer-management) .customer-summary-card.super-vip .customer-summary-icon {
     background: rgba(245, 158, 11, 0.11) !important;
     color: #b45309 !important;
   }
 
-  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .customers-page:not(.settings-customers-management):not(.embedded-customer-management) .customer-summary-copy {
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) :is(.customers-page:not(.settings-customers-management):not(.embedded-customer-management), .customer-management-business-page .customers-page.embedded-customer-management) .customer-summary-copy {
     gap: 4px;
   }
 
-  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .customers-page:not(.settings-customers-management):not(.embedded-customer-management) .customer-summary-copy span,
-  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .customers-page:not(.settings-customers-management):not(.embedded-customer-management) .customer-summary-copy small {
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) :is(.customers-page:not(.settings-customers-management):not(.embedded-customer-management), .customer-management-business-page .customers-page.embedded-customer-management) .customer-summary-copy span,
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) :is(.customers-page:not(.settings-customers-management):not(.embedded-customer-management), .customer-management-business-page .customers-page.embedded-customer-management) .customer-summary-copy small {
     color: var(--light-text-secondary) !important;
     font-size: 11px;
   }
 
-  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .customers-page:not(.settings-customers-management):not(.embedded-customer-management) .customer-summary-copy strong {
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) :is(.customers-page:not(.settings-customers-management):not(.embedded-customer-management), .customer-management-business-page .customers-page.embedded-customer-management) .customer-summary-copy strong {
     color: var(--light-text-primary) !important;
     font-size: 24px;
     font-weight: 850;
     letter-spacing: 0;
   }
 
-  html[data-theme="light"] body.desktop-app-shell:not(.login-view) .customers-page:not(.settings-customers-management):not(.embedded-customer-management) .customer-management-toolbar {
+  html[data-theme="light"] body.desktop-app-shell:not(.login-view) :is(.customers-page:not(.settings-customers-management):not(.embedded-customer-management), .customer-management-business-page .customers-page.embedded-customer-management) .customer-management-toolbar {
     gap: 16px;
     padding: 18px;
     border-color: rgba(226, 218, 249, 0.92) !important;

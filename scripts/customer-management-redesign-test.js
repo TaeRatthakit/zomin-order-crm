@@ -49,4 +49,17 @@ assert(css.includes(".customer-management-detail-view"), "detail view CSS must e
 assert(css.includes("html[data-theme=\"light\"] body:not(.login-view) .customer-management-detail-view"), "light theme detail override must exist");
 assert(css.includes("@media (max-width: 780px)") && css.includes(".customer-management-summary-cards"), "mobile responsive detail CSS must exist");
 
+const lightCustomerScope = 'html[data-theme="light"] body.desktop-app-shell:not(.login-view) :is(.customers-page:not(.settings-customers-management):not(.embedded-customer-management), .customer-management-business-page .customers-page.embedded-customer-management)';
+assert(appJs.includes('customer-management-business-page'), "Business Management customer page class must remain available for scoped styling");
+assert(appJs.includes('extraClass: "embedded-customer-management"'), "Business Management customer view must keep its embedded class");
+assert(css.includes(`${lightCustomerScope} .customers-hero`), "Desktop Light customer hero styling must include the Business Management embedded customer page");
+assert(css.includes(`${lightCustomerScope} .customer-summary-card`), "Desktop Light customer KPI styling must include the Business Management embedded customer page");
+const darkDesktopHeroIndex = css.indexOf("body.desktop-app-shell:not(.login-view) .workspace-hero");
+const lightCustomerHeroIndex = css.indexOf(`${lightCustomerScope} .customers-hero`);
+assert(darkDesktopHeroIndex !== -1 && lightCustomerHeroIndex > darkDesktopHeroIndex, "Desktop Light customer hero rule must load after the dark desktop workspace hero baseline");
+const lightCustomerHeroRule = css.slice(lightCustomerHeroIndex, css.indexOf("}", lightCustomerHeroIndex));
+assert(lightCustomerHeroRule.includes("#ffffff") && lightCustomerHeroRule.includes("#f5efff"), "Desktop Light customer hero must resolve to a white/soft-purple background");
+assert(!lightCustomerHeroRule.includes("rgba(5, 17, 29") && !lightCustomerHeroRule.includes("rgba(4, 12, 23"), "Desktop Light customer hero rule must not retain the dark surface colors");
+assert(!css.includes("html[data-theme=\"light\"] body.desktop-app-shell:not(.login-view) .customers-page:not(.settings-customers-management):not(.embedded-customer-management) .customers-hero"), "Old standalone-only selector must be corrected instead of remaining as an ineffective selector");
+
 console.log("Customer Management redesign static tests passed");
