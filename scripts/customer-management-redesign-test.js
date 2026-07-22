@@ -67,10 +67,14 @@ const lightCustomerCellSelector = `${lightCustomerScope} .workspace-table tbody 
 const lightCustomerCellIndex = css.indexOf(lightCustomerCellSelector);
 assert(darkDesktopCellIndex !== -1 && lightCustomerCellIndex > darkDesktopCellIndex, "Desktop Light customer table cell rule must load after the dark desktop table baseline");
 const lightCustomerCellRule = css.slice(lightCustomerCellIndex, css.indexOf("}", lightCustomerCellIndex));
-assert(lightCustomerCellRule.includes("background: transparent !important"), "Desktop Light customer table cells must clear the dark cell background");
+assert(lightCustomerCellRule.includes("background: #ffffff !important"), "Desktop Light customer table cells must use a true white surface instead of a transparent tinted surface");
 assert(lightCustomerCellRule.includes("color: #172033 !important"), "Desktop Light customer table cells must use readable text");
-assert(css.includes(`${lightCustomerScope} .workspace-table thead th`) && css.includes("background: #f8f5ff !important") && css.includes("color: #493a64 !important"), "Desktop Light customer table headings must use a readable light header");
+assert(lightCustomerCellRule.includes("padding: 15px 14px"), "Desktop Light customer table cells must keep readable vertical spacing");
+assert(css.includes(`${lightCustomerScope} .workspace-table-wrap`) && css.includes("background: #ffffff !important"), "Desktop Light customer table wrapper must not add a purple gradient behind rows");
+assert(css.includes(`${lightCustomerScope} .workspace-table thead th`) && css.includes("background: #faf8ff !important") && css.includes("color: #32254d !important"), "Desktop Light customer table headings must use a readable light header");
 assert(css.includes(`${lightCustomerScope} .workspace-table tbody tr {\n    background: #ffffff !important`), "Desktop Light customer table rows must use a clean white surface");
+assert(css.includes(`${lightCustomerScope} .workspace-table tbody tr:nth-child(even) td {\n    background: #fdfbff !important`), "Desktop Light customer alternate row cells must use only a very light purple tint");
+assert(css.includes(`${lightCustomerScope} .workspace-table tbody tr:hover td`) && css.includes("background: #f7f2ff !important"), "Desktop Light customer hover state must remain a soft purple highlight");
 assert(css.includes(`${lightCustomerScope} .table-identity small`) && css.includes("color: #667085 !important"), "Desktop Light customer address text must remain muted but readable");
 assert(css.includes(`${lightCustomerScope} .workspace-table .badge`) && css.includes("background: #efe4ff !important") && css.includes("color: #5b21b6 !important"), "Desktop Light customer badges must remain pastel purple with readable text");
 assert(css.includes(`${lightCustomerScope} .table-actions .button.secondary`) && css.includes("color: #6d28d9 !important"), "Desktop Light customer edit action must stay compact and recognizable");
