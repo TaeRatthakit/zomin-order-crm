@@ -19,10 +19,10 @@ const serviceWorker = fs.readFileSync(path.join(root, "public", "service-worker.
 const jsonAdapter = fs.readFileSync(path.join(root, "lib", "db", "json-adapter.js"), "utf8");
 const supabaseAdapter = fs.readFileSync(path.join(root, "lib", "db", "supabase-adapter.js"), "utf8");
 
-assert(html.indexOf('const preference = "system"') < html.indexOf("/styles.css?v=20260720-mobile-light-single-frame-v1"), "theme bootstrap must default to System before stylesheet load");
+assert(html.indexOf('const preference = "system"') < html.indexOf("/styles.css?v=20260722-customer-light-cache-v1"), "theme bootstrap must default to System before stylesheet load");
 assert(html.includes('document.documentElement.dataset.theme = resolved'), "theme bootstrap must set resolved theme before render");
 assert(!html.includes("growup_theme_preference_v1"), "bootstrap must not read a shared theme key before authentication");
-assert(html.includes('/app.js?v=20260720-mobile-light-single-frame-v1'), "app asset version must be bumped");
+assert(html.includes('/app.js?v=20260722-customer-light-cache-v1'), "app asset version must be bumped");
 
 assert(appJs.includes('const THEME_STORAGE_PREFIX = "growup-theme:"'), "theme storage must be namespaced per user");
 assert(!appJs.includes("growup_theme_preference_v1"), "client must not use a shared theme storage key");
@@ -115,9 +115,9 @@ assert(topbarHtml.indexOf("headerNotificationButton") < topbarHtml.indexOf("mobi
 assert(html.includes('id="mobileThemeButton"') && html.includes('aria-label="เปลี่ยนธีม"') && html.includes('title="เปลี่ยนธีม"'), "Mobile theme button must have Thai aria label and title");
 assert(html.includes('id="mobileThemeSheetDialog"') && html.includes("เลือกธีมหน้าจอ") && html.includes("ใช้ธีมมืด") && html.includes("ใช้ธีมสว่าง") && html.includes("เปลี่ยนตามการตั้งค่าของอุปกรณ์"), "Mobile bottom sheet must include Thai labels and descriptions");
 assert(html.includes('data-mobile-theme-option="dark"') && html.includes('data-mobile-theme-option="light"') && html.includes('data-mobile-theme-option="system"'), "Mobile bottom sheet must expose all three theme values");
-assert(serviceWorker.includes('growup-pilot-pwa-v121-mobile-light-single-frame-v1'), "service worker cache name must be bumped");
-assert(serviceWorker.includes('/styles.css?v=20260720-mobile-light-single-frame-v1'), "service worker must cache current stylesheet");
-assert(serviceWorker.includes('/app.js?v=20260720-mobile-light-single-frame-v1'), "service worker must cache current app bundle");
+assert(serviceWorker.includes('growup-pilot-pwa-v122-customer-light-cache-v1'), "service worker cache name must be bumped");
+assert(serviceWorker.includes('/styles.css?v=20260722-customer-light-cache-v1'), "service worker must cache current stylesheet");
+assert(serviceWorker.includes('/app.js?v=20260722-customer-light-cache-v1'), "service worker must cache current app bundle");
 
 function createDummyElement() {
   const element = {
