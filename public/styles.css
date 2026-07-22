@@ -23419,6 +23419,13 @@ html[data-theme="light"] body:not(.login-view) .settings-switch-ui::after {
   box-shadow: 0 2px 8px rgba(48, 38, 84, 0.18) !important;
 }
 
+html[data-theme="light"] body:not(.login-view) .mobile-ad-enabled {
+  border-color: rgba(109, 40, 217, 0.16) !important;
+  background: rgba(255, 255, 255, 0.94) !important;
+  color: var(--light-text-primary, var(--ink)) !important;
+  box-shadow: 0 8px 20px rgba(97, 70, 190, 0.06) !important;
+}
+
 html[data-theme="light"] body:not(.login-view) .permission-switch .settings-switch-ui {
   border-color: rgba(148, 163, 184, 0.46) !important;
   background: #e5e7eb !important;
