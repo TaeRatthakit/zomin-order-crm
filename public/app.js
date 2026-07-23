@@ -70,6 +70,7 @@ const app = {
   mobileAnalyticsIndex: null,
   desktopAnalyticsIndex: null,
   dashboardSummaryCache: null,
+  onboardingProgressPercent: null,
   currentUser: null,
   data: null,
   lineDebugRows: [],
@@ -4327,7 +4328,6 @@ function renderDesktopDashboard(viewModel) {
   };
   const monthlySales = channelRows.reduce((sum, row) => sum + row.revenue, 0);
   const unitsSoldToday = todaysOrders.reduce((sum, order) => sum + Number(order.jars || 0), 0);
-  const setup = mobileSetupWizardState();
   const yesterdaySales = Number(s.salesToday || 0) - Number(viewModel.salesDelta.diff || 0);
   const yesterdayOrders = Number(s.ordersToday || 0) - Number(viewModel.ordersDelta.diff || 0);
   const yesterdayProfit = Number(estimatedProfitToday || 0) - Number(viewModel.profitDelta.diff || 0);
@@ -4350,24 +4350,7 @@ function renderDesktopDashboard(viewModel) {
               fetchpriority="high"
             >
           </article>
-          <article class="desktop-reference-onboarding">
-            <div class="desktop-reference-onboarding-title">
-              <span>เริ่มต้นใช้งาน</span>
-              <strong>Growup Pilot</strong>
-            </div>
-            <img class="desktop-reference-rocket" src="/desktop-onboarding-rocket.webp?v=20260706-webp-v1" alt="" aria-hidden="true" loading="eager" decoding="async">
-            <div class="desktop-reference-onboarding-summary">
-              <div class="desktop-reference-setup-ring" style="--setup-progress:${setup.percent * 3.6}deg">
-                <strong>${setup.percent}%</strong>
-                <small>พร้อมใช้งาน</small>
-              </div>
-              <div class="desktop-reference-setup-copy">
-                <span>เสร็จแล้ว ${setup.completeCount} จาก ${setup.steps.length} ขั้นตอน</span>
-                <div class="desktop-reference-setup-track"><i style="width:${setup.percent}%"></i></div>
-                <button type="button" data-view-shortcut="settings">ดูขั้นตอนทั้งหมด <b aria-hidden="true">→</b></button>
-              </div>
-            </div>
-          </article>
+          ${renderOnboardingWidget({ variant: "compact", actionAttr: 'data-view-shortcut="settings"', showChecklist: false })}
         </section>
 
         <section class="desktop-reference-kpi-grid">
@@ -4690,7 +4673,7 @@ function mobileSetupWizardState() {
   return {
     steps,
     completeCount,
-    percent: Math.round((completeCount / steps.length) * 100)
+    percent: [0, 33, 66, 100][completeCount] ?? Math.round((completeCount / steps.length) * 100)
   };
 }
 
@@ -4700,42 +4683,129 @@ function mobileSetupStatusIcon(complete) {
     : '<span class="mobile-setup-status pending" aria-label="รอตั้งค่า">○</span>';
 }
 
-function renderMobileSetupCard() {
-  const setup = mobileSetupWizardState();
+function onboardingProgressPresentation(setup) {
+  const percent = Number(setup.percent || 0);
+  if (percent >= 100) {
+    return {
+      stage: "ready",
+      eyebrow: "พร้อมใช้งาน",
+      title: "ระบบพร้อมใช้งานแล้ว",
+      body: "ยินดีด้วย! คุณพร้อมเริ่มเติบโตแล้ว",
+      badge: "Ready",
+      action: "ดูรายละเอียดการตั้งค่า"
+    };
+  }
+  if (percent >= 66) {
+    return {
+      stage: "launching",
+      eyebrow: "กำลังทะยานขึ้น",
+      title: "ใกล้พร้อมใช้งานแล้ว",
+      body: "เหลืออีกเพียง 1 ขั้นตอน",
+      badge: "",
+      action: "ดูรายละเอียดการตั้งค่า"
+    };
+  }
+  if (percent >= 33) {
+    return {
+      stage: "ignited",
+      eyebrow: "เริ่มต้นการเดินทาง",
+      title: "สร้างสินค้าเรียบร้อย",
+      body: "อีก 2 ขั้นตอน ระบบจะพร้อมใช้งาน",
+      badge: "",
+      action: "ดูรายละเอียดการตั้งค่า"
+    };
+  }
+  return {
+    stage: "idle",
+    eyebrow: "ยังไม่ได้เริ่มตั้งค่า",
+    title: "ยังไม่มีการตั้งค่า",
+    body: "เริ่มต้นตั้งค่าเพื่อใช้งานระบบ",
+    badge: "",
+    action: "เริ่มต้นตั้งค่า"
+  };
+}
+
+function onboardingProgressChangeClass(percent) {
+  const changed = app.onboardingProgressPercent !== null && app.onboardingProgressPercent !== percent;
+  app.onboardingProgressPercent = percent;
+  return changed ? " is-progress-changing" : "";
+}
+
+function renderOnboardingRocket(stage) {
   return `
-    <article class="mobile-setup-card">
-      <div class="mobile-setup-card-glow" aria-hidden="true">${iconSvg("send")}</div>
-      <div class="mobile-setup-card-heading">
+    <div class="setup-rocket-scene setup-rocket-${escapeHtml(stage)}" aria-hidden="true">
+      <div class="setup-stars"><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="setup-trail"></div>
+      <div class="setup-smoke"><i></i><i></i><i></i><i></i></div>
+      <div class="setup-pad"><i></i><i></i></div>
+      <div class="setup-rocket">
+        <span class="setup-rocket-nose"></span>
+        <span class="setup-rocket-body"><b>G</b></span>
+        <span class="setup-rocket-window"></span>
+        <span class="setup-rocket-fin left"></span>
+        <span class="setup-rocket-fin right"></span>
+        <span class="setup-rocket-flame"></span>
+      </div>
+    </div>
+  `;
+}
+
+function renderOnboardingChecklist(setup) {
+  return `
+    <ol class="setup-widget-checklist">
+      ${setup.steps.map((step, index) => `
+        <li>
+          <span class="mobile-setup-number">${index + 1}</span>
+          <span>${escapeHtml(step.checklistTitle || step.title)}</span>
+          ${mobileSetupStatusIcon(step.complete)}
+        </li>
+      `).join("")}
+    </ol>
+  `;
+}
+
+function renderOnboardingWidget({ variant = "compact", actionAttr = 'data-business-page="setupWizard"', showChecklist = false } = {}) {
+  const setup = mobileSetupWizardState();
+  const progress = onboardingProgressPresentation(setup);
+  const percent = Number(setup.percent || 0);
+  const changeClass = renderOnboardingWidget.hasRendered ? onboardingProgressChangeClass(percent) : (app.onboardingProgressPercent = percent, "");
+  renderOnboardingWidget.hasRendered = true;
+  const readyBadge = progress.badge ? `<span class="setup-ready-badge"><span aria-hidden="true">✓</span> ${escapeHtml(progress.badge)}</span>` : "";
+  return `
+    <article class="setup-widget setup-widget-${escapeHtml(variant)} setup-stage-${escapeHtml(progress.stage)}${changeClass}" data-onboarding-progress="${percent}">
+      <div class="setup-widget-heading">
         <span>เริ่มต้นใช้งาน</span>
         <h2>Growup Pilot</h2>
-        <p>ตั้งค่าระบบให้พร้อมรับออเดอร์อัตโนมัติ</p>
+        ${readyBadge}
       </div>
-      <div class="mobile-setup-summary">
-        <div class="mobile-setup-percent" style="--setup-progress: ${setup.percent * 3.6}deg">
+      <div class="setup-widget-main">
+        <div class="setup-progress-ring" style="--setup-progress:${setup.percent * 3.6}deg">
           <strong>${setup.percent}%</strong>
-          <small>พร้อมใช้งาน</small>
+          <small>${escapeHtml(setup.completeCount)} จาก ${escapeHtml(setup.steps.length)} ขั้นตอน</small>
         </div>
-        <div class="mobile-setup-progress-copy">
-          <span>เสร็จแล้ว ${setup.completeCount} จาก ${setup.steps.length} ขั้นตอน</span>
-          <div class="mobile-setup-progress-track" role="progressbar" aria-label="ความคืบหน้าการตั้งค่า" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${setup.percent}">
-            <i style="width: ${setup.percent}%"></i>
-          </div>
+        ${renderOnboardingRocket(progress.stage)}
+        <div class="setup-widget-copy">
+          <span>${escapeHtml(progress.eyebrow)}</span>
+          <strong>${escapeHtml(progress.title)}</strong>
+          <p>${escapeHtml(progress.body)}</p>
         </div>
       </div>
-      <ol class="mobile-setup-checklist">
-        ${setup.steps.map((step, index) => `
-          <li>
-            <span class="mobile-setup-number">${index + 1}</span>
-            <span>${escapeHtml(step.checklistTitle || step.title)}</span>
-            ${mobileSetupStatusIcon(step.complete)}
-          </li>
-        `).join("")}
-      </ol>
-      <button class="mobile-setup-primary" type="button" data-business-page="setupWizard">
-        <span>เริ่มตั้งค่า</span><span aria-hidden="true">›</span>
+      <div class="setup-widget-progress">
+        <div class="mobile-setup-progress-track" role="progressbar" aria-label="ความคืบหน้าการตั้งค่า" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${percent}">
+          <i style="width:${setup.percent}%"></i>
+        </div>
+        <span>เสร็จแล้ว ${setup.completeCount} จาก ${setup.steps.length} ขั้นตอน</span>
+      </div>
+      ${showChecklist ? renderOnboardingChecklist(setup) : ""}
+      <button class="setup-widget-primary mobile-setup-primary" type="button" ${actionAttr}>
+        <span>${escapeHtml(progress.action)}</span><span aria-hidden="true">→</span>
       </button>
     </article>
   `;
+}
+
+function renderMobileSetupCard() {
+  return renderOnboardingWidget({ variant: "detailed", actionAttr: 'data-business-page="setupWizard"', showChecklist: true });
 }
 
 function renderMobileBusinessMain() {
