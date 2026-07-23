@@ -26475,6 +26475,31 @@ body.mobile-home-view:not(.login-view) .mobile-dashboard-shell > .setup-widget {
   grid-template-columns: 88px minmax(104px, 0.92fr) minmax(0, 1fr);
   min-height: 70px;
 }
+.setup-widget-compact.setup-stage-ready .setup-widget-main {
+  grid-template-columns: 84px minmax(140px, 1fr) 108px;
+  gap: 10px;
+}
+.setup-widget-compact.setup-stage-ready .setup-rocket-scene {
+  grid-column: 3;
+  grid-row: 1;
+  width: 108px;
+  min-width: 108px;
+  justify-self: end;
+  transform: scale(1.08);
+}
+.setup-widget-compact.setup-stage-ready .setup-widget-copy {
+  grid-column: 2;
+  grid-row: 1;
+}
+.setup-widget-compact.setup-stage-ready .setup-widget-copy strong {
+  font-size: 0.78rem;
+  line-height: 1.28;
+}
+.setup-widget-compact.setup-stage-ready .setup-widget-copy p {
+  display: block;
+  font-size: 0.66rem;
+  line-height: 1.28;
+}
 .setup-widget-detailed .setup-widget-main {
   grid-template-columns: 88px 158px minmax(0, 1fr);
   min-height: 112px;
@@ -26635,12 +26660,20 @@ html[data-theme="dark"] body:not(.login-view) .setup-ready-badge { background: r
     align-self: start;
   }
   body.desktop-dashboard-view:not(.login-view) .setup-widget-compact {
-    min-height: 176px;
+    min-height: 204px;
     padding: 14px;
   }
   body.desktop-dashboard-view:not(.login-view) .setup-widget-compact .setup-widget-main {
     grid-template-columns: 84px 116px minmax(0, 1fr);
     gap: 14px;
+  }
+  body.desktop-dashboard-view:not(.login-view) .setup-widget-compact.setup-stage-ready .setup-widget-main {
+    grid-template-columns: 84px minmax(136px, 1fr) 104px;
+    gap: 10px;
+  }
+  body.desktop-dashboard-view:not(.login-view) .setup-widget-compact.setup-stage-ready .setup-rocket-scene {
+    width: 104px;
+    min-width: 104px;
   }
   body.desktop-dashboard-view:not(.login-view) .setup-widget-compact .setup-progress-ring {
     width: 84px;
@@ -26753,4 +26786,65 @@ body.desktop-app-shell:not(.desktop-dashboard-view):not(.login-view) .setup-widg
     border-radius: 8px;
     font-size: 0.86rem;
   }
+}
+
+/* Exact light-desktop visual spec layer from the attached mockup. */
+html[data-theme="light"] body.desktop-dashboard-view:not(.login-view) .setup-widget-compact,
+html[data-theme="light"] body.desktop-app-shell:not(.desktop-dashboard-view):not(.login-view) .setup-widget-detailed {
+  display: block;
+  position: relative;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background-color: transparent;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 100% 100%;
+  box-shadow: none;
+}
+html[data-theme="light"] body.desktop-dashboard-view:not(.login-view) .setup-widget-compact {
+  aspect-ratio: 358 / 198;
+  height: auto;
+}
+html[data-theme="light"] body.desktop-app-shell:not(.desktop-dashboard-view):not(.login-view) .setup-widget-detailed {
+  width: 358px;
+  aspect-ratio: 358 / 297;
+}
+html[data-theme="light"] body.desktop-dashboard-view:not(.login-view) .setup-widget-compact > *,
+html[data-theme="light"] body.desktop-app-shell:not(.desktop-dashboard-view):not(.login-view) .setup-widget-detailed > * {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+html[data-theme="light"] body.desktop-dashboard-view:not(.login-view) .setup-widget-compact .setup-widget-primary,
+html[data-theme="light"] body.desktop-app-shell:not(.desktop-dashboard-view):not(.login-view) .setup-widget-detailed .setup-widget-primary {
+  inset: auto 12px 10px 12px;
+  height: 30px;
+  min-height: 30px;
+  pointer-events: auto;
+}
+html[data-theme="light"] body.desktop-dashboard-view:not(.login-view) .setup-widget-compact[data-onboarding-progress="0"] {
+  background-image: url("/onboarding-mockups/dashboard-0.png");
+}
+html[data-theme="light"] body.desktop-dashboard-view:not(.login-view) .setup-widget-compact[data-onboarding-progress="33"] {
+  background-image: url("/onboarding-mockups/dashboard-33.png");
+}
+html[data-theme="light"] body.desktop-dashboard-view:not(.login-view) .setup-widget-compact[data-onboarding-progress="66"] {
+  background-image: url("/onboarding-mockups/dashboard-66.png");
+}
+html[data-theme="light"] body.desktop-dashboard-view:not(.login-view) .setup-widget-compact[data-onboarding-progress="100"] {
+  background-image: url("/onboarding-mockups/dashboard-100.png");
+}
+html[data-theme="light"] body.desktop-app-shell:not(.desktop-dashboard-view):not(.login-view) .setup-widget-detailed[data-onboarding-progress="0"] {
+  background-image: url("/onboarding-mockups/business-0.png");
+}
+html[data-theme="light"] body.desktop-app-shell:not(.desktop-dashboard-view):not(.login-view) .setup-widget-detailed[data-onboarding-progress="33"] {
+  background-image: url("/onboarding-mockups/business-33.png");
+}
+html[data-theme="light"] body.desktop-app-shell:not(.desktop-dashboard-view):not(.login-view) .setup-widget-detailed[data-onboarding-progress="66"] {
+  background-image: url("/onboarding-mockups/business-66.png");
+}
+html[data-theme="light"] body.desktop-app-shell:not(.desktop-dashboard-view):not(.login-view) .setup-widget-detailed[data-onboarding-progress="100"] {
+  background-image: url("/onboarding-mockups/business-100.png");
 }
