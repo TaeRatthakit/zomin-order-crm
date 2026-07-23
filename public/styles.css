@@ -7351,7 +7351,13 @@ small,
   }
 
   .setup-widget-detailed {
-    grid-template-rows: auto minmax(0, auto) auto auto auto;
+    width: min(100%, 1080px);
+    min-height: 430px;
+    grid-template-rows: auto minmax(224px, 1fr) auto auto auto;
+    gap: 12px;
+    padding: 24px;
+    margin-inline: auto;
+    justify-self: center;
   }
 
   .setup-widget-heading {
@@ -7375,6 +7381,14 @@ small,
     line-height: 1.08;
   }
 
+  .setup-widget-detailed .setup-widget-heading span:first-child {
+    font-size: 0.92rem;
+  }
+
+  .setup-widget-detailed .setup-widget-heading h2 {
+    font-size: 1.32rem;
+  }
+
   .setup-widget-main {
     position: relative;
     z-index: 1;
@@ -7383,6 +7397,12 @@ small,
     gap: 14px;
     align-items: center;
     min-width: 0;
+  }
+
+  .setup-widget-detailed .setup-widget-main {
+    grid-template-columns: 122px minmax(390px, 520px) minmax(300px, 1fr);
+    gap: 30px;
+    min-height: 224px;
   }
 
   .setup-progress-ring {
@@ -7417,11 +7437,28 @@ small,
     text-align: center;
   }
 
+  .setup-widget-detailed .setup-progress-ring {
+    --setup-ring-size: 122px;
+  }
+
+  .setup-widget-detailed .setup-progress-ring strong {
+    font-size: 1.95rem;
+  }
+
+  .setup-widget-detailed .setup-progress-ring small {
+    max-width: 84px;
+    font-size: 0.58rem;
+  }
+
   .onboarding-rocket-art {
     display: grid;
     min-width: 0;
     margin: -8px -8px -6px;
     place-items: center;
+  }
+
+  .setup-widget-detailed .onboarding-rocket-art {
+    margin: -42px -18px -14px;
   }
 
   .onboarding-rocket-art img {
@@ -7433,10 +7470,20 @@ small,
     filter: drop-shadow(0 16px 18px rgba(96, 40, 190, 0.16));
   }
 
+  .setup-widget-detailed .onboarding-rocket-art img {
+    width: min(420px, 100%);
+  }
+
   .onboarding-rocket-art-launching img,
   .onboarding-rocket-art-complete img {
     width: min(190px, 114%);
     max-width: 114%;
+  }
+
+  .setup-widget-detailed .onboarding-rocket-art-launching img,
+  .setup-widget-detailed .onboarding-rocket-art-complete img {
+    width: min(500px, 116%);
+    max-width: 116%;
   }
 
   .setup-widget-copy {
@@ -7457,11 +7504,24 @@ small,
     line-height: 1.35;
   }
 
+  .setup-stage-complete .setup-widget-copy strong {
+    color: #8b4dff;
+  }
+
   .setup-widget-copy p {
     color: var(--setup-text);
     font-size: 0.78rem;
     font-weight: 850;
     line-height: 1.5;
+  }
+
+  .setup-widget-detailed .setup-widget-copy strong {
+    font-size: 1.42rem;
+  }
+
+  .setup-widget-detailed .setup-widget-copy p {
+    font-size: 1.12rem;
+    line-height: 1.45;
   }
 
   .setup-widget-progress {
@@ -7478,6 +7538,14 @@ small,
     font-size: 0.76rem;
     font-weight: 900;
     white-space: nowrap;
+  }
+
+  .setup-widget-detailed .setup-widget-progress > span {
+    font-size: 0.86rem;
+  }
+
+  .setup-widget-detailed .setup-widget-progress {
+    margin-top: -78px;
   }
 
   .setup-widget .mobile-setup-progress-track {
@@ -7559,26 +7627,22 @@ small,
     border-radius: 8px;
     background: linear-gradient(90deg, #4f12dc, #6417f5);
     box-shadow: 0 10px 18px rgba(83, 22, 220, 0.22);
+    color: #ffffff;
   }
 
-  .setup-widget.is-progress-changing .onboarding-rocket-art img {
+  .setup-widget-detailed .setup-widget-primary {
+    min-height: 46px;
+    font-size: 1rem;
+  }
+
+  .setup-widget.is-progress-changing .onboarding-rocket-art {
     animation: onboardingRocketPngChange 720ms cubic-bezier(.2, .8, .2, 1) both;
   }
 
-  .setup-widget.is-progress-changing .setup-progress-ring {
-    animation: setupRingPulse 620ms ease-out both;
-  }
-
   @keyframes onboardingRocketPngChange {
-    0% { transform: translateY(10px) scale(0.96); }
-    55% { transform: translateY(-7px) scale(1.03); }
-    100% { transform: translateY(0) scale(1); }
-  }
-
-  @keyframes setupRingPulse {
-    0% { transform: scale(0.94); }
-    55% { transform: scale(1.06); }
-    100% { transform: scale(1); }
+    0% { transform: translateY(10px); opacity: 0.86; }
+    55% { transform: translateY(-7px); opacity: 1; }
+    100% { transform: translateY(0); opacity: 1; }
   }
 
   html[data-theme="light"] body:not(.login-view) .setup-widget {
@@ -7620,11 +7684,46 @@ small,
 
   @media (max-width: 780px) {
     .setup-widget { gap: 13px; padding: 16px; }
+    .setup-widget-detailed {
+      width: 100%;
+      min-height: 0;
+      grid-template-rows: auto auto auto auto auto;
+      padding: 16px;
+    }
     .setup-widget-main { grid-template-columns: 82px minmax(88px, 0.95fr) minmax(0, 1fr); gap: 10px; }
+    .setup-widget-detailed .setup-widget-main {
+      grid-template-columns: 104px minmax(0, 1fr);
+      gap: 10px 14px;
+      min-height: 154px;
+    }
     .setup-progress-ring { --setup-ring-size: 82px; }
+    .setup-widget-detailed .setup-progress-ring { --setup-ring-size: 104px; }
+    .setup-widget-detailed .setup-progress-ring strong { font-size: 1.68rem; }
+    .setup-widget-detailed .setup-progress-ring small { font-size: 0.52rem; }
     .onboarding-rocket-art img { width: min(136px, 100%); }
     .onboarding-rocket-art-launching img,
     .onboarding-rocket-art-complete img { width: min(164px, 112%); }
+    .setup-widget-detailed .onboarding-rocket-art {
+      grid-column: 2;
+      grid-row: 1;
+      justify-self: end;
+      width: min(230px, 100%);
+      margin: -20px -10px -8px 0;
+    }
+    .setup-widget-detailed .onboarding-rocket-art img,
+    .setup-widget-detailed .onboarding-rocket-art-launching img,
+    .setup-widget-detailed .onboarding-rocket-art-complete img {
+      width: 100%;
+      max-width: 100%;
+    }
+    .setup-widget-detailed .setup-widget-copy {
+      grid-column: 1 / -1;
+    }
+    .setup-widget-detailed .setup-widget-progress {
+      margin-top: 0;
+    }
+    .setup-widget-detailed .setup-widget-copy strong { font-size: 1rem; }
+    .setup-widget-detailed .setup-widget-copy p { font-size: 0.84rem; }
   }
 
   @media (max-width: 440px) {
