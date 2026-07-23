@@ -4100,8 +4100,6 @@ function renderMobileDashboard(viewModel) {
           >
         </section>
 
-        ${renderOnboardingWidget({ variant: "compact", actionAttr: 'data-view-shortcut="settings"', showChecklist: false })}
-
         <section class="mobile-kpi-grid">
           ${mobileDashboardMetricCard({ label: kpiTitles.sales, value: money(s.salesToday), deltaText: dashboardChangeText(s.salesToday, s.salesToday - salesDelta.diff), tone: "green", icon: "wallet" })}
           ${mobileDashboardMetricCard({ label: kpiTitles.orders, value: money(s.ordersToday || 0), deltaText: dashboardChangeText(s.ordersToday || 0, (s.ordersToday || 0) - ordersDelta.diff), tone: "amber", icon: "bag" })}
@@ -4690,10 +4688,10 @@ function onboardingProgressPresentation(setup) {
   if (percent >= 100) {
     return {
       stage: "ready",
-      eyebrow: "พร้อมใช้งาน",
-      title: "ระบบพร้อมใช้งานแล้ว 🎉",
-      body: "ยินดีด้วย! คุณพร้อมเริ่มเติบโตแล้ว",
-      badge: "Ready",
+      eyebrow: "",
+      title: "ยินดีด้วย! คุณพร้อม",
+      body: "เริ่มต้นใช้งานแล้ว",
+      badge: "",
       action: "ดูรายละเอียดการตั้งค่า"
     };
   }
@@ -4734,68 +4732,16 @@ function onboardingProgressChangeClass(percent) {
 }
 
 function renderOnboardingRocket(stage) {
-  renderOnboardingRocket.nextId = (renderOnboardingRocket.nextId || 0) + 1;
-  const svgId = `setupRocket${String(stage).replace(/[^a-z0-9_-]/gi, "")}${renderOnboardingRocket.nextId}`;
+  const rocketAssets = {
+    idle: "/onboarding-rocket-0.png",
+    ignited: "/onboarding-rocket-33.png",
+    launching: "/onboarding-rocket-66.png",
+    ready: "/onboarding-rocket-100.png"
+  };
+  const src = rocketAssets[stage] || rocketAssets.idle;
   return `
     <div class="setup-rocket-scene setup-rocket-${escapeHtml(stage)}" aria-hidden="true">
-      <svg class="setup-rocket-svg" viewBox="0 0 220 170" role="img" focusable="false">
-        <defs>
-          <linearGradient id="${svgId}Body" x1="44" x2="104" y1="22" y2="128" gradientUnits="userSpaceOnUse">
-            <stop stop-color="#ffffff"/>
-            <stop offset="0.54" stop-color="#f7f3ff"/>
-            <stop offset="1" stop-color="#b79cff"/>
-          </linearGradient>
-          <linearGradient id="${svgId}Purple" x1="58" x2="94" y1="5" y2="63" gradientUnits="userSpaceOnUse">
-            <stop stop-color="#8b3cff"/>
-            <stop offset="1" stop-color="#35106f"/>
-          </linearGradient>
-          <linearGradient id="${svgId}Flame" x1="76" x2="76" y1="118" y2="168" gradientUnits="userSpaceOnUse">
-            <stop stop-color="#fff7ed"/>
-            <stop offset="0.34" stop-color="#ff8a1f"/>
-            <stop offset="0.72" stop-color="#ec4bd8"/>
-            <stop offset="1" stop-color="#7c3aed" stop-opacity="0"/>
-          </linearGradient>
-          <linearGradient id="${svgId}Trail" x1="28" x2="168" y1="132" y2="48" gradientUnits="userSpaceOnUse">
-            <stop stop-color="#ddd6fe"/>
-            <stop offset="0.52" stop-color="#a855f7" stop-opacity="0.78"/>
-            <stop offset="1" stop-color="#ec4899" stop-opacity="0"/>
-          </linearGradient>
-          <filter id="${svgId}Glow" x="-30%" y="-30%" width="160%" height="170%">
-            <feDropShadow dx="0" dy="10" stdDeviation="8" flood-color="#4c1d95" flood-opacity="0.26"/>
-          </filter>
-        </defs>
-        <g class="setup-svg-stars">
-          <path d="M28 28l3 8 8 3-8 3-3 8-3-8-8-3 8-3z"/>
-          <path d="M178 34l2 6 6 2-6 2-2 6-2-6-6-2 6-2z"/>
-          <path d="M194 88l3 7 7 3-7 3-3 7-3-7-7-3 7-3z"/>
-          <path d="M54 98l2 5 5 2-5 2-2 5-2-5-5-2 5-2z"/>
-          <path d="M153 14l2 5 5 2-5 2-2 5-2-5-5-2 5-2z"/>
-        </g>
-        <path class="setup-svg-trail" d="M31 135c34-30 66-58 114-90 16-11 35-16 50-16-15 14-33 25-46 41-33 39-55 72-91 87-14 6-27 3-27-22z" fill="url(#${svgId}Trail)"/>
-        <g class="setup-svg-smoke">
-          <ellipse cx="48" cy="143" rx="27" ry="17"/>
-          <ellipse cx="78" cy="139" rx="34" ry="22"/>
-          <ellipse cx="113" cy="146" rx="31" ry="18"/>
-          <ellipse cx="28" cy="151" rx="19" ry="12"/>
-        </g>
-        <g class="setup-svg-pad">
-          <ellipse cx="76" cy="148" rx="62" ry="16"/>
-          <path d="M34 129h20v-46h-20zM39 94h10M39 107h10M39 120h10"/>
-          <path d="M57 142h38" />
-        </g>
-        <g class="setup-svg-rocket" filter="url(#${svgId}Glow)">
-          <path class="setup-svg-flame" d="M76 113c13 16 20 35 0 55-20-20-13-39 0-55z" fill="url(#${svgId}Flame)"/>
-          <path d="M50 105c-17 8-28 22-30 40 20-4 34-14 43-30z" fill="#4c1d95"/>
-          <path d="M102 105c17 8 28 22 30 40-20-4-34-14-43-30z" fill="#4c1d95"/>
-          <path d="M76 4c25 30 38 62 35 102-1 17-15 29-35 29s-34-12-35-29C38 66 51 34 76 4z" fill="url(#${svgId}Body)"/>
-          <path d="M76 4c12 14 21 29 27 46H49C55 33 64 18 76 4z" fill="url(#${svgId}Purple)"/>
-          <circle cx="76" cy="62" r="17" fill="#5b21d6"/>
-          <circle cx="76" cy="62" r="10" fill="#d9ccff"/>
-          <circle cx="72" cy="58" r="4" fill="#fff"/>
-          <circle cx="76" cy="95" r="15" fill="#4f1fd6"/>
-          <text x="76" y="101" text-anchor="middle" font-size="17" font-weight="900" fill="#fff">G</text>
-        </g>
-      </svg>
+      <img class="setup-rocket-art" src="${escapeHtml(src)}" width="1536" height="1024" alt="" loading="lazy" decoding="async">
     </div>
   `;
 }
@@ -4820,7 +4766,6 @@ function renderOnboardingWidget({ variant = "compact", actionAttr = 'data-busine
   const percent = Number(setup.percent || 0);
   const changeClass = renderOnboardingWidget.hasRendered ? onboardingProgressChangeClass(percent) : (app.onboardingProgressPercent = percent, "");
   renderOnboardingWidget.hasRendered = true;
-  const readyBadge = progress.badge ? `<span class="setup-ready-badge"><span aria-hidden="true">✓</span> ${escapeHtml(progress.badge)}</span>` : "";
   const actionLabel = variant === "detailed" && percent > 0 ? "จัดการการตั้งค่า" : progress.action;
   const actionIcon = variant === "detailed" ? `<span class="setup-widget-action-icon" aria-hidden="true">${iconSvg("settings")}</span>` : "";
   return `
@@ -4828,7 +4773,6 @@ function renderOnboardingWidget({ variant = "compact", actionAttr = 'data-busine
       <div class="setup-widget-heading">
         <span>เริ่มต้นใช้งาน</span>
         <h2>Growup Pilot</h2>
-        ${readyBadge}
       </div>
       <div class="setup-widget-main">
         <div class="setup-progress-ring" style="--setup-progress:${setup.percent * 3.6}deg">
@@ -4837,7 +4781,7 @@ function renderOnboardingWidget({ variant = "compact", actionAttr = 'data-busine
         </div>
         ${renderOnboardingRocket(progress.stage)}
         <div class="setup-widget-copy">
-          <span>${escapeHtml(progress.eyebrow)}</span>
+          ${progress.eyebrow ? `<span>${escapeHtml(progress.eyebrow)}</span>` : ""}
           <strong>${escapeHtml(progress.title)}</strong>
           <p>${escapeHtml(progress.body)}</p>
         </div>
