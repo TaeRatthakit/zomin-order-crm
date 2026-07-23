@@ -26773,9 +26773,10 @@ body.desktop-app-shell:not(.desktop-dashboard-view):not(.login-view) .setup-widg
   .setup-widget-detailed .setup-rocket-scene {
     grid-column: 2;
     grid-row: 1;
-    width: auto;
+    width: min(140px, 100%);
     min-width: 0;
     max-width: 140px;
+    overflow: hidden;
     justify-self: end;
   }
   .setup-widget-compact.setup-stage-ready .setup-widget-main {
@@ -26785,9 +26786,10 @@ body.desktop-app-shell:not(.desktop-dashboard-view):not(.login-view) .setup-widg
   .setup-widget-compact.setup-stage-ready .setup-rocket-scene {
     grid-column: 2;
     grid-row: 1;
-    width: auto;
+    width: min(140px, 100%);
     min-width: 0;
     max-width: 140px;
+    overflow: hidden;
     justify-self: end;
   }
   .setup-widget-compact.setup-stage-ready .setup-widget-copy {
