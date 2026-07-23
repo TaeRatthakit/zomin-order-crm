@@ -4691,7 +4691,7 @@ function onboardingProgressPresentation(setup) {
     return {
       stage: "ready",
       eyebrow: "พร้อมใช้งาน",
-      title: "ระบบพร้อมใช้งานแล้ว",
+      title: "ระบบพร้อมใช้งานแล้ว 🎉",
       body: "ยินดีด้วย! คุณพร้อมเริ่มเติบโตแล้ว",
       badge: "Ready",
       action: "ดูรายละเอียดการตั้งค่า"
@@ -4773,6 +4773,8 @@ function renderOnboardingWidget({ variant = "compact", actionAttr = 'data-busine
   const changeClass = renderOnboardingWidget.hasRendered ? onboardingProgressChangeClass(percent) : (app.onboardingProgressPercent = percent, "");
   renderOnboardingWidget.hasRendered = true;
   const readyBadge = progress.badge ? `<span class="setup-ready-badge"><span aria-hidden="true">✓</span> ${escapeHtml(progress.badge)}</span>` : "";
+  const actionLabel = variant === "detailed" && percent > 0 ? "จัดการการตั้งค่า" : progress.action;
+  const actionIcon = variant === "detailed" ? `<span class="setup-widget-action-icon" aria-hidden="true">${iconSvg("settings")}</span>` : "";
   return `
     <article class="setup-widget setup-widget-${escapeHtml(variant)} setup-stage-${escapeHtml(progress.stage)}${changeClass}" data-onboarding-progress="${percent}">
       <div class="setup-widget-heading">
@@ -4800,7 +4802,7 @@ function renderOnboardingWidget({ variant = "compact", actionAttr = 'data-busine
       </div>
       ${showChecklist ? renderOnboardingChecklist(setup) : ""}
       <button class="setup-widget-primary mobile-setup-primary" type="button" ${actionAttr}>
-        <span>${escapeHtml(progress.action)}</span><span aria-hidden="true">→</span>
+        ${actionIcon}<span>${escapeHtml(actionLabel)}</span><span aria-hidden="true">→</span>
       </button>
     </article>
   `;
