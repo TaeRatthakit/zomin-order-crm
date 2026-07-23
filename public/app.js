@@ -4617,13 +4617,28 @@ function onboardingProgressChangeClass(percent) {
 
 function onboardingRocketAsset(percent) {
   const normalized = [0, 33, 66, 100].includes(Number(percent)) ? Number(percent) : 0;
-  return `/onboarding-rocket-${normalized}.png?v=20260723-final-spec-v1`;
+  return `/onboarding-rocket-${normalized}.webp?v=20260724-webp-v1`;
 }
 
-function renderOnboardingRocketImage(setup, progress) {
+function ensureOnboardingRocketPreload(src) {
+  if (typeof document === "undefined" || !src) return;
+  if (!document.head || typeof document.getElementById !== "function" || typeof document.createElement !== "function") return;
+  let link = document.getElementById("onboardingRocketPreload");
+  if (!link) {
+    link = document.createElement("link");
+    link.id = "onboardingRocketPreload";
+    link.rel = "preload";
+    link.as = "image";
+    link.type = "image/webp";
+    document.head.appendChild(link);
+  }
+  if (link.getAttribute("href") !== src) link.setAttribute("href", src);
+}
+
+function renderOnboardingRocketImage(src, progress, loading = "eager") {
   return `
     <figure class="onboarding-rocket-art onboarding-rocket-art-${escapeHtml(progress.stage)}" aria-hidden="true">
-      <img src="${escapeHtml(onboardingRocketAsset(setup.percent))}" alt="" loading="eager" decoding="async">
+      <img src="${escapeHtml(src)}" alt="" loading="${escapeHtml(loading)}" decoding="async" width="999" height="666">
     </figure>
   `;
 }
@@ -4647,6 +4662,9 @@ function renderOnboardingWidget({ variant = "compact", actionAttr = 'data-busine
   const progress = onboardingProgressPresentation(setup);
   const percent = Number(setup.percent || 0);
   const changeClass = renderOnboardingWidget.hasRendered ? onboardingProgressChangeClass(percent) : (app.onboardingProgressPercent = percent, "");
+  const rocketSrc = onboardingRocketAsset(setup.percent);
+  ensureOnboardingRocketPreload(rocketSrc);
+  const rocketLoading = variant === "detailed" ? "eager" : "lazy";
   renderOnboardingWidget.hasRendered = true;
   return `
     <article class="setup-widget setup-widget-${escapeHtml(variant)} setup-stage-${escapeHtml(progress.stage)}${changeClass}" data-onboarding-progress="${percent}">
@@ -4659,7 +4677,7 @@ function renderOnboardingWidget({ variant = "compact", actionAttr = 'data-busine
           <strong>${setup.percent}%</strong>
           <small>${escapeHtml(setup.completeCount)} จาก ${escapeHtml(setup.steps.length)} ขั้นตอน</small>
         </div>
-        ${renderOnboardingRocketImage(setup, progress)}
+        ${renderOnboardingRocketImage(rocketSrc, progress, rocketLoading)}
         <div class="setup-widget-copy">
           <strong>${escapeHtml(progress.title)}</strong>
           <p>${escapeHtml(progress.body)}</p>

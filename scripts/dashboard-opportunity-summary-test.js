@@ -353,7 +353,7 @@ if (!source.includes("data-dashboard-theme-image") || !source.includes("syncDash
 if (!source.includes("<strong>${setup.percent}%</strong>") || !source.includes('style="width:${setup.percent}%"')) {
   fail("Business Management onboarding percent and progress width must remain dynamic HTML values");
 }
-["onboarding-rocket-0.png", "onboarding-rocket-33.png", "onboarding-rocket-66.png", "onboarding-rocket-100.png"].forEach(asset => {
+["onboarding-rocket-0.webp", "onboarding-rocket-33.webp", "onboarding-rocket-66.webp", "onboarding-rocket-100.webp"].forEach(asset => {
   if (!source.includes(asset) && !fs.existsSync(path.join(ROOT, "public", asset))) fail(`onboarding rocket asset is missing: ${asset}`);
 });
 [

@@ -1,4 +1,4 @@
-const CACHE_NAME = "growup-pilot-pwa-v126-customer-table-light-v3";
+const CACHE_NAME = "growup-pilot-pwa-v127-onboarding-webp-v1";
 const CORE_ASSETS = [
   "/",
   "/index.html",
@@ -7,14 +7,10 @@ const CORE_ASSETS = [
   "/favicon-16x16.png?v=20260717-mobile-icon-v1",
   "/favicon-32x32.png?v=20260717-mobile-icon-v1",
   "/favicon-48x48.png?v=20260717-mobile-icon-v1",
-  "/styles.css?v=20260722-customer-table-light-v3",
-  "/app.js?v=20260722-customer-table-light-v3",
+  "/styles.css?v=20260724-onboarding-webp-v1",
+  "/app.js?v=20260724-onboarding-webp-v1",
   "/desktop-dashboard-hero.webp?v=20260706-webp-v1",
   "/desktop-dashboard-hero-light.jpg?v=20260719-home-light-clean-v2",
-  "/onboarding-rocket-0.png?v=20260723-final-spec-v1",
-  "/onboarding-rocket-33.png?v=20260723-final-spec-v1",
-  "/onboarding-rocket-66.png?v=20260723-final-spec-v1",
-  "/onboarding-rocket-100.png?v=20260723-final-spec-v1",
   "/mobile-home-hero.png?v=20260703-mobile-hero-clean",
   "/mobile-home-hero-light-v4.webp?v=20260720-mobile-light-single-frame-v1",
   "/mobile-home-avatar.png",
