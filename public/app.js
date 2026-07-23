@@ -4734,31 +4734,33 @@ function onboardingProgressChangeClass(percent) {
 }
 
 function renderOnboardingRocket(stage) {
+  renderOnboardingRocket.nextId = (renderOnboardingRocket.nextId || 0) + 1;
+  const svgId = `setupRocket${String(stage).replace(/[^a-z0-9_-]/gi, "")}${renderOnboardingRocket.nextId}`;
   return `
     <div class="setup-rocket-scene setup-rocket-${escapeHtml(stage)}" aria-hidden="true">
       <svg class="setup-rocket-svg" viewBox="0 0 220 170" role="img" focusable="false">
         <defs>
-          <linearGradient id="setupRocketBody" x1="44" x2="104" y1="22" y2="128" gradientUnits="userSpaceOnUse">
+          <linearGradient id="${svgId}Body" x1="44" x2="104" y1="22" y2="128" gradientUnits="userSpaceOnUse">
             <stop stop-color="#ffffff"/>
             <stop offset="0.54" stop-color="#f7f3ff"/>
             <stop offset="1" stop-color="#b79cff"/>
           </linearGradient>
-          <linearGradient id="setupRocketPurple" x1="58" x2="94" y1="5" y2="63" gradientUnits="userSpaceOnUse">
+          <linearGradient id="${svgId}Purple" x1="58" x2="94" y1="5" y2="63" gradientUnits="userSpaceOnUse">
             <stop stop-color="#8b3cff"/>
             <stop offset="1" stop-color="#35106f"/>
           </linearGradient>
-          <linearGradient id="setupRocketFlame" x1="76" x2="76" y1="118" y2="168" gradientUnits="userSpaceOnUse">
+          <linearGradient id="${svgId}Flame" x1="76" x2="76" y1="118" y2="168" gradientUnits="userSpaceOnUse">
             <stop stop-color="#fff7ed"/>
             <stop offset="0.34" stop-color="#ff8a1f"/>
             <stop offset="0.72" stop-color="#ec4bd8"/>
             <stop offset="1" stop-color="#7c3aed" stop-opacity="0"/>
           </linearGradient>
-          <linearGradient id="setupRocketTrail" x1="28" x2="168" y1="132" y2="48" gradientUnits="userSpaceOnUse">
+          <linearGradient id="${svgId}Trail" x1="28" x2="168" y1="132" y2="48" gradientUnits="userSpaceOnUse">
             <stop stop-color="#ddd6fe"/>
             <stop offset="0.52" stop-color="#a855f7" stop-opacity="0.78"/>
             <stop offset="1" stop-color="#ec4899" stop-opacity="0"/>
           </linearGradient>
-          <filter id="setupRocketGlow" x="-30%" y="-30%" width="160%" height="170%">
+          <filter id="${svgId}Glow" x="-30%" y="-30%" width="160%" height="170%">
             <feDropShadow dx="0" dy="10" stdDeviation="8" flood-color="#4c1d95" flood-opacity="0.26"/>
           </filter>
         </defs>
@@ -4769,7 +4771,7 @@ function renderOnboardingRocket(stage) {
           <path d="M54 98l2 5 5 2-5 2-2 5-2-5-5-2 5-2z"/>
           <path d="M153 14l2 5 5 2-5 2-2 5-2-5-5-2 5-2z"/>
         </g>
-        <path class="setup-svg-trail" d="M31 135c34-30 66-58 114-90 16-11 35-16 50-16-15 14-33 25-46 41-33 39-55 72-91 87-14 6-27 3-27-22z"/>
+        <path class="setup-svg-trail" d="M31 135c34-30 66-58 114-90 16-11 35-16 50-16-15 14-33 25-46 41-33 39-55 72-91 87-14 6-27 3-27-22z" fill="url(#${svgId}Trail)"/>
         <g class="setup-svg-smoke">
           <ellipse cx="48" cy="143" rx="27" ry="17"/>
           <ellipse cx="78" cy="139" rx="34" ry="22"/>
@@ -4781,12 +4783,12 @@ function renderOnboardingRocket(stage) {
           <path d="M34 129h20v-46h-20zM39 94h10M39 107h10M39 120h10"/>
           <path d="M57 142h38" />
         </g>
-        <g class="setup-svg-rocket" filter="url(#setupRocketGlow)">
-          <path class="setup-svg-flame" d="M76 113c13 16 20 35 0 55-20-20-13-39 0-55z"/>
+        <g class="setup-svg-rocket" filter="url(#${svgId}Glow)">
+          <path class="setup-svg-flame" d="M76 113c13 16 20 35 0 55-20-20-13-39 0-55z" fill="url(#${svgId}Flame)"/>
           <path d="M50 105c-17 8-28 22-30 40 20-4 34-14 43-30z" fill="#4c1d95"/>
           <path d="M102 105c17 8 28 22 30 40-20-4-34-14-43-30z" fill="#4c1d95"/>
-          <path d="M76 4c25 30 38 62 35 102-1 17-15 29-35 29s-34-12-35-29C38 66 51 34 76 4z" fill="url(#setupRocketBody)"/>
-          <path d="M76 4c12 14 21 29 27 46H49C55 33 64 18 76 4z" fill="url(#setupRocketPurple)"/>
+          <path d="M76 4c25 30 38 62 35 102-1 17-15 29-35 29s-34-12-35-29C38 66 51 34 76 4z" fill="url(#${svgId}Body)"/>
+          <path d="M76 4c12 14 21 29 27 46H49C55 33 64 18 76 4z" fill="url(#${svgId}Purple)"/>
           <circle cx="76" cy="62" r="17" fill="#5b21d6"/>
           <circle cx="76" cy="62" r="10" fill="#d9ccff"/>
           <circle cx="72" cy="58" r="4" fill="#fff"/>
