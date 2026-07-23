@@ -26754,6 +26754,17 @@ body.desktop-app-shell:not(.desktop-dashboard-view):not(.login-view) .setup-widg
   gap: 22px;
   min-height: 162px;
 }
+body.desktop-app-shell:not(.desktop-dashboard-view):not(.login-view) .setup-widget-detailed.setup-stage-ready .setup-widget-main {
+  grid-template-columns: 122px minmax(0, 1fr) 198px;
+}
+body.desktop-app-shell:not(.desktop-dashboard-view):not(.login-view) .setup-widget-detailed.setup-stage-ready .setup-widget-copy {
+  grid-column: 2;
+  grid-row: 1;
+}
+body.desktop-app-shell:not(.desktop-dashboard-view):not(.login-view) .setup-widget-detailed.setup-stage-ready .setup-rocket-scene {
+  grid-column: 3;
+  grid-row: 1;
+}
 body.desktop-app-shell:not(.desktop-dashboard-view):not(.login-view) .setup-widget-detailed .setup-widget-heading span:first-child {
   font-size: 0.95rem;
 }
