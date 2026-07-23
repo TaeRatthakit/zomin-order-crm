@@ -26744,6 +26744,10 @@ body.desktop-app-shell:not(.desktop-dashboard-view):not(.login-view) .setup-widg
     grid-column: 1 / -1;
     padding-top: 2px;
   }
+  .setup-widget-detailed.setup-stage-ready .setup-widget-copy {
+    grid-column: 1 / -1;
+    grid-row: auto;
+  }
   .setup-widget-detailed .setup-widget-copy strong { font-size: 0.92rem; }
   .setup-widget-detailed .setup-widget-copy p { font-size: 0.78rem; }
   .setup-widget-checklist li {
