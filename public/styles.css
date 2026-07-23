@@ -25250,6 +25250,99 @@ html[data-theme="light"] body:not(.login-view) .notification-surface .notificati
   color: var(--light-purple-readable) !important;
 }
 
+html[data-theme="light"] body:not(.login-view) .import-center-side .import-history-card,
+html[data-theme="light"] body:not(.login-view) .import-center-side .import-capabilities {
+  border-color: rgba(124, 58, 237, 0.18) !important;
+  background: #ffffff !important;
+  color: var(--light-text-primary) !important;
+  box-shadow: 0 14px 34px rgba(48, 38, 84, 0.10), inset 0 1px 0 rgba(255, 255, 255, 0.82) !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .import-center-side .import-capabilities {
+  background:
+    radial-gradient(circle at 16% 0, rgba(124, 58, 237, 0.07), transparent 38%),
+    linear-gradient(145deg, #ffffff, var(--light-surface-soft)) !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .import-center-side .import-history-card h3 {
+  color: var(--light-text-strong) !important;
+  font-size: 1rem;
+  line-height: 1.25;
+  font-weight: 850;
+}
+
+html[data-theme="light"] body:not(.login-view) .import-center-side .import-history-title span {
+  color: var(--light-purple-accent) !important;
+  font-size: 0.82rem;
+  font-weight: 850;
+}
+
+html[data-theme="light"] body:not(.login-view) .import-center-side .import-history-row {
+  border-color: rgba(124, 58, 237, 0.14) !important;
+  background: #ffffff !important;
+  box-shadow: 0 8px 20px rgba(48, 38, 84, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.88) !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .import-center-side .import-file-badge {
+  border: 1px solid rgba(124, 58, 237, 0.14);
+  background: var(--light-purple-chip) !important;
+  color: var(--light-purple-accent) !important;
+  box-shadow: 0 10px 24px rgba(109, 40, 217, 0.12) !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .import-center-side .import-history-row strong {
+  color: var(--light-text-strong) !important;
+  font-weight: 850;
+}
+
+html[data-theme="light"] body:not(.login-view) .import-center-side .import-history-row small,
+html[data-theme="light"] body:not(.login-view) .import-center-side .import-history-row em,
+html[data-theme="light"] body:not(.login-view) .import-center-side .import-history-empty {
+  color: var(--light-text-muted) !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .import-center-side .import-history-empty strong {
+  color: var(--light-text-strong) !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .import-center-side .import-history-empty .nav-icon {
+  color: var(--light-purple-accent) !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .import-center-side .import-status {
+  color: #047857 !important;
+  background: #dcfce7 !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .import-center-side .import-status.failed,
+html[data-theme="light"] body:not(.login-view) .import-center-side .import-status.cancelled {
+  color: #b91c1c !important;
+  background: #fee2e2 !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .import-center-side .import-status.running,
+html[data-theme="light"] body:not(.login-view) .import-center-side .import-status.queued,
+html[data-theme="light"] body:not(.login-view) .import-center-side .import-status.paused {
+  color: var(--light-purple-accent) !important;
+  background: #ede9fe !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .import-center-side .import-capabilities span {
+  flex: 1 1 calc(50% - 8px);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 10px 12px;
+  border-color: rgba(124, 58, 237, 0.22) !important;
+  background: rgba(124, 58, 237, 0.08) !important;
+  color: var(--light-purple-accent) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.78);
+  font-weight: 800;
+  line-height: 1.25;
+  text-align: center;
+}
+
 @media (min-width: 1024px) {
   html[data-theme="light"] body.desktop-app-shell:not(.login-view) :is(.customers-page:not(.settings-customers-management):not(.embedded-customer-management), .customer-management-business-page .customers-page.embedded-customer-management) {
     gap: 18px;
