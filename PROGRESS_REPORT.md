@@ -1,12 +1,51 @@
 # Zomin Order CRM Progress Report
 
-Updated: 2026-07-10
+Updated: 2026-07-23
+
+## Latest Continuation
+
+Read and continued from this report on 2026-07-23.
+
+Latest verified production deployment:
+
+- Commit: `f007f48253faf0806bf4ccbb7ffce2852efb649f`
+- Production branch: `main`
+- Production site: `https://www.growuppilot.com`
+- Vercel project: existing Growup Pilot production project for `www.growuppilot.com`
+- Status: Production deployment is Ready and serving the commit above.
+
+Most recent completed scope:
+
+- Onboarding widget redesigned to match the attached visual specification.
+- Dashboard uses the compact onboarding widget.
+- Business Management uses the detailed onboarding widget.
+- Supported progress states remain exactly `0%`, `33%`, `66%`, and `100%`.
+- Existing setup-state calculation, APIs, routes, permissions, and business logic were preserved.
+- Animation remains progress-change-only and does not loop continuously.
+- Desktop Light uses exact mockup crop assets for the onboarding cards.
+- Mobile and Dark theme retain responsive/themed CSS rendering.
+- Production verification covered Dashboard and Business Management on Desktop/Mobile and Light/Dark.
+
+Product image storage continuation:
+
+- The old performance root cause was base64 product images stored inside `settings.products`.
+- Production now has product image storage configured.
+- Read-only production dry-run on 2026-07-23 returned:
+  - `productCount: 3`
+  - `migrateCount: 0`
+  - `totalBase64Bytes: 0`
+  - `storageConfigured: true`
+- Read-only production verify returned:
+  - `verifiedCount: 3`
+  - `failedCount: 0`
+  - `skippedCount: 0`
+- No production image migration was needed and no real customer data was changed during this continuation.
 
 ## Current Status
 
 Zomin Order CRM V3 has been upgraded from local-only demo toward production-ready Phase 1.
 
-Latest production update:
+Earlier production update:
 
 - Commit: `e63fbe2 Avoid resending unchanged product images`
 - Production branch: `main`
