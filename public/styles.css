@@ -26773,8 +26773,26 @@ body.desktop-app-shell:not(.desktop-dashboard-view):not(.login-view) .setup-widg
   .setup-widget-detailed .setup-rocket-scene {
     grid-column: 2;
     grid-row: 1;
+    width: auto;
+    min-width: 0;
     max-width: 140px;
     justify-self: end;
+  }
+  .setup-widget-compact.setup-stage-ready .setup-widget-main {
+    grid-template-columns: 82px minmax(0, 1fr);
+    gap: 10px 14px;
+  }
+  .setup-widget-compact.setup-stage-ready .setup-rocket-scene {
+    grid-column: 2;
+    grid-row: 1;
+    width: auto;
+    min-width: 0;
+    max-width: 140px;
+    justify-self: end;
+  }
+  .setup-widget-compact.setup-stage-ready .setup-widget-copy {
+    grid-column: 1 / -1;
+    grid-row: auto;
   }
   .setup-widget-copy {
     grid-column: 1 / -1;
@@ -26814,6 +26832,9 @@ html[data-theme="light"] body.desktop-dashboard-view:not(.login-view) .setup-wid
 html[data-theme="light"] body.desktop-app-shell:not(.desktop-dashboard-view):not(.login-view) .setup-widget-detailed > * {
   position: absolute;
   inset: 0;
+  max-width: 100%;
+  max-height: 100%;
+  overflow: hidden;
   opacity: 0;
   pointer-events: none;
 }
