@@ -26411,6 +26411,7 @@ html[data-theme="light"] body:not(.login-view) .setup-widget .mobile-setup-statu
 html[data-theme="light"] body:not(.login-view) .setup-ready-badge { background: #ecfdf3; color: #047857; }
 body.desktop-dashboard-view:not(.login-view) .desktop-reference-hero-grid > .setup-widget { min-width: 0; min-height: 255px; }
 body.desktop-dashboard-view:not(.login-view) .setup-widget-compact { height: 100%; }
+body.mobile-home-view:not(.login-view) .mobile-dashboard-shell > .setup-widget { width: 100%; }
 @media (min-width: 1280px) {
   body.desktop-dashboard-view:not(.login-view) .setup-widget-compact { padding: 22px; }
   body.desktop-dashboard-view:not(.login-view) .setup-widget-compact .setup-widget-main { grid-template-columns: 100px minmax(116px, 0.9fr) minmax(0, 1fr); gap: 18px; }

@@ -4100,6 +4100,8 @@ function renderMobileDashboard(viewModel) {
           >
         </section>
 
+        ${renderOnboardingWidget({ variant: "compact", actionAttr: 'data-view-shortcut="settings"', showChecklist: false })}
+
         <section class="mobile-kpi-grid">
           ${mobileDashboardMetricCard({ label: kpiTitles.sales, value: money(s.salesToday), deltaText: dashboardChangeText(s.salesToday, s.salesToday - salesDelta.diff), tone: "green", icon: "wallet" })}
           ${mobileDashboardMetricCard({ label: kpiTitles.orders, value: money(s.ordersToday || 0), deltaText: dashboardChangeText(s.ordersToday || 0, (s.ordersToday || 0) - ordersDelta.diff), tone: "amber", icon: "bag" })}
