@@ -50,7 +50,6 @@ const viewToRoute = Object.fromEntries(Object.entries(routeToView).map(([path, v
 const MISSING_CHANNEL_LABEL = "อื่นๆ";
 const MOBILE_PROFILE_CACHE_KEY = "growup_mobile_profile_v1";
 const THEME_STORAGE_PREFIX = "growup-theme:";
-const APPLIED_DATE_RANGE_STORAGE_PREFIX = "growup-applied-date-range:";
 const THEME_OPTIONS = new Set(["dark", "light", "system"]);
 
 const app = {
@@ -449,7 +448,6 @@ const els = {
   orderForm: document.querySelector("#orderForm"),
   orderDialogTitle: document.querySelector("#orderDialogTitle"),
   orderSubmitButton: document.querySelector("#orderSubmitButton"),
-  orderSaveError: document.querySelector("#orderSaveError"),
   deleteOrderDialog: document.querySelector("#deleteOrderDialog"),
   deleteOrderForm: document.querySelector("#deleteOrderForm"),
   mobileDeleteOrderNumber: document.querySelector("#mobileDeleteOrderNumber"),
@@ -786,18 +784,6 @@ function money(value) {
   return prefs.currency === "USD" ? `$${formatted}` : formatted;
 }
 
-function financialMoney(value) {
-  const numeric = Number(value || 0);
-  const prefs = app.data?.settings?.displayPreferences || {};
-  const locale = prefs.numberFormat === "1.234,56" ? "de-DE" : "th-TH";
-  const hasFraction = Math.abs(numeric - Math.round(numeric)) > 0.000001;
-  const formatted = numeric.toLocaleString(locale, {
-    minimumFractionDigits: hasFraction ? 2 : 0,
-    maximumFractionDigits: 2
-  });
-  return prefs.currency === "USD" ? `$${formatted}` : formatted;
-}
-
 function productCostMoney(value) {
   return Number(value || 0).toLocaleString("en-US", {
     minimumFractionDigits: 0,
@@ -1060,57 +1046,6 @@ function dateRangeMatchesPreset(range, key, today = todayISO()) {
   return range?.start === presetRange.start && range?.end === presetRange.end;
 }
 
-function appliedDateRangeStorageKey(user = app.currentUser) {
-  const id = String(user?.id || user?.username || "").trim();
-  return id ? `${APPLIED_DATE_RANGE_STORAGE_PREFIX}${id}` : "";
-}
-
-function sanitizeStoredDateRange(value) {
-  if (!value || typeof value !== "object") return null;
-  const normalized = normalizeDateRange(value.start, value.end);
-  if (!parseDateOnlyParts(normalized.start) || !parseDateOnlyParts(normalized.end)) return null;
-  const preset = DATE_RANGE_PRESETS.some(item => item.key === value.preset) ? value.preset : "custom";
-  return {
-    preset,
-    ...normalized,
-    compareEnabled: Boolean(value.compareEnabled),
-    compareMode: value.compareMode === "custom" ? "custom" : "previous-period",
-    compareStart: String(value.compareStart || ""),
-    compareEnd: String(value.compareEnd || "")
-  };
-}
-
-function readStoredAppliedDateRange(user = app.currentUser) {
-  const key = appliedDateRangeStorageKey(user);
-  if (!key) return null;
-  try {
-    return sanitizeStoredDateRange(JSON.parse(window.localStorage.getItem(key) || "null"));
-  } catch {
-    return null;
-  }
-}
-
-function persistAppliedDateRange(range, user = app.currentUser) {
-  const key = appliedDateRangeStorageKey(user);
-  const normalized = sanitizeStoredDateRange(range);
-  if (!key || !normalized) return;
-  try {
-    window.localStorage.setItem(key, JSON.stringify(normalized));
-  } catch {
-    // Persistence is a convenience for reloads; the in-memory applied range remains authoritative.
-  }
-}
-
-function restoreAppliedDateRangeFromStorage() {
-  const stored = readStoredAppliedDateRange();
-  if (!stored) return null;
-  app.dateRangePicker.applied = stored;
-  app.reportDate = stored.end;
-  if (els.workDate) els.workDate.value = stored.end;
-  if (app.data) app.data.summary = buildLocalSummary(stored.end, stored);
-  return stored;
-}
-
 function labelForDateRange(range, presetKey = "") {
   const normalized = normalizeDateRange(range?.start, range?.end);
   const matchedPreset = presetKey && presetKey !== "custom" && dateRangeMatchesPreset(normalized, presetKey)
@@ -1125,18 +1060,16 @@ function labelForDateRangeTrigger(range, presetKey = "") {
   const normalized = normalizeDateRange(range?.start, range?.end);
   const matchedPreset = presetKey && presetKey !== "custom" && dateRangeMatchesPreset(normalized, presetKey)
     ? dateRangePreset(presetKey)
-    : null;
-  const compactDate = dateValue => {
-    const parts = parseDateOnlyParts(dateValue);
-    if (!parts) return "-";
-    return `${parts.day}/${parts.month}/${String(parts.year % 100).padStart(2, "0")}`;
-  };
-  const triggerPresetLabel = matchedPreset?.key === "today" ? "วันนี้" : matchedPreset?.key === "yesterday" ? "เมื่อวาน" : "";
+    : DATE_RANGE_PRESETS.find(preset => preset.key !== "custom" && dateRangeMatchesPreset(normalized, preset.key));
   if (normalized.start === normalized.end) {
-    const dateText = compactDate(normalized.start);
-    return triggerPresetLabel ? `${triggerPresetLabel} ${dateText}` : dateText;
+    const dateText = formatDatePillGregorian(normalized.start);
+    return matchedPreset ? `${matchedPreset.label} • ${dateText}` : dateText;
   }
-  return `${compactDate(normalized.start)}–${compactDate(normalized.end)}`;
+  const startYear = String(normalized.start).slice(0, 4);
+  const endYear = String(normalized.end).slice(0, 4);
+  const startText = formatDatePillGregorian(normalized.start, { includeYear: startYear !== endYear });
+  const endText = formatDatePillGregorian(normalized.end);
+  return `${startText} – ${endText}`;
 }
 
 function dashboardKpiTitlesForRange(range, today = todayISO()) {
@@ -1172,19 +1105,6 @@ function formatThaiDateCompact(dateValue) {
 function appliedDateRange() {
   if (app.dateRangePicker.applied) return app.dateRangePicker.applied;
   const selectedDate = els.workDate?.value || app.data?.summary?.selectedDate || todayISO();
-  const restoredStart = app.data?.summary?.startDate || "";
-  const restoredEnd = app.data?.summary?.endDate || "";
-  if (restoredStart || restoredEnd) {
-    app.dateRangePicker.applied = {
-      preset: "custom",
-      ...normalizeDateRange(restoredStart || selectedDate, restoredEnd || restoredStart || selectedDate),
-      compareEnabled: false,
-      compareMode: "previous-period",
-      compareStart: "",
-      compareEnd: ""
-    };
-    return app.dateRangePicker.applied;
-  }
   app.dateRangePicker.applied = {
     preset: "today",
     ...normalizeDateRange(selectedDate, selectedDate),
@@ -1212,11 +1132,6 @@ function previousPeriodRange(range) {
   const days = Math.max(1, dateRangeDays(normalizeDateRange(range.start, range.end)));
   const compareEnd = addDaysISO(range.start, -1);
   return { compareStart: addDaysISO(compareEnd, -(days - 1)), compareEnd };
-}
-
-function previousReportRange(range) {
-  const previous = previousPeriodRange(range);
-  return { start: previous.compareStart, end: previous.compareEnd };
 }
 
 function syncComparisonDraft(draft) {
@@ -1665,59 +1580,43 @@ function showToast(message, status = "") {
 
 async function api(path, options = {}) {
   const startedAt = performance.now();
-  const { timeoutMs = 0, ...fetchOptions } = options;
-  const controller = timeoutMs && !fetchOptions.signal ? new AbortController() : null;
-  let timeoutId = null;
-  if (controller) {
-    fetchOptions.signal = controller.signal;
-    timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
-  }
+  const res = await fetch(path, {
+    credentials: "same-origin",
+    headers: {
+      "Content-Type": "application/json",
+      ...(options.headers || {})
+    },
+    ...options
+  });
+  const responseStartedAt = performance.now();
+  const text = await res.text();
+  const textReadAt = performance.now();
+  let payload = {};
   try {
-    const res = await fetch(path, {
-      credentials: "same-origin",
-      headers: {
-        "Content-Type": "application/json",
-        ...(fetchOptions.headers || {})
-      },
-      ...fetchOptions
-    });
-    const responseStartedAt = performance.now();
-    const text = await res.text();
-    const textReadAt = performance.now();
-    let payload = {};
-    try {
-      payload = text ? JSON.parse(text) : {};
-    } catch {
-      payload = { ok: res.ok, raw: text };
-    }
-    if (!res.ok || payload.ok === false) {
-      const error = new Error(payload.error || "บันทึกไม่สำเร็จ");
-      error.status = res.status;
-      error.payload = payload;
-      throw error;
-    }
-    if (payload && typeof payload === "object") {
-      Object.defineProperty(payload, "__meta", {
-        value: {
-          fetchMs: responseStartedAt - startedAt,
-          textMs: textReadAt - responseStartedAt,
-          parseMs: performance.now() - textReadAt,
-          totalMs: performance.now() - startedAt,
-          serverTiming: res.headers.get("Server-Timing") || "",
-          orderSaveTimings: res.headers.get("X-Order-Save-Timings") || ""
-        },
-        enumerable: false
-      });
-    }
-    return payload;
-  } catch (error) {
-    if (error?.name === "AbortError") {
-      throw new Error("คำขอใช้เวลานานเกินไป กรุณาลองใหม่อีกครั้ง");
-    }
-    throw error;
-  } finally {
-    if (timeoutId) window.clearTimeout(timeoutId);
+    payload = text ? JSON.parse(text) : {};
+  } catch {
+    payload = { ok: res.ok, raw: text };
   }
+  if (!res.ok || payload.ok === false) {
+    const error = new Error(payload.error || "บันทึกไม่สำเร็จ");
+    error.status = res.status;
+    error.payload = payload;
+    throw error;
+  }
+  if (payload && typeof payload === "object") {
+    Object.defineProperty(payload, "__meta", {
+      value: {
+        fetchMs: responseStartedAt - startedAt,
+        textMs: textReadAt - responseStartedAt,
+        parseMs: performance.now() - textReadAt,
+        totalMs: performance.now() - startedAt,
+        serverTiming: res.headers.get("Server-Timing") || "",
+        orderSaveTimings: res.headers.get("X-Order-Save-Timings") || ""
+      },
+      enumerable: false
+    });
+  }
+  return payload;
 }
 
 function orderSaveDebugEnabled() {
@@ -1785,7 +1684,6 @@ async function loadState() {
       cacheMobileProfile(app.currentUser);
     }
     applyUserTheme(app.currentUser);
-    restoreAppliedDateRangeFromStorage();
   } catch (error) {
     if (error.status === 401) {
       clearSession();
@@ -2234,7 +2132,6 @@ function applyDateRangeDraft() {
   app.customersShowAll = false;
   app.reportDate = applied.end;
   if (els.workDate) els.workDate.value = applied.end;
-  persistAppliedDateRange(applied);
   if (isMobileViewport() && app.data) {
     app.ordersFilterQ = "";
     app.ordersFilterDraft = "";
@@ -2816,24 +2713,11 @@ function adCostForRecord(record, orders = app.data?.orders || []) {
   return record.value;
 }
 
-function marketingPerformanceForPeriod({ date = "", month = "", range = null } = {}) {
+function marketingPerformanceForPeriod({ date = "", month = "" } = {}) {
   const allOrders = app.data?.orders || [];
-  const normalizedRange = range?.start || range?.end ? normalizeDateRange(range.start, range.end) : null;
-  const periodOrders = allOrders.filter(order => date
-    ? order.date === date
-    : month
-      ? monthKey(order.date) === month
-      : normalizedRange
-        ? dateInRange(order.date, normalizedRange)
-        : true);
+  const periodOrders = allOrders.filter(order => date ? order.date === date : month ? monthKey(order.date) === month : true);
   const records = normalizeAdCostRecords()
-    .filter(record => record.enabled && (date
-      ? record.date === date
-      : month
-        ? monthKey(record.date) === month
-        : normalizedRange
-          ? dateInRange(record.date, normalizedRange)
-          : true))
+    .filter(record => record.enabled && (date ? record.date === date : month ? monthKey(record.date) === month : true))
     .map(record => ({ ...record, cost: adCostForRecord(record, allOrders) }));
   const breakdown = profitBreakdownForOrders(periodOrders);
   const adCost = records.reduce((sum, record) => sum + record.cost, 0);
@@ -4350,7 +4234,6 @@ function renderDesktopDashboard(viewModel) {
               fetchpriority="high"
             >
           </article>
-          ${renderOnboardingWidget({ variant: "compact", actionAttr: 'data-view-shortcut="settings"', showChecklist: false })}
         </section>
 
         <section class="desktop-reference-kpi-grid">
@@ -4653,7 +4536,8 @@ function mobileSetupWizardState() {
       complete: products.length > 0
     },
     {
-      title: "ตั้งต้นทุน",
+      title: "ตั้งต้นทุนสินค้า",
+      checklistTitle: "ตั้งต้นทุน",
       description: "กำหนดต้นทุนสินค้าเพื่อคำนวณกำไรได้แม่นยำ",
       icon: "chart",
       page: "finance",
@@ -4687,12 +4571,12 @@ function onboardingProgressPresentation(setup) {
   const percent = Number(setup.percent || 0);
   if (percent >= 100) {
     return {
-      stage: "ready",
-      eyebrow: "",
+      stage: "complete",
+      eyebrow: "เริ่มต้นใช้งาน",
       title: "ยินดีด้วย! คุณพร้อม",
       body: "เริ่มต้นใช้งานแล้ว",
-      badge: "",
-      action: "ดูรายละเอียดการตั้งค่า"
+      action: "ดูรายละเอียดการตั้งค่า",
+      completedLabel: "3 จาก 3 ขั้นตอน"
     };
   }
   if (percent >= 66) {
@@ -4701,8 +4585,8 @@ function onboardingProgressPresentation(setup) {
       eyebrow: "กำลังทะยานขึ้น",
       title: "ใกล้พร้อมใช้งานแล้ว",
       body: "เหลืออีกเพียง 1 ขั้นตอน",
-      badge: "",
-      action: "ดูรายละเอียดการตั้งค่า"
+      action: "ดูรายละเอียดการตั้งค่า",
+      completedLabel: "2 จาก 3 ขั้นตอน"
     };
   }
   if (percent >= 33) {
@@ -4711,8 +4595,8 @@ function onboardingProgressPresentation(setup) {
       eyebrow: "เริ่มต้นการเดินทาง",
       title: "สร้างสินค้าเรียบร้อย",
       body: "อีก 2 ขั้นตอน ระบบจะพร้อมใช้งาน",
-      badge: "",
-      action: "ดูรายละเอียดการตั้งค่า"
+      action: "ดูรายละเอียดการตั้งค่า",
+      completedLabel: "1 จาก 3 ขั้นตอน"
     };
   }
   return {
@@ -4720,8 +4604,8 @@ function onboardingProgressPresentation(setup) {
     eyebrow: "ยังไม่ได้เริ่มตั้งค่า",
     title: "ยังไม่มีการตั้งค่า",
     body: "เริ่มต้นตั้งค่าเพื่อใช้งานระบบ",
-    badge: "",
-    action: "เริ่มต้นตั้งค่า"
+    action: "เริ่มต้นตั้งค่า",
+    completedLabel: "0 จาก 3 ขั้นตอน"
   };
 }
 
@@ -4731,18 +4615,16 @@ function onboardingProgressChangeClass(percent) {
   return changed ? " is-progress-changing" : "";
 }
 
-function renderOnboardingRocket(stage) {
-  const rocketAssets = {
-    idle: "/onboarding-rocket-0.png",
-    ignited: "/onboarding-rocket-33.png",
-    launching: "/onboarding-rocket-66.png",
-    ready: "/onboarding-rocket-100.png"
-  };
-  const src = rocketAssets[stage] || rocketAssets.idle;
+function onboardingRocketAsset(percent) {
+  const normalized = [0, 33, 66, 100].includes(Number(percent)) ? Number(percent) : 0;
+  return `/onboarding-rocket-${normalized}.png?v=20260723-final-spec-v1`;
+}
+
+function renderOnboardingRocketImage(setup, progress) {
   return `
-    <div class="setup-rocket-scene setup-rocket-${escapeHtml(stage)}" aria-hidden="true">
-      <img class="setup-rocket-art" src="${escapeHtml(src)}" width="1536" height="1024" alt="" loading="lazy" decoding="async">
-    </div>
+    <figure class="onboarding-rocket-art onboarding-rocket-art-${escapeHtml(progress.stage)}" aria-hidden="true">
+      <img src="${escapeHtml(onboardingRocketAsset(setup.percent))}" alt="" loading="eager" decoding="async">
+    </figure>
   `;
 }
 
@@ -4766,8 +4648,6 @@ function renderOnboardingWidget({ variant = "compact", actionAttr = 'data-busine
   const percent = Number(setup.percent || 0);
   const changeClass = renderOnboardingWidget.hasRendered ? onboardingProgressChangeClass(percent) : (app.onboardingProgressPercent = percent, "");
   renderOnboardingWidget.hasRendered = true;
-  const actionLabel = variant === "detailed" && percent > 0 ? "จัดการการตั้งค่า" : progress.action;
-  const actionIcon = variant === "detailed" ? `<span class="setup-widget-action-icon" aria-hidden="true">${iconSvg("settings")}</span>` : "";
   return `
     <article class="setup-widget setup-widget-${escapeHtml(variant)} setup-stage-${escapeHtml(progress.stage)}${changeClass}" data-onboarding-progress="${percent}">
       <div class="setup-widget-heading">
@@ -4779,9 +4659,8 @@ function renderOnboardingWidget({ variant = "compact", actionAttr = 'data-busine
           <strong>${setup.percent}%</strong>
           <small>${escapeHtml(setup.completeCount)} จาก ${escapeHtml(setup.steps.length)} ขั้นตอน</small>
         </div>
-        ${renderOnboardingRocket(progress.stage)}
+        ${renderOnboardingRocketImage(setup, progress)}
         <div class="setup-widget-copy">
-          ${progress.eyebrow ? `<span>${escapeHtml(progress.eyebrow)}</span>` : ""}
           <strong>${escapeHtml(progress.title)}</strong>
           <p>${escapeHtml(progress.body)}</p>
         </div>
@@ -4794,7 +4673,7 @@ function renderOnboardingWidget({ variant = "compact", actionAttr = 'data-busine
       </div>
       ${showChecklist ? renderOnboardingChecklist(setup) : ""}
       <button class="setup-widget-primary mobile-setup-primary" type="button" ${actionAttr}>
-        ${actionIcon}<span>${escapeHtml(actionLabel)}</span><span aria-hidden="true">→</span>
+        <span>${escapeHtml(progress.action)}</span><span aria-hidden="true">→</span>
       </button>
     </article>
   `;
@@ -4998,18 +4877,18 @@ function renderMobileBusinessProductDetail() {
         <div class="mobile-business-finance-grid">
           <article class="purple"><span>ต้นทุนต่อชิ้น</span><strong>${productCostMoney(unitCost)} บาท</strong></article>
           <article class="blue"><span>ขายแล้ว</span><strong>${money(units)} ชิ้น</strong></article>
-          <article class="orange"><span>ยอดขาย</span><strong>${financialMoney(breakdown.sales)} บาท</strong></article>
-          <article class="${breakdown.profit >= 0 ? "green" : "red"}"><span>กำไรสุทธิประมาณการ</span><strong>${financialMoney(breakdown.profit)} บาท</strong></article>
+          <article class="orange"><span>ยอดขาย</span><strong>${money(breakdown.sales)} บาท</strong></article>
+          <article class="${breakdown.profit >= 0 ? "green" : "red"}"><span>กำไรสุทธิประมาณการ</span><strong>${money(breakdown.profit)} บาท</strong></article>
         </div>
         <div class="mobile-business-info-list">
           <div><span>ราคาขาย</span><strong>${money(product.salePrice)} บาท</strong></div>
           <div><span>สต๊อกคงเหลือ</span><strong>${money(product.stockQuantity)} ชิ้น</strong></div>
           <div><span>สถานะ</span><strong>${escapeHtml(product.computedStatus)}</strong></div>
           <div><span>รายละเอียด</span><strong>${escapeHtml(product.description || "ยังไม่มีรายละเอียด")}</strong></div>
-          <div><span>ต้นทุนสินค้า</span><strong>${financialMoney(breakdown.productCosts)} บาท</strong></div>
-          <div><span>ค่าใช้จ่ายแพ็กเกจ</span><strong>${financialMoney(breakdown.packageExpenses)} บาท</strong></div>
-          <div><span>ค่าใช้จ่ายส่วนกลางตามออเดอร์</span><strong>${financialMoney(breakdown.globalAdditionalCosts)} บาท</strong></div>
-          <div><span>ค่าใช้จ่ายเพิ่มเติมรวม</span><strong>${financialMoney(breakdown.additionalCosts)} บาท</strong></div>
+          <div><span>ต้นทุนสินค้า</span><strong>${money(breakdown.productCosts)} บาท</strong></div>
+          <div><span>ค่าใช้จ่ายแพ็กเกจ</span><strong>${money(breakdown.packageExpenses)} บาท</strong></div>
+          <div><span>ค่าใช้จ่ายส่วนกลางตามออเดอร์</span><strong>${money(breakdown.globalAdditionalCosts)} บาท</strong></div>
+          <div><span>ค่าใช้จ่ายเพิ่มเติมรวม</span><strong>${money(breakdown.additionalCosts)} บาท</strong></div>
           <div><span>จำนวนออเดอร์</span><strong>${money(relatedOrders.length)} ออเดอร์</strong></div>
         </div>
         ${can("products.edit") ? `<button class="button primary mobile-business-full-button" type="button" data-edit-product="${escapeHtml(product.id)}">แก้ไขสินค้า</button>` : ""}
@@ -5034,12 +4913,12 @@ function renderMobileBusinessFinance() {
       <form class="mobile-finance-form" id="settingsForm">
         <input name="daysPerUnit" type="hidden" value="${Math.max(1, Number(settings.followUpDaysPerUnit || 15))}">
         <div class="mobile-business-finance-grid">
-          <article class="blue"><span>ยอดขายรวม</span><strong>${financialMoney(breakdown.sales)} บาท</strong></article>
-          <article class="purple"><span>ต้นทุนสินค้า</span><strong>${financialMoney(breakdown.productCosts)} บาท</strong></article>
-          <article class="orange"><span>ค่าใช้จ่ายเพิ่มเติม</span><strong id="additionalCostsTotal">${financialMoney(breakdown.additionalCosts)} บาท</strong></article>
-          <article class="${breakdown.profitBeforeAds >= 0 ? "green" : "red"}"><span>กำไรก่อนค่าโฆษณา</span><strong>${financialMoney(breakdown.profitBeforeAds)} บาท</strong></article>
-          <article class="blue"><span>ค่าโฆษณา</span><strong>${financialMoney(advertising.adCost)} บาท</strong></article>
-          <article class="${advertising.profitAfterAds >= 0 ? "green" : "red"}"><span>กำไรสุทธิหลังโฆษณา</span><strong>${financialMoney(advertising.profitAfterAds)} บาท</strong></article>
+          <article class="blue"><span>ยอดขายรวม</span><strong>${money(breakdown.sales)} บาท</strong></article>
+          <article class="purple"><span>ต้นทุนสินค้า</span><strong>${money(breakdown.productCosts)} บาท</strong></article>
+          <article class="orange"><span>ค่าใช้จ่ายเพิ่มเติม</span><strong id="additionalCostsTotal">${money(breakdown.additionalCosts)} บาท</strong></article>
+          <article class="${breakdown.profitBeforeAds >= 0 ? "green" : "red"}"><span>กำไรก่อนค่าโฆษณา</span><strong>${money(breakdown.profitBeforeAds)} บาท</strong></article>
+          <article class="blue"><span>ค่าโฆษณา</span><strong>${money(advertising.adCost)} บาท</strong></article>
+          <article class="${advertising.profitAfterAds >= 0 ? "green" : "red"}"><span>กำไรสุทธิหลังโฆษณา</span><strong>${money(advertising.profitAfterAds)} บาท</strong></article>
         </div>
 
         <div class="mobile-finance-section-head">
@@ -5062,8 +4941,8 @@ function renderMobileBusinessFinance() {
                 <label><span>ต้นทุน/หน่วย</span><input name="productCostAmount" type="number" min="0" step="0.01" value="${Number(cost?.costPerJar ?? product.costPerItem ?? 0)}"></label>
                 <input name="productCostEnabled" type="checkbox" checked hidden>
                 <div class="mobile-finance-product-metrics">
-                  <span>ยอดขาย <strong>${financialMoney(productBreakdown.sales)} บาท</strong></span>
-                  <span>กำไรขั้นต้น <strong>${financialMoney(productBreakdown.sales - productBreakdown.productCosts)} บาท</strong></span>
+                  <span>ยอดขาย <strong>${money(productBreakdown.sales)} บาท</strong></span>
+                  <span>กำไรขั้นต้น <strong>${money(productBreakdown.sales - productBreakdown.productCosts)} บาท</strong></span>
                 </div>
                 <button class="button ghost compact-action" type="button" data-business-product="${escapeHtml(product.id)}">ดูรายละเอียดกำไร</button>
               </article>
@@ -6508,7 +6387,7 @@ function applyOrderMutation(mutation) {
   app.mobileAnalyticsIndex = null;
   app.desktopAnalyticsIndex = null;
   app.dashboardSummaryCache = null;
-  if (mutation.settings) app.data.settings = { ...(app.data.settings || {}), ...mutation.settings };
+  if (mutation.settings) app.data.settings = mutation.settings;
   const deletedOrderId = mutation.deletedOrderId || "";
   if (deletedOrderId) {
     app.data.orders = app.data.orders.filter(order => order.id !== deletedOrderId);
@@ -7474,10 +7353,6 @@ function reportMonthRange(month) {
   return `1 - ${days} ${shortMonth} ${year + 543}`;
 }
 
-function reportAllTimeNetProfit() {
-  return marketingPerformanceForPeriod().profitAfterAds;
-}
-
 function reportDelta(currentValue, previousValue) {
   const current = Number(currentValue || 0);
   const previous = Number(previousValue || 0);
@@ -7488,88 +7363,6 @@ function reportDelta(currentValue, previousValue) {
   if (percent > 0) return { text: `↑ ${rounded}%`, tone: "up" };
   if (percent < 0) return { text: `↓ ${rounded}%`, tone: "down" };
   return { text: "0%", tone: "flat" };
-}
-
-function reportRangeLabel(range) {
-  const normalized = normalizeDateRange(range?.start, range?.end);
-  if (normalized.start === normalized.end) return formatThaiDateCompact(normalized.start);
-  const start = parseDateOnlyParts(normalized.start);
-  const end = parseDateOnlyParts(normalized.end);
-  if (!start || !end) return "";
-  const monthLabel = month => new Intl.DateTimeFormat("th-TH", { month: "short" })
-    .format(new Date(Date.UTC(2026, month - 1, 1)));
-  const buddhistYear = year => year + 543;
-  if (start.year === end.year && start.month === end.month) {
-    return `${start.day}–${end.day} ${monthLabel(end.month)} ${buddhistYear(end.year)}`;
-  }
-  if (start.year === end.year) {
-    return `${start.day} ${monthLabel(start.month)}–${end.day} ${monthLabel(end.month)} ${buddhistYear(end.year)}`;
-  }
-  return `${start.day} ${monthLabel(start.month)} ${buddhistYear(start.year)}–${end.day} ${monthLabel(end.month)} ${buddhistYear(end.year)}`;
-}
-
-function reportSummaryHeading(range, presetKey = "") {
-  const normalized = normalizeDateRange(range?.start, range?.end);
-  const rangeText = reportRangeLabel(normalized);
-  if (normalized.start === normalized.end) {
-    if (presetKey === "today") return { title: "สรุปวันนี้", rangeText: "" };
-    if (presetKey === "yesterday") return { title: "สรุปเมื่อวาน", rangeText: "" };
-    return { title: `สรุปวันที่ ${rangeText}`, rangeText: "" };
-  }
-  const titles = {
-    "last-7": "สรุป 7 วันล่าสุด",
-    "last-30": "สรุป 30 วันล่าสุด",
-    "this-month": "สรุปเดือนนี้",
-    "last-month": "สรุปเดือนที่แล้ว"
-  };
-  if (presetKey && /^last-(14|90)$/.test(presetKey)) {
-    return { title: `สรุป ${dateRangeDays(normalized)} วันล่าสุด`, rangeText };
-  }
-  return { title: titles[presetKey] || "สรุปช่วงที่เลือก", rangeText };
-}
-
-function reportComparisonHint(range) {
-  const normalized = normalizeDateRange(range?.start, range?.end);
-  return normalized.start === normalized.end
-    ? "เทียบกับวันก่อนหน้า"
-    : "เทียบกับช่วงก่อนหน้า";
-}
-
-function reportRangeSummaryModel(range = appliedDateRange()) {
-  const reportRange = normalizeDateRange(range?.start, range?.end);
-  const previousRange = previousReportRange(reportRange);
-  const rangeOrders = ordersInDateRange(app.data?.orders || [], reportRange);
-  const previousOrders = ordersInDateRange(app.data?.orders || [], previousRange);
-  const rangeMarketing = marketingPerformanceForPeriod({ range: reportRange });
-  const previousMarketing = marketingPerformanceForPeriod({ range: previousRange });
-  const units = rows => rows.reduce((sum, order) => sum + Number(order.jars || 0), 0);
-  const heading = reportSummaryHeading(reportRange, range.preset || "custom");
-  return {
-    range: reportRange,
-    previousRange,
-    heading,
-    comparisonHint: reportComparisonHint(reportRange),
-    orders: rangeOrders,
-    previousOrders,
-    sales: rangeMarketing.sales,
-    previousSales: previousMarketing.sales,
-    orderCount: rangeOrders.length,
-    previousOrderCount: previousOrders.length,
-    profitBeforeAds: rangeMarketing.profitBeforeAds,
-    previousProfitBeforeAds: previousMarketing.profitBeforeAds,
-    unitsSold: units(rangeOrders),
-    previousUnitsSold: units(previousOrders),
-    adCost: rangeMarketing.adCost,
-    previousAdCost: previousMarketing.adCost,
-    profitAfterAds: rangeMarketing.profitAfterAds,
-    previousProfitAfterAds: previousMarketing.profitAfterAds,
-    roas: rangeMarketing.roas,
-    previousRoas: previousMarketing.roas
-  };
-}
-
-function reportSummaryHeadingHtml(heading) {
-  return `${escapeHtml(heading.title)}${heading.rangeText ? ` <small>(${escapeHtml(heading.rangeText)})</small>` : ""}`;
 }
 
 const ADD_CUSTOMER_SOURCE_VALUE = "__add_source__";
@@ -7931,7 +7724,6 @@ function reportBusinessSummaryHtml(selectedMonth) {
   const orders = app.data?.orders || [];
   const customers = app.data?.customers || [];
   const products = normalizeProductRecords();
-  const allTimeProfit = reportAllTimeNetProfit();
   const previousMonth = reportPreviousMonth(selectedMonth);
   const monthOrders = orders.filter(order => monthKey(order.date) === selectedMonth);
   const previousMonthOrders = orders.filter(order => monthKey(order.date) === previousMonth);
@@ -7944,8 +7736,7 @@ function reportBusinessSummaryHtml(selectedMonth) {
     { label: "ลูกค้าทั้งหมด", value: money(customers.length), suffix: "ราย", comparison: { ...reportDelta(monthCustomerIds.size, previousMonthCustomerIds.size), hint: "จากช่วงก่อนหน้า" }, tone: "green", icon: "target" },
     { label: "สินค้าทั้งหมด", value: money(products.length), suffix: "รายการ", comparison: { ...reportDelta(products.length, products.length), hint: "จากช่วงก่อนหน้า" }, tone: "amber", icon: "box" },
     { label: "ขายได้ทั้งหมด", value: money(units(orders)), suffix: "ชิ้น", comparison: { ...reportDelta(units(monthOrders), units(previousMonthOrders)), hint: "จากช่วงก่อนหน้า" }, tone: "blue", icon: "sales" },
-    { label: "ยอดขายรวม", value: money(sales(orders)), suffix: "บาท", comparison: { ...reportDelta(sales(monthOrders), sales(previousMonthOrders)), hint: "จากช่วงก่อนหน้า" }, tone: "blue", icon: "wallet" },
-    { label: "กำไรทั้งหมด", value: money(allTimeProfit), suffix: "บาท", comparison: { text: "สะสมทั้งหมด", tone: "flat", hint: "หลังหักต้นทุนและค่าโฆษณา" }, tone: "green", icon: "database" }
+    { label: "ยอดขายรวม", value: money(sales(orders)), suffix: "บาท", comparison: { ...reportDelta(sales(monthOrders), sales(previousMonthOrders)), hint: "จากช่วงก่อนหน้า" }, tone: "blue", icon: "wallet" }
   ];
   return `
         <section class="mobile-report-business-summary" aria-label="Business Summary">
@@ -7954,18 +7745,23 @@ function reportBusinessSummaryHtml(selectedMonth) {
   `;
 }
 
-function renderMobileReports(selectedDate, selectedMonth, selectedRange = appliedDateRange()) {
+function renderMobileReports(selectedDate, selectedMonth) {
   const orders = app.data.orders || [];
   const customers = app.data.customers || [];
-  const rangeSummary = reportRangeSummaryModel(selectedRange);
+  const todayOrders = orders.filter(order => order.date === selectedDate);
   const monthOrders = orders.filter(order => monthKey(order.date) === selectedMonth);
+  const yesterdayOrders = orders.filter(order => order.date === addDaysISO(selectedDate, -1));
   const previousMonth = reportPreviousMonth(selectedMonth);
   const previousMonthOrders = orders.filter(order => monthKey(order.date) === previousMonth);
   const sales = rows => rows.reduce((sum, order) => sum + Number(order.amount || 0), 0);
   const units = rows => rows.reduce((sum, order) => sum + Number(order.jars || 0), 0);
   const profit = rows => profitBreakdownForOrders(rows).profit;
+  const todaySales = sales(todayOrders);
   const monthSales = sales(monthOrders);
+  const todayProfit = profit(todayOrders);
   const monthProfit = profit(monthOrders);
+  const todayMarketing = marketingPerformanceForPeriod({ date: selectedDate });
+  const yesterdayMarketing = marketingPerformanceForPeriod({ date: addDaysISO(selectedDate, -1) });
   const monthMarketing = marketingPerformanceForPeriod({ month: selectedMonth });
   const previousMonthMarketing = marketingPerformanceForPeriod({ month: previousMonth });
 
@@ -8007,14 +7803,14 @@ function renderMobileReports(selectedDate, selectedMonth, selectedRange = applie
       image: configuredProducts.find(product => normalizeProductName(product.name) === row.name)?.image || ""
     }));
 
-  const rangeCards = [
-    { label: "ยอดขาย", value: `฿${money(rangeSummary.sales)}`, comparison: { ...reportDelta(rangeSummary.sales, rangeSummary.previousSales), hint: rangeSummary.comparisonHint }, tone: "green", icon: "wallet" },
-    { label: "ออเดอร์", value: money(rangeSummary.orderCount), suffix: "ออเดอร์", comparison: { ...reportDelta(rangeSummary.orderCount, rangeSummary.previousOrderCount), hint: rangeSummary.comparisonHint }, tone: "amber", icon: "orders" },
-    { label: "กำไรก่อน Ads", value: `฿${money(rangeSummary.profitBeforeAds)}`, comparison: { ...reportDelta(rangeSummary.profitBeforeAds, rangeSummary.previousProfitBeforeAds), hint: rangeSummary.comparisonHint }, tone: "violet", icon: "database" },
-    { label: "ขายได้", value: money(rangeSummary.unitsSold), suffix: "ชิ้น", comparison: { ...reportDelta(rangeSummary.unitsSold, rangeSummary.previousUnitsSold), hint: rangeSummary.comparisonHint }, tone: "blue", icon: "sales" },
-    { label: "ค่าโฆษณา", value: `฿${money(rangeSummary.adCost)}`, comparison: { ...reportDelta(rangeSummary.adCost, rangeSummary.previousAdCost), hint: rangeSummary.comparisonHint }, tone: "blue", icon: "wallet" },
-    { label: "กำไรหลัง Ads", value: `฿${money(rangeSummary.profitAfterAds)}`, comparison: { ...reportDelta(rangeSummary.profitAfterAds, rangeSummary.previousProfitAfterAds), hint: rangeSummary.comparisonHint }, tone: "green", icon: "database" },
-    { label: "ROAS", value: marketingNumber(rangeSummary.roas), comparison: { ...reportDelta(rangeSummary.roas, rangeSummary.previousRoas), hint: rangeSummary.comparisonHint }, tone: "amber", icon: "chart" }
+  const todayCards = [
+    { label: "ยอดขายวันนี้", value: `฿${money(todaySales)}`, comparison: { ...reportDelta(todaySales, sales(yesterdayOrders)), hint: "เทียบกับเมื่อวาน" }, tone: "green", icon: "wallet" },
+    { label: "ออเดอร์วันนี้", value: money(todayOrders.length), suffix: "ออเดอร์", comparison: { ...reportDelta(todayOrders.length, yesterdayOrders.length), hint: "เทียบกับเมื่อวาน" }, tone: "amber", icon: "orders" },
+    { label: "กำไรวันนี้ (ก่อน Ads)", value: `฿${money(todayProfit)}`, comparison: { ...reportDelta(todayProfit, profit(yesterdayOrders)), hint: "ตัวเลขกำไรเดิม" }, tone: "violet", icon: "database" },
+    { label: "ขายได้วันนี้", value: money(units(todayOrders)), suffix: "ชิ้น", comparison: { ...reportDelta(units(todayOrders), units(yesterdayOrders)), hint: "เทียบกับเมื่อวาน" }, tone: "blue", icon: "sales" },
+    { label: "ค่าโฆษณาวันนี้", value: `฿${money(todayMarketing.adCost)}`, comparison: { ...reportDelta(todayMarketing.adCost, yesterdayMarketing.adCost), hint: "ค่าใช้จ่ายการตลาด" }, tone: "blue", icon: "wallet" },
+    { label: "กำไรหลัง Ads", value: `฿${money(todayMarketing.profitAfterAds)}`, comparison: { ...reportDelta(todayMarketing.profitAfterAds, yesterdayMarketing.profitAfterAds), hint: "กำไรก่อน Ads - ค่าโฆษณา" }, tone: "green", icon: "database" },
+    { label: "ROAS วันนี้", value: marketingNumber(todayMarketing.roas), comparison: { ...reportDelta(todayMarketing.roas, yesterdayMarketing.roas), hint: "ยอดขาย ÷ ค่าโฆษณา" }, tone: "amber", icon: "chart" }
   ];
   const monthCards = [
     { label: "ยอดขายเดือนนี้", value: `฿${money(monthSales)}`, comparison: { ...reportDelta(monthSales, sales(previousMonthOrders)), hint: "เทียบกับเดือนที่แล้ว" }, tone: "green", icon: "wallet" },
@@ -8029,9 +7825,9 @@ function renderMobileReports(selectedDate, selectedMonth, selectedRange = applie
   els.content.innerHTML = `
     <section class="section saas-page mobile-reports-page">
       <div class="mobile-reports-shell">
-        <h2 class="mobile-report-heading">${reportSummaryHeadingHtml(rangeSummary.heading)}</h2>
+        <h2 class="mobile-report-heading">สรุปวันนี้</h2>
         <div class="mobile-report-kpi-grid">
-          ${rangeCards.map(mobileReportKpiCard).join("")}
+          ${todayCards.map(mobileReportKpiCard).join("")}
         </div>
 
         <h2 class="mobile-report-heading">สรุปเดือนนี้ <small>(${escapeHtml(reportMonthRange(selectedMonth))})</small></h2>
@@ -8095,10 +7891,9 @@ function renderMobileReports(selectedDate, selectedMonth, selectedRange = applie
 }
 
 function renderReports() {
-  const selectedRange = appliedDateRange();
-  const selectedDate = selectedRange.end || app.reportDate || app.data.summary.selectedDate || todayISO();
+  const selectedDate = app.reportDate || app.data.summary.selectedDate || todayISO();
   const selectedMonth = monthKeyFromDateOnly(selectedDate);
-  renderMobileReports(selectedDate, selectedMonth, selectedRange);
+  renderMobileReports(selectedDate, selectedMonth);
   if (isMobileViewport()) return;
   return;
   const selectedYear = selectedMonth.slice(0, 4);
@@ -8765,20 +8560,20 @@ function renderSettingsFinance() {
         ${settingsUnifiedCard("ภาพรวมกำไร", "คำนวณจากออเดอร์และค่าใช้จ่ายจริงของวันที่เลือก", `
           <p class="settings-finance-label">สูตรการคำนวณกำไรวันนี้</p>
           <div class="settings-finance-equation">
-            <div class="settings-finance-pill sales"><span>ยอดขายวันนี้</span><strong>${financialMoney(todaySales)} บาท</strong></div>
+            <div class="settings-finance-pill sales"><span>ยอดขายวันนี้</span><strong>${money(todaySales)} บาท</strong></div>
             <span class="settings-finance-operator">-</span>
-            <div class="settings-finance-pill product"><span>ต้นทุนสินค้าวันนี้</span><strong>${financialMoney(todayProductCosts)} บาท</strong></div>
+            <div class="settings-finance-pill product"><span>ต้นทุนสินค้าวันนี้</span><strong>${money(todayProductCosts)} บาท</strong></div>
             <span class="settings-finance-operator">-</span>
-            <div class="settings-finance-pill extra"><span>ต้นทุนเพิ่มเติม</span><strong>${financialMoney(totalAdditionalCosts)} บาท</strong></div>
+            <div class="settings-finance-pill extra"><span>ต้นทุนเพิ่มเติม</span><strong>${money(totalAdditionalCosts)} บาท</strong></div>
             <span class="settings-finance-operator">=</span>
-            <div class="settings-finance-pill profit"><span>กำไรก่อนค่าโฆษณา</span><strong>${financialMoney(todayProfit)} บาท</strong></div>
+            <div class="settings-finance-pill profit"><span>กำไรก่อนค่าโฆษณา</span><strong>${money(todayProfit)} บาท</strong></div>
           </div>
           <div class="settings-finance-equation ad-adjusted-equation">
-            <div class="settings-finance-pill profit"><span>กำไรก่อนค่าโฆษณา</span><strong>${financialMoney(todayMarketing.profitBeforeAds)} บาท</strong></div>
+            <div class="settings-finance-pill profit"><span>กำไรก่อนค่าโฆษณา</span><strong>${money(todayMarketing.profitBeforeAds)} บาท</strong></div>
             <span class="settings-finance-operator">-</span>
-            <div class="settings-finance-pill extra"><span>ค่าโฆษณา</span><strong>${financialMoney(todayMarketing.adCost)} บาท</strong></div>
+            <div class="settings-finance-pill extra"><span>ค่าโฆษณา</span><strong>${money(todayMarketing.adCost)} บาท</strong></div>
             <span class="settings-finance-operator">=</span>
-            <div class="settings-finance-pill profit"><span>กำไรหลังค่าโฆษณา</span><strong>${financialMoney(todayMarketing.profitAfterAds)} บาท</strong></div>
+            <div class="settings-finance-pill profit"><span>กำไรหลังค่าโฆษณา</span><strong>${money(todayMarketing.profitAfterAds)} บาท</strong></div>
           </div>
         `, { className: "settings-finance-summary" })}
         ${settingsUnifiedCard("ต้นทุนสินค้า", "แต่ละสินค้าใช้ Cost / กระปุก ของตัวเอง", `
@@ -8797,7 +8592,7 @@ function renderSettingsFinance() {
           <div class="settings-cost-list" id="additionalCostList">${settingsAdditionalCostRows(settings)}</div>
           <div class="settings-total-row">
             <span>รวมต้นทุนเพิ่มเติมทั้งหมด</span>
-            <strong id="additionalCostsTotal">${financialMoney(totalAdditionalCosts)} บาท</strong>
+            <strong id="additionalCostsTotal">${money(totalAdditionalCosts)} บาท</strong>
           </div>
         `, { className: "settings-finance-block" })}
         <div class="settings-submit-bar">
@@ -10811,20 +10606,11 @@ function setOrderSaveState(isSaving) {
   els.orderSubmitButton.disabled = isSaving;
   els.orderSubmitButton.dataset.loading = isSaving ? "true" : "false";
   if (isSaving) els.orderSubmitButton.textContent = "กำลังบันทึก...";
-  else els.orderSubmitButton.textContent = app.editingOrderId ? "บันทึกการแก้ไข" : "บันทึกออเดอร์";
-}
-
-function setOrderSaveError(message = "") {
-  if (!els.orderSaveError) return;
-  const detail = String(message || "").trim();
-  els.orderSaveError.textContent = detail;
-  els.orderSaveError.hidden = !detail;
 }
 
 async function submitOrder(form) {
   if (app.orderSavePending) return;
   const profiler = createOrderSaveProfiler(app.editingOrderId ? "edit-order" : "create-order");
-  setOrderSaveError("");
   setOrderSaveState(true);
   profiler.mark("saving-state-on");
   const data = Object.fromEntries(new FormData(form).entries());
@@ -10834,8 +10620,7 @@ async function submitOrder(form) {
   const originSourceOther = String(data.originSourceOther || "").trim();
   if (selectedChoice === ADD_CUSTOMER_SOURCE_VALUE && !originSourceOther) {
     setOrderSaveState(false);
-    setOrderSaveError("กรุณาระบุช่องทางการขายใหม่");
-    showToast("กรุณาระบุช่องทางการขายใหม่", "error");
+    showToast("กรุณาระบุช่องทางการขายใหม่");
     els.orderForm.elements.originSourceOther?.focus();
     profiler.cancel("missing-origin-source");
     return;
@@ -10845,8 +10630,7 @@ async function submitOrder(form) {
       profiler.mark("customer-source-api-start");
       const payload = await api("/api/customer-sources", {
         method: "POST",
-        body: JSON.stringify({ name: originSourceOther }),
-        timeoutMs: 60000
+        body: JSON.stringify({ name: originSourceOther })
       });
       profiler.mark("customer-source-api-done", { apiMs: Number(payload.__meta?.totalMs?.toFixed?.(2) || 0) });
       if (payload.settings && app.data?.settings) {
@@ -10874,31 +10658,25 @@ async function submitOrder(form) {
   data.items = selectedProduct?.name || data.items || "";
   if (!String(data.productId || "").trim()) {
     setOrderSaveState(false);
-    setOrderSaveError("กรุณาเลือกสินค้า");
     showToast("กรุณาเลือกสินค้า", "error");
     els.orderForm.elements.items?.focus();
     profiler.cancel("missing-product");
     return;
   }
   const orderId = app.editingOrderId;
-  const clientMutationId = form.dataset.clientMutationId || `tmp_${Date.now().toString(36)}`;
-  form.dataset.clientMutationId = clientMutationId;
+  const clientMutationId = `tmp_${Date.now().toString(36)}`;
   try {
     data.selectedDate = app.data.summary?.selectedDate || els.workDate.value || todayISO();
     data.clientMutationId = clientMutationId;
     profiler.mark("order-api-start");
     const payload = await api(orderId ? `/api/orders/${encodeURIComponent(orderId)}` : "/api/orders", {
       method: orderId ? "PUT" : "POST",
-      body: JSON.stringify(data),
-      timeoutMs: 120000
+      body: JSON.stringify(data)
     });
     profiler.mark("order-api-done", {
       apiMs: Number(payload.__meta?.totalMs?.toFixed?.(2) || 0),
       serverTiming: payload.__meta?.serverTiming || ""
     });
-    if (!payload.mutation?.order?.id) {
-      throw new Error(orderId ? "แก้ไขออเดอร์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" : "บันทึกออเดอร์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
-    }
     const applyStartedAt = performance.now();
     applyOrderMutation(payload.mutation);
     profiler.mark("mutation-applied", { stepMs: Number((performance.now() - applyStartedAt).toFixed(2)) });
@@ -10909,11 +10687,9 @@ async function submitOrder(form) {
     refreshVisibleCustomerPanels(payload.mutation);
     profiler.mark("customer-panels-refreshed", { stepMs: Number((performance.now() - customerPanelStartedAt).toFixed(2)) });
     app.editingOrderId = "";
-    delete form.dataset.clientMutationId;
     const closeStartedAt = performance.now();
     els.orderDialog.close();
     form.reset();
-    setOrderSaveError("");
     profiler.mark("modal-closed", { stepMs: Number((performance.now() - closeStartedAt).toFixed(2)) });
     const toastStartedAt = performance.now();
     showToast(orderId ? "แก้ไขออเดอร์แล้ว" : "บันทึกออเดอร์แล้ว");
@@ -10921,7 +10697,6 @@ async function submitOrder(form) {
     profiler.finish(payload.__meta || {}, decodedOrderSaveTimings(payload.__meta || {}));
   } catch (error) {
     profiler.cancel("order-api-error");
-    setOrderSaveError(error.message || "บันทึกออเดอร์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
     throw error;
   } finally {
     setOrderSaveState(false);
@@ -11078,11 +10853,9 @@ function openOrderDialog(order = null) {
   }
   app.editingOrderId = order?.id || "";
   setOrderSaveState(false);
-  setOrderSaveError("");
   const dateField = els.orderForm.elements.date;
   dateField.type = isMobileViewport() ? "datetime-local" : "date";
   els.orderForm.reset();
-  delete els.orderForm.dataset.clientMutationId;
   delete els.orderForm.dataset.originSourceValue;
   els.orderDialogTitle.textContent = order ? "แก้ไขออเดอร์" : "เพิ่มออเดอร์";
   els.orderSubmitButton.textContent = order ? "บันทึกการแก้ไข" : "บันทึกออเดอร์";
@@ -12617,7 +12390,6 @@ document.addEventListener("change", async event => {
       compareStart: addDaysISO(selectedDate, -1),
       compareEnd: addDaysISO(selectedDate, -1)
     };
-    persistAppliedDateRange(app.dateRangePicker.applied);
     app.dashboardSummaryCache = null;
     if (isMobileViewport() && app.data) {
       const startedAt = performance.now();
@@ -13240,7 +13012,7 @@ document.addEventListener("submit", async event => {
     app.settingsSavePending = false;
     setSettingsSaveState("idle");
     setProfileSaveState(false);
-    showToast(error.message, currentFormId === "orderForm" ? "error" : "");
+    showToast(error.message);
     return;
   }
   setProfileSaveState(false);

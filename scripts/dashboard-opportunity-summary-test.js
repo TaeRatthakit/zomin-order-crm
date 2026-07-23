@@ -100,6 +100,9 @@ window.__dashboardOpportunityTest = {
   mobileOpportunityData,
   opportunitySummaryFromModel,
   mobileSetupWizardState,
+  renderMobileSetupWizard,
+  renderMobileSetupCard,
+  renderMobileBusinessMain,
   applyThemePreference
 };
 `);
@@ -204,7 +207,6 @@ function assertSharedSummary(width, mode) {
     fail(`${mode} dashboard still renders the Marketing quick action card`);
   }
   if (mode === "desktop") {
-    const setup = api.mobileSetupWizardState();
     if (!dashboardHtml.includes("/desktop-dashboard-hero-light.jpg?v=20260719-home-light-clean-v2")) {
       fail("desktop light dashboard must render the separate light hero asset");
     }
@@ -214,8 +216,8 @@ function assertSharedSummary(width, mode) {
     if (dashboardHtml.includes("/mobile-home-hero-light-v4.webp?v=20260720-mobile-light-single-frame-v1")) {
       fail("desktop dashboard must not render the mobile light hero asset");
     }
-    if (!dashboardHtml.includes(`<strong>${setup.percent}%</strong>`) || !dashboardHtml.includes(`เสร็จแล้ว ${setup.completeCount} จาก ${setup.steps.length} ขั้นตอน`) || !dashboardHtml.includes(`style="width:${setup.percent}%"`)) {
-      fail("desktop onboarding must keep dynamic setup percent and step values in live HTML");
+    if (dashboardHtml.includes("setup-widget") || dashboardHtml.includes("เริ่มต้นใช้งาน")) {
+      fail("desktop dashboard must not render the onboarding setup card");
     }
     const quickActionCount = (dashboardHtml.match(/desktop-reference-quick-action/g) || []).length;
     if (quickActionCount !== 5) fail(`desktop dashboard quick actions should reflow to 5 cards, got ${quickActionCount}`);
@@ -244,6 +246,52 @@ function assertSharedSummary(width, mode) {
 
 assertSharedSummary(1280, "desktop");
 assertSharedSummary(390, "mobile");
+
+{
+  const sandbox = loadApp(1280);
+  const api = sandbox.window.__dashboardOpportunityTest;
+  api.app.data = {
+    ...fixtureState(),
+    settings: {
+      ...fixtureState().settings,
+      products: [
+        {
+          id: "product-ready",
+          name: "Growup Formula",
+          salesPackages: [{ id: "package-ready", name: "แพ็กพร้อมขาย", paidQuantity: 1, salePrice: 390 }]
+        }
+      ],
+      productCosts: [{ id: "cost-ready", name: "Growup Formula", costPerJar: 120, enabled: true }]
+    }
+  };
+  const setup = api.mobileSetupWizardState();
+  if (setup.steps.length !== 3) fail(`setup wizard must contain exactly 3 steps, got ${setup.steps.length}`);
+  if (setup.completeCount !== 3 || setup.percent !== 100) {
+    fail(`setup wizard must complete after the third step, got ${setup.completeCount}/${setup.steps.length} and ${setup.percent}%`);
+  }
+  const setupText = setup.steps.map(step => `${step.title} ${step.description} ${step.action}`).join(" ");
+  ["LINE OA", "BOT", "ทดสอบรับออเดอร์อัตโนมัติ", "Coming Soon"].forEach(removedText => {
+    if (setupText.includes(removedText)) fail(`removed setup step text is still present: ${removedText}`);
+  });
+  api.app.mobileBusinessPage = "setupWizard";
+  const wizardHtml = api.renderMobileSetupWizard();
+  if (wizardHtml.includes("disabled") || wizardHtml.includes("mobile-setup-guide-placeholder") || wizardHtml.includes("mobile-setup-coming-soon-note")) {
+    fail("setup wizard must not render removed-step button states, guide placeholders, or coming-soon notes");
+  }
+  const cardHtml = api.renderMobileSetupCard();
+  if (!cardHtml.includes("เสร็จแล้ว 3 จาก 3 ขั้นตอน") || !cardHtml.includes("<strong>100%</strong>")) {
+    fail("mobile setup card must show completion at 3 of 3 steps");
+  }
+  const businessMainHtml = api.renderMobileBusinessMain();
+  if (!businessMainHtml.includes("setup-widget") || !businessMainHtml.includes("เสร็จแล้ว 3 จาก 3 ขั้นตอน") || !businessMainHtml.includes("<strong>100%</strong>")) {
+    fail("Business Management must keep the onboarding setup card");
+  }
+  api.renderDashboard();
+  const dashboardHtml = sandbox.__content.innerHTML;
+  if (dashboardHtml.includes("setup-widget") || dashboardHtml.includes("เสร็จแล้ว 3 จาก 3 ขั้นตอน") || dashboardHtml.includes("<strong>100%</strong>")) {
+    fail("desktop dashboard must not render setup progress");
+  }
+}
 
 {
   const sandbox = loadApp(1280);
@@ -299,6 +347,34 @@ if (!source.includes("data-open-notification=") || !source.includes("data-open-n
 if (!styles.includes("grid-template-columns: repeat(5, minmax(0, 1fr));")) {
   fail("desktop quick-action grid must use five equal columns");
 }
+if (!source.includes("data-dashboard-theme-image") || !source.includes("syncDashboardThemeAssets()")) {
+  fail("dashboard theme assets must switch from the resolved theme without duplicating render paths");
+}
+if (!source.includes("<strong>${setup.percent}%</strong>") || !source.includes('style="width:${setup.percent}%"')) {
+  fail("Business Management onboarding percent and progress width must remain dynamic HTML values");
+}
+["onboarding-rocket-0.png", "onboarding-rocket-33.png", "onboarding-rocket-66.png", "onboarding-rocket-100.png"].forEach(asset => {
+  if (!source.includes(asset) && !fs.existsSync(path.join(ROOT, "public", asset))) fail(`onboarding rocket asset is missing: ${asset}`);
+});
+[
+  `renderOnboarding${"Rocket"}(stage)`,
+  `setup-${"rocket"}-scene`,
+  `setup-${"ready"}-badge`,
+  `ระบบพร้อม${"ใช้งานแล้ว"}`,
+  `setup-stage-${"ready"}`,
+  `desktop-onboarding-${"rocket"}`
+].forEach(removedText => {
+  if (source.includes(removedText) || styles.includes(removedText)) fail(`obsolete onboarding implementation is still present: ${removedText}`);
+});
+if (styles.includes(`.mobile-setup-${"card"}`) || styles.includes(`Shared onboarding widget used by ${"Dashboard"}`)) {
+  fail("obsolete onboarding CSS selectors must be removed");
+}
+if (!styles.includes('html[data-theme="light"] body.desktop-dashboard-view:not(.login-view) .desktop-reference-growth-banner')) {
+  fail("desktop light hero styling must stay scoped to desktop dashboard");
+}
+if (!styles.includes('html[data-theme="light"] body.mobile-home-view:not(.login-view) .mobile-hero-card')) {
+  fail("mobile light hero styling must stay scoped to mobile home");
+}
 if (!styles.includes("object-fit: cover;") || !styles.includes("isolation: isolate;")) {
   fail("light hero images must be clipped and cover their single card boundary");
 }
@@ -315,17 +391,8 @@ if (indexHtml.includes('rel="preload" as="image"') && indexHtml.includes("mobile
 if (source.includes("mobile-hero-dots") || styles.includes("mobile-hero-dots")) {
   fail("mobile hero carousel dots must not be rendered or styled");
 }
-if (!source.includes("data-dashboard-theme-image") || !source.includes("syncDashboardThemeAssets()")) {
-  fail("dashboard theme assets must switch from the resolved theme without duplicating render paths");
-}
-if (!source.includes("<strong>${setup.percent}%</strong>") || !source.includes('style="width:${setup.percent}%"')) {
-  fail("desktop onboarding percent and progress width must remain dynamic HTML values");
-}
-if (!styles.includes('html[data-theme="light"] body.desktop-dashboard-view:not(.login-view) .desktop-reference-growth-banner')) {
-  fail("desktop light hero styling must stay scoped to desktop dashboard");
-}
-if (!styles.includes('html[data-theme="light"] body.mobile-home-view:not(.login-view) .mobile-hero-card')) {
-  fail("mobile light hero styling must stay scoped to mobile home");
-}
+["เพิ่ม BOT เข้ากลุ่ม", "ทดสอบรับออเดอร์อัตโนมัติ", "mobile-setup-coming-soon-note", "mobile-setup-guide-placeholder", "step.comingSoon", "step.guide"].forEach(removedText => {
+  if (source.includes(removedText) || styles.includes(removedText)) fail(`removed setup dependency is still present: ${removedText}`);
+});
 
 console.log("Dashboard opportunity summary test passed.");
