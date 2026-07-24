@@ -7491,6 +7491,24 @@ small,
     max-width: 118%;
   }
 
+  body.desktop-app-shell:not(.login-view) .mobile-business-page .setup-widget-detailed .onboarding-rocket-art {
+    margin-right: -120px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-business-page .setup-widget-detailed .onboarding-rocket-art img {
+    left: 64px;
+    width: min(785px, 112%);
+    max-width: 112%;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-business-page .setup-widget-detailed .onboarding-rocket-art-launching img,
+  body.desktop-app-shell:not(.login-view) .mobile-business-page .setup-widget-detailed .onboarding-rocket-art-complete img {
+    top: -80px;
+    left: 24px;
+    width: min(990px, 128%);
+    max-width: 128%;
+  }
+
   .setup-widget-copy {
     display: grid;
     gap: 8px;
@@ -7725,6 +7743,10 @@ small,
       position: static;
       width: 100%;
       max-width: 100%;
+    }
+    body.mobile-app-shell:not(.login-view) .mobile-business-page .setup-widget-detailed .onboarding-rocket-art {
+      width: min(290px, 114%);
+      margin: -32px -2px -10px 0;
     }
     .setup-widget-detailed .setup-widget-copy {
       grid-column: 1 / -1;
