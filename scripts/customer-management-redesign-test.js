@@ -49,4 +49,30 @@ assert(css.includes(".customer-management-detail-view"), "detail view CSS must e
 assert(css.includes("html[data-theme=\"light\"] body:not(.login-view) .customer-management-detail-view"), "light theme detail override must exist");
 assert(css.includes("@media (max-width: 780px)") && css.includes(".customer-management-summary-cards"), "mobile responsive detail CSS must exist");
 
+const businessCustomerLightScope = 'html[data-theme="light"] body:not(.login-view) :is(.customers-page.settings-customers-management, .customer-management-business-page .customers-page.embedded-customer-management)';
+assert(css.includes(businessCustomerLightScope), "Business Customer Management light scope must exist");
+assert(!css.split("\n").some(line => line.startsWith(`${businessCustomerLightScope.replace('html[data-theme="light"] ', "")} .workspace-table tbody td`)), "Business Customer Management table repair must stay Light Theme scoped");
+assert(css.includes(".customers-page.settings-customers-management") && css.includes(".customer-management-business-page .customers-page.embedded-customer-management"), "Business Customer Management repair must cover desktop settings and mobile business subpage only");
+
+const darkDesktopCellIndex = css.indexOf("body.desktop-app-shell:not(.login-view) .workspace-table tbody td");
+const businessCustomerCellSelector = `${businessCustomerLightScope} .workspace-table tbody td`;
+const businessCustomerCellIndex = css.indexOf(businessCustomerCellSelector);
+assert(darkDesktopCellIndex !== -1 && businessCustomerCellIndex > darkDesktopCellIndex, "Business Customer Management light cell rule must load after the dark desktop table baseline");
+const businessCustomerCellRule = css.slice(businessCustomerCellIndex, css.indexOf("}", businessCustomerCellIndex));
+assert(businessCustomerCellRule.includes("background: #ffffff !important"), "Business Customer Management light cells must restore a white surface");
+assert(businessCustomerCellRule.includes("color: #172033 !important"), "Business Customer Management light cells must keep readable text");
+assert(css.includes(`${businessCustomerLightScope} .workspace-table-wrap {\n  border-color: rgba(226, 218, 249, 0.92) !important;\n  background: #ffffff !important`), "Business Customer Management light wrapper must be white");
+assert(css.includes(`${businessCustomerLightScope} .workspace-table-wrap::before`) && css.includes("content: none !important;") && css.includes("background: none !important;"), "Business Customer Management light wrapper must disable the base pseudo overlay");
+assert(css.includes(`${businessCustomerLightScope} .workspace-table thead th`) && css.includes("background: #faf8ff !important") && css.includes("color: #32254d !important"), "Business Customer Management light table heading must use a readable light surface");
+assert(css.includes(`${businessCustomerLightScope} .workspace-table tbody tr {\n  border-color: rgba(226, 218, 249, 0.78) !important;\n  background: #ffffff !important`), "Business Customer Management light rows must be white");
+assert(css.includes(`${businessCustomerLightScope} .workspace-table tbody tr:nth-child(even) td {\n  background: #fdfbff !important`), "Business Customer Management light alternate cells must remain subtly tinted");
+assert(css.includes(`${businessCustomerLightScope} .workspace-table tbody tr:hover td`) && css.includes("background: #f7f2ff !important"), "Business Customer Management light hover cells must remain readable");
+assert(css.includes(`${businessCustomerLightScope} .workspace-table tbody tr.is-selected`) && css.includes(`${businessCustomerLightScope} .workspace-table tbody tr[aria-selected="true"]`), "Business Customer Management light selected row protection must exist");
+assert(css.includes(`${businessCustomerLightScope} .mobile-stack-table td::before`) && css.includes("color: #667085 !important"), "Business Customer Management mobile card labels must stay readable");
+assert(css.includes(`${businessCustomerLightScope} .table-identity small`) && css.includes("color: #667085 !important"), "Business Customer Management light secondary customer text must stay readable");
+assert(css.includes(`${businessCustomerLightScope} .workspace-table .badge`) && css.includes("background: #efe4ff !important") && css.includes("color: #5b21b6 !important"), "Business Customer Management light badges must stay pastel and readable");
+assert(css.includes(`${businessCustomerLightScope} .table-actions .button.secondary`) && css.includes("color: #6d28d9 !important"), "Business Customer Management light edit action must stay readable");
+assert(css.includes(`${businessCustomerLightScope} .table-actions .button.danger`) && css.includes("color: #be123c !important"), "Business Customer Management light delete action must stay readable");
+assert(!css.includes('html[data-theme="light"] body:not(.login-view) .customers-page .workspace-table tbody td {\n  background: #ffffff !important'), "Business Customer Management fix must not target all customer pages");
+
 console.log("Customer Management redesign static tests passed");
