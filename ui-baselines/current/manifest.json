@@ -1,0 +1,563 @@
+{
+  "name": "ui-visual-baseline-current",
+  "visualOnly": true,
+  "capturedAt": "2026-07-25T14:48:54.168Z",
+  "updatedAt": "2026-07-25T16:01:15.082Z",
+  "baseUrl": "https://www.growuppilot.com",
+  "deployment": {
+    "id": "dpl_FGL4q9P1AK3aFQjcaRzZStU1HQu8",
+    "target": "production",
+    "status": "READY",
+    "createdAtIso": "2026-07-25T06:11:13.098Z",
+    "aliases": [
+      "www.growuppilot.com",
+      "growuppilot.com",
+      "zomin-order-crm.vercel.app"
+    ]
+  },
+  "sourceBaseline": {
+    "verified": false,
+    "reason": "Current Production UI is preserved as a visual baseline only; no exact source-code baseline is represented by this commit."
+  },
+  "testEvidence": {
+    "reportRangeSummaryTestIntroducedBy": "b7ed240179e1dcbd82162b16f1765c0bf8b14b5a",
+    "reason": "This test asserts reportRangeSummaryModel and related helpers added after the current Production assets."
+  },
+  "rules": [
+    "Visual-baseline tags must never be checked out, restored, merged, cherry-picked, or used as application source.",
+    "Future UI work must start from the latest intended source branch and compare visually against ui-visual-baseline-current."
+  ],
+  "pages": [
+    {
+      "key": "customers"
+    },
+    {
+      "key": "dashboard"
+    },
+    {
+      "key": "export-backup"
+    },
+    {
+      "key": "finance"
+    },
+    {
+      "key": "follow-up"
+    },
+    {
+      "key": "import"
+    },
+    {
+      "key": "login"
+    },
+    {
+      "key": "opportunities"
+    },
+    {
+      "key": "orders"
+    },
+    {
+      "key": "reports"
+    },
+    {
+      "key": "settings"
+    },
+    {
+      "key": "tags"
+    },
+    {
+      "key": "team"
+    },
+    {
+      "key": "vip"
+    }
+  ],
+  "viewports": {
+    "desktop": {
+      "width": 1440,
+      "height": 1100
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844
+    }
+  },
+  "themes": [
+    "light",
+    "dark"
+  ],
+  "assets": [
+    {
+      "path": "/index.html",
+      "url": "https://www.growuppilot.com/index.html",
+      "status": 200,
+      "bytes": 35112,
+      "sha256": "558cbd50751990ac230069fdf81b7bc1a0e83e423b582593af178c85f6616220",
+      "contentType": "text/html; charset=utf-8",
+      "visualOnly": true
+    },
+    {
+      "path": "/styles.css?v=20260724-desktop-home-hero-v4",
+      "url": "https://www.growuppilot.com/styles.css?v=20260724-desktop-home-hero-v4",
+      "status": 200,
+      "bytes": 704928,
+      "sha256": "12bfca9c0a9113ccc2cc39dcceb3f0f5c9679f0ec5ec30697e445868f262954c",
+      "contentType": "text/css; charset=utf-8",
+      "visualOnly": true
+    },
+    {
+      "path": "/app.js?v=20260724-desktop-home-hero-v4",
+      "url": "https://www.growuppilot.com/app.js?v=20260724-desktop-home-hero-v4",
+      "status": 200,
+      "bytes": 650107,
+      "sha256": "837d1b1e9a75d3a3e3d669894e45b0bbb85d51927e0d1b34f96fd37a56762915",
+      "contentType": "application/javascript; charset=utf-8",
+      "visualOnly": true
+    },
+    {
+      "path": "/service-worker.js",
+      "url": "https://www.growuppilot.com/service-worker.js",
+      "status": 200,
+      "bytes": 2720,
+      "sha256": "7d6cf3d701485147391a2052818343924a50ef436bdfa0f7139eb7c2d38de7a7",
+      "contentType": "application/javascript; charset=utf-8",
+      "visualOnly": true
+    },
+    {
+      "path": "/desktop-home-hero-dark.webp?v=20260724-desktop-home-hero-v4",
+      "url": "https://www.growuppilot.com/desktop-home-hero-dark.webp?v=20260724-desktop-home-hero-v4",
+      "status": 200,
+      "bytes": 157888,
+      "sha256": "0ae2dff12aa11c21eac52bc75caad46d0669f761c1bd2f4bab62b295beffc4e2",
+      "contentType": "image/webp",
+      "localFile": "assets/desktop-home-hero-dark.webp"
+    },
+    {
+      "path": "/desktop-home-hero-light.webp?v=20260724-desktop-home-hero-v4",
+      "url": "https://www.growuppilot.com/desktop-home-hero-light.webp?v=20260724-desktop-home-hero-v4",
+      "status": 200,
+      "bytes": 112874,
+      "sha256": "3938c79314b4c8edd5cec763882bb275aa50301d3c0278c3ff6fb7895bb197f1",
+      "contentType": "image/webp",
+      "localFile": "assets/desktop-home-hero-light.webp"
+    },
+    {
+      "path": "/mobile-home-hero.png?v=20260703-mobile-hero-clean",
+      "url": "https://www.growuppilot.com/mobile-home-hero.png?v=20260703-mobile-hero-clean",
+      "status": 200,
+      "bytes": 781632,
+      "sha256": "2a2144712d7ecb88b41bef488c48ef21e47ba26e8a796416adac71543dfe0085",
+      "contentType": "image/png",
+      "localFile": "assets/mobile-home-hero.png"
+    },
+    {
+      "path": "/mobile-home-hero-light-v4.webp?v=20260720-mobile-light-single-frame-v1",
+      "url": "https://www.growuppilot.com/mobile-home-hero-light-v4.webp?v=20260720-mobile-light-single-frame-v1",
+      "status": 200,
+      "bytes": 34558,
+      "sha256": "56161fc59e445dc9abf86d3af2578dbccdde8bdf74da89c6f8a73b53fbd26e20",
+      "contentType": "image/webp",
+      "localFile": "assets/mobile-home-hero-light-v4.webp"
+    },
+    {
+      "path": "/mobile-home-avatar.png",
+      "url": "https://www.growuppilot.com/mobile-home-avatar.png",
+      "status": 200,
+      "bytes": 20657,
+      "sha256": "9725c8f6d7efbfc945e0d26c0b938a28e97cc6a5953d427d7fae11946a0ba9fe",
+      "contentType": "image/png",
+      "localFile": "assets/mobile-home-avatar.png"
+    },
+    {
+      "path": "/onboarding-rocket-0.png?v=20260723-final-spec-v1",
+      "url": "https://www.growuppilot.com/onboarding-rocket-0.png?v=20260723-final-spec-v1",
+      "status": 200,
+      "bytes": 744586,
+      "sha256": "ce6d55a5befe5a1f4445e33f40bca061e3660ec69664ab28b5eb81e2d365163e",
+      "contentType": "image/png",
+      "localFile": "assets/onboarding-rocket-0.png"
+    },
+    {
+      "path": "/onboarding-rocket-33.png?v=20260723-final-spec-v1",
+      "url": "https://www.growuppilot.com/onboarding-rocket-33.png?v=20260723-final-spec-v1",
+      "status": 200,
+      "bytes": 735109,
+      "sha256": "35eb9fc24a9262069c0234f5713e55012eaf399867f78abf0be7f523d4698327",
+      "contentType": "image/png",
+      "localFile": "assets/onboarding-rocket-33.png"
+    },
+    {
+      "path": "/onboarding-rocket-66.png?v=20260723-final-spec-v1",
+      "url": "https://www.growuppilot.com/onboarding-rocket-66.png?v=20260723-final-spec-v1",
+      "status": 200,
+      "bytes": 517968,
+      "sha256": "82ec0fbeb2302dc7e0366907d14c51fd1a8e787ed777672ef953faa1b8c99cb9",
+      "contentType": "image/png",
+      "localFile": "assets/onboarding-rocket-66.png"
+    },
+    {
+      "path": "/onboarding-rocket-100.png?v=20260723-final-spec-v1",
+      "url": "https://www.growuppilot.com/onboarding-rocket-100.png?v=20260723-final-spec-v1",
+      "status": 200,
+      "bytes": 518780,
+      "sha256": "aa90592efec27e73c3fecdeb1e895bef57ed9b7aa1cf9b142226f65c0b425d1f",
+      "contentType": "image/png",
+      "localFile": "assets/onboarding-rocket-100.png"
+    },
+    {
+      "path": "/icons/logo.png?v=20260718-website-logo-transparent-v1",
+      "url": "https://www.growuppilot.com/icons/logo.png?v=20260718-website-logo-transparent-v1",
+      "status": 200,
+      "bytes": 274504,
+      "sha256": "fcb50e36d8e6332e6d706eef1b5aca016dc0df8baf8becd0172d031f341c72f0",
+      "contentType": "image/png",
+      "localFile": "assets/icons/logo.png"
+    },
+    {
+      "path": "/icons/login-logo-192.png?v=20260718-website-logo-transparent-v1",
+      "url": "https://www.growuppilot.com/icons/login-logo-192.png?v=20260718-website-logo-transparent-v1",
+      "status": 200,
+      "bytes": 48231,
+      "sha256": "8014a39011ce2dc1ab2b177ce7cf1af4105b374053e3147f22817737efbaab9b",
+      "contentType": "image/png",
+      "localFile": "assets/icons/login-logo-192.png"
+    }
+  ],
+  "screenshots": [
+    {
+      "page": "customers",
+      "viewport": "desktop",
+      "theme": "dark",
+      "file": "screenshots/customers-desktop-dark.png"
+    },
+    {
+      "page": "customers",
+      "viewport": "desktop",
+      "theme": "light",
+      "file": "screenshots/customers-desktop-light.png"
+    },
+    {
+      "page": "customers",
+      "viewport": "mobile",
+      "theme": "dark",
+      "file": "screenshots/customers-mobile-dark.png"
+    },
+    {
+      "page": "customers",
+      "viewport": "mobile",
+      "theme": "light",
+      "file": "screenshots/customers-mobile-light.png"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "desktop",
+      "theme": "dark",
+      "file": "screenshots/dashboard-desktop-dark.png"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "desktop",
+      "theme": "light",
+      "file": "screenshots/dashboard-desktop-light.png"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "mobile",
+      "theme": "dark",
+      "file": "screenshots/dashboard-mobile-dark.png"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "mobile",
+      "theme": "light",
+      "file": "screenshots/dashboard-mobile-light.png"
+    },
+    {
+      "page": "export-backup",
+      "viewport": "desktop",
+      "theme": "dark",
+      "file": "screenshots/export-backup-desktop-dark.png"
+    },
+    {
+      "page": "export-backup",
+      "viewport": "desktop",
+      "theme": "light",
+      "file": "screenshots/export-backup-desktop-light.png"
+    },
+    {
+      "page": "export-backup",
+      "viewport": "mobile",
+      "theme": "dark",
+      "file": "screenshots/export-backup-mobile-dark.png"
+    },
+    {
+      "page": "export-backup",
+      "viewport": "mobile",
+      "theme": "light",
+      "file": "screenshots/export-backup-mobile-light.png"
+    },
+    {
+      "page": "finance",
+      "viewport": "desktop",
+      "theme": "dark",
+      "file": "screenshots/finance-desktop-dark.png"
+    },
+    {
+      "page": "finance",
+      "viewport": "desktop",
+      "theme": "light",
+      "file": "screenshots/finance-desktop-light.png"
+    },
+    {
+      "page": "finance",
+      "viewport": "mobile",
+      "theme": "dark",
+      "file": "screenshots/finance-mobile-dark.png"
+    },
+    {
+      "page": "finance",
+      "viewport": "mobile",
+      "theme": "light",
+      "file": "screenshots/finance-mobile-light.png"
+    },
+    {
+      "page": "follow-up",
+      "viewport": "desktop",
+      "theme": "dark",
+      "file": "screenshots/follow-up-desktop-dark.png"
+    },
+    {
+      "page": "follow-up",
+      "viewport": "desktop",
+      "theme": "light",
+      "file": "screenshots/follow-up-desktop-light.png"
+    },
+    {
+      "page": "follow-up",
+      "viewport": "mobile",
+      "theme": "dark",
+      "file": "screenshots/follow-up-mobile-dark.png"
+    },
+    {
+      "page": "follow-up",
+      "viewport": "mobile",
+      "theme": "light",
+      "file": "screenshots/follow-up-mobile-light.png"
+    },
+    {
+      "page": "import",
+      "viewport": "desktop",
+      "theme": "dark",
+      "file": "screenshots/import-desktop-dark.png"
+    },
+    {
+      "page": "import",
+      "viewport": "desktop",
+      "theme": "light",
+      "file": "screenshots/import-desktop-light.png"
+    },
+    {
+      "page": "import",
+      "viewport": "mobile",
+      "theme": "dark",
+      "file": "screenshots/import-mobile-dark.png"
+    },
+    {
+      "page": "import",
+      "viewport": "mobile",
+      "theme": "light",
+      "file": "screenshots/import-mobile-light.png"
+    },
+    {
+      "page": "login",
+      "viewport": "desktop",
+      "theme": "dark",
+      "file": "screenshots/login-desktop-dark.png"
+    },
+    {
+      "page": "login",
+      "viewport": "desktop",
+      "theme": "light",
+      "file": "screenshots/login-desktop-light.png"
+    },
+    {
+      "page": "login",
+      "viewport": "mobile",
+      "theme": "dark",
+      "file": "screenshots/login-mobile-dark.png"
+    },
+    {
+      "page": "login",
+      "viewport": "mobile",
+      "theme": "light",
+      "file": "screenshots/login-mobile-light.png"
+    },
+    {
+      "page": "opportunities",
+      "viewport": "desktop",
+      "theme": "dark",
+      "file": "screenshots/opportunities-desktop-dark.png"
+    },
+    {
+      "page": "opportunities",
+      "viewport": "desktop",
+      "theme": "light",
+      "file": "screenshots/opportunities-desktop-light.png"
+    },
+    {
+      "page": "opportunities",
+      "viewport": "mobile",
+      "theme": "dark",
+      "file": "screenshots/opportunities-mobile-dark.png"
+    },
+    {
+      "page": "opportunities",
+      "viewport": "mobile",
+      "theme": "light",
+      "file": "screenshots/opportunities-mobile-light.png"
+    },
+    {
+      "page": "orders",
+      "viewport": "desktop",
+      "theme": "dark",
+      "file": "screenshots/orders-desktop-dark.png"
+    },
+    {
+      "page": "orders",
+      "viewport": "desktop",
+      "theme": "light",
+      "file": "screenshots/orders-desktop-light.png"
+    },
+    {
+      "page": "orders",
+      "viewport": "mobile",
+      "theme": "dark",
+      "file": "screenshots/orders-mobile-dark.png"
+    },
+    {
+      "page": "orders",
+      "viewport": "mobile",
+      "theme": "light",
+      "file": "screenshots/orders-mobile-light.png"
+    },
+    {
+      "page": "reports",
+      "viewport": "desktop",
+      "theme": "dark",
+      "file": "screenshots/reports-desktop-dark.png"
+    },
+    {
+      "page": "reports",
+      "viewport": "desktop",
+      "theme": "light",
+      "file": "screenshots/reports-desktop-light.png"
+    },
+    {
+      "page": "reports",
+      "viewport": "mobile",
+      "theme": "dark",
+      "file": "screenshots/reports-mobile-dark.png"
+    },
+    {
+      "page": "reports",
+      "viewport": "mobile",
+      "theme": "light",
+      "file": "screenshots/reports-mobile-light.png"
+    },
+    {
+      "page": "settings",
+      "viewport": "desktop",
+      "theme": "dark",
+      "file": "screenshots/settings-desktop-dark.png"
+    },
+    {
+      "page": "settings",
+      "viewport": "desktop",
+      "theme": "light",
+      "file": "screenshots/settings-desktop-light.png"
+    },
+    {
+      "page": "settings",
+      "viewport": "mobile",
+      "theme": "dark",
+      "file": "screenshots/settings-mobile-dark.png"
+    },
+    {
+      "page": "settings",
+      "viewport": "mobile",
+      "theme": "light",
+      "file": "screenshots/settings-mobile-light.png"
+    },
+    {
+      "page": "tags",
+      "viewport": "desktop",
+      "theme": "dark",
+      "file": "screenshots/tags-desktop-dark.png"
+    },
+    {
+      "page": "tags",
+      "viewport": "desktop",
+      "theme": "light",
+      "file": "screenshots/tags-desktop-light.png"
+    },
+    {
+      "page": "tags",
+      "viewport": "mobile",
+      "theme": "dark",
+      "file": "screenshots/tags-mobile-dark.png"
+    },
+    {
+      "page": "tags",
+      "viewport": "mobile",
+      "theme": "light",
+      "file": "screenshots/tags-mobile-light.png"
+    },
+    {
+      "page": "team",
+      "viewport": "desktop",
+      "theme": "dark",
+      "file": "screenshots/team-desktop-dark.png"
+    },
+    {
+      "page": "team",
+      "viewport": "desktop",
+      "theme": "light",
+      "file": "screenshots/team-desktop-light.png"
+    },
+    {
+      "page": "team",
+      "viewport": "mobile",
+      "theme": "dark",
+      "file": "screenshots/team-mobile-dark.png"
+    },
+    {
+      "page": "team",
+      "viewport": "mobile",
+      "theme": "light",
+      "file": "screenshots/team-mobile-light.png"
+    },
+    {
+      "page": "vip",
+      "viewport": "desktop",
+      "theme": "dark",
+      "file": "screenshots/vip-desktop-dark.png"
+    },
+    {
+      "page": "vip",
+      "viewport": "desktop",
+      "theme": "light",
+      "file": "screenshots/vip-desktop-light.png"
+    },
+    {
+      "page": "vip",
+      "viewport": "mobile",
+      "theme": "dark",
+      "file": "screenshots/vip-mobile-dark.png"
+    },
+    {
+      "page": "vip",
+      "viewport": "mobile",
+      "theme": "light",
+      "file": "screenshots/vip-mobile-light.png"
+    }
+  ]
+}
