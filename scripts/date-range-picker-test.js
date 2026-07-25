@@ -68,6 +68,15 @@ function dateRangeKey(range) {
   return `${normalized.start}..${normalized.end}`;
 }
 
+function reportTopSummaryTitleForTest(range, today = "2026-07-17") {
+  const normalized = normalizeDateRange(range.start, range.end);
+  const yesterday = addDaysISO(today, -1);
+  if (normalized.start === today && normalized.end === today) return "สรุปวันนี้";
+  if (normalized.start === yesterday && normalized.end === yesterday) return "สรุปเมื่อวาน";
+  if (normalized.start === normalized.end) return `สรุปวันที่ ${normalized.start}`;
+  return `สรุปช่วงนี้ (${normalized.start}–${normalized.end})`;
+}
+
 function bangkokDateOnly(value) {
   const text = String(value || "").trim();
   if (!text) return "";
@@ -116,6 +125,38 @@ function aggregateOrders(orders, range) {
   };
 }
 
+function previousPeriodRangeForTest(range) {
+  const normalized = normalizeDateRange(range.start, range.end);
+  const days = Math.round((new Date(`${normalized.end}T12:00:00+07:00`) - new Date(`${normalized.start}T12:00:00+07:00`)) / 86400000) + 1;
+  const compareEnd = addDaysISO(normalized.start, -1);
+  return { start: addDaysISO(compareEnd, -(days - 1)), end: compareEnd };
+}
+
+function reportTopKpisForTest(orders, adRecords, range) {
+  const currentRange = normalizeDateRange(range.start, range.end);
+  const previousRange = previousPeriodRangeForTest(currentRange);
+  const rowsFor = targetRange => orders.filter(order => dateInRange(order.date, targetRange));
+  const adCostFor = targetRange => adRecords
+    .filter(record => dateInRange(record.date, targetRange))
+    .reduce((sum, record) => sum + Number(record.cost || 0), 0);
+  const summarize = targetRange => {
+    const rows = rowsFor(targetRange);
+    const sales = rows.reduce((sum, order) => sum + Number(order.amount || 0), 0);
+    const profitBeforeAds = rows.reduce((sum, order) => sum + Number(order.profitBeforeAds || order.amount || 0), 0);
+    const adCost = adCostFor(targetRange);
+    return {
+      sales,
+      orders: rows.length,
+      profitBeforeAds,
+      units: rows.reduce((sum, order) => sum + Number(order.jars || 0), 0),
+      adCost,
+      profitAfterAds: profitBeforeAds - adCost,
+      roas: adCost ? sales / adCost : 0
+    };
+  };
+  return { current: summarize(currentRange), previous: summarize(previousRange) };
+}
+
 function cloneDateRangeStateForTest(range) {
   return {
     start: range.start || "2026-07-17",
@@ -155,6 +196,8 @@ assert(appJs.includes("function bangkokDateOnly"), "Bangkok date-only normalizer
 assert(appJs.includes("function dateInRange"), "shared inclusive date range helper exists");
 assert(appJs.includes("function ordersInDateRange"), "shared range order filter exists");
 assert(appJs.includes("function labelForDateRangeTrigger"), "trigger has a readable selected date/range label");
+assert(appJs.includes("function reportTopSummaryTitle"), "desktop Reports top summary title is derived from applied date range");
+assert(appJs.includes("function reportRangeMarketingPerformance"), "desktop Reports top ad metrics support an applied date range");
 assert(appJs.includes("formatDatePillGregorian"), "trigger label uses Gregorian display dates");
 assert(appJs.includes("rangeKey: summaryRangeKey"), "summary cache key includes start and end range");
 assert(appJs.includes('Object.prototype.hasOwnProperty.call(range, "end")'), "custom range draft preserves empty end while selecting");
@@ -172,6 +215,10 @@ assert(sourceBetween("function renderDashboard", "const businessManagementItems"
 assert(sourceBetween("function dashboardChannelRows", "function mobileDashboardAlertItems").includes("ordersInDateRange(app.data.orders, range)"), "mobile sales channels use applied range");
 assert(sourceBetween("function desktopDashboardChannelRows", "function desktopDashboardDonutGradient").includes("ordersInDateRange(app.data.orders || [], range)"), "desktop sales channels use applied range");
 assert(sourceBetween("function filteredOrdersForCurrentView", "function patchOrdersView").includes("dateInRange(order.date, selectedRange)"), "orders view uses applied range");
+assert(sourceBetween("function renderReports", "function renderAiInsights").includes("topSummaryRange: appliedDateRange()"), "desktop Reports passes the applied range only to the top summary");
+assert(sourceBetween("function renderReports", "function renderAiInsights").includes("monthKeyFromDateOnly(mobile ? selectedDate : todayISO())"), "desktop Reports monthly sections stay on the existing current-month period");
+assert(sourceBetween("function renderMobileReports", "function renderReports").includes("options.topSummaryRange"), "Reports range option is scoped to the top summary cards");
+assert(sourceBetween("function renderMobileReports", "function renderReports").includes("previousPeriodRange(topRange)"), "desktop Reports top summary compares against the equal-length previous period");
 assert(html.includes('id="workDate" type="hidden"'), "native date input is replaced by hidden compatibility field");
 assert(html.includes('id="workDateTrigger"'), "date trigger button exists");
 assert(css.includes(".range-picker-overlay.is-desktop"), "desktop popover styles exist");
@@ -241,5 +288,54 @@ assert(dateInRange("2026-07-17T23:59:59+07:00", { start: today, end: today }), "
 assert(dateInRange("2026-07-16T17:30:00.000Z", { start: today, end: today }), "UTC timestamp at Bangkok next-day boundary is included in Bangkok day");
 assert(cloneDateRangeStateForTest({ start: "2026-07-12", end: "" }).end === "", "custom range keeps empty end until second date is selected");
 assert(cloneDateRangeStateForTest({ start: "2026-07-12" }).end === "2026-07-12", "applied single-day clone still fills missing end");
+
+assert(reportTopSummaryTitleForTest({ start: today, end: today }) === "สรุปวันนี้", "desktop Reports title uses today wording");
+assert(reportTopSummaryTitleForTest({ start: yesterday, end: yesterday }) === "สรุปเมื่อวาน", "desktop Reports title uses yesterday wording");
+assert(reportTopSummaryTitleForTest({ start: "2026-07-12", end: "2026-07-12" }) === "สรุปวันที่ 2026-07-12", "desktop Reports title supports a different single date");
+assert(reportTopSummaryTitleForTest({ start: "2026-07-15", end: today }) === "สรุปช่วงนี้ (2026-07-15–2026-07-17)", "desktop Reports title supports multi-day ranges");
+
+const reportOrders = [
+  { date: today, amount: 100, jars: 1, profitBeforeAds: 60 },
+  { date: "2026-07-17T23:30:00+07:00", amount: 50, jars: 2, profitBeforeAds: 30 },
+  { date: yesterday, amount: 80, jars: 3, profitBeforeAds: 40 },
+  { date: "2026-07-15", amount: 70, jars: 4, profitBeforeAds: 35 },
+  { date: "2026-07-14", amount: 20, jars: 5, profitBeforeAds: 10 },
+  { date: "2026-07-13", amount: 40, jars: 6, profitBeforeAds: 20 },
+  { date: "2026-07-12", amount: 30, jars: 7, profitBeforeAds: 15 },
+  { date: "2026-08-01", amount: 999, jars: 9, profitBeforeAds: 999 }
+];
+const reportAds = [
+  { date: today, cost: 15 },
+  { date: "2026-07-17T00:30:00+07:00", cost: 5 },
+  { date: yesterday, cost: 8 },
+  { date: "2026-07-15", cost: 7 },
+  { date: "2026-07-14", cost: 2 },
+  { date: "2026-07-13", cost: 4 },
+  { date: "2026-07-12", cost: 3 },
+  { date: "2026-08-01", cost: 99 }
+];
+
+const reportToday = reportTopKpisForTest(reportOrders, reportAds, { start: today, end: today });
+assert(reportToday.current.sales === 150, "desktop Reports today top Sales uses the selected day inclusively");
+assert(reportToday.current.orders === 2, "desktop Reports today top Orders uses the selected day inclusively");
+assert(reportToday.current.profitBeforeAds === 90, "desktop Reports today top Profit before Ads uses the selected day");
+assert(reportToday.current.units === 3, "desktop Reports today top Units sold uses the selected day");
+assert(reportToday.current.adCost === 20, "desktop Reports today top Ad cost uses the selected day");
+assert(reportToday.current.profitAfterAds === 70, "desktop Reports today top Profit after Ads uses the selected day");
+assert(reportToday.current.roas === 7.5, "desktop Reports today top ROAS uses the selected day");
+
+const reportSingle = reportTopKpisForTest(reportOrders, reportAds, { start: "2026-07-12", end: "2026-07-12" });
+assert(reportSingle.current.sales === 30 && reportSingle.current.orders === 1 && reportSingle.current.units === 7, "desktop Reports different single-date top cards all use the selected date");
+assert(reportSingle.previous.sales === 0 && reportSingle.previous.adCost === 0, "desktop Reports different single-date comparison uses the immediately preceding day");
+
+const reportMulti = reportTopKpisForTest(reportOrders, reportAds, { start: "2026-07-15", end: today });
+assert(reportMulti.current.sales === 300, "desktop Reports multi-day Sales uses the selected range");
+assert(reportMulti.current.orders === 4, "desktop Reports multi-day Orders uses the selected range");
+assert(reportMulti.current.profitBeforeAds === 165, "desktop Reports multi-day Profit before Ads uses the selected range");
+assert(reportMulti.current.units === 10, "desktop Reports multi-day Units sold uses the selected range");
+assert(reportMulti.current.adCost === 35, "desktop Reports multi-day Ad cost uses the selected range");
+assert(reportMulti.current.profitAfterAds === 130, "desktop Reports multi-day Profit after Ads uses the selected range");
+assert(Number(reportMulti.current.roas.toFixed(2)) === 8.57, "desktop Reports multi-day ROAS uses the selected range");
+assert(reportMulti.previous.sales === 90 && reportMulti.previous.adCost === 9, "desktop Reports multi-day comparison uses the immediately preceding equal-length period");
 
 console.log("date-range-picker tests passed");

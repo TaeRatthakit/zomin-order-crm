@@ -7276,6 +7276,34 @@ function mobileReportKpiCard({ label, value, suffix = "", comparison, tone, icon
   `;
 }
 
+function reportTopSummaryTitle(range, today = todayISO()) {
+  const normalized = normalizeDateRange(range?.start, range?.end);
+  const yesterday = addDaysISO(today, -1);
+  if (normalized.start === today && normalized.end === today) return "สรุปวันนี้";
+  if (normalized.start === yesterday && normalized.end === yesterday) return "สรุปเมื่อวาน";
+  if (normalized.start === normalized.end) return `สรุปวันที่ ${formatThaiDateCompact(normalized.start)}`;
+  return `สรุปช่วงนี้ (${formatThaiDateCompact(normalized.start)}–${formatThaiDateCompact(normalized.end)})`;
+}
+
+function reportRangeMarketingPerformance(range) {
+  const normalized = normalizeDateRange(range?.start, range?.end);
+  const allOrders = app.data?.orders || [];
+  const periodOrders = ordersInDateRange(allOrders, normalized);
+  const records = normalizeAdCostRecords()
+    .filter(record => record.enabled && dateInRange(record.date, normalized))
+    .map(record => ({ ...record, cost: adCostForRecord(record, allOrders) }));
+  const breakdown = profitBreakdownForOrders(periodOrders);
+  const adCost = records.reduce((sum, record) => sum + record.cost, 0);
+  return {
+    sales: breakdown.sales,
+    orderCount: periodOrders.length,
+    profitBeforeAds: breakdown.profitBeforeAds,
+    adCost,
+    profitAfterAds: breakdown.profitBeforeAds - adCost,
+    roas: adCost ? breakdown.sales / adCost : 0
+  };
+}
+
 function reportSalesChannelCardHtml(selectedMonth) {
   const monthOrders = (app.data?.orders || []).filter(order => monthKey(order.date) === selectedMonth);
   const channelSummary = reportAcquisitionChannelRows(monthOrders);
@@ -7349,25 +7377,30 @@ function reportBusinessSummaryHtml(selectedMonth) {
   `;
 }
 
-function renderMobileReports(selectedDate, selectedMonth) {
+function renderMobileReports(selectedDate, selectedMonth, options = {}) {
   const orders = app.data.orders || [];
   const customers = app.data.customers || [];
-  const todayOrders = orders.filter(order => order.date === selectedDate);
+  const topRange = options.topSummaryRange
+    ? normalizeDateRange(options.topSummaryRange.start, options.topSummaryRange.end)
+    : normalizeDateRange(selectedDate, selectedDate);
+  const previousTopRange = options.topSummaryRange ? previousPeriodRange(topRange) : null;
+  const topOrders = ordersInDateRange(orders, topRange);
+  const previousTopOrders = previousTopRange ? ordersInDateRange(orders, previousTopRange) : orders.filter(order => order.date === addDaysISO(selectedDate, -1));
   const monthOrders = orders.filter(order => monthKey(order.date) === selectedMonth);
-  const yesterdayOrders = orders.filter(order => order.date === addDaysISO(selectedDate, -1));
   const previousMonth = reportPreviousMonth(selectedMonth);
   const previousMonthOrders = orders.filter(order => monthKey(order.date) === previousMonth);
   const sales = rows => rows.reduce((sum, order) => sum + Number(order.amount || 0), 0);
   const units = rows => rows.reduce((sum, order) => sum + Number(order.jars || 0), 0);
   const profit = rows => profitBreakdownForOrders(rows).profit;
-  const todaySales = sales(todayOrders);
+  const topSales = sales(topOrders);
   const monthSales = sales(monthOrders);
-  const todayProfit = profit(todayOrders);
+  const topProfit = profit(topOrders);
   const monthProfit = profit(monthOrders);
-  const todayMarketing = marketingPerformanceForPeriod({ date: selectedDate });
-  const yesterdayMarketing = marketingPerformanceForPeriod({ date: addDaysISO(selectedDate, -1) });
+  const topMarketing = options.topSummaryRange ? reportRangeMarketingPerformance(topRange) : marketingPerformanceForPeriod({ date: selectedDate });
+  const previousTopMarketing = previousTopRange ? reportRangeMarketingPerformance(previousTopRange) : marketingPerformanceForPeriod({ date: addDaysISO(selectedDate, -1) });
   const monthMarketing = marketingPerformanceForPeriod({ month: selectedMonth });
   const previousMonthMarketing = marketingPerformanceForPeriod({ month: previousMonth });
+  const topComparisonHint = options.topSummaryRange ? "เทียบกับช่วงก่อนหน้า" : "เทียบกับเมื่อวาน";
 
   const customerIds = new Set(monthOrders.map(order => order.customerId).filter(Boolean));
   const monthCustomers = customers.filter(customer => customerIds.has(customer.id));
@@ -7408,13 +7441,13 @@ function renderMobileReports(selectedDate, selectedMonth) {
     }));
 
   const todayCards = [
-    { label: "ยอดขายวันนี้", value: `฿${money(todaySales)}`, comparison: { ...reportDelta(todaySales, sales(yesterdayOrders)), hint: "เทียบกับเมื่อวาน" }, tone: "green", icon: "wallet" },
-    { label: "ออเดอร์วันนี้", value: money(todayOrders.length), suffix: "ออเดอร์", comparison: { ...reportDelta(todayOrders.length, yesterdayOrders.length), hint: "เทียบกับเมื่อวาน" }, tone: "amber", icon: "orders" },
-    { label: "กำไรวันนี้ (ก่อน Ads)", value: `฿${money(todayProfit)}`, comparison: { ...reportDelta(todayProfit, profit(yesterdayOrders)), hint: "ตัวเลขกำไรเดิม" }, tone: "violet", icon: "database" },
-    { label: "ขายได้วันนี้", value: money(units(todayOrders)), suffix: "ชิ้น", comparison: { ...reportDelta(units(todayOrders), units(yesterdayOrders)), hint: "เทียบกับเมื่อวาน" }, tone: "blue", icon: "sales" },
-    { label: "ค่าโฆษณาวันนี้", value: `฿${money(todayMarketing.adCost)}`, comparison: { ...reportDelta(todayMarketing.adCost, yesterdayMarketing.adCost), hint: "ค่าใช้จ่ายการตลาด" }, tone: "blue", icon: "wallet" },
-    { label: "กำไรหลัง Ads", value: `฿${money(todayMarketing.profitAfterAds)}`, comparison: { ...reportDelta(todayMarketing.profitAfterAds, yesterdayMarketing.profitAfterAds), hint: "กำไรก่อน Ads - ค่าโฆษณา" }, tone: "green", icon: "database" },
-    { label: "ROAS วันนี้", value: marketingNumber(todayMarketing.roas), comparison: { ...reportDelta(todayMarketing.roas, yesterdayMarketing.roas), hint: "ยอดขาย ÷ ค่าโฆษณา" }, tone: "amber", icon: "chart" }
+    { label: "ยอดขายวันนี้", value: `฿${money(topSales)}`, comparison: { ...reportDelta(topSales, sales(previousTopOrders)), hint: topComparisonHint }, tone: "green", icon: "wallet" },
+    { label: "ออเดอร์วันนี้", value: money(topOrders.length), suffix: "ออเดอร์", comparison: { ...reportDelta(topOrders.length, previousTopOrders.length), hint: topComparisonHint }, tone: "amber", icon: "orders" },
+    { label: "กำไรวันนี้ (ก่อน Ads)", value: `฿${money(topProfit)}`, comparison: { ...reportDelta(topProfit, profit(previousTopOrders)), hint: "ตัวเลขกำไรเดิม" }, tone: "violet", icon: "database" },
+    { label: "ขายได้วันนี้", value: money(units(topOrders)), suffix: "ชิ้น", comparison: { ...reportDelta(units(topOrders), units(previousTopOrders)), hint: topComparisonHint }, tone: "blue", icon: "sales" },
+    { label: "ค่าโฆษณาวันนี้", value: `฿${money(topMarketing.adCost)}`, comparison: { ...reportDelta(topMarketing.adCost, previousTopMarketing.adCost), hint: "ค่าใช้จ่ายการตลาด" }, tone: "blue", icon: "wallet" },
+    { label: "กำไรหลัง Ads", value: `฿${money(topMarketing.profitAfterAds)}`, comparison: { ...reportDelta(topMarketing.profitAfterAds, previousTopMarketing.profitAfterAds), hint: "กำไรก่อน Ads - ค่าโฆษณา" }, tone: "green", icon: "database" },
+    { label: "ROAS วันนี้", value: marketingNumber(topMarketing.roas), comparison: { ...reportDelta(topMarketing.roas, previousTopMarketing.roas), hint: "ยอดขาย ÷ ค่าโฆษณา" }, tone: "amber", icon: "chart" }
   ];
   const monthCards = [
     { label: "ยอดขายเดือนนี้", value: `฿${money(monthSales)}`, comparison: { ...reportDelta(monthSales, sales(previousMonthOrders)), hint: "เทียบกับเดือนที่แล้ว" }, tone: "green", icon: "wallet" },
@@ -7429,7 +7462,7 @@ function renderMobileReports(selectedDate, selectedMonth) {
   els.content.innerHTML = `
     <section class="section saas-page mobile-reports-page">
       <div class="mobile-reports-shell">
-        <h2 class="mobile-report-heading">สรุปวันนี้</h2>
+        <h2 class="mobile-report-heading">${escapeHtml(reportTopSummaryTitle(topRange))}</h2>
         <div class="mobile-report-kpi-grid">
           ${todayCards.map(mobileReportKpiCard).join("")}
         </div>
@@ -7496,9 +7529,10 @@ function renderMobileReports(selectedDate, selectedMonth) {
 
 function renderReports() {
   const selectedDate = app.reportDate || app.data.summary.selectedDate || todayISO();
-  const selectedMonth = monthKeyFromDateOnly(selectedDate);
-  renderMobileReports(selectedDate, selectedMonth);
-  if (isMobileViewport()) return;
+  const mobile = isMobileViewport();
+  const selectedMonth = monthKeyFromDateOnly(mobile ? selectedDate : todayISO());
+  renderMobileReports(selectedDate, selectedMonth, mobile ? {} : { topSummaryRange: appliedDateRange() });
+  if (mobile) return;
   return;
   const selectedYear = selectedMonth.slice(0, 4);
   const monthly = {};
