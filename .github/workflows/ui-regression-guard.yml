@@ -1,0 +1,32 @@
+name: UI Regression Guard
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - "codex/**"
+
+jobs:
+  ui-regression-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run UI regression guard
+        env:
+          UI_CHANGE_SCOPE: ${{ vars.UI_CHANGE_SCOPE }}
+          UI_SOURCE_COMPARE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event.before }}
+        run: npm run test:ui-regression
