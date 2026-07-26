@@ -4654,10 +4654,33 @@ function onboardingRocketAsset(percent) {
   return `/onboarding-rocket-${normalized}.png?v=20260723-final-spec-v1`;
 }
 
-function renderOnboardingRocketImage(setup, progress) {
+function businessOnboardingRocketWebpAsset(percent) {
+  const normalized = [0, 33, 66, 100].includes(Number(percent)) ? Number(percent) : 0;
+  return `/onboarding-rocket-${normalized}.webp?v=20260724-webp-v1`; // business onboarding
+} // business onboarding
+
+function ensureBusinessOnboardingRocketPreload(src) {
+  if (!document.head) return;
+  let link = document.querySelector("#businessOnboardingRocketPreload");
+  if (!link) { // business onboarding
+    link = document.createElement("link"); // business onboarding
+    link.id = "businessOnboardingRocketPreload";
+    link.rel = "preload"; // business onboarding
+    link.as = "image"; // business onboarding
+    link.type = "image/webp"; // business onboarding
+    link.media = "(min-width: 781px)";
+    document.head.appendChild(link); // business onboarding
+  } // business onboarding
+  if (link.getAttribute("href") !== src) link.setAttribute("href", src); // business onboarding
+} // business onboarding
+
+function renderBusinessAwareOnboardingRocketImage(setup, progress, optimized = false) {
+  const src = optimized ? businessOnboardingRocketWebpAsset(setup.percent) : onboardingRocketAsset(setup.percent);
+  if (optimized) ensureBusinessOnboardingRocketPreload(src);
+  const businessOnboardingDimensions = optimized ? ' width="999" height="666"' : "";
   return `
     <figure class="onboarding-rocket-art onboarding-rocket-art-${escapeHtml(progress.stage)}" aria-hidden="true">
-      <img src="${escapeHtml(onboardingRocketAsset(setup.percent))}" alt="" loading="eager" decoding="async">
+      <img src="${escapeHtml(src)}" alt="" loading="eager" decoding="async"${businessOnboardingDimensions}>
     </figure>
   `;
 }
@@ -4693,7 +4716,7 @@ function renderOnboardingWidget({ variant = "compact", actionAttr = 'data-busine
           <strong>${setup.percent}%</strong>
           <small>${escapeHtml(setup.completeCount)} จาก ${escapeHtml(setup.steps.length)} ขั้นตอน</small>
         </div>
-        ${renderOnboardingRocketImage(setup, progress)}
+        ${renderBusinessAwareOnboardingRocketImage(setup, progress, variant === "detailed")}
         <div class="setup-widget-copy">
           <strong>${escapeHtml(progress.title)}</strong>
           <p>${escapeHtml(progress.body)}</p>
