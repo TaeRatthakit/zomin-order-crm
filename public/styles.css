@@ -7452,22 +7452,44 @@ small,
   }
 
   body.desktop-app-shell:not(.login-view) .mobile-business-page:not(.mobile-business-subpage) .setup-widget-detailed .onboarding-rocket-art {
+    grid-column: 3;
+    grid-row: 1;
     justify-self: end;
-    margin: -8px -40px -6px 0;
+    align-self: center;
+    width: clamp(210px, 18vw, 230px);
+    margin: -18px 28px -4px 0;
   }
 
   body.desktop-app-shell:not(.login-view) .mobile-business-page:not(.mobile-business-subpage) .setup-widget-detailed .onboarding-rocket-art img {
     position: relative;
-    left: 132px;
-    width: min(178px, 118%);
-    max-width: 118%;
+    left: 0;
+    width: 100%;
+    max-width: 100%;
   }
 
   body.desktop-app-shell:not(.login-view) .mobile-business-page:not(.mobile-business-subpage) .setup-widget-detailed .onboarding-rocket-art-launching img,
   body.desktop-app-shell:not(.login-view) .mobile-business-page:not(.mobile-business-subpage) .setup-widget-detailed .onboarding-rocket-art-complete img {
-    left: 104px;
-    width: min(218px, 130%);
-    max-width: 130%;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-business-page:not(.mobile-business-subpage) .setup-widget-detailed .setup-widget-main {
+    grid-template-columns: 96px minmax(280px, 1fr) minmax(230px, 30%);
+    min-height: 178px;
+    column-gap: 34px;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-business-page:not(.mobile-business-subpage) .setup-widget-detailed .setup-progress-ring {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  body.desktop-app-shell:not(.login-view) .mobile-business-page:not(.mobile-business-subpage) .setup-widget-detailed .setup-widget-copy {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: center;
+    max-width: 360px;
+    text-align: center;
   }
 
   .setup-widget-copy {
