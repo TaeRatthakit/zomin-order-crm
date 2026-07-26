@@ -231,7 +231,7 @@ assert(sourceBetween("function renderMobileReports", "const customerIds").includ
 assert(sourceBetween("function renderMobileReports", "const customerIds").includes("previousPeriodRange(summaryRange)"), "reports top summary comparison uses equal previous period");
 assert(sourceBetween("function renderMobileReports", "const monthCards").includes("marketingPerformanceForPeriod({ range: summaryRange })"), "reports marketing KPIs use selected range");
 assert(sourceBetween("function renderMobileReports", "const customerIds").includes("Number(breakdown.sales || 0) - Number(breakdown.profitBeforeAds || 0)"), "reports cost KPI reuses gross-profit breakdown formula");
-assert(sourceBetween("function renderMobileReports", "const customerIds").includes('isMobileViewport() || document.documentElement.dataset.theme === "light"'), "reports cost KPI shows on mobile and desktop light");
+assert(sourceBetween("function renderMobileReports", "const customerIds").includes("const showReportCostCards = true"), "reports cost KPI shows on every viewport and theme");
 assert(sourceBetween("function renderMobileReports", "const monthCards").includes("ต้นทุน${rangeSuffix}"), "reports selected-range cost KPI exists before ad cost");
 assert(sourceBetween("const todayCards = [", "const monthCards = [").indexOf("ต้นทุน${rangeSuffix}") < sourceBetween("const todayCards = [", "const monthCards = [").indexOf("ค่าโฆษณา${rangeSuffix}"), "reports selected-range cost KPI appears before ad cost");
 assert(sourceBetween("const monthCards = [", "els.content.innerHTML").includes("ต้นทุนเดือนนี้"), "reports month cost KPI exists before ad cost");
@@ -255,6 +255,7 @@ assert(css.includes(".range-picker-overlay.is-mobile"), "mobile bottom sheet sty
 assert(css.includes(".mobile-report-kpi-grid.report-kpi-grid-with-cost"), "reports cost KPI grid has scoped 8-card class");
 assert(css.includes("repeat(8, minmax(0, 1fr))"), "desktop reports cost KPI grid keeps 8 equal columns");
 assert(css.includes("body.mobile-reports-view .mobile-report-kpi.tone-orange"), "mobile reports cost KPI has orange treatment");
+assert(css.includes("body.desktop-app-shell:not(.login-view) .mobile-report-kpi.tone-orange"), "desktop dark reports cost KPI has orange treatment");
 assert(css.includes("html[data-theme=\"light\"] body:not(.login-view) .mobile-report-kpi.tone-orange"), "light reports cost KPI has soft orange treatment");
 assert(css.includes("grid-template-columns: minmax(0, 1fr)"), "desktop renders one visible month column");
 assert(appJs.includes("Math.min(760"), "desktop picker width is reduced");

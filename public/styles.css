@@ -136,7 +136,7 @@ body.mobile-app-shell:not(.login-view) .line-status-row span {
   }
 
   body.mobile-reports-view .mobile-report-kpi.tone-orange {
-    --report-border: rgba(245, 120, 35, 0.38);
+    --report-border: rgba(245, 120, 35, 0.32);
     --report-glow: rgba(251, 146, 60, 0.13);
     --report-surface: rgba(43, 23, 8, 0.91);
     --report-accent: #fb923c;
@@ -16903,6 +16903,13 @@ body.desktop-dashboard-view:not(.login-view) .desktop-reference-quick-action {
     --report-accent: #ff9b0a;
   }
 
+  body.desktop-app-shell:not(.login-view) .mobile-report-kpi.tone-orange {
+    --report-border: rgba(245, 120, 35, 0.32);
+    --report-glow: rgba(251, 146, 60, 0.13);
+    --report-surface: rgba(43, 23, 8, 0.91);
+    --report-accent: #fb923c;
+  }
+
   body.desktop-app-shell:not(.login-view) .mobile-report-kpi.tone-violet {
     --report-border: rgba(127, 63, 208, 0.38);
     --report-glow: rgba(137, 63, 231, 0.15);
@@ -22612,9 +22619,15 @@ html[data-theme="light"] body:not(.login-view) .mobile-report-kpi.tone-green {
     var(--light-card) !important;
 }
 
-html[data-theme="light"] body:not(.login-view) .mobile-report-kpi.tone-amber,
-html[data-theme="light"] body:not(.login-view) .mobile-report-kpi.tone-orange {
+html[data-theme="light"] body:not(.login-view) .mobile-report-kpi.tone-amber {
   border-color: rgba(245, 158, 11, 0.22) !important;
+  background:
+    radial-gradient(circle at 18% 0, var(--light-amber-soft), transparent 42%),
+    var(--light-card) !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .mobile-report-kpi.tone-orange {
+  border-color: rgba(245, 158, 11, 0.16) !important;
   background:
     radial-gradient(circle at 18% 0, var(--light-amber-soft), transparent 42%),
     var(--light-card) !important;

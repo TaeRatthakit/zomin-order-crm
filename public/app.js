@@ -7857,7 +7857,7 @@ function renderMobileReports(selectedDate, selectedMonth, selectedRange = dashbo
   const previousMonthMarketing = marketingPerformanceForPeriod({ month: previousMonth });
   const rangeSuffix = reportRangeSuffix(summaryRange);
   const comparisonHint = reportRangeComparisonHint(summaryRange);
-  const showReportCostCards = isMobileViewport() || document.documentElement.dataset.theme === "light";
+  const showReportCostCards = true;
 
   const customerIds = new Set(monthOrders.map(order => order.customerId).filter(Boolean));
   const monthCustomers = customers.filter(customer => customerIds.has(customer.id));
