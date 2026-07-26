@@ -2713,11 +2713,13 @@ function adCostForRecord(record, orders = app.data?.orders || []) {
   return record.value;
 }
 
-function marketingPerformanceForPeriod({ date = "", month = "" } = {}) {
+function marketingPerformanceForPeriod({ date = "", month = "", range = null } = {}) {
   const allOrders = app.data?.orders || [];
-  const periodOrders = allOrders.filter(order => date ? order.date === date : month ? monthKey(order.date) === month : true);
+  const normalizedRange = range?.start || range?.end ? normalizeDateRange(range.start, range.end) : null;
+  const matchesPeriod = value => normalizedRange ? dateInRange(value, normalizedRange) : date ? value === date : month ? monthKey(value) === month : true;
+  const periodOrders = allOrders.filter(order => matchesPeriod(order.date));
   const records = normalizeAdCostRecords()
-    .filter(record => record.enabled && (date ? record.date === date : month ? monthKey(record.date) === month : true))
+    .filter(record => record.enabled && matchesPeriod(record.date))
     .map(record => ({ ...record, cost: adCostForRecord(record, allOrders) }));
   const breakdown = profitBreakdownForOrders(periodOrders);
   const adCost = records.reduce((sum, record) => sum + record.cost, 0);
@@ -7351,6 +7353,30 @@ function reportMonthRange(month) {
   return `1 - ${days} ${shortMonth} ${year + 543}`;
 }
 
+function reportSummaryHeading(range, today = todayISO()) {
+  const normalized = normalizeDateRange(range?.start, range?.end);
+  const yesterday = addDaysISO(today, -1);
+  if (normalized.start === today && normalized.end === today) return "สรุปวันนี้";
+  if (normalized.start === yesterday && normalized.end === yesterday) return "สรุปเมื่อวาน";
+  if (normalized.start === normalized.end) return `สรุปวันที่ ${formatThaiDateCompact(normalized.start)}`;
+  return `สรุปช่วงนี้ (${formatThaiDateCompact(normalized.start)}–${formatThaiDateCompact(normalized.end)})`;
+}
+
+function reportRangeSuffix(range, today = todayISO()) {
+  const normalized = normalizeDateRange(range?.start, range?.end);
+  const yesterday = addDaysISO(today, -1);
+  if (normalized.start === today && normalized.end === today) return "วันนี้";
+  if (normalized.start === yesterday && normalized.end === yesterday) return "เมื่อวาน";
+  if (normalized.start === normalized.end) return "วันที่เลือก";
+  return "ช่วงนี้";
+}
+
+function reportRangeComparisonHint(range, today = todayISO()) {
+  const normalized = normalizeDateRange(range?.start, range?.end);
+  if (normalized.start !== normalized.end) return "เทียบกับช่วงก่อนหน้า";
+  return normalized.start === today ? "เทียบกับเมื่อวาน" : "เทียบกับวันก่อนหน้า";
+}
+
 function reportDelta(currentValue, previousValue) {
   const current = Number(currentValue || 0);
   const previous = Number(previousValue || 0);
@@ -7743,12 +7769,14 @@ function reportBusinessSummaryHtml(selectedMonth) {
   `;
 }
 
-function renderMobileReports(selectedDate, selectedMonth) {
+function renderMobileReports(selectedDate, selectedMonth, selectedRange = dashboardSummaryRange(selectedDate)) {
   const orders = app.data.orders || [];
   const customers = app.data.customers || [];
-  const todayOrders = orders.filter(order => order.date === selectedDate);
+  const summaryRange = normalizeDateRange(selectedRange?.start || selectedDate, selectedRange?.end || selectedDate);
+  const comparisonRange = previousPeriodRange(summaryRange);
+  const todayOrders = ordersInDateRange(orders, summaryRange);
   const monthOrders = orders.filter(order => monthKey(order.date) === selectedMonth);
-  const yesterdayOrders = orders.filter(order => order.date === addDaysISO(selectedDate, -1));
+  const yesterdayOrders = ordersInDateRange(orders, { start: comparisonRange.compareStart, end: comparisonRange.compareEnd });
   const previousMonth = reportPreviousMonth(selectedMonth);
   const previousMonthOrders = orders.filter(order => monthKey(order.date) === previousMonth);
   const sales = rows => rows.reduce((sum, order) => sum + Number(order.amount || 0), 0);
@@ -7758,10 +7786,12 @@ function renderMobileReports(selectedDate, selectedMonth) {
   const monthSales = sales(monthOrders);
   const todayProfit = profit(todayOrders);
   const monthProfit = profit(monthOrders);
-  const todayMarketing = marketingPerformanceForPeriod({ date: selectedDate });
-  const yesterdayMarketing = marketingPerformanceForPeriod({ date: addDaysISO(selectedDate, -1) });
+  const todayMarketing = marketingPerformanceForPeriod({ range: summaryRange });
+  const yesterdayMarketing = marketingPerformanceForPeriod({ range: { start: comparisonRange.compareStart, end: comparisonRange.compareEnd } });
   const monthMarketing = marketingPerformanceForPeriod({ month: selectedMonth });
   const previousMonthMarketing = marketingPerformanceForPeriod({ month: previousMonth });
+  const rangeSuffix = reportRangeSuffix(summaryRange);
+  const comparisonHint = reportRangeComparisonHint(summaryRange);
 
   const customerIds = new Set(monthOrders.map(order => order.customerId).filter(Boolean));
   const monthCustomers = customers.filter(customer => customerIds.has(customer.id));
@@ -7802,13 +7832,13 @@ function renderMobileReports(selectedDate, selectedMonth) {
     }));
 
   const todayCards = [
-    { label: "ยอดขายวันนี้", value: `฿${money(todaySales)}`, comparison: { ...reportDelta(todaySales, sales(yesterdayOrders)), hint: "เทียบกับเมื่อวาน" }, tone: "green", icon: "wallet" },
-    { label: "ออเดอร์วันนี้", value: money(todayOrders.length), suffix: "ออเดอร์", comparison: { ...reportDelta(todayOrders.length, yesterdayOrders.length), hint: "เทียบกับเมื่อวาน" }, tone: "amber", icon: "orders" },
-    { label: "กำไรวันนี้ (ก่อน Ads)", value: `฿${money(todayProfit)}`, comparison: { ...reportDelta(todayProfit, profit(yesterdayOrders)), hint: "ตัวเลขกำไรเดิม" }, tone: "violet", icon: "database" },
-    { label: "ขายได้วันนี้", value: money(units(todayOrders)), suffix: "ชิ้น", comparison: { ...reportDelta(units(todayOrders), units(yesterdayOrders)), hint: "เทียบกับเมื่อวาน" }, tone: "blue", icon: "sales" },
-    { label: "ค่าโฆษณาวันนี้", value: `฿${money(todayMarketing.adCost)}`, comparison: { ...reportDelta(todayMarketing.adCost, yesterdayMarketing.adCost), hint: "ค่าใช้จ่ายการตลาด" }, tone: "blue", icon: "wallet" },
-    { label: "กำไรหลัง Ads", value: `฿${money(todayMarketing.profitAfterAds)}`, comparison: { ...reportDelta(todayMarketing.profitAfterAds, yesterdayMarketing.profitAfterAds), hint: "กำไรก่อน Ads - ค่าโฆษณา" }, tone: "green", icon: "database" },
-    { label: "ROAS วันนี้", value: marketingNumber(todayMarketing.roas), comparison: { ...reportDelta(todayMarketing.roas, yesterdayMarketing.roas), hint: "ยอดขาย ÷ ค่าโฆษณา" }, tone: "amber", icon: "chart" }
+    { label: `ยอดขาย${rangeSuffix}`, value: `฿${money(todaySales)}`, comparison: { ...reportDelta(todaySales, sales(yesterdayOrders)), hint: comparisonHint }, tone: "green", icon: "wallet" },
+    { label: `ออเดอร์${rangeSuffix}`, value: money(todayOrders.length), suffix: "ออเดอร์", comparison: { ...reportDelta(todayOrders.length, yesterdayOrders.length), hint: comparisonHint }, tone: "amber", icon: "orders" },
+    { label: `กำไร${rangeSuffix} (ก่อน Ads)`, value: `฿${money(todayProfit)}`, comparison: { ...reportDelta(todayProfit, profit(yesterdayOrders)), hint: comparisonHint }, tone: "violet", icon: "database" },
+    { label: `ขายได้${rangeSuffix}`, value: money(units(todayOrders)), suffix: "ชิ้น", comparison: { ...reportDelta(units(todayOrders), units(yesterdayOrders)), hint: comparisonHint }, tone: "blue", icon: "sales" },
+    { label: `ค่าโฆษณา${rangeSuffix}`, value: `฿${money(todayMarketing.adCost)}`, comparison: { ...reportDelta(todayMarketing.adCost, yesterdayMarketing.adCost), hint: comparisonHint }, tone: "blue", icon: "wallet" },
+    { label: `กำไรหลัง Ads ${rangeSuffix}`, value: `฿${money(todayMarketing.profitAfterAds)}`, comparison: { ...reportDelta(todayMarketing.profitAfterAds, yesterdayMarketing.profitAfterAds), hint: comparisonHint }, tone: "green", icon: "database" },
+    { label: `ROAS ${rangeSuffix}`, value: marketingNumber(todayMarketing.roas), comparison: { ...reportDelta(todayMarketing.roas, yesterdayMarketing.roas), hint: comparisonHint }, tone: "amber", icon: "chart" }
   ];
   const monthCards = [
     { label: "ยอดขายเดือนนี้", value: `฿${money(monthSales)}`, comparison: { ...reportDelta(monthSales, sales(previousMonthOrders)), hint: "เทียบกับเดือนที่แล้ว" }, tone: "green", icon: "wallet" },
@@ -7823,7 +7853,7 @@ function renderMobileReports(selectedDate, selectedMonth) {
   els.content.innerHTML = `
     <section class="section saas-page mobile-reports-page">
       <div class="mobile-reports-shell">
-        <h2 class="mobile-report-heading">สรุปวันนี้</h2>
+        <h2 class="mobile-report-heading">${escapeHtml(reportSummaryHeading(summaryRange))}</h2>
         <div class="mobile-report-kpi-grid">
           ${todayCards.map(mobileReportKpiCard).join("")}
         </div>
@@ -7891,7 +7921,8 @@ function renderMobileReports(selectedDate, selectedMonth) {
 function renderReports() {
   const selectedDate = app.reportDate || app.data.summary.selectedDate || todayISO();
   const selectedMonth = monthKeyFromDateOnly(selectedDate);
-  renderMobileReports(selectedDate, selectedMonth);
+  const selectedRange = appliedDateRange();
+  renderMobileReports(selectedDate, selectedMonth, selectedRange);
   if (isMobileViewport()) return;
   return;
   const selectedYear = selectedMonth.slice(0, 4);

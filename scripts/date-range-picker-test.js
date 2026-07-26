@@ -68,6 +68,28 @@ function dateRangeKey(range) {
   return `${normalized.start}..${normalized.end}`;
 }
 
+function previousPeriodRange(range) {
+  const normalized = normalizeDateRange(range.start, range.end);
+  const days = Math.max(1, Math.round((new Date(`${normalized.end}T12:00:00+07:00`) - new Date(`${normalized.start}T12:00:00+07:00`)) / 86400000) + 1);
+  const compareEnd = addDaysISO(normalized.start, -1);
+  return { start: addDaysISO(compareEnd, -(days - 1)), end: compareEnd };
+}
+
+function reportSummaryHeadingForTest(range, today = "2026-07-17") {
+  const normalized = normalizeDateRange(range.start, range.end);
+  const yesterday = addDaysISO(today, -1);
+  if (normalized.start === today && normalized.end === today) return "สรุปวันนี้";
+  if (normalized.start === yesterday && normalized.end === yesterday) return "สรุปเมื่อวาน";
+  if (normalized.start === normalized.end) return `สรุปวันที่ ${normalized.start}`;
+  return `สรุปช่วงนี้ (${normalized.start}–${normalized.end})`;
+}
+
+function reportRangeComparisonHintForTest(range, today = "2026-07-17") {
+  const normalized = normalizeDateRange(range.start, range.end);
+  if (normalized.start !== normalized.end) return "เทียบกับช่วงก่อนหน้า";
+  return normalized.start === today ? "เทียบกับเมื่อวาน" : "เทียบกับวันก่อนหน้า";
+}
+
 function dashboardKpiTitlesForRangeForTest(range, today = "2026-07-17") {
   const normalized = normalizeDateRange(range.start, range.end);
   const yesterday = addDaysISO(today, -1);
@@ -134,6 +156,23 @@ function aggregateOrders(orders, range) {
   };
 }
 
+function marketingPerformanceForRangeForTest(orders, adRecords, range) {
+  const rangeOrders = orders.filter(order => dateInRange(order.date, range));
+  const records = adRecords.filter(record => record.enabled !== false && dateInRange(record.date, range));
+  const sales = rangeOrders.reduce((sum, order) => sum + Number(order.amount || 0), 0);
+  const profitBeforeAds = rangeOrders.reduce((sum, order) => sum + Number(order.profitBeforeAds ?? order.amount ?? 0), 0);
+  const adCost = records.reduce((sum, record) => sum + Number(record.cost || 0), 0);
+  return {
+    sales,
+    orders: rangeOrders.length,
+    profitBeforeAds,
+    units: rangeOrders.reduce((sum, order) => sum + Number(order.jars || 0), 0),
+    adCost,
+    profitAfterAds: profitBeforeAds - adCost,
+    roas: adCost ? sales / adCost : 0
+  };
+}
+
 function cloneDateRangeStateForTest(range) {
   return {
     start: range.start || "2026-07-17",
@@ -187,6 +226,13 @@ assert(!sourceBetween("function chooseDateRangePreset", "function chooseRangeDat
 assert(!sourceBetween("function chooseRangeDate", "function applyDateRangeDraft").includes("loadState("), "selecting calendar date does not call loadState");
 assert(sourceBetween("function applyDateRangeDraft", "function updateShell").includes("buildLocalSummary(applied.end, applied)"), "apply passes full range to dashboard summary");
 assert(sourceBetween("function buildLocalSummary", "function syncDomTree").includes("ordersInDateRange(app.data.orders, summaryRange)"), "summary aggregates multi-day orders inclusively");
+assert(sourceBetween("function renderReports", "function renderAiInsights").includes("renderMobileReports(selectedDate, selectedMonth, selectedRange)"), "reports passes applied range into shared report renderer");
+assert(sourceBetween("function renderMobileReports", "const customerIds").includes("ordersInDateRange(orders, summaryRange)"), "reports top summary uses selected range orders");
+assert(sourceBetween("function renderMobileReports", "const customerIds").includes("previousPeriodRange(summaryRange)"), "reports top summary comparison uses equal previous period");
+assert(sourceBetween("function renderMobileReports", "const monthCards").includes("marketingPerformanceForPeriod({ range: summaryRange })"), "reports marketing KPIs use selected range");
+assert(sourceBetween("function renderMobileReports", "function renderReports").includes("reportSummaryHeading(summaryRange)"), "reports summary heading uses selected range");
+assert(!sourceBetween("function renderMobileReports", "const customerIds").includes("order.date === selectedDate"), "reports top summary no longer falls back to selectedDate-only orders");
+assert(!sourceBetween("function renderMobileReports", "const monthCards").includes('<h2 class=\"mobile-report-heading\">สรุปวันนี้</h2>'), "reports summary heading is not hard-coded to today");
 assert(sourceBetween("function renderDashboard", "const businessManagementItems").includes("ordersInDateRange(app.data.orders, selectedRange)"), "dashboard cards use applied range orders");
 assert(sourceBetween("function renderMobileDashboard", "function desktopInsightTable").includes("dashboardKpiTitlesForRange"), "mobile home KPI titles use applied range helper");
 assert(sourceBetween("function renderDesktopDashboard", "function renderDashboard").includes("dashboardKpiTitlesForRange"), "desktop home KPI titles use applied range helper");
@@ -264,6 +310,39 @@ assert(dateInRange("2026-07-17T23:59:59+07:00", { start: today, end: today }), "
 assert(dateInRange("2026-07-16T17:30:00.000Z", { start: today, end: today }), "UTC timestamp at Bangkok next-day boundary is included in Bangkok day");
 assert(cloneDateRangeStateForTest({ start: "2026-07-12", end: "" }).end === "", "custom range keeps empty end until second date is selected");
 assert(cloneDateRangeStateForTest({ start: "2026-07-12" }).end === "2026-07-12", "applied single-day clone still fills missing end");
+
+const reportAdRecords = [
+  { date: "2026-07-10", cost: 10 },
+  { date: "2026-07-11", cost: 20 },
+  { date: "2026-07-16", cost: 30 },
+  { date: "2026-07-17", cost: 40 }
+];
+const reportOrders = [
+  { date: "2026-07-10", amount: 100, profitBeforeAds: 70, jars: 1 },
+  { date: "2026-07-11", amount: 200, profitBeforeAds: 120, jars: 2 },
+  { date: "2026-07-16T17:30:00.000Z", amount: 300, profitBeforeAds: 210, jars: 3 },
+  { date: "2026-07-17T02:00:00.000Z", amount: 400, profitBeforeAds: 250, jars: 4 }
+];
+const reportToday = marketingPerformanceForRangeForTest(reportOrders, reportAdRecords, { start: today, end: today });
+assert(reportSummaryHeadingForTest({ start: today, end: today }) === "สรุปวันนี้", "reports heading handles today");
+assert(reportRangeComparisonHintForTest({ start: today, end: today }) === "เทียบกับเมื่อวาน", "reports today comparison caption matches today");
+assert(reportToday.sales === 700 && reportToday.orders === 2 && reportToday.units === 7 && reportToday.adCost === 40, "reports today KPIs use the selected Bangkok day");
+
+const otherSingle = marketingPerformanceForRangeForTest(reportOrders, reportAdRecords, { start: "2026-07-11", end: "2026-07-11" });
+assert(reportSummaryHeadingForTest({ start: "2026-07-11", end: "2026-07-11" }) === "สรุปวันที่ 2026-07-11", "reports heading handles another single date");
+assert(reportRangeComparisonHintForTest({ start: "2026-07-11", end: "2026-07-11" }) === "เทียบกับวันก่อนหน้า", "reports other single date comparison caption is not today-specific");
+assert(otherSingle.sales === 200 && otherSingle.orders === 1 && otherSingle.profitAfterAds === 100 && otherSingle.roas === 10, "reports other single date KPIs use selected date");
+
+const reportSevenRange = { start: "2026-07-11", end: today };
+const reportSeven = marketingPerformanceForRangeForTest(reportOrders, reportAdRecords, reportSevenRange);
+const reportSevenCompareRange = previousPeriodRange(reportSevenRange);
+const reportSevenCompare = marketingPerformanceForRangeForTest(reportOrders, reportAdRecords, reportSevenCompareRange);
+assert(reportSummaryHeadingForTest(reportSevenRange) === "สรุปช่วงนี้ (2026-07-11–2026-07-17)", "reports heading handles multi-day range");
+assert(reportRangeComparisonHintForTest(reportSevenRange) === "เทียบกับช่วงก่อนหน้า", "reports multi-day comparison caption uses previous period");
+assert(reportSeven.sales === 900 && reportSeven.orders === 3 && reportSeven.units === 9 && reportSeven.adCost === 90, "reports multi-day KPIs use inclusive selected range");
+assert(reportSevenCompareRange.start === "2026-07-04" && reportSevenCompareRange.end === "2026-07-10", "reports multi-day comparison uses immediately preceding equal-length range");
+assert(reportSevenCompare.sales === 100 && reportSevenCompare.orders === 1 && reportSevenCompare.adCost === 10, "reports multi-day comparison metrics use previous range");
+assert(sourceBetween("function renderMobileReports", "els.content.innerHTML").includes("monthOrders = orders.filter(order => monthKey(order.date) === selectedMonth)"), "monthly summary remains selected-month based");
 
 assert(JSON.stringify(dashboardKpiTitlesForRangeForTest({ start: today, end: today })) === JSON.stringify({
   sales: "ยอดขายวันนี้",
