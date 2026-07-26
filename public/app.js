@@ -1072,6 +1072,39 @@ function labelForDateRangeTrigger(range, presetKey = "") {
   return `${startText} – ${endText}`;
 }
 
+function mobileDateRangeText(text) {
+  return text;
+} // mobile date range trigger
+
+function formatMobileDatePillGregorianCompact(dateValue, options = null) {
+  const mobileIncludeYear = options?.includeYear !== false;
+  const mobileText = formatDatePillGregorian(dateValue, options || undefined);
+  return mobileIncludeYear ? mobileText.replace(/\b20(\d{2})\b/g, "$1") : mobileText;
+} // mobile date range trigger
+
+function labelForMobileDateRangeTrigger(range, presetKey = "") {
+  const normalized = normalizeDateRange(range?.start, range?.end);
+  const matchedPreset = presetKey && presetKey !== "custom" && dateRangeMatchesPreset(normalized, presetKey)
+    ? dateRangePreset(presetKey)
+    : DATE_RANGE_PRESETS.find(preset => preset.key !== "custom" && dateRangeMatchesPreset(normalized, preset.key));
+  if (matchedPreset?.key === "today") return `วันนี้ ${formatMobileDatePillGregorianCompact(normalized.start)}`;
+  if (matchedPreset?.key === "yesterday") return `เมื่อวาน ${formatMobileDatePillGregorianCompact(normalized.start)}`;
+  if (matchedPreset?.key === "last-7") return mobileDateRangeText("7 วันล่าสุด");
+  if (matchedPreset?.key === "this-month") return mobileDateRangeText("เดือนนี้");
+  if (matchedPreset?.key === "last-month") return mobileDateRangeText("เดือนที่แล้ว");
+  if (normalized.start === normalized.end) return formatMobileDatePillGregorianCompact(normalized.start);
+  const mobileStartParts = parseDateOnlyParts(normalized.start);
+  const mobileEndParts = parseDateOnlyParts(normalized.end);
+  if (mobileStartParts && mobileEndParts && mobileStartParts.year === mobileEndParts.year && mobileStartParts.month === mobileEndParts.month) {
+    return `${mobileStartParts.day}–${formatMobileDatePillGregorianCompact(normalized.end)}`;
+  } // mobile date range trigger
+  const mobileStartYear = String(normalized.start).slice(0, 4);
+  const mobileEndYear = String(normalized.end).slice(0, 4);
+  const mobileStartText = formatMobileDatePillGregorianCompact(normalized.start, { includeYear: mobileStartYear !== mobileEndYear });
+  const mobileEndText = formatMobileDatePillGregorianCompact(normalized.end);
+  return `${mobileStartText}–${mobileEndText}`;
+} // mobile date range trigger
+
 function dashboardKpiTitlesForRange(range, today = todayISO()) {
   const normalized = normalizeDateRange(range?.start, range?.end);
   const yesterday = addDaysISO(today, -1);
@@ -2027,6 +2060,7 @@ function updateDatePillLabel() {
   if (!els.workDateDisplay) return;
   const range = ensureDateRangeAppliedFromSelectedDate();
   els.workDateDisplay.textContent = labelForDateRangeTrigger(range, range.preset);
+  if (isMobileViewport()) els.workDateDisplay.textContent = labelForMobileDateRangeTrigger(range, range.preset);
 }
 
 function positionDesktopDatePicker(root) {

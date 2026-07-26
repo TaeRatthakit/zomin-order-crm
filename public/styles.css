@@ -4171,6 +4171,11 @@ html[data-theme="light"] .range-compare-fields input {
 }
 
 @media (max-width: 768px) {
+  body.mobile-app-shell:not(.login-view) .date-pill-trigger .date-pill-icon,
+  body.mobile-app-shell:not(.login-view) .date-pill-trigger .date-pill-chevron {
+    display: none;
+  }
+
   .range-picker-overlay {
     display: flex;
     align-items: flex-end;
