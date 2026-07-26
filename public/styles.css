@@ -24968,6 +24968,13 @@ html[data-theme="light"] body:not(.login-view) .mobile-business-page:not(.mobile
     color: #ffffff !important;
   }
 
+  html[data-theme="light"] body.mobile-app-shell:not(.login-view) .nav-button:not(.active) .nav-index {
+    background: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+    outline: 0 !important;
+  }
+
 html[data-theme="light"] body.mobile-app-shell:not(.login-view) .mobile-header,
 html[data-theme="light"] body.mobile-app-shell:not(.login-view) .mobile-header .header-profile-trigger,
 html[data-theme="light"] body.mobile-app-shell:not(.login-view) .mobile-header .icon-button {
