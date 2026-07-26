@@ -230,6 +230,13 @@ assert(sourceBetween("function renderReports", "function renderAiInsights").incl
 assert(sourceBetween("function renderMobileReports", "const customerIds").includes("ordersInDateRange(orders, summaryRange)"), "reports top summary uses selected range orders");
 assert(sourceBetween("function renderMobileReports", "const customerIds").includes("previousPeriodRange(summaryRange)"), "reports top summary comparison uses equal previous period");
 assert(sourceBetween("function renderMobileReports", "const monthCards").includes("marketingPerformanceForPeriod({ range: summaryRange })"), "reports marketing KPIs use selected range");
+assert(sourceBetween("function renderMobileReports", "const customerIds").includes("Number(breakdown.sales || 0) - Number(breakdown.profitBeforeAds || 0)"), "reports cost KPI reuses gross-profit breakdown formula");
+assert(sourceBetween("function renderMobileReports", "const customerIds").includes('isMobileViewport() || document.documentElement.dataset.theme === "light"'), "reports cost KPI shows on mobile and desktop light");
+assert(sourceBetween("function renderMobileReports", "const monthCards").includes("ต้นทุน${rangeSuffix}"), "reports selected-range cost KPI exists before ad cost");
+assert(sourceBetween("const todayCards = [", "const monthCards = [").indexOf("ต้นทุน${rangeSuffix}") < sourceBetween("const todayCards = [", "const monthCards = [").indexOf("ค่าโฆษณา${rangeSuffix}"), "reports selected-range cost KPI appears before ad cost");
+assert(sourceBetween("const monthCards = [", "els.content.innerHTML").includes("ต้นทุนเดือนนี้"), "reports month cost KPI exists before ad cost");
+assert(sourceBetween("const monthCards = [", "els.content.innerHTML").indexOf("ต้นทุนเดือนนี้") < sourceBetween("const monthCards = [", "els.content.innerHTML").indexOf("ค่าโฆษณาเดือนนี้"), "reports month cost KPI appears before ad cost");
+assert(sourceBetween("function reportBusinessSummaryHtml", "function renderMobileReports").indexOf("ต้นทุน") === -1, "reports business summary row has no cost KPI");
 assert(sourceBetween("function renderMobileReports", "function renderReports").includes("reportSummaryHeading(summaryRange)"), "reports summary heading uses selected range");
 assert(!sourceBetween("function renderMobileReports", "const customerIds").includes("order.date === selectedDate"), "reports top summary no longer falls back to selectedDate-only orders");
 assert(!sourceBetween("function renderMobileReports", "const monthCards").includes('<h2 class=\"mobile-report-heading\">สรุปวันนี้</h2>'), "reports summary heading is not hard-coded to today");
@@ -245,6 +252,10 @@ assert(html.includes('id="workDate" type="hidden"'), "native date input is repla
 assert(html.includes('id="workDateTrigger"'), "date trigger button exists");
 assert(css.includes(".range-picker-overlay.is-desktop"), "desktop popover styles exist");
 assert(css.includes(".range-picker-overlay.is-mobile"), "mobile bottom sheet styles exist");
+assert(css.includes(".mobile-report-kpi-grid.report-kpi-grid-with-cost"), "reports cost KPI grid has scoped 8-card class");
+assert(css.includes("repeat(8, minmax(0, 1fr))"), "desktop reports cost KPI grid keeps 8 equal columns");
+assert(css.includes("body.mobile-reports-view .mobile-report-kpi.tone-orange"), "mobile reports cost KPI has orange treatment");
+assert(css.includes("html[data-theme=\"light\"] body:not(.login-view) .mobile-report-kpi.tone-orange"), "light reports cost KPI has soft orange treatment");
 assert(css.includes("grid-template-columns: minmax(0, 1fr)"), "desktop renders one visible month column");
 assert(appJs.includes("Math.min(760"), "desktop picker width is reduced");
 assert(css.includes("@media (max-width: 768px)"), "mobile responsive rules exist");

@@ -7816,16 +7816,25 @@ function renderMobileReports(selectedDate, selectedMonth, selectedRange = dashbo
   const sales = rows => rows.reduce((sum, order) => sum + Number(order.amount || 0), 0);
   const units = rows => rows.reduce((sum, order) => sum + Number(order.jars || 0), 0);
   const profit = rows => profitBreakdownForOrders(rows).profit;
+  const reportKpiCost = rows => {
+    const breakdown = profitBreakdownForOrders(rows);
+    return Number(breakdown.sales || 0) - Number(breakdown.profitBeforeAds || 0);
+  };
   const todaySales = sales(todayOrders);
   const monthSales = sales(monthOrders);
   const todayProfit = profit(todayOrders);
   const monthProfit = profit(monthOrders);
+  const reportTodayKpiCost = reportKpiCost(todayOrders);
+  const reportComparisonKpiCost = reportKpiCost(yesterdayOrders);
+  const reportMonthKpiCost = reportKpiCost(monthOrders);
+  const reportPreviousMonthKpiCost = reportKpiCost(previousMonthOrders);
   const todayMarketing = marketingPerformanceForPeriod({ range: summaryRange });
   const yesterdayMarketing = marketingPerformanceForPeriod({ range: { start: comparisonRange.compareStart, end: comparisonRange.compareEnd } });
   const monthMarketing = marketingPerformanceForPeriod({ month: selectedMonth });
   const previousMonthMarketing = marketingPerformanceForPeriod({ month: previousMonth });
   const rangeSuffix = reportRangeSuffix(summaryRange);
   const comparisonHint = reportRangeComparisonHint(summaryRange);
+  const showReportCostCards = isMobileViewport() || document.documentElement.dataset.theme === "light";
 
   const customerIds = new Set(monthOrders.map(order => order.customerId).filter(Boolean));
   const monthCustomers = customers.filter(customer => customerIds.has(customer.id));
@@ -7870,6 +7879,7 @@ function renderMobileReports(selectedDate, selectedMonth, selectedRange = dashbo
     { label: `ออเดอร์${rangeSuffix}`, value: money(todayOrders.length), suffix: "ออเดอร์", comparison: { ...reportDelta(todayOrders.length, yesterdayOrders.length), hint: comparisonHint }, tone: "amber", icon: "orders" },
     { label: `กำไร${rangeSuffix} (ก่อน Ads)`, value: `฿${money(todayProfit)}`, comparison: { ...reportDelta(todayProfit, profit(yesterdayOrders)), hint: comparisonHint }, tone: "violet", icon: "database" },
     { label: `ขายได้${rangeSuffix}`, value: money(units(todayOrders)), suffix: "ชิ้น", comparison: { ...reportDelta(units(todayOrders), units(yesterdayOrders)), hint: comparisonHint }, tone: "blue", icon: "sales" },
+    ...(showReportCostCards ? [{ label: `ต้นทุน${rangeSuffix}`, value: `฿${money(reportTodayKpiCost)}`, comparison: { ...reportDelta(reportTodayKpiCost, reportComparisonKpiCost), hint: comparisonHint }, tone: "orange", icon: "wallet" }] : []),
     { label: `ค่าโฆษณา${rangeSuffix}`, value: `฿${money(todayMarketing.adCost)}`, comparison: { ...reportDelta(todayMarketing.adCost, yesterdayMarketing.adCost), hint: comparisonHint }, tone: "blue", icon: "wallet" },
     { label: `กำไรหลัง Ads ${rangeSuffix}`, value: `฿${money(todayMarketing.profitAfterAds)}`, comparison: { ...reportDelta(todayMarketing.profitAfterAds, yesterdayMarketing.profitAfterAds), hint: comparisonHint }, tone: "green", icon: "database" },
     { label: `ROAS ${rangeSuffix}`, value: marketingNumber(todayMarketing.roas), comparison: { ...reportDelta(todayMarketing.roas, yesterdayMarketing.roas), hint: comparisonHint }, tone: "amber", icon: "chart" }
@@ -7879,6 +7889,7 @@ function renderMobileReports(selectedDate, selectedMonth, selectedRange = dashbo
     { label: "ออเดอร์เดือนนี้", value: money(monthOrders.length), suffix: "ออเดอร์", comparison: { ...reportDelta(monthOrders.length, previousMonthOrders.length), hint: "เทียบกับเดือนที่แล้ว" }, tone: "amber", icon: "orders" },
     { label: "กำไรเดือนนี้ (ก่อน Ads)", value: `฿${money(monthProfit)}`, comparison: { ...reportDelta(monthProfit, profit(previousMonthOrders)), hint: "ตัวเลขกำไรเดิม" }, tone: "violet", icon: "database" },
     { label: "ขายได้เดือนนี้", value: money(units(monthOrders)), suffix: "ชิ้น", comparison: { ...reportDelta(units(monthOrders), units(previousMonthOrders)), hint: "เทียบกับเดือนที่แล้ว" }, tone: "blue", icon: "sales" },
+    ...(showReportCostCards ? [{ label: "ต้นทุนเดือนนี้", value: `฿${money(reportMonthKpiCost)}`, comparison: { ...reportDelta(reportMonthKpiCost, reportPreviousMonthKpiCost), hint: "เทียบกับเดือนที่แล้ว" }, tone: "orange", icon: "wallet" }] : []),
     { label: "ค่าโฆษณาเดือนนี้", value: `฿${money(monthMarketing.adCost)}`, comparison: { ...reportDelta(monthMarketing.adCost, previousMonthMarketing.adCost), hint: "ค่าใช้จ่ายการตลาด" }, tone: "blue", icon: "wallet" },
     { label: "กำไรหลัง Ads เดือนนี้", value: `฿${money(monthMarketing.profitAfterAds)}`, comparison: { ...reportDelta(monthMarketing.profitAfterAds, previousMonthMarketing.profitAfterAds), hint: "กำไรก่อน Ads - ค่าโฆษณา" }, tone: "green", icon: "database" },
     { label: "ROAS เดือนนี้", value: marketingNumber(monthMarketing.roas), comparison: { ...reportDelta(monthMarketing.roas, previousMonthMarketing.roas), hint: "ยอดขาย ÷ ค่าโฆษณา" }, tone: "amber", icon: "chart" }
@@ -7888,12 +7899,12 @@ function renderMobileReports(selectedDate, selectedMonth, selectedRange = dashbo
     <section class="section saas-page mobile-reports-page">
       <div class="mobile-reports-shell">
         <h2 class="mobile-report-heading">${escapeHtml(reportSummaryHeading(summaryRange))}</h2>
-        <div class="mobile-report-kpi-grid">
+        <div class="mobile-report-kpi-grid${showReportCostCards ? " report-kpi-grid-with-cost" : ""}">
           ${todayCards.map(mobileReportKpiCard).join("")}
         </div>
 
         <h2 class="mobile-report-heading">สรุปเดือนนี้ <small>(${escapeHtml(reportMonthRange(selectedMonth))})</small></h2>
-        <div class="mobile-report-kpi-grid">
+        <div class="mobile-report-kpi-grid${showReportCostCards ? " report-kpi-grid-with-cost" : ""}">
           ${monthCards.map(mobileReportKpiCard).join("")}
         </div>
 
