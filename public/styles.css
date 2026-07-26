@@ -26323,3 +26323,123 @@ body.login-view .login-card .button.primary:focus-visible {
     min-height: 58px;
   }
 }
+
+html[data-theme="light"] body.mobile-opportunities-view:not(.login-view) .mobile-opportunity-summary,
+html[data-theme="light"] body.mobile-opportunities-view:not(.login-view) .mobile-opportunity-status-grid button {
+  border-color: rgba(196, 181, 253, 0.82) !important;
+  background: #ffffff !important;
+  color: #111827 !important;
+  box-shadow: 0 8px 18px rgba(76, 56, 124, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.95) !important;
+}
+
+html[data-theme="light"] body.mobile-opportunities-view:not(.login-view) .mobile-opportunity-summary > div {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+html[data-theme="light"] body.mobile-opportunities-view:not(.login-view) .mobile-opportunity-summary > div + div::before {
+  background: rgba(196, 181, 253, 0.72) !important;
+}
+
+html[data-theme="light"] body.mobile-opportunities-view:not(.login-view) .mobile-opportunity-summary-icon,
+html[data-theme="light"] body.mobile-opportunities-view:not(.login-view) .mobile-opportunity-status-icon,
+html[data-theme="light"] body.mobile-opportunities-view:not(.login-view) .mobile-opportunity-summary .orange .mobile-opportunity-summary-icon,
+html[data-theme="light"] body.mobile-opportunities-view:not(.login-view) .mobile-opportunity-summary .green .mobile-opportunity-summary-icon,
+html[data-theme="light"] body.mobile-opportunities-view:not(.login-view) .tone-2 .mobile-opportunity-status-icon,
+html[data-theme="light"] body.mobile-opportunities-view:not(.login-view) .tone-3 .mobile-opportunity-status-icon,
+html[data-theme="light"] body.mobile-opportunities-view:not(.login-view) .tone-4 .mobile-opportunity-status-icon {
+  color: #a855f7 !important;
+}
+
+html[data-theme="light"] body.mobile-opportunities-view:not(.login-view) .mobile-opportunity-summary-icon .nav-icon,
+html[data-theme="light"] body.mobile-opportunities-view:not(.login-view) .mobile-opportunity-summary-icon .metric-icon-svg,
+html[data-theme="light"] body.mobile-opportunities-view:not(.login-view) .mobile-opportunity-status-icon .nav-icon,
+html[data-theme="light"] body.mobile-opportunities-view:not(.login-view) .mobile-opportunity-status-icon .metric-icon-svg {
+  filter: drop-shadow(0 0 5px rgba(168, 85, 247, 0.24)) !important;
+}
+
+html[data-theme="light"] body.mobile-opportunities-view:not(.login-view) .mobile-opportunity-summary > div > span:nth-child(2),
+html[data-theme="light"] body.mobile-opportunities-view:not(.login-view) .mobile-opportunity-status-grid button > span:nth-child(2) {
+  color: #1f2937 !important;
+}
+
+html[data-theme="light"] body.mobile-opportunities-view:not(.login-view) .mobile-opportunity-summary strong,
+html[data-theme="light"] body.mobile-opportunities-view:not(.login-view) .mobile-opportunity-summary .orange strong,
+html[data-theme="light"] body.mobile-opportunities-view:not(.login-view) .mobile-opportunity-summary .green strong,
+html[data-theme="light"] body.mobile-opportunities-view:not(.login-view) .mobile-opportunity-status-grid strong {
+  color: #111827 !important;
+}
+
+html[data-theme="light"] body.mobile-opportunities-view:not(.login-view) .mobile-opportunity-summary strong small,
+html[data-theme="light"] body.mobile-opportunities-view:not(.login-view) .mobile-opportunity-status-grid strong small {
+  color: #6b7280 !important;
+}
+
+html[data-theme="light"] body.mobile-opportunities-view:not(.login-view) .mobile-opportunity-search-row label,
+html[data-theme="light"] body.mobile-opportunities-view:not(.login-view) .mobile-opportunity-filter-row button,
+html[data-theme="light"] body.mobile-opportunities-view:not(.login-view) .mobile-opportunity-empty {
+  border-color: rgba(196, 181, 253, 0.82) !important;
+  background: #ffffff !important;
+  color: #1f2937 !important;
+  box-shadow: 0 8px 18px rgba(76, 56, 124, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.95) !important;
+}
+
+html[data-theme="light"] body.mobile-opportunities-view:not(.login-view) .mobile-opportunity-filter-row button.active {
+  border-color: rgba(124, 58, 237, 0.48) !important;
+  background: linear-gradient(135deg, #8b5cf6, #7c3aed) !important;
+  color: #ffffff !important;
+  box-shadow: 0 8px 18px rgba(124, 58, 237, 0.18) !important;
+}
+
+html[data-theme="light"] body.mobile-opportunities-view:not(.login-view) .mobile-opportunity-empty {
+  color: #6b647a !important;
+}
+
+html[data-theme="light"] body.mobile-opportunities-view:not(.login-view) .mobile-opportunity-search-row label {
+  color: #a5a0b8 !important;
+}
+
+html[data-theme="light"] body.mobile-opportunities-view:not(.login-view) .mobile-opportunity-search-row label > span,
+html[data-theme="light"] body.mobile-opportunities-view:not(.login-view) .mobile-opportunity-search-row input::placeholder {
+  color: #a5a0b8 !important;
+  opacity: 1;
+}
+
+html[data-theme="light"] body.mobile-opportunities-view:not(.login-view) .mobile-opportunity-search-row input {
+  background: transparent !important;
+  color: #111827 !important;
+  box-shadow: none !important;
+}
+
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .mobile-opportunities-page .mobile-opportunity-filter-row button {
+  border-color: rgba(196, 181, 253, 0.82) !important;
+  background: #ffffff !important;
+  color: #1f2937 !important;
+  box-shadow: 0 8px 18px rgba(76, 56, 124, 0.06) !important;
+}
+
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .mobile-opportunities-page .mobile-opportunity-filter-row button.active {
+  border-color: rgba(124, 58, 237, 0.48) !important;
+  background: linear-gradient(135deg, #8b5cf6, #7c3aed) !important;
+  color: #ffffff !important;
+  box-shadow: 0 8px 18px rgba(124, 58, 237, 0.18) !important;
+}
+
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .mobile-opportunities-page .mobile-opportunity-summary-icon,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .mobile-opportunities-page .mobile-opportunity-status-icon,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .mobile-opportunities-page .mobile-opportunity-summary .orange .mobile-opportunity-summary-icon,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .mobile-opportunities-page .mobile-opportunity-summary .green .mobile-opportunity-summary-icon,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .mobile-opportunities-page .tone-2 .mobile-opportunity-status-icon,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .mobile-opportunities-page .tone-3 .mobile-opportunity-status-icon,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .mobile-opportunities-page .tone-4 .mobile-opportunity-status-icon {
+  background: rgba(168, 85, 247, 0.10) !important;
+  color: #a855f7 !important;
+  box-shadow: none !important;
+}
+
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .mobile-opportunities-page .mobile-opportunity-summary-icon .nav-icon,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .mobile-opportunities-page .mobile-opportunity-summary-icon .metric-icon-svg,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .mobile-opportunities-page .mobile-opportunity-status-icon .nav-icon,
+html[data-theme="light"] body.desktop-app-shell:not(.login-view) .mobile-opportunities-page .mobile-opportunity-status-icon .metric-icon-svg {
+  filter: drop-shadow(0 0 5px rgba(168, 85, 247, 0.22)) !important;
+}
