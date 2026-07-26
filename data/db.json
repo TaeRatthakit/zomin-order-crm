@@ -71,7 +71,8 @@
       "name": "แอดมินโซมิน",
       "role": "Admin",
       "phone": "0810000000",
-      "active": true
+      "active": true,
+      "themePreference": "dark"
     },
     {
       "id": "u_staff_1",
@@ -458,7 +459,17 @@
       "amount": 4500,
       "source": "Seed",
       "rawText": "",
-      "phone": ""
+      "phone": "",
+      "revenueSnapshot": 4500,
+      "productCostSnapshot": 0,
+      "packageExpenseSnapshot": 0,
+      "globalExpenseSnapshot": 0,
+      "profitBeforeAdsSnapshot": 4500,
+      "profitAfterAdsSnapshot": 4500,
+      "profitSnapshotVersion": 1,
+      "profitSnapshotCreatedAt": "2026-07-15T17:25:24.942Z",
+      "profitSnapshotUpdatedAt": "2026-07-15T17:25:24.942Z",
+      "profitSnapshotSource": "backfilled"
     },
     {
       "time": "09:00",
@@ -470,7 +481,17 @@
       "amount": 9750,
       "source": "Seed",
       "rawText": "",
-      "phone": ""
+      "phone": "",
+      "revenueSnapshot": 9750,
+      "productCostSnapshot": 0,
+      "packageExpenseSnapshot": 0,
+      "globalExpenseSnapshot": 0,
+      "profitBeforeAdsSnapshot": 9750,
+      "profitAfterAdsSnapshot": 9750,
+      "profitSnapshotVersion": 1,
+      "profitSnapshotCreatedAt": "2026-07-15T17:25:24.943Z",
+      "profitSnapshotUpdatedAt": "2026-07-15T17:25:24.943Z",
+      "profitSnapshotSource": "backfilled"
     },
     {
       "time": "09:00",
@@ -482,7 +503,17 @@
       "amount": 22500,
       "source": "Seed",
       "rawText": "",
-      "phone": ""
+      "phone": "",
+      "revenueSnapshot": 22500,
+      "productCostSnapshot": 0,
+      "packageExpenseSnapshot": 0,
+      "globalExpenseSnapshot": 0,
+      "profitBeforeAdsSnapshot": 22500,
+      "profitAfterAdsSnapshot": 22500,
+      "profitSnapshotVersion": 1,
+      "profitSnapshotCreatedAt": "2026-07-15T17:25:24.943Z",
+      "profitSnapshotUpdatedAt": "2026-07-15T17:25:24.943Z",
+      "profitSnapshotSource": "backfilled"
     },
     {
       "time": "09:00",
@@ -494,7 +525,17 @@
       "amount": 1500,
       "source": "Seed",
       "rawText": "",
-      "phone": ""
+      "phone": "",
+      "revenueSnapshot": 1500,
+      "productCostSnapshot": 0,
+      "packageExpenseSnapshot": 0,
+      "globalExpenseSnapshot": 0,
+      "profitBeforeAdsSnapshot": 1500,
+      "profitAfterAdsSnapshot": 1500,
+      "profitSnapshotVersion": 1,
+      "profitSnapshotCreatedAt": "2026-07-15T17:25:24.943Z",
+      "profitSnapshotUpdatedAt": "2026-07-15T17:25:24.943Z",
+      "profitSnapshotSource": "backfilled"
     },
     {
       "time": "09:00",
@@ -506,7 +547,17 @@
       "amount": 750,
       "source": "Seed",
       "rawText": "",
-      "phone": ""
+      "phone": "",
+      "revenueSnapshot": 750,
+      "productCostSnapshot": 0,
+      "packageExpenseSnapshot": 0,
+      "globalExpenseSnapshot": 0,
+      "profitBeforeAdsSnapshot": 750,
+      "profitAfterAdsSnapshot": 750,
+      "profitSnapshotVersion": 1,
+      "profitSnapshotCreatedAt": "2026-07-15T17:25:24.943Z",
+      "profitSnapshotUpdatedAt": "2026-07-15T17:25:24.943Z",
+      "profitSnapshotSource": "backfilled"
     },
     {
       "time": "09:00",
@@ -518,7 +569,17 @@
       "amount": 2250,
       "source": "Seed",
       "rawText": "",
-      "phone": ""
+      "phone": "",
+      "revenueSnapshot": 2250,
+      "productCostSnapshot": 0,
+      "packageExpenseSnapshot": 0,
+      "globalExpenseSnapshot": 0,
+      "profitBeforeAdsSnapshot": 2250,
+      "profitAfterAdsSnapshot": 2250,
+      "profitSnapshotVersion": 1,
+      "profitSnapshotCreatedAt": "2026-07-15T17:25:24.943Z",
+      "profitSnapshotUpdatedAt": "2026-07-15T17:25:24.943Z",
+      "profitSnapshotSource": "backfilled"
     },
     {
       "time": "09:00",
@@ -530,7 +591,17 @@
       "amount": 22500,
       "source": "Seed",
       "rawText": "",
-      "phone": ""
+      "phone": "",
+      "revenueSnapshot": 22500,
+      "productCostSnapshot": 0,
+      "packageExpenseSnapshot": 0,
+      "globalExpenseSnapshot": 0,
+      "profitBeforeAdsSnapshot": 22500,
+      "profitAfterAdsSnapshot": 22500,
+      "profitSnapshotVersion": 1,
+      "profitSnapshotCreatedAt": "2026-07-15T17:25:24.943Z",
+      "profitSnapshotUpdatedAt": "2026-07-15T17:25:24.943Z",
+      "profitSnapshotSource": "backfilled"
     },
     {
       "time": "09:00",
@@ -542,7 +613,17 @@
       "amount": 22500,
       "source": "Seed",
       "rawText": "",
-      "phone": ""
+      "phone": "",
+      "revenueSnapshot": 22500,
+      "productCostSnapshot": 0,
+      "packageExpenseSnapshot": 0,
+      "globalExpenseSnapshot": 0,
+      "profitBeforeAdsSnapshot": 22500,
+      "profitAfterAdsSnapshot": 22500,
+      "profitSnapshotVersion": 1,
+      "profitSnapshotCreatedAt": "2026-07-15T17:25:24.943Z",
+      "profitSnapshotUpdatedAt": "2026-07-15T17:25:24.943Z",
+      "profitSnapshotSource": "backfilled"
     },
     {
       "time": "09:00",
@@ -554,7 +635,17 @@
       "amount": 750,
       "source": "Seed",
       "rawText": "",
-      "phone": ""
+      "phone": "",
+      "revenueSnapshot": 750,
+      "productCostSnapshot": 0,
+      "packageExpenseSnapshot": 0,
+      "globalExpenseSnapshot": 0,
+      "profitBeforeAdsSnapshot": 750,
+      "profitAfterAdsSnapshot": 750,
+      "profitSnapshotVersion": 1,
+      "profitSnapshotCreatedAt": "2026-07-15T17:25:24.943Z",
+      "profitSnapshotUpdatedAt": "2026-07-15T17:25:24.943Z",
+      "profitSnapshotSource": "backfilled"
     },
     {
       "time": "09:00",
@@ -566,7 +657,17 @@
       "amount": 750,
       "source": "Seed",
       "rawText": "",
-      "phone": ""
+      "phone": "",
+      "revenueSnapshot": 750,
+      "productCostSnapshot": 0,
+      "packageExpenseSnapshot": 0,
+      "globalExpenseSnapshot": 0,
+      "profitBeforeAdsSnapshot": 750,
+      "profitAfterAdsSnapshot": 750,
+      "profitSnapshotVersion": 1,
+      "profitSnapshotCreatedAt": "2026-07-15T17:25:24.943Z",
+      "profitSnapshotUpdatedAt": "2026-07-15T17:25:24.943Z",
+      "profitSnapshotSource": "backfilled"
     },
     {
       "time": "10:20",
@@ -578,7 +679,17 @@
       "amount": 4500,
       "source": "LINE",
       "rawText": "คุณวิภา โทร 0891234567 4 กระปุก แถม 2 กระปุก รวม 4500 บาท #ปวดข้อ",
-      "phone": ""
+      "phone": "",
+      "revenueSnapshot": 4500,
+      "productCostSnapshot": 0,
+      "packageExpenseSnapshot": 0,
+      "globalExpenseSnapshot": 0,
+      "profitBeforeAdsSnapshot": 4500,
+      "profitAfterAdsSnapshot": 4500,
+      "profitSnapshotVersion": 1,
+      "profitSnapshotCreatedAt": "2026-07-15T17:25:24.943Z",
+      "profitSnapshotUpdatedAt": "2026-07-15T17:25:24.943Z",
+      "profitSnapshotSource": "backfilled"
     },
     {
       "time": "14:10",
@@ -590,7 +701,17 @@
       "amount": 1500,
       "source": "LINE",
       "rawText": "โทร.083-229-5956 2 กระปุก 1,500 บาท",
-      "phone": ""
+      "phone": "",
+      "revenueSnapshot": 1500,
+      "productCostSnapshot": 0,
+      "packageExpenseSnapshot": 0,
+      "globalExpenseSnapshot": 0,
+      "profitBeforeAdsSnapshot": 1500,
+      "profitAfterAdsSnapshot": 1500,
+      "profitSnapshotVersion": 1,
+      "profitSnapshotCreatedAt": "2026-07-15T17:25:24.943Z",
+      "profitSnapshotUpdatedAt": "2026-07-15T17:25:24.943Z",
+      "profitSnapshotSource": "backfilled"
     },
     {
       "time": "09:30",
@@ -602,7 +723,17 @@
       "amount": 2250,
       "source": "Import",
       "rawText": "",
-      "phone": ""
+      "phone": "",
+      "revenueSnapshot": 2250,
+      "productCostSnapshot": 0,
+      "packageExpenseSnapshot": 0,
+      "globalExpenseSnapshot": 0,
+      "profitBeforeAdsSnapshot": 2250,
+      "profitAfterAdsSnapshot": 2250,
+      "profitSnapshotVersion": 1,
+      "profitSnapshotCreatedAt": "2026-07-15T17:25:24.943Z",
+      "profitSnapshotUpdatedAt": "2026-07-15T17:25:24.943Z",
+      "profitSnapshotSource": "backfilled"
     },
     {
       "time": "11:45",
@@ -614,7 +745,17 @@
       "amount": 9750,
       "source": "LINE",
       "rawText": "7 แถม 6 = 13 กระปุก รวม 9750 บาท",
-      "phone": ""
+      "phone": "",
+      "revenueSnapshot": 9750,
+      "productCostSnapshot": 0,
+      "packageExpenseSnapshot": 0,
+      "globalExpenseSnapshot": 0,
+      "profitBeforeAdsSnapshot": 9750,
+      "profitAfterAdsSnapshot": 9750,
+      "profitSnapshotVersion": 1,
+      "profitSnapshotCreatedAt": "2026-07-15T17:25:24.943Z",
+      "profitSnapshotUpdatedAt": "2026-07-15T17:25:24.943Z",
+      "profitSnapshotSource": "backfilled"
     },
     {
       "time": "13:00",
@@ -626,7 +767,17 @@
       "amount": 4500,
       "source": "Manual",
       "rawText": "",
-      "phone": ""
+      "phone": "",
+      "revenueSnapshot": 4500,
+      "productCostSnapshot": 0,
+      "packageExpenseSnapshot": 0,
+      "globalExpenseSnapshot": 0,
+      "profitBeforeAdsSnapshot": 4500,
+      "profitAfterAdsSnapshot": 4500,
+      "profitSnapshotVersion": 1,
+      "profitSnapshotCreatedAt": "2026-07-15T17:25:24.943Z",
+      "profitSnapshotUpdatedAt": "2026-07-15T17:25:24.943Z",
+      "profitSnapshotSource": "backfilled"
     },
     {
       "time": "16:30",
@@ -638,7 +789,17 @@
       "amount": 750,
       "source": "LINE",
       "rawText": "06-4959-5657 1 กระปุก เก็บเงินปลายทาง 750 บาท",
-      "phone": ""
+      "phone": "",
+      "revenueSnapshot": 750,
+      "productCostSnapshot": 0,
+      "packageExpenseSnapshot": 0,
+      "globalExpenseSnapshot": 0,
+      "profitBeforeAdsSnapshot": 750,
+      "profitAfterAdsSnapshot": 750,
+      "profitSnapshotVersion": 1,
+      "profitSnapshotCreatedAt": "2026-07-15T17:25:24.943Z",
+      "profitSnapshotUpdatedAt": "2026-07-15T17:25:24.943Z",
+      "profitSnapshotSource": "backfilled"
     },
     {
       "time": "10:00",
@@ -650,7 +811,17 @@
       "amount": 22500,
       "source": "ตัวแทน",
       "rawText": "",
-      "phone": ""
+      "phone": "",
+      "revenueSnapshot": 22500,
+      "productCostSnapshot": 0,
+      "packageExpenseSnapshot": 0,
+      "globalExpenseSnapshot": 0,
+      "profitBeforeAdsSnapshot": 22500,
+      "profitAfterAdsSnapshot": 22500,
+      "profitSnapshotVersion": 1,
+      "profitSnapshotCreatedAt": "2026-07-15T17:25:24.943Z",
+      "profitSnapshotUpdatedAt": "2026-07-15T17:25:24.943Z",
+      "profitSnapshotSource": "backfilled"
     },
     {
       "time": "10:00",
@@ -662,7 +833,17 @@
       "amount": 22500,
       "source": "ตัวแทน",
       "rawText": "",
-      "phone": ""
+      "phone": "",
+      "revenueSnapshot": 22500,
+      "productCostSnapshot": 0,
+      "packageExpenseSnapshot": 0,
+      "globalExpenseSnapshot": 0,
+      "profitBeforeAdsSnapshot": 22500,
+      "profitAfterAdsSnapshot": 22500,
+      "profitSnapshotVersion": 1,
+      "profitSnapshotCreatedAt": "2026-07-15T17:25:24.943Z",
+      "profitSnapshotUpdatedAt": "2026-07-15T17:25:24.943Z",
+      "profitSnapshotSource": "backfilled"
     },
     {
       "time": "18:20",
@@ -674,7 +855,17 @@
       "amount": 750,
       "source": "LINE",
       "rawText": "รับโซมินฟรี 1 กระปุก ของฟรี",
-      "phone": ""
+      "phone": "",
+      "revenueSnapshot": 750,
+      "productCostSnapshot": 0,
+      "packageExpenseSnapshot": 0,
+      "globalExpenseSnapshot": 0,
+      "profitBeforeAdsSnapshot": 750,
+      "profitAfterAdsSnapshot": 750,
+      "profitSnapshotVersion": 1,
+      "profitSnapshotCreatedAt": "2026-07-15T17:25:24.943Z",
+      "profitSnapshotUpdatedAt": "2026-07-15T17:25:24.943Z",
+      "profitSnapshotSource": "backfilled"
     },
     {
       "time": "08:40",
@@ -686,7 +877,17 @@
       "amount": 1500,
       "source": "LINE",
       "rawText": "",
-      "phone": ""
+      "phone": "",
+      "revenueSnapshot": 1500,
+      "productCostSnapshot": 0,
+      "packageExpenseSnapshot": 0,
+      "globalExpenseSnapshot": 0,
+      "profitBeforeAdsSnapshot": 1500,
+      "profitAfterAdsSnapshot": 1500,
+      "profitSnapshotVersion": 1,
+      "profitSnapshotCreatedAt": "2026-07-15T17:25:24.943Z",
+      "profitSnapshotUpdatedAt": "2026-07-15T17:25:24.943Z",
+      "profitSnapshotSource": "backfilled"
     }
   ],
   "lineMessages": [],

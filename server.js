@@ -28,7 +28,6 @@ const {
   readSettingsPatch,
   readNotificationReadIds,
   persistNotificationReadIds,
-  readOrderSaveContext,
   uploadProductImageObject,
   productImagePublicBaseUrl,
   verifyPublicProductImageUrl
@@ -1529,6 +1528,32 @@ function findExactDuplicateOrderWithin24Hours(db, payload = {}) {
   }) || null;
 }
 
+function sameBangkokCalendarDay(firstValue, secondValue) {
+  const firstDate = toDateOnly(firstValue || "");
+  const secondDate = toDateOnly(secondValue || "");
+  return Boolean(firstDate && secondDate && firstDate === secondDate);
+}
+
+function findSimilarOrderCreatedToday(db, payload = {}, savedOrder = {}) {
+  const payloadFields = normalizeDuplicateComparisonFields(payload);
+  const savedCreatedAt = savedOrder.createdAt || savedOrder.created_at || new Date();
+  return (db.orders || []).find(order => {
+    if (order.id && savedOrder.id && order.id === savedOrder.id) return false;
+    if (!sameBangkokCalendarDay(order.createdAt || order.created_at || "", savedCreatedAt)) return false;
+    const existingFields = normalizeDuplicateComparisonFields(order);
+    const matchedFields = Object.keys(payloadFields).filter(key => existingFields[key] === payloadFields[key]);
+    if (matchedFields.length !== 5) return false;
+    order.__duplicateMatch = {
+      matchedFields,
+      payload: payloadFields,
+      existing: existingFields,
+      payloadCreatedAt: toDateOnly(savedCreatedAt),
+      existingCreatedAt: toDateOnly(order.createdAt || order.created_at || "")
+    };
+    return true;
+  }) || null;
+}
+
 function secretInputValue(input, currentValue) {
   const value = String(input || "").trim();
   if (value === "__clear__") return "";
@@ -1652,115 +1677,6 @@ async function requirePermissionFast(req, res, permission, error = "ไม่ม
     return null;
   }
   return publicUser(user);
-}
-
-async function handleOrderCreateFast(req, res) {
-  if (typeof readOrderSaveContext !== "function" || typeof persistOrderMutation !== "function") return false;
-  const routeStartedAt = Date.now();
-  const timings = {};
-  const sessionUser = requireUser(req, res);
-  if (!sessionUser) return true;
-  const authStartedAt = Date.now();
-  const bodyStartedAt = Date.now();
-  const bodyPromise = readBody(req);
-  const userPromise = typeof readUserById === "function" ? readUserById(sessionUser.id) : Promise.resolve(null);
-  const permissionSettingsPromise = typeof readSettingsPatch === "function"
-    ? readSettingsPatch(["rolePermissions"])
-    : Promise.resolve({});
-  const dbPromise = readOrderSaveContext();
-  const [body, user, permissionSettings, db] = await Promise.all([
-    bodyPromise,
-    userPromise,
-    permissionSettingsPromise,
-    dbPromise
-  ]);
-  timings.bodyMs = Date.now() - bodyStartedAt;
-  timings.authMs = Date.now() - authStartedAt;
-  timings.dbReadMs = readOrderSaveContext.lastTimings?.totalMs || 0;
-  if (!user || user.active === false) {
-    sessionExpiredResponse(req, res);
-    return true;
-  }
-  const currentUser = publicUser(user);
-  if (!hasPermission(currentUser, permissionSettings, "orders.create")) {
-    json(res, 403, { ok: false, error: "ไม่มีสิทธิ์เพิ่มออเดอร์" });
-    return true;
-  }
-  const clientMutationId = String(body.clientMutationId || body.client_mutation_id || "").trim();
-  if (clientMutationId) {
-    const existingOrder = (db.orders || []).find(order => String(order.clientMutationId || order.client_mutation_id || "").trim() === clientMutationId);
-    if (existingOrder) {
-      const existingMutation = orderMutationPayload(db, {
-        orderId: existingOrder.id,
-        selectedDate: body.selectedDate || toDateOnly()
-      });
-      existingMutation.clientMutationId = clientMutationId;
-      if (existingMutation.order?.id) {
-        json(res, 200, { ok: true, mutation: existingMutation, idempotent: true }, orderSaveHeaders({
-          ...timings,
-          totalMs: Date.now() - routeStartedAt
-        }, { dbRead: readOrderSaveContext.lastTimings || null }));
-        return true;
-      }
-    }
-  }
-  let order;
-  try {
-    const addStartedAt = Date.now();
-    order = addOrder(db, { ...body, createdBy: currentUser.id });
-    timings.addOrderMs = Date.now() - addStartedAt;
-    const inventoryStartedAt = Date.now();
-    adjustInventoryForOrderChange(db, null, order);
-    timings.inventoryMs = Date.now() - inventoryStartedAt;
-  } catch (error) {
-    if (error.code === "ORDER_DUPLICATE") {
-      json(res, 409, { ok: false, error: "ออเดอร์นี้มีอยู่แล้ว" });
-      return true;
-    }
-    if (error.code === "INSUFFICIENT_STOCK") {
-      json(res, 409, {
-        ok: false,
-        error: error.message,
-        product: error.product,
-        availableStock: error.availableStock,
-        requestedQuantity: error.requestedQuantity
-      });
-      return true;
-    }
-    if (error.code === "PRODUCT_NOT_FOUND") {
-      json(res, 409, { ok: false, error: PRODUCT_RESOLUTION_ERROR });
-      return true;
-    }
-    throw error;
-  }
-  const mutationStartedAt = Date.now();
-  const mutation = orderMutationPayload(db, {
-    orderId: order.id,
-    selectedDate: body.selectedDate || toDateOnly()
-  });
-  timings.mutationMs = Date.now() - mutationStartedAt;
-  mutation.clientMutationId = String(body.clientMutationId || "");
-  if (!mutation.order?.id) {
-    json(res, 500, { ok: false, error: "บันทึกออเดอร์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" });
-    return true;
-  }
-  const persistStartedAt = Date.now();
-  const persistTimings = await persistOrderMutation(mutation, db.settings);
-  timings.persistMs = Date.now() - persistStartedAt;
-  timings.totalMs = Date.now() - routeStartedAt;
-  const dbReadTimings = readOrderSaveContext.lastTimings || null;
-  console.info("[order-save:server]", JSON.stringify({
-    method: "POST_FAST",
-    orderId: order.id,
-    timings,
-    persist: persistTimings,
-    dbRead: dbReadTimings
-  }));
-  json(res, 200, { ok: true, mutation, timings: { ...timings, persist: persistTimings, dbRead: dbReadTimings } }, orderSaveHeaders(timings, {
-    persist: persistTimings,
-    dbRead: dbReadTimings
-  }));
-  return true;
 }
 
 function normalizeUserRole(role) {
@@ -2342,22 +2258,6 @@ function findOrCreateCustomer(db, payload) {
 }
 
 function addOrder(db, payload) {
-  const duplicate = findDuplicateOrder(db, payload);
-  if (duplicate) {
-    console.log("Duplicate order detected", JSON.stringify({
-      matchedFields: duplicate.__duplicateMatch?.matchedFields || [],
-      payload: duplicate.__duplicateMatch?.payload || normalizeDuplicateComparisonFields(payload),
-      existing: duplicate.__duplicateMatch?.existing || normalizeDuplicateComparisonFields(duplicate),
-      existingOrderId: duplicate.id || "",
-      existingOrderNumber: duplicate.orderNumber || duplicate.order_number || "",
-      existingDate: duplicate.date || duplicate.order_date || "",
-      existingTime: duplicate.time || duplicate.order_time || ""
-    }));
-    const error = new Error("duplicate");
-    error.code = "ORDER_DUPLICATE";
-    error.order = duplicate;
-    throw error;
-  }
   const resolvedPayload = applyResolvedProductToPayload(db.settings || {}, payload, {
     allowContainsMatch: Boolean(payload.allowProductContainsMatch)
   });
@@ -2411,7 +2311,6 @@ function addOrder(db, payload) {
     socialName: String(payload.socialName || payload.social_name || "").trim(),
     freeGift: String(payload.freeGift || payload.free_gift || "").trim(),
     productId: String(resolvedPayload.productId || "").trim(),
-    clientMutationId: String(payload.clientMutationId || payload.client_mutation_id || "").trim(),
     packageId: String(resolvedPayload.packageId || "").trim(),
     packageName: String(resolvedPayload.packageName || "").trim(),
     paidQuantity: Math.max(0, Number(resolvedPayload.paidQuantity || 0)),
@@ -2421,7 +2320,6 @@ function addOrder(db, payload) {
     vipCardStatus,
     note,
     rawText: String(payload.rawText || "").trim(),
-    createdBy: String(payload.createdBy || payload.created_by || "").trim(),
     createdAt: nowIso,
     updatedAt: nowIso
   };
@@ -2433,10 +2331,7 @@ function addOrder(db, payload) {
 
 function updateLineUpsaleOrder(db, order, payload = {}) {
   const previousOrder = { ...order };
-  const resolvedPayload = applyResolvedProductToPayload(db.settings || {}, { ...order, ...payload }, {
-    allowContainsMatch: true,
-    preservePackageSnapshot: true
-  });
+  const existingProduct = resolveStoredProductForOrder(db.settings || {}, order);
   const customer = db.customers.find(item => item.id === order.customerId);
   const previousCustomer = customer ? { ...customer, tags: [...(customer.tags || [])] } : null;
   previousOrder.tags = previousCustomer?.tags || [];
@@ -2458,7 +2353,7 @@ function updateLineUpsaleOrder(db, order, payload = {}) {
     const nextSourceChannel = orderChannel(payload) || order.sourceChannel || "LINE";
     Object.assign(order, {
       orderNumber: normalizeImportText(payload.orderNumber || order.orderNumber),
-      items: resolvedPayload.items,
+      items: existingProduct.product.name,
       customerName: normalizeImportText(payload.name || order.customerName || customer?.name || ""),
       phone: normalizePhone(payload.phone || order.phone || customer?.phone || ""),
       address: normalizeImportText(payload.address || order.address || customer?.address || ""),
@@ -2474,13 +2369,15 @@ function updateLineUpsaleOrder(db, order, payload = {}) {
       duplicateFingerprint: duplicateFingerprint(payload),
       socialName: String(payload.socialName || payload.social_name || order.socialName || "").trim(),
       freeGift: String(payload.freeGift ?? payload.free_gift ?? order.freeGift ?? "").trim(),
-      productId: String(resolvedPayload.productId || order.productId || "").trim(),
-      packageId: String(resolvedPayload.packageId || order.packageId || "").trim(),
-      packageName: String(resolvedPayload.packageName || order.packageName || "").trim(),
-      paidQuantity: Math.max(0, Number(resolvedPayload.paidQuantity || 0)),
-      freeQuantity: Math.max(0, Number(resolvedPayload.freeQuantity || 0)),
-      totalQuantityShipped: Math.max(0, Number(resolvedPayload.totalQuantityShipped || 0)),
-      packageExpenses: normalizePackageExpenses(resolvedPayload.packageExpenses),
+      productId: String(existingProduct.product.id || order.productId || "").trim(),
+      packageId: String(existingProduct.package?.id || order.packageId || "").trim(),
+      packageName: String(existingProduct.package?.name || order.packageName || "").trim(),
+      paidQuantity: payload.paidQuantity !== undefined ? Math.max(0, Number(payload.paidQuantity || 0)) : Number(order.paidQuantity || 0),
+      freeQuantity: payload.freeQuantity !== undefined ? Math.max(0, Number(payload.freeQuantity || 0)) : Number(order.freeQuantity || 0),
+      totalQuantityShipped: payload.totalQuantityShipped !== undefined
+        ? Math.max(0, Number(payload.totalQuantityShipped || 0))
+        : Number(order.totalQuantityShipped || 0),
+      packageExpenses: payload.packageExpenses !== undefined ? normalizePackageExpenses(payload.packageExpenses) : normalizePackageExpenses(order.packageExpenses),
       vipCardStatus: String(payload.vipCardStatus || payload.vip_card_status || order.vipCardStatus || "ยังไม่ได้ส่งบัตร").trim(),
       note: String(payload.note ?? order.note ?? "").trim(),
       rawText: String(payload.rawText || order.rawText || "").trim(),
@@ -3267,7 +3164,25 @@ async function handleLineWebhookEvents(db, settings, events) {
           amount: normalized.amount,
           date: normalized.date
         }));
-        replies.push({ replyToken, messages: [{ type: "text", text: "✅ นำเข้าออเดอร์เรียบร้อยแล้ว\nGrowup Pilot บันทึกข้อมูลเรียบร้อย" }] });
+        const similarOrderToday = findSimilarOrderCreatedToday(db, normalized, order);
+        if (similarOrderToday) {
+          console.log("LINE webhook similar order warning appended", JSON.stringify({
+            groupId: source.groupId || "",
+            lineMessageId: messageId || "",
+            orderNumber: normalized.orderNumber || "",
+            phone: normalized.phone || "",
+            amount: normalized.amount,
+            date: normalized.date,
+            matchedOrderId: similarOrderToday.id || "",
+            matchedOrderNumber: similarOrderToday.orderNumber || similarOrderToday.order_number || ""
+          }));
+        }
+        const successReplyText = "✅ นำเข้าออเดอร์เรียบร้อยแล้ว\nGrowup Pilot บันทึกข้อมูลเรียบร้อย";
+        const replyText = similarOrderToday
+          ? `${successReplyText}\n\n⚠️ พบออเดอร์ที่คล้ายกันภายในวันนี้\nกรุณาตรวจสอบว่าเป็นออเดอร์ใหม่ของลูกค้า หรือเป็นข้อความที่ส่งซ้ำ`
+          : successReplyText;
+        debug.reply_text = replyText;
+        replies.push({ replyToken, messages: [{ type: "text", text: replyText }] });
       }
     } catch (error) {
       if (error.code === "ORDER_DUPLICATE") {
@@ -4003,10 +3918,6 @@ async function handleApi(req, res) {
     });
   }
 
-  if (req.method === "POST" && url.pathname === "/api/orders") {
-    if (await handleOrderCreateFast(req, res)) return;
-  }
-
   const dbReadStartedAt = Date.now();
   const db = await readDb();
   const dbReadMs = Date.now() - dbReadStartedAt;
@@ -4116,7 +4027,7 @@ async function handleApi(req, res) {
     if (!source) return json(res, 400, { ok: false, error: "ช่องทางการขายไม่ถูกต้อง" });
     const defaultSource = DEFAULT_CUSTOMER_SOURCE_CHANNELS.find(item => item.key === source.key);
     if (defaultSource) {
-      return json(res, 200, { ok: true, source: defaultSource, settings: { customerSources: normalizeCustomerSources(db.settings?.customerSources) } });
+      return json(res, 200, { ok: true, source: defaultSource, settings: publicSettings(db.settings || {}) });
     }
     db.settings = db.settings || {};
     const sources = normalizeCustomerSources(db.settings.customerSources);
@@ -4127,7 +4038,7 @@ async function handleApi(req, res) {
       await writeDb(db);
     }
     const saved = existing || db.settings.customerSources.find(item => item.key === source.key) || source;
-    return json(res, 200, { ok: true, source: saved, settings: { customerSources: normalizeCustomerSources(db.settings.customerSources) } });
+    return json(res, 200, { ok: true, source: saved, settings: publicSettings(db.settings || {}) });
   }
 
   if (req.method === "POST" && url.pathname === "/api/ad-costs") {
@@ -4303,30 +4214,15 @@ async function handleApi(req, res) {
     const routeStartedAt = requestStartedAt;
     const timings = { dbReadMs };
     const authStartedAt = Date.now();
-    const currentUser = await requirePermission(req, res, db, "orders.create", "ไม่มีสิทธิ์เพิ่มออเดอร์");
-    if (!currentUser) return;
+    if (!await requirePermission(req, res, db, "orders.create", "ไม่มีสิทธิ์เพิ่มออเดอร์")) return;
     timings.authMs = Date.now() - authStartedAt;
     const bodyStartedAt = Date.now();
     const body = await readBody(req);
     timings.bodyMs = Date.now() - bodyStartedAt;
-    const clientMutationId = String(body.clientMutationId || body.client_mutation_id || "").trim();
-    if (clientMutationId) {
-      const existingOrder = (db.orders || []).find(order => String(order.clientMutationId || order.client_mutation_id || "").trim() === clientMutationId);
-      if (existingOrder) {
-        const existingMutation = orderMutationPayload(db, {
-          orderId: existingOrder.id,
-          selectedDate: body.selectedDate || toDateOnly()
-        });
-        existingMutation.clientMutationId = clientMutationId;
-        if (existingMutation.order?.id) {
-          return json(res, 200, { ok: true, mutation: existingMutation, idempotent: true });
-        }
-      }
-    }
     let order;
     try {
       const addStartedAt = Date.now();
-      order = addOrder(db, { ...body, createdBy: currentUser.id });
+      order = addOrder(db, body);
       timings.addOrderMs = Date.now() - addStartedAt;
       const inventoryStartedAt = Date.now();
       adjustInventoryForOrderChange(db, null, order);
@@ -4356,9 +4252,6 @@ async function handleApi(req, res) {
     });
     timings.mutationMs = Date.now() - mutationStartedAt;
     mutation.clientMutationId = String(body.clientMutationId || "");
-    if (!mutation.order?.id) {
-      return json(res, 500, { ok: false, error: "บันทึกออเดอร์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" });
-    }
     const persistStartedAt = Date.now();
     const persistTimings = typeof persistOrderMutation === "function"
       ? await persistOrderMutation(mutation, db.settings)

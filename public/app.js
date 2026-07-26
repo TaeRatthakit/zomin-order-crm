@@ -3327,15 +3327,10 @@ function renderLogin() {
   els.content.innerHTML = `
     <section class="login-layout">
       <div class="login-desktop-card">
-        <header class="login-page-header" aria-label="Growup Pilot">
-          <img class="login-page-logo" src="/icons/login-logo-192.png?v=20260718-website-logo-transparent-v1" alt="" aria-hidden="true" width="84" height="84" fetchpriority="high" loading="eager" decoding="async">
-          <strong>Growup<span>Pilot</span></strong>
-          <p>ระบบจัดการธุรกิจของคุณ ให้เติบโตไปด้วยกัน</p>
-        </header>
         <form class="login-card" id="loginForm">
-          <div class="login-card-heading">
-            <h1>ยินดีต้อนรับ<span>กลับมา</span></h1>
-            <p>เข้าสู่ระบบเพื่อไปต่อกับ Growup Pilot</p>
+          <div class="login-card-brand" aria-label="Growup Pilot">
+            <img class="login-page-logo" src="/icons/login-logo-192.png?v=20260718-website-logo-transparent-v1" alt="" aria-hidden="true" width="96" height="96" fetchpriority="high" loading="eager" decoding="async">
+            <strong>Growup<span>Pilot</span></strong>
           </div>
           <label>ชื่อผู้ใช้งาน
             <input name="username" autocomplete="username" required placeholder="กรอกชื่อผู้ใช้งาน">
@@ -4225,12 +4220,15 @@ function renderDesktopDashboard(viewModel) {
           <article class="desktop-reference-growth-banner">
             <img
               class="desktop-reference-growth-image"
-              src="${dashboardThemeAssetSrc("/desktop-dashboard-hero.webp?v=20260706-webp-v1", "/desktop-dashboard-hero-light.jpg?v=20260719-home-light-clean-v2")}"
+              src="${dashboardThemeAssetSrc("/desktop-home-hero-dark.webp?v=20260724-desktop-home-hero-v4", "/desktop-home-hero-light.webp?v=20260724-desktop-home-hero-v4")}"
               data-dashboard-theme-image
-              data-dark-src="/desktop-dashboard-hero.webp?v=20260706-webp-v1"
-              data-light-src="/desktop-dashboard-hero-light.jpg?v=20260719-home-light-clean-v2"
+              data-dark-src="/desktop-home-hero-dark.webp?v=20260724-desktop-home-hero-v4"
+              data-light-src="/desktop-home-hero-light.webp?v=20260724-desktop-home-hero-v4"
               alt="จัดการธุรกิจให้เติบโต ไปกับ Growup Pilot"
+              width="2560"
+              height="480"
               loading="eager"
+              decoding="async"
               fetchpriority="high"
             >
           </article>
@@ -4617,28 +4615,13 @@ function onboardingProgressChangeClass(percent) {
 
 function onboardingRocketAsset(percent) {
   const normalized = [0, 33, 66, 100].includes(Number(percent)) ? Number(percent) : 0;
-  return `/onboarding-rocket-${normalized}.webp?v=20260724-webp-v1`;
+  return `/onboarding-rocket-${normalized}.png?v=20260723-final-spec-v1`;
 }
 
-function ensureOnboardingRocketPreload(src) {
-  if (typeof document === "undefined" || !src) return;
-  if (!document.head || typeof document.getElementById !== "function" || typeof document.createElement !== "function") return;
-  let link = document.getElementById("onboardingRocketPreload");
-  if (!link) {
-    link = document.createElement("link");
-    link.id = "onboardingRocketPreload";
-    link.rel = "preload";
-    link.as = "image";
-    link.type = "image/webp";
-    document.head.appendChild(link);
-  }
-  if (link.getAttribute("href") !== src) link.setAttribute("href", src);
-}
-
-function renderOnboardingRocketImage(src, progress, loading = "eager") {
+function renderOnboardingRocketImage(setup, progress) {
   return `
     <figure class="onboarding-rocket-art onboarding-rocket-art-${escapeHtml(progress.stage)}" aria-hidden="true">
-      <img src="${escapeHtml(src)}" alt="" loading="${escapeHtml(loading)}" decoding="async" width="999" height="666">
+      <img src="${escapeHtml(onboardingRocketAsset(setup.percent))}" alt="" loading="eager" decoding="async">
     </figure>
   `;
 }
@@ -4662,9 +4645,6 @@ function renderOnboardingWidget({ variant = "compact", actionAttr = 'data-busine
   const progress = onboardingProgressPresentation(setup);
   const percent = Number(setup.percent || 0);
   const changeClass = renderOnboardingWidget.hasRendered ? onboardingProgressChangeClass(percent) : (app.onboardingProgressPercent = percent, "");
-  const rocketSrc = onboardingRocketAsset(setup.percent);
-  ensureOnboardingRocketPreload(rocketSrc);
-  const rocketLoading = variant === "detailed" ? "eager" : "lazy";
   renderOnboardingWidget.hasRendered = true;
   return `
     <article class="setup-widget setup-widget-${escapeHtml(variant)} setup-stage-${escapeHtml(progress.stage)}${changeClass}" data-onboarding-progress="${percent}">
@@ -4677,7 +4657,7 @@ function renderOnboardingWidget({ variant = "compact", actionAttr = 'data-busine
           <strong>${setup.percent}%</strong>
           <small>${escapeHtml(setup.completeCount)} จาก ${escapeHtml(setup.steps.length)} ขั้นตอน</small>
         </div>
-        ${renderOnboardingRocketImage(rocketSrc, progress, rocketLoading)}
+        ${renderOnboardingRocketImage(setup, progress)}
         <div class="setup-widget-copy">
           <strong>${escapeHtml(progress.title)}</strong>
           <p>${escapeHtml(progress.body)}</p>

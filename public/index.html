@@ -35,8 +35,6 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=20260717-mobile-icon-v1">
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=20260717-mobile-icon-v1">
     <link rel="apple-touch-icon" sizes="180x180" href="/icons/growup-apple-touch-icon-180-20260718-installed-app-v2.png?v=20260718-installed-app-icon-v2">
-    <link rel="preload" as="image" href="/desktop-dashboard-hero-light.jpg?v=20260719-home-light-clean-v2" fetchpriority="high" media="(min-width: 769px) and (prefers-color-scheme: light)">
-    <link rel="preload" as="image" type="image/webp" href="/desktop-dashboard-hero.webp?v=20260706-webp-v1" fetchpriority="high" media="(min-width: 769px) and (prefers-color-scheme: dark)">
     <script>
       (() => {
         const preference = "system";
@@ -46,7 +44,7 @@
         document.documentElement.dataset.theme = resolved;
       })();
     </script>
-    <link rel="stylesheet" href="/styles.css?v=20260724-onboarding-webp-v1">
+    <link rel="stylesheet" href="/styles.css?v=20260724-desktop-home-hero-v4">
   </head>
   <body>
     <div id="appStartupLoader" class="app-startup-loader" aria-hidden="true">
@@ -69,7 +67,7 @@
       </aside>
 
       <main class="main-panel">
-        <header class="topbar">
+        <header class="topbar mobile-header">
           <div class="topbar-main">
             <div class="topbar-side topbar-side-left">
               <button id="mobileMenuToggle" class="icon-button mobile-menu-toggle" type="button" aria-label="เปิดเมนู">☰</button>
@@ -271,7 +269,6 @@
           </label>
           <label class="span-2">หมายเหตุ<textarea name="note" placeholder="หมายเหตุเกี่ยวกับออเดอร์"></textarea></label>
         </div>
-        <div class="order-save-error" id="orderSaveError" role="alert" hidden></div>
         <div class="dialog-actions grow-modal-footer">
           <button class="button ghost" value="cancel" type="button" data-close-order>ยกเลิก</button>
           <button class="button primary" id="orderSubmitButton" type="submit">บันทึกออเดอร์</button>
@@ -487,9 +484,9 @@
       </form>
     </dialog>
 
-    <script src="/app.js?v=20260724-onboarding-webp-v1"></script>
+    <script src="/app.js?v=20260724-desktop-home-hero-v4"></script>
     <script>
-      const swUrl = "/service-worker.js?v=20260724-onboarding-webp-v1";
+      const swUrl = "/service-worker.js?v=20260724-desktop-home-hero-v4";
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", () => {
           navigator.serviceWorker.register(swUrl).then(registration => registration.update()).catch(() => {});
