@@ -4,6 +4,7 @@ const path = require("path");
 const crypto = require("crypto");
 require("./lib/env").loadEnv();
 const {
+  provider: dbProvider,
   readDb,
   findUserForLogin,
   readUserById,
@@ -28,6 +29,9 @@ const {
   readSettingsPatch,
   readNotificationReadIds,
   persistNotificationReadIds,
+  withTenantContext,
+  resolveTenantForUser,
+  resolveTenantForLineWebhook,
   uploadProductImageObject,
   productImagePublicBaseUrl,
   verifyPublicProductImageUrl
@@ -1695,7 +1699,12 @@ function currentUserFromDb(sessionUser, db) {
   if (!sessionUser) return null;
   const storedUser = (db.users || []).find(user => user.id === sessionUser.id);
   if (!storedUser || storedUser.active === false) return null;
-  return publicUser(storedUser);
+  return publicUser({
+    ...storedUser,
+    tenantId: sessionUser.tenantId || storedUser.tenantId || "",
+    tenantName: sessionUser.tenantName || storedUser.tenantName || "",
+    tenantRole: sessionUser.tenantRole || storedUser.tenantRole || ""
+  });
 }
 
 function canManageUser(currentUser, targetUser = null, nextRole = "") {
@@ -3255,6 +3264,56 @@ function verifyLineSignature(rawBody, channelSecret, signature) {
   }
 }
 
+async function handleLineWebhookPost(req, res, db) {
+  const body = req._parsedBody || await readBody(req);
+  const signature = req.headers["x-line-signature"];
+  const settings = effectiveSettings(db.settings);
+  const httpDebug = addHttpWebhookDebug(db, req, body._rawBody || "", { signatureValidation: "pending" });
+  console.log("LINE webhook raw body", JSON.stringify({
+    receivedAt: httpDebug.received_at,
+    hasEvents: Array.isArray(body.events),
+    eventCount: Array.isArray(body.events) ? body.events.length : -1,
+    bodyLength: Buffer.byteLength(body._rawBody || "", "utf8"),
+    bodyPreview: String(body._rawBody || "").slice(0, 1200)
+  }));
+  if (!settings.lineWebhookEnabled) {
+    httpDebug.signature_validation = "not_checked";
+    httpDebug.error_message = "LINE webhook disabled.";
+    persistWebhookDebugAsync(db);
+    return json(res, 200, { ok: true, received: 0, verification: true });
+  }
+  if (!verifyLineSignature(body._rawBody, settings.lineChannelSecret, signature)) {
+    httpDebug.signature_validation = "fail";
+    httpDebug.error_message = "LINE signature validation failed.";
+    persistWebhookDebugAsync(db);
+    return json(res, 200, { ok: true, received: 0, verification: true });
+  }
+  httpDebug.signature_validation = "pass";
+  const events = Array.isArray(body.events) ? body.events : [{ message: { text: body.text || body.content || "" } }];
+  if (!Array.isArray(body.events)) {
+    console.log("LINE webhook no events array", JSON.stringify({
+      receivedAt: httpDebug.received_at,
+      eventType: body.type || "",
+      sourceType: body.source?.type || "",
+      hasBodyEvents: false
+    }));
+  } else if (!body.events.length) {
+    console.log("LINE webhook empty events array", JSON.stringify({
+      receivedAt: httpDebug.received_at,
+      eventType: body.type || "",
+      sourceType: body.source?.type || "",
+      hasBodyEvents: true,
+      eventCount: 0
+    }));
+  }
+  if (!events.length) {
+    persistWebhookDebugAsync(db);
+    return json(res, 200, { ok: true, received: 0, verification: true });
+  }
+  const parsedOrders = await handleLineWebhookEvents(db, settings, events);
+  return json(res, 200, { ok: true, received: events.length, parsedOrders: parsedOrders.length });
+}
+
 function parseDelimited(content) {
   const lines = String(content || "")
     .replace(/\r/g, "")
@@ -3503,13 +3562,20 @@ async function handleApi(req, res) {
       return json(res, 401, { ok: false, error: "Username หรือ Password ไม่ถูกต้อง" });
     }
     if (upgraded) {
-      const db = await readDb();
-      const storedUser = db.users.find(item => item.id === user.id);
-      if (storedUser) {
-        storedUser.passwordHash = user.passwordHash;
-        delete storedUser.password;
-        delete storedUser.pin;
-        await writeDb(db);
+      const persistPasswordUpgrade = async () => {
+        const db = await readDb();
+        const storedUser = db.users.find(item => item.id === user.id);
+        if (storedUser) {
+          storedUser.passwordHash = user.passwordHash;
+          delete storedUser.password;
+          delete storedUser.pin;
+          await writeDb(db);
+        }
+      };
+      if (typeof withTenantContext === "function" && user.tenantId) {
+        await withTenantContext(user, persistPasswordUpgrade);
+      } else {
+        await persistPasswordUpgrade();
       }
     }
     const session = createSession(user);
@@ -3915,6 +3981,30 @@ async function handleApi(req, res) {
       "X-Settings-Db-Read-Ms": String(readMs),
       "X-Product-Image-Upload-Ms": String(imageMs),
       "X-Settings-Db-Write-Ms": String(persistMs)
+    });
+  }
+
+  if (isLineWebhook && req.method === "POST") {
+    const body = req._parsedBody || await readBody(req);
+    req._parsedBody = body;
+    if (dbProvider !== "supabase") {
+      const db = await readDb();
+      return handleLineWebhookPost(req, res, db);
+    }
+    if (typeof withTenantContext !== "function" || typeof resolveTenantForLineWebhook !== "function") {
+      return json(res, 503, { ok: false, error: "LINE webhook tenant resolver is not configured." });
+    }
+    const tenant = await resolveTenantForLineWebhook(body);
+    if (!tenant) {
+      console.error("LINE webhook rejected without trusted tenant mapping", JSON.stringify({
+        eventCount: Array.isArray(body.events) ? body.events.length : 0,
+        sourceTypes: Array.isArray(body.events) ? [...new Set(body.events.map(event => event?.source?.type || "").filter(Boolean))] : []
+      }));
+      return json(res, 403, { ok: false, error: "LINE webhook tenant mapping is not configured." });
+    }
+    return withTenantContext(tenant, async () => {
+      const db = await readDb();
+      return handleLineWebhookPost(req, res, db);
     });
   }
 
@@ -5196,14 +5286,47 @@ async function handleApi(req, res) {
 
 async function appHandler(req, res) {
   try {
-    if (req.url.startsWith("/api/")) return await handleApi(req, res);
+    if (req.url.startsWith("/api/")) {
+      const pathname = new URL(req.url, `http://${req.headers.host || "localhost"}`).pathname;
+      const sessionUser = getCurrentUser(req);
+      if (
+        sessionUser?.id
+        && !["/api/login", "/api/logout"].includes(pathname)
+        && dbProvider === "supabase"
+        && typeof withTenantContext === "function"
+        && typeof resolveTenantForUser === "function"
+      ) {
+        const tenant = await resolveTenantForUser(sessionUser.id);
+        if (!tenant) return sessionExpiredResponse(req, res);
+        return await withTenantContext(tenant, () => handleApi(req, res));
+      }
+      return await handleApi(req, res);
+    }
     const pathname = new URL(req.url, `http://${req.headers.host || "localhost"}`).pathname;
     if (["/settings/users", "/team"].includes(pathname)) {
-      const db = await readDb();
       const sessionUser = getCurrentUser(req);
-      const currentUser = currentUserFromDb(sessionUser, db);
-      if (!currentUser) return text(res, 401, "Unauthorized");
-      if (currentUser.role !== "Owner") return text(res, 403, "Forbidden");
+      const task = async () => {
+        const db = await readDb();
+        const currentUser = currentUserFromDb(sessionUser, db);
+        if (!currentUser) {
+          text(res, 401, "Unauthorized");
+          return true;
+        }
+        if (currentUser.role !== "Owner") {
+          text(res, 403, "Forbidden");
+          return true;
+        }
+        return false;
+      };
+      if (sessionUser?.id && dbProvider === "supabase" && typeof withTenantContext === "function" && typeof resolveTenantForUser === "function") {
+        const tenant = await resolveTenantForUser(sessionUser.id);
+        if (!tenant) return text(res, 401, "Unauthorized");
+        const handled = await withTenantContext(tenant, task);
+        if (handled) return;
+      } else {
+        const handled = await task();
+        if (handled) return;
+      }
     }
     return serveStatic(req, res);
   } catch (error) {
