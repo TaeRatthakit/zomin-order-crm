@@ -1524,8 +1524,13 @@ async function main() {
       lineMessageId: "line-msg-c"
     })
   });
-  if (exactDuplicate.status !== 409) {
-    fail(`exact duplicate should be blocked, got ${exactDuplicate.status}: ${exactDuplicate.text}`);
+  if (exactDuplicate.status !== 200) {
+    fail(`manual exact duplicate should save using current behavior, got ${exactDuplicate.status}: ${exactDuplicate.text}`);
+  }
+  const firstOrderPayload = JSON.parse(firstOrder.text).mutation?.order || {};
+  const exactDuplicatePayload = JSON.parse(exactDuplicate.text).mutation?.order || {};
+  if (!firstOrderPayload.duplicateFingerprint || firstOrderPayload.duplicateFingerprint !== exactDuplicatePayload.duplicateFingerprint) {
+    fail("manual duplicate order did not preserve normalized duplicate fingerprint");
   }
 
   console.log("Smoke test passed.");

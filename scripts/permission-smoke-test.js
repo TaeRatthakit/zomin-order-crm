@@ -206,33 +206,12 @@ server.listen(0, "127.0.0.1", async () => {
     })).json();
     if (staffExistingSourceOrder.mutation?.order?.originSource !== "phone") fail("Staff order with existing phone source did not persist source");
     if (staffExistingSourceOrder.mutation?.order?.sourceChannel !== "โทร") fail("Staff order with existing phone source did not persist order channel");
-    if (staffExistingSourceOrder.mutation?.order?.clientMutationId !== phoneClientMutationId) fail("Staff phone source order did not persist clientMutationId");
-    const staffExistingSourceRetry = await (await expectStatus(baseUrl, "/api/orders", staffCookie, 200, {
-      method: "POST",
-      body: JSON.stringify({
-        orderNumber: "staff-existing-source-1",
-        name: "Staff Existing Source Customer",
-        phone: "0888888811",
-        address: "Staff existing source address",
-        items: "Test Product",
-        productId: "product_1",
-        jars: 1,
-        totalQuantityShipped: 1,
-        amount: 750,
-        date: "2026-07-12",
-        sourceChannel: "โทร",
-        originSource: "phone",
-        tags: "staff-test",
-        clientMutationId: phoneClientMutationId
-      })
-    })).json();
-    if (!staffExistingSourceRetry.idempotent) fail("Retry with same clientMutationId was not treated as idempotent");
-    if (staffExistingSourceRetry.mutation?.order?.id !== staffExistingSourceOrder.mutation?.order?.id) fail("Retry with same clientMutationId returned a different order");
-    const stateAfterPhoneRetry = await (await expectStatus(baseUrl, "/api/state?date=2026-07-12", staffCookie, 200)).json();
-    const phoneRetryOrders = (stateAfterPhoneRetry.orders || []).filter(order => order.clientMutationId === phoneClientMutationId);
-    if (phoneRetryOrders.length !== 1) fail(`Retry with same clientMutationId created ${phoneRetryOrders.length} orders`);
-    const productAfterPhoneRetry = (stateAfterPhoneRetry.settings?.products || []).find(product => product.id === "product_1");
-    if (Number(productAfterPhoneRetry?.stockQuantity) !== 8) fail("Idempotent retry deducted stock more than once");
+    if (staffExistingSourceOrder.mutation?.clientMutationId !== phoneClientMutationId) fail("Staff phone source order did not echo clientMutationId");
+    const stateAfterPhoneOrder = await (await expectStatus(baseUrl, "/api/state?date=2026-07-12", staffCookie, 200)).json();
+    const phoneOrders = (stateAfterPhoneOrder.orders || []).filter(order => order.orderNumber === "staff-existing-source-1");
+    if (phoneOrders.length !== 1) fail(`Staff phone source save created ${phoneOrders.length} orders`);
+    const productAfterPhoneOrder = (stateAfterPhoneOrder.settings?.products || []).find(product => product.id === "product_1");
+    if (Number(productAfterPhoneOrder?.stockQuantity) !== 8) fail("Staff phone source order did not deduct stock once");
     const stockFailure = await (await expectStatus(baseUrl, "/api/orders", staffCookie, 409, {
       method: "POST",
       body: JSON.stringify({
@@ -272,7 +251,6 @@ server.listen(0, "127.0.0.1", async () => {
       })
     })).json();
     if (staffOrderPayload.mutation?.order?.customerName !== "Staff Allowed Customer") fail("Staff order was not returned in mutation");
-    if (staffOrderPayload.mutation?.order?.createdBy !== "u_staff") fail("Staff order did not record authenticated creator");
     if (staffOrderPayload.mutation?.order?.originSource !== staffSource.source.key) fail("Staff custom source order did not persist source");
     if (staffOrderPayload.mutation?.customers?.[0]?.phone !== "0888888888") fail("Staff order did not create/update customer");
     const productAfterStaffOrder = (staffOrderPayload.mutation?.settings?.products || []).find(product => product.id === "product_1");

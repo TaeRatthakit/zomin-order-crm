@@ -207,10 +207,10 @@ function assertSharedSummary(width, mode) {
     fail(`${mode} dashboard still renders the Marketing quick action card`);
   }
   if (mode === "desktop") {
-    if (!dashboardHtml.includes("/desktop-dashboard-hero-light.jpg?v=20260719-home-light-clean-v2")) {
+    if (!dashboardHtml.includes("/desktop-home-hero-light.webp?v=20260724-desktop-home-hero-v4")) {
       fail("desktop light dashboard must render the separate light hero asset");
     }
-    if (!dashboardHtml.includes('data-dark-src="/desktop-dashboard-hero.webp?v=20260706-webp-v1"')) {
+    if (!dashboardHtml.includes('data-dark-src="/desktop-home-hero-dark.webp?v=20260724-desktop-home-hero-v4"')) {
       fail("desktop dashboard must keep the dark hero asset available for theme switching");
     }
     if (dashboardHtml.includes("/mobile-home-hero-light-v4.webp?v=20260720-mobile-light-single-frame-v1")) {
@@ -302,7 +302,7 @@ assertSharedSummary(390, "mobile");
   api.renderDashboard();
   const dashboardHtml = sandbox.__content.innerHTML;
   const activeSrcMatch = dashboardHtml.match(/<img[\s\S]*?class="desktop-reference-growth-image"[\s\S]*?src="([^"]+)"/);
-  if (!activeSrcMatch || activeSrcMatch[1] !== "/desktop-dashboard-hero.webp?v=20260706-webp-v1") {
+  if (!activeSrcMatch || activeSrcMatch[1] !== "/desktop-home-hero-dark.webp?v=20260724-desktop-home-hero-v4") {
     fail("desktop dark dashboard must keep rendering the existing dark hero asset");
   }
 }
