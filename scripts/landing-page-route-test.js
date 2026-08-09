@@ -21,6 +21,7 @@ assert(landingStart !== -1 && landingEnd !== -1, "landing renderer missing");
 assert(landingBlock.includes('href="/signup"') && landingBlock.includes("เริ่มใช้ฟรี 30 วัน"), "landing signup CTA missing");
 assert(landingBlock.includes('href="/login"') && landingBlock.includes("เข้าสู่ระบบ"), "landing login link missing");
 assert(landingBlock.includes("฿490") && landingBlock.includes("ต้นทุนและกำไร"), "pricing must include 490 baht plan with cost/profit");
+assert(!landingBlock.includes("ผู้ใช้งานสูงสุด 10 คน"), "490 baht landing plan must not invent a user limit");
 assert(!/broadcast| ai |ปัญญาประดิษฐ์/i.test(landingBlock), "landing must not market AI or Broadcast features");
 assert(serverJs.includes('["/", "/login", "/signup"].includes(pathname)'), "server public routing must expose root, login, and signup");
 assert(css.includes("body.landing-view") && css.includes(".landing-page"), "landing CSS must be scoped");
