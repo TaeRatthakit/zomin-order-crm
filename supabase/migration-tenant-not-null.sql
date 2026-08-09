@@ -105,6 +105,16 @@ with relationship_checks as (
   join public.customers c on c.id = ct.customer_id
   where ct.tenant_id is distinct from c.tenant_id
   union all
+  select 'customer_tags_missing_tag_same_tenant', count(*)
+  from public.customer_tags ct
+  left join public.tags tg on tg.tenant_id = ct.tenant_id and tg.name = ct.tag_name
+  where tg.id is null
+  union all
+  select 'customer_tags_cross_tenant_tag', count(*)
+  from public.customer_tags ct
+  join public.tags tg on tg.name = ct.tag_name
+  where ct.tenant_id is distinct from tg.tenant_id
+  union all
   select 'contact_logs_missing_customer', count(*)
   from public.contact_logs cl
   left join public.customers c on c.id = cl.customer_id
@@ -197,6 +207,14 @@ begin
   end if;
 
   select count(*) into violation_count
+  from public.customer_tags ct
+  left join public.tags tg on tg.tenant_id = ct.tenant_id and tg.name = ct.tag_name
+  where tg.id is null;
+  if violation_count <> 0 then
+    raise exception 'BLOCKED: customer_tags/tag same-tenant relationship violations = %', violation_count;
+  end if;
+
+  select count(*) into violation_count
   from public.contact_logs cl
   left join public.customers c on c.id = cl.customer_id
   where c.id is null or cl.tenant_id is distinct from c.tenant_id;
@@ -241,6 +259,49 @@ alter table public.notification_reads alter column tenant_id set not null;
 alter table public.tenant_role_permissions alter column tenant_id set not null;
 alter table public.tenant_settings alter column tenant_id set not null;
 alter table public.tenant_memberships alter column tenant_id set not null;
+
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'customers_tenant_id_id_key' and conrelid = 'public.customers'::regclass) then
+    alter table public.customers add constraint customers_tenant_id_id_key unique (tenant_id, id);
+  end if;
+
+  if not exists (select 1 from pg_constraint where conname = 'tags_tenant_id_name_key' and conrelid = 'public.tags'::regclass) then
+    alter table public.tags add constraint tags_tenant_id_name_key unique (tenant_id, name);
+  end if;
+
+  if not exists (select 1 from pg_constraint where conname = 'orders_tenant_customer_fkey' and conrelid = 'public.orders'::regclass) then
+    alter table public.orders
+      add constraint orders_tenant_customer_fkey
+      foreign key (tenant_id, customer_id)
+      references public.customers (tenant_id, id)
+      on delete cascade;
+  end if;
+
+  if not exists (select 1 from pg_constraint where conname = 'customer_tags_tenant_customer_fkey' and conrelid = 'public.customer_tags'::regclass) then
+    alter table public.customer_tags
+      add constraint customer_tags_tenant_customer_fkey
+      foreign key (tenant_id, customer_id)
+      references public.customers (tenant_id, id)
+      on delete cascade;
+  end if;
+
+  if not exists (select 1 from pg_constraint where conname = 'contact_logs_tenant_customer_fkey' and conrelid = 'public.contact_logs'::regclass) then
+    alter table public.contact_logs
+      add constraint contact_logs_tenant_customer_fkey
+      foreign key (tenant_id, customer_id)
+      references public.customers (tenant_id, id)
+      on delete cascade;
+  end if;
+
+  if not exists (select 1 from pg_constraint where conname = 'customer_tags_tenant_tag_name_fkey' and conrelid = 'public.customer_tags'::regclass) then
+    alter table public.customer_tags
+      add constraint customer_tags_tenant_tag_name_fkey
+      foreign key (tenant_id, tag_name)
+      references public.tags (tenant_id, name)
+      on delete restrict;
+  end if;
+end $$;
 
 commit;
 
@@ -291,9 +352,32 @@ begin
   end;
 end $$;
 
+select
+  conrelid::regclass::text as table_name,
+  conname,
+  pg_get_constraintdef(oid) as definition
+from pg_constraint
+where connamespace = 'public'::regnamespace
+  and conname in (
+    'customers_tenant_id_id_key',
+    'tags_tenant_id_name_key',
+    'orders_tenant_customer_fkey',
+    'customer_tags_tenant_customer_fkey',
+    'contact_logs_tenant_customer_fkey',
+    'customer_tags_tenant_tag_name_fkey'
+  )
+order by table_name, conname;
+
 -- C2. ROLLBACK: do not run during normal verification.
--- Run only if you must reverse the NOT NULL guards introduced by APPLY.
+-- Run only if you must reverse the guards introduced by APPLY.
 -- This does not remove tenant_id columns and does not change any tenant ownership data.
+alter table public.customer_tags drop constraint if exists customer_tags_tenant_tag_name_fkey;
+alter table public.contact_logs drop constraint if exists contact_logs_tenant_customer_fkey;
+alter table public.customer_tags drop constraint if exists customer_tags_tenant_customer_fkey;
+alter table public.orders drop constraint if exists orders_tenant_customer_fkey;
+alter table public.tags drop constraint if exists tags_tenant_id_name_key;
+alter table public.customers drop constraint if exists customers_tenant_id_id_key;
+
 alter table public.customers alter column tenant_id drop not null;
 alter table public.orders alter column tenant_id drop not null;
 alter table public.line_messages alter column tenant_id drop not null;
