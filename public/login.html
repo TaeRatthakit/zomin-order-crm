@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="th">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <meta name="description" content="เข้าสู่ระบบ Growup Pilot เพื่อจัดการลูกค้า ออเดอร์ โอกาสขาย รายงาน ต้นทุน และกำไร">
+    <meta name="theme-color" content="#6d28d9">
+    <meta name="application-name" content="Growup Pilot">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Growup Pilot">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <link rel="preload" as="image" type="image/png" href="/icons/login-logo-192.png?v=20260718-website-logo-transparent-v1" fetchpriority="high">
+    <title>เข้าสู่ระบบ | Growup Pilot</title>
+    <link rel="manifest" href="/manifest.webmanifest?v=20260718-installed-app-icon-v2">
+    <link rel="icon" href="/favicon.ico?v=20260717-mobile-icon-v1" sizes="any">
+    <link rel="icon" type="image/png" href="/favicon.png?v=20260717-mobile-icon-v1">
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/growup-apple-touch-icon-180-20260718-installed-app-v2.png?v=20260718-installed-app-icon-v2">
+    <script>
+      (() => {
+        const preference = "system";
+        const systemDark = window.matchMedia?.("(prefers-color-scheme: dark)")?.matches !== false;
+        const resolved = preference === "system" ? (systemDark ? "dark" : "light") : preference;
+        document.documentElement.dataset.themePreference = preference;
+        document.documentElement.dataset.theme = resolved;
+      })();
+    </script>
+    <link rel="stylesheet" href="/styles.css?v=20260724-desktop-home-hero-v4">
+  </head>
+  <body class="login-view desktop-app-shell">
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="เมนูหลัก">
+        <nav id="mainNav" class="nav-list"></nav>
+        <div id="sidebarFooter" class="sidebar-footer" hidden></div>
+      </aside>
+      <main class="main-panel">
+        <header class="topbar mobile-header">
+          <div id="headerProfile" hidden></div>
+          <button id="headerNotificationButton" type="button" hidden></button>
+          <span id="headerNotificationBadge" hidden>0</span>
+          <button id="mobileThemeButton" type="button" hidden></button>
+          <input id="workDate" type="hidden">
+          <button id="workDateTrigger" type="button" hidden></button>
+          <span id="workDateDisplay" hidden></span>
+          <div class="page-heading">
+            <h1 id="pageTitle">เข้าสู่ระบบ</h1>
+            <p id="pageSubtitle" class="page-subtitle"></p>
+            <div id="subpageNav" class="subpage-nav" hidden></div>
+          </div>
+        </header>
+        <section id="toast" class="toast" hidden></section>
+        <section id="content" class="content-area">
+          <section class="login-layout">
+            <div class="login-desktop-card">
+              <form class="login-card" id="loginForm">
+                <div class="login-card-brand" aria-label="Growup Pilot">
+                  <img class="login-page-logo" src="/icons/login-logo-192.png?v=20260718-website-logo-transparent-v1" alt="" aria-hidden="true" width="96" height="96" fetchpriority="high" loading="eager" decoding="async">
+                  <strong>Growup<span>Pilot</span></strong>
+                </div>
+                <label>ชื่อผู้ใช้งาน
+                  <input name="username" autocomplete="username" required placeholder="กรอกชื่อผู้ใช้งาน">
+                </label>
+                <label>รหัสผ่าน
+                  <input name="password" autocomplete="current-password" type="password" required placeholder="กรอกรหัสผ่าน">
+                </label>
+                <button class="button primary" type="submit">เข้าสู่ระบบ</button>
+                <p class="login-card-switch">ยังไม่มีบัญชี? <a href="/signup" data-auth-route="signup">เริ่มใช้ฟรี 30 วัน</a></p>
+              </form>
+            </div>
+          </section>
+        </section>
+      </main>
+    </div>
+    <div id="notificationOverlayRoot"></div>
+    <dialog id="mobileThemeSheetDialog" class="dialog mobile-theme-sheet-dialog"></dialog>
+    <script src="/app.js?v=20260724-desktop-home-hero-v4"></script>
+    <script>
+      const swUrl = "/service-worker.js?v=20260724-desktop-home-hero-v4";
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+          navigator.serviceWorker.register(swUrl).then(registration => registration.update()).catch(() => {});
+        });
+      }
+    </script>
+  </body>
+</html>
