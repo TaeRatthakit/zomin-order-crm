@@ -10671,7 +10671,9 @@ function render(options = {}) {
   if (els.pageSubtitle) {
     els.pageSubtitle.textContent = !mobile && app.view === "dashboard" ? "นี่คือภาพรวมธุรกิจของคุณวันนี้" : "";
   }
-  document.title = isPublicView() ? "Growup Pilot" : `${titleFor(app.view)} | Growup Pilot`;
+  document.title = app.view === "landing"
+    ? "Growup Pilot | จัดการธุรกิจให้เติบโต"
+    : isPublicView() ? "Growup Pilot" : `${titleFor(app.view)} | Growup Pilot`;
   renderSubpageNav();
   const renderer = {
     login: renderLogin,

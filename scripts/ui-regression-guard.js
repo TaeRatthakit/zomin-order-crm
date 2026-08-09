@@ -25,7 +25,7 @@ const UI_ASSET_RE = /^public\/.*\.(png|jpe?g|webp|svg|ico)$/i;
 const TEXT_UI_RE = /\.(css|js|html)$/i;
 
 const PAGE_PATTERNS = {
-  landing: [/landing/i, /public/i, /hero/i, /features/i, /pricing/i, /how-it-works/i, /"\/": "dashboard"/i, /isAuthView/i, /ผู้ใช้งานสูงสุด 10 คน/i],
+  landing: [/landing/i, /public/i, /hero/i, /features/i, /pricing/i, /how-it-works/i, /"\/": "dashboard"/i, /isAuthView/i, /ผู้ใช้งานสูงสุด 10 คน/i, /จัดการธุรกิจให้เติบโต/i],
   login: [/login/i, /auth/i, /app-startup/i],
   signup: [/signup/i, /auth/i, /app-startup/i],
   dashboard: [/dashboard/i, /home/i, /growth-banner/i, /hero/i, /onboarding/i],

@@ -24,6 +24,7 @@ assert(landingBlock.includes('href="/login"') && landingBlock.includes("เข�
 assert(landingBlock.includes("฿490") && landingBlock.includes("ต้นทุนและกำไร"), "pricing must include 490 baht plan with cost/profit");
 assert(!landingBlock.includes("ผู้ใช้งานสูงสุด 10 คน"), "490 baht landing plan must not invent a user limit");
 assert(!/broadcast| ai |ปัญญาประดิษฐ์/i.test(landingBlock), "landing must not market AI or Broadcast features");
+assert(appJs.includes('app.view === "landing"') && appJs.includes("Growup Pilot | จัดการธุรกิจให้เติบโต"), "landing route must keep an SEO-specific page title after JS renders");
 assert(serverJs.includes('["/", "/login", "/signup"].includes(pathname)'), "server public routing must expose root, login, and signup");
 assert(serverJs.includes('safePath === "/" ? "/landing.html"'), "root route must serve crawlable landing HTML");
 assert(landingHtml.includes("จัดการธุรกิจ ให้เติบโต ไปกับ Growup Pilot"), "root HTML must include crawlable landing H1");
