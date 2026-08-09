@@ -7,7 +7,7 @@ const mainNavItems = [
 ];
 
 const routeToView = {
-  "/": "dashboard",
+  "/": "landing",
   "/dashboard": "dashboard",
   "/customers": "customers",
   "/orders": "orders",
@@ -311,6 +311,10 @@ function routeFromLocation() {
 
 function isAuthView(view = app.view) {
   return view === "login" || view === "signup";
+}
+
+function isPublicView(view = app.view) {
+  return view === "landing" || isAuthView(view);
 }
 
 function navigateToView(view, replace = false) {
@@ -1464,6 +1468,7 @@ function sortByPriority(customers) {
 function titleFor(view) {
   const titles = {
     login: "เข้าสู่ระบบ",
+    landing: "Growup Pilot",
     signup: "สมัครใช้งาน",
     dashboard: "แดชบอร์ด",
     opportunities: "เพิ่มยอดขาย",
@@ -2192,6 +2197,7 @@ function applyDateRangeDraft() {
 }
 
 function updateShell() {
+  document.body.classList.toggle("landing-view", app.view === "landing");
   document.body.classList.toggle("login-view", isAuthView());
   document.body.classList.toggle("signup-view", app.view === "signup");
   document.body.classList.toggle("mobile-app-shell", isMobileViewport());
@@ -2206,7 +2212,7 @@ function updateShell() {
   if (els.workDateDisplay) {
     updateDatePillLabel();
   }
-  if (!app.currentUser || isAuthView()) {
+  if (!app.currentUser || isPublicView()) {
     els.headerProfile.hidden = true;
     els.headerProfile.innerHTML = "";
     if (els.sidebarFooter) {
@@ -3419,6 +3425,191 @@ function renderSignup() {
         </form>
       </div>
     </section>
+  `;
+}
+
+function renderLanding() {
+  const features = [
+    ["ลูกค้า", "จัดการลูกค้า", "เก็บข้อมูลลูกค้า ประวัติการซื้อ และการติดตามให้อยู่ในที่เดียว"],
+    ["ออเดอร์", "จัดการออเดอร์", "ติดตามออเดอร์ รายการสินค้า และสถานะงานขายอย่างเป็นระบบ"],
+    ["ยอดขาย", "เพิ่มยอดขาย", "เห็นลูกค้าที่ควรติดตาม เพื่อสร้างโอกาสซื้อซ้ำได้ง่ายขึ้น"],
+    ["รายงาน", "รายงานธุรกิจ", "ดูยอดขาย ออเดอร์ ลูกค้า และภาพรวมธุรกิจแบบเข้าใจง่าย"],
+    ["กำไร", "ต้นทุนและกำไร", "บันทึกต้นทุน ค่าใช้จ่าย และเห็นผลประกอบการที่ใกล้ความจริง"],
+    ["ทีม", "ทีมงานและสิทธิ์", "กำหนดสิทธิ์ Owner, Admin และ Staff ให้เหมาะกับการทำงานจริง"]
+  ];
+  els.content.innerHTML = `
+    <article class="landing-page">
+      <header class="landing-header">
+        <a class="landing-brand" href="/" aria-label="Growup Pilot">
+          <img src="/icons/login-logo-192.png?v=20260718-website-logo-transparent-v1" alt="" width="44" height="44" decoding="async">
+          <span>Growup Pilot</span>
+        </a>
+        <nav class="landing-nav" aria-label="เมนูหน้าแนะนำสินค้า">
+          <a href="#features">จุดเด่น</a>
+          <a href="#how-it-works">วิธีใช้งาน</a>
+          <a href="#pricing">ราคา</a>
+        </nav>
+        <div class="landing-actions">
+          <a class="landing-button landing-button-secondary" href="/login">เข้าสู่ระบบ</a>
+          <a class="landing-button landing-button-primary" href="/signup">เริ่มใช้ฟรี 30 วัน</a>
+        </div>
+        <details class="landing-menu">
+          <summary aria-label="เปิดเมนู">☰</summary>
+          <div>
+            <a href="#features">จุดเด่น</a>
+            <a href="#how-it-works">วิธีใช้งาน</a>
+            <a href="#pricing">ราคา</a>
+            <a href="/login">เข้าสู่ระบบ</a>
+            <a class="landing-mobile-cta" href="/signup">เริ่มใช้ฟรี 30 วัน</a>
+          </div>
+        </details>
+      </header>
+
+      <main>
+        <section class="landing-hero" aria-labelledby="landingHeroTitle">
+          <div class="landing-hero-copy">
+            <p class="landing-kicker">ระบบจัดการธุรกิจสำหรับเจ้าของกิจการยุคใหม่</p>
+            <h1 id="landingHeroTitle">จัดการธุรกิจ ให้เติบโต ไปกับ Growup Pilot</h1>
+            <p class="landing-lead">จัดการลูกค้า ออเดอร์ การติดตาม โอกาสขาย รายงาน ต้นทุน และกำไรในที่เดียว เพื่อให้ทีมทำงานเป็นระบบขึ้นทุกวัน</p>
+            <div class="landing-hero-actions">
+              <a class="landing-button landing-button-primary" href="/signup">เริ่มใช้ฟรี 30 วัน</a>
+              <a class="landing-button landing-button-secondary" href="/login">เข้าสู่ระบบ</a>
+            </div>
+            <ul class="landing-trust-list" aria-label="รายละเอียดเริ่มต้น">
+              <li>เริ่มใช้งานง่าย</li>
+              <li>ไม่ต้องใช้บัตรเครดิต</li>
+              <li>ทดลองฟรี 30 วัน</li>
+            </ul>
+          </div>
+          <div class="landing-preview" aria-label="ตัวอย่างหน้าจอ Growup Pilot">
+            <div class="landing-preview-window">
+              <div class="landing-preview-top">
+                <span></span><span></span><span></span>
+                <strong>Growup Pilot</strong>
+              </div>
+              <div class="landing-preview-body">
+                <aside>
+                  <b>ภาพรวม</b>
+                  <span>ออเดอร์</span>
+                  <span>ลูกค้า</span>
+                  <span>เพิ่มยอดขาย</span>
+                  <span>รายงาน</span>
+                </aside>
+                <section>
+                  <div class="landing-preview-title">
+                    <p>ภาพรวมธุรกิจ</p>
+                    <small>ดูงานสำคัญของวันนี้</small>
+                  </div>
+                  <div class="landing-preview-metrics">
+                    <div><span>ยอดขาย</span><b>กำลังอัปเดต</b></div>
+                    <div><span>ออเดอร์</span><b>พร้อมติดตาม</b></div>
+                    <div><span>กำไร</span><b>สรุปอัตโนมัติ</b></div>
+                  </div>
+                  <div class="landing-preview-chart" aria-hidden="true">
+                    <i></i><i></i><i></i><i></i><i></i>
+                  </div>
+                  <div class="landing-preview-tasks">
+                    <p><span></span> ลูกค้าที่ควรติดตาม</p>
+                    <p><span></span> ออเดอร์ที่ต้องดูแล</p>
+                  </div>
+                </section>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="features" class="landing-section landing-features" aria-labelledby="landingFeaturesTitle">
+          <div class="landing-section-heading">
+            <h2 id="landingFeaturesTitle">จุดเด่นของ Growup Pilot</h2>
+            <p>เครื่องมือหลักที่ช่วยให้ธุรกิจขนาดเล็กเห็นงานขาย ลูกค้า และผลลัพธ์ได้ชัดขึ้น</p>
+          </div>
+          <div class="landing-feature-grid">
+            ${features.map(([icon, title, text]) => `
+              <section class="landing-feature-card">
+                <span aria-hidden="true">${escapeHtml(icon)}</span>
+                <div>
+                  <h3>${escapeHtml(title)}</h3>
+                  <p>${escapeHtml(text)}</p>
+                </div>
+              </section>
+            `).join("")}
+          </div>
+        </section>
+
+        <section id="how-it-works" class="landing-section landing-steps" aria-labelledby="landingStepsTitle">
+          <div class="landing-section-heading">
+            <h2 id="landingStepsTitle">วิธีใช้งาน 3 ขั้นตอน</h2>
+            <p>เริ่มต้นง่ายและค่อย ๆ จัดระเบียบธุรกิจให้เป็นระบบ</p>
+          </div>
+          <div class="landing-step-grid">
+            <section>
+              <span>1</span>
+              <h3>สมัครและสร้างธุรกิจ</h3>
+              <p>สร้างบัญชีและตั้งค่าข้อมูลธุรกิจของคุณ</p>
+            </section>
+            <section>
+              <span>2</span>
+              <h3>เริ่มจัดการลูกค้าและออเดอร์</h3>
+              <p>เพิ่มข้อมูลลูกค้า ออเดอร์ สินค้า และต้นทุนที่จำเป็น</p>
+            </section>
+            <section>
+              <span>3</span>
+              <h3>ติดตามโอกาสขายและดูผลลัพธ์ธุรกิจ</h3>
+              <p>ดูรายการที่ควรติดตาม พร้อมรายงานยอดขายและกำไร</p>
+            </section>
+          </div>
+        </section>
+
+        <section id="pricing" class="landing-section landing-pricing" aria-labelledby="landingPricingTitle">
+          <div class="landing-section-heading">
+            <h2 id="landingPricingTitle">ราคาเริ่มต้น</h2>
+            <p>แผนเริ่มต้นสำหรับเจ้าของธุรกิจที่ต้องการจัดการงานขายอย่างเป็นระบบ</p>
+          </div>
+          <section class="landing-price-card" aria-label="Starter ราคา 490 บาทต่อเดือน">
+            <div>
+              <p>Starter</p>
+              <h3><span>฿490</span> / เดือน</h3>
+              <small>ทดลองใช้งานฟรี 30 วัน</small>
+              <a class="landing-button landing-button-primary" href="/signup">เริ่มใช้ฟรี 30 วัน</a>
+            </div>
+            <ul>
+              <li>จัดการลูกค้าไม่จำกัด</li>
+              <li>จัดการออเดอร์ไม่จำกัด</li>
+              <li>รายงานยอดขายและกำไร</li>
+              <li>จัดการต้นทุนและค่าใช้จ่าย</li>
+              <li>ผู้ใช้งานสูงสุด 10 คน</li>
+              <li>สิทธิ์การใช้งาน Owner, Admin, Staff</li>
+            </ul>
+          </section>
+        </section>
+
+        <section class="landing-final-cta" aria-labelledby="landingFinalTitle">
+          <div>
+            <h2 id="landingFinalTitle">พร้อมเริ่มจัดการธุรกิจให้เป็นระบบขึ้นไหม?</h2>
+            <p>เริ่มวันนี้เพื่อให้การดูแลลูกค้า ออเดอร์ และผลลัพธ์ธุรกิจชัดเจนขึ้น โดยไม่เพิ่มความซับซ้อนให้ทีม</p>
+          </div>
+          <a class="landing-button landing-button-light" href="/signup">เริ่มใช้ฟรี 30 วัน</a>
+        </section>
+      </main>
+
+      <footer class="landing-footer">
+        <div>
+          <a class="landing-brand" href="/" aria-label="Growup Pilot">
+            <img src="/icons/login-logo-192.png?v=20260718-website-logo-transparent-v1" alt="" width="40" height="40" decoding="async">
+            <span>Growup Pilot</span>
+          </a>
+          <p>ระบบจัดการธุรกิจสำหรับจัดการลูกค้า ออเดอร์ โอกาสขาย รายงาน ต้นทุน และกำไรในที่เดียว</p>
+        </div>
+        <nav aria-label="เมนูท้ายหน้า">
+          <a href="#features">จุดเด่น</a>
+          <a href="#how-it-works">วิธีใช้งาน</a>
+          <a href="#pricing">ราคา</a>
+          <a href="/login">เข้าสู่ระบบ</a>
+          <a href="/signup">สมัครใช้งาน</a>
+        </nav>
+        <small>© 2026 Growup Pilot</small>
+      </footer>
+    </article>
   `;
 }
 
@@ -10453,7 +10644,7 @@ function renderProductDetail(product) {
 function render(options = {}) {
   const mobile = isMobileViewport();
   app.layoutMode = mobile ? "mobile" : "desktop";
-  if (!app.data && !["login", "signup"].includes(app.view)) {
+  if (!app.data && !isPublicView()) {
     if (!mobile) renderNav();
     updateShell();
     els.pageTitle.textContent = titleFor(app.view);
@@ -10481,10 +10672,11 @@ function render(options = {}) {
   if (els.pageSubtitle) {
     els.pageSubtitle.textContent = !mobile && app.view === "dashboard" ? "นี่คือภาพรวมธุรกิจของคุณวันนี้" : "";
   }
-  document.title = ["login", "signup"].includes(app.view) ? "Growup Pilot" : `${titleFor(app.view)} | Growup Pilot`;
+  document.title = isPublicView() ? "Growup Pilot" : `${titleFor(app.view)} | Growup Pilot`;
   renderSubpageNav();
   const renderer = {
     login: renderLogin,
+    landing: renderLanding,
     signup: renderSignup,
     dashboard: renderDashboard,
     opportunities: renderOpportunities,
@@ -10645,7 +10837,7 @@ function syncViewFromLocation(event = null) {
   const nextCustomerDetailId = nextView === "customers" ? String(event?.state?.customerManagementDetailId || "") : "";
   const previousBusinessPage = app.mobileBusinessPage || "main";
   const wasCustomerManagement = app.view === "customers" || app.view === "settingsCustomers" || (app.view === "settings" && previousBusinessPage === "customers");
-  if (!app.currentUser && !["login", "signup"].includes(nextView)) {
+  if (!app.currentUser && !isPublicView(nextView)) {
     applyThemePreference("system", { persistLocal: false });
     if (wasCustomerManagement) resetCustomerManagementState({ resetGroup: true });
     clearBusinessManagementScrollRestore();
@@ -10655,7 +10847,7 @@ function syncViewFromLocation(event = null) {
     render();
     return;
   }
-  if (app.currentUser && ["login", "signup"].includes(nextView)) {
+  if (app.currentUser && isAuthView(nextView)) {
     if (wasCustomerManagement) resetCustomerManagementState({ resetGroup: true });
     clearBusinessManagementScrollRestore();
     app.mobileBusinessPage = "main";
@@ -13228,8 +13420,8 @@ async function init() {
   if (!app.currentUser) {
     clearBusinessManagementScrollRestore();
     app.mobileBusinessPage = "main";
-    app.view = app.view === "signup" ? "signup" : "login";
-    navigateToView(isAuthView(app.view) ? app.view : "login", true);
+    app.view = isPublicView(app.view) ? app.view : "login";
+    navigateToView(isPublicView(app.view) ? app.view : "login", true);
     render();
     return;
   }
