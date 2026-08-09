@@ -24,7 +24,8 @@ const UI_ASSET_RE = /^public\/.*\.(png|jpe?g|webp|svg|ico)$/i;
 const TEXT_UI_RE = /\.(css|js|html)$/i;
 
 const PAGE_PATTERNS = {
-  login: [/login/i, /app-startup/i],
+  login: [/login/i, /auth/i, /app-startup/i],
+  signup: [/signup/i, /auth/i, /app-startup/i],
   dashboard: [/dashboard/i, /home/i, /growth-banner/i, /hero/i, /onboarding/i],
   customers: [/customer/i],
   orders: [/order/i],
@@ -123,16 +124,25 @@ function pathMatchesScope(file) {
 function classifyOutOfScope(diff) {
   const lines = diff.split("\n").filter(line => /^[+-](?![+-])/.test(line));
   let activeBlockIsInScope = false;
+  let activeBlockDepth = 0;
   return lines.filter(line => {
     if (!line.slice(1).trim()) return false;
     const lineIsInScope = SCOPE.some(scope => lineMatchesScope(line, scope))
       || (SCOPE.includes("global") && lineMatchesScope(line, "global"));
-    if (line.includes("{")) activeBlockIsInScope = lineIsInScope;
+    if (line.includes("{")) {
+      if (!activeBlockIsInScope) activeBlockIsInScope = lineIsInScope;
+      if (activeBlockIsInScope) activeBlockDepth += (line.match(/\{/g) || []).length;
+    }
     if (lineIsInScope || activeBlockIsInScope) {
-      if (line.includes("}")) activeBlockIsInScope = false;
+      if (activeBlockIsInScope && line.includes("}")) {
+        activeBlockDepth -= (line.match(/\}/g) || []).length;
+        if (activeBlockDepth <= 0) {
+          activeBlockDepth = 0;
+          activeBlockIsInScope = false;
+        }
+      }
       return false;
     }
-    if (line.includes("}")) activeBlockIsInScope = false;
     return true;
   });
 }

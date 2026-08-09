@@ -185,7 +185,7 @@ async function expectReject(label, task) {
 
   const customerA = db.customers.find(row => row.id === "c_a");
   const orderA = db.orders.find(row => row.id === "o_a");
-  const tagA = db.tags.find(row => row.id === "tag-a");
+  const tagA = db.tags.find(row => row.tenant_id === "tenant_a" && row.name === "tag-a");
   const customerTagA = db.customer_tags.find(row => row.customer_id === "c_a" && row.tag_name === "tag-a");
   const logA = db.contact_logs.find(row => row.customer_id === "c_a");
   const readA = db.notification_reads.find(row => row.user_id === "u_a");
@@ -198,9 +198,14 @@ async function expectReject(label, task) {
   if (!db.orders.find(row => row.id === "o_b")) fail("tenant A deleted tenant B order by direct ID");
 
   await adapter.withTenantContext(tenantB, async () => {
+    await adapter.persistSettingsPatch({ products: [{ id: "product_b", name: "Product B Updated", stockQuantity: 8 }] });
     await adapter.deleteOrder("o_a");
   });
   if (!db.orders.find(row => row.id === "o_a")) fail("tenant B deleted tenant A order by direct ID");
+  const tenantAProducts = db.settings.find(row => row.tenant_id === "tenant_a" && row.key === "products")?.value || [];
+  const tenantBProducts = db.settings.find(row => row.tenant_id === "tenant_b" && row.key === "products")?.value || [];
+  if (tenantAProducts[0]?.name !== "Product A") fail("tenant B settings write overwrote tenant A products");
+  if (tenantBProducts[0]?.name !== "Product B Updated") fail("tenant B settings write did not update tenant B products");
 
   const lineTenant = await adapter.resolveTenantForLineWebhook({
     events: [{ source: { type: "group", groupId: "group-a" }, message: { text: "test" } }]

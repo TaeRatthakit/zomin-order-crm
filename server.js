@@ -8,6 +8,7 @@ const {
   readDb,
   findUserForLogin,
   readUserById,
+  createSignupTenantAccount,
   writeDb,
   deleteUser,
   deleteOrder,
@@ -56,6 +57,10 @@ const PORT = Number(process.env.PORT || 3000);
 const HOST = process.env.HOST || "0.0.0.0";
 const ROOT = __dirname;
 const PUBLIC_DIR = path.join(ROOT, "public");
+const AUTH_RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
+const AUTH_RATE_LIMIT_MAX = Number(process.env.AUTH_RATE_LIMIT_MAX || 20);
+const KNOWN_PRODUCTION_SUPABASE_REF = "mjnpzdmrqweugdnvlqwq";
+const authRateBuckets = new Map();
 
 function sanitizeNotificationIds(ids) {
   return [...new Set((Array.isArray(ids) ? ids : [])
@@ -441,6 +446,102 @@ function cleanText(value, fallback = "") {
   const textValue = String(value ?? "").trim();
   if (!textValue || textValue.toLowerCase() === "undefined" || textValue.toLowerCase() === "null") return fallback;
   return textValue;
+}
+
+function clientIp(req) {
+  const forwarded = String(req.headers["x-forwarded-for"] || "").split(",")[0].trim();
+  return forwarded || req.socket?.remoteAddress || "local";
+}
+
+function rateLimitKey(req, scope, identity = "") {
+  return `${scope}:${clientIp(req)}:${String(identity || "").toLowerCase()}`;
+}
+
+function checkAuthRateLimit(req, scope, identity = "") {
+  const key = rateLimitKey(req, scope, identity);
+  const now = Date.now();
+  const bucket = authRateBuckets.get(key) || { count: 0, resetAt: now + AUTH_RATE_LIMIT_WINDOW_MS };
+  if (bucket.resetAt <= now) {
+    bucket.count = 0;
+    bucket.resetAt = now + AUTH_RATE_LIMIT_WINDOW_MS;
+  }
+  bucket.count += 1;
+  authRateBuckets.set(key, bucket);
+  if (bucket.count <= AUTH_RATE_LIMIT_MAX) return null;
+  return Math.max(1, Math.ceil((bucket.resetAt - now) / 1000));
+}
+
+function normalizeSignupUsername(value = "") {
+  return String(value || "").trim().toLowerCase();
+}
+
+function isValidSignupUsername(value = "") {
+  const username = normalizeSignupUsername(value);
+  if (username.length < 3 || username.length > 120) return false;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(username) || /^[a-z0-9._-]{3,60}$/.test(username);
+}
+
+function signupDefaults(businessName) {
+  return {
+    settings: {
+      businessName,
+      defaultJarPrice: 750,
+      vipThresholds: { vip: 5000, vvip: 10000, superVip: 20000 },
+      messageTemplates: {
+        normal: "สวัสดีค่ะ {{name}} จาก {{businessName}} นะคะ ถึงรอบดูแลต่อเนื่องแล้ว ต้องการให้จัดส่งเพิ่มไหมคะ",
+        vip: "สวัสดีค่ะ {{name}} จาก {{businessName}} นะคะ ทีมงานเตรียมโปรพิเศษสำหรับลูกค้า VIP ไว้ให้ค่ะ"
+      },
+      lineChannelId: "",
+      lineChannelSecret: "",
+      lineChannelAccessToken: "",
+      lineWebhookEnabled: false,
+      staffCanExport: false,
+      products: [],
+      productCosts: [],
+      additionalCosts: [],
+      rolePermissions: sanitizeRolePermissions({})
+    },
+    followUpRules: [
+      { jars: 1, days: 15 },
+      { jars: 2, days: 30 },
+      { jars: 3, days: 45 },
+      { jars: 6, days: 90 },
+      { jars: 13, days: 180 },
+      { jars: 30, days: 365 }
+    ]
+  };
+}
+
+function validateSignupBody(body = {}) {
+  const username = normalizeSignupUsername(body.username || body.email || body.userId);
+  const password = String(body.password || "");
+  const businessName = cleanText(body.businessName, "").slice(0, 120);
+  const displayName = cleanText(body.name || body.displayName, "") || businessName || username;
+  const idempotencyKey = String(body.idempotencyKey || body.signupRequestId || crypto.randomUUID()).trim();
+  if (!isValidSignupUsername(username)) return { error: "กรุณากรอกอีเมลหรือชื่อผู้ใช้งานให้ถูกต้อง" };
+  if (password.length < 8 || password.length > 128) return { error: "รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร" };
+  if (!businessName || businessName.length < 2) return { error: "กรุณากรอกชื่อธุรกิจ" };
+  if (!idempotencyKey || idempotencyKey.length > 120 || /[\u0000-\u001f\u007f]/.test(idempotencyKey)) {
+    return { error: "คำขอสมัครไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง" };
+  }
+  return { username, password, businessName, displayName, idempotencyKey };
+}
+
+function runtimeSupabaseInfo() {
+  const rawUrl = process.env.SUPABASE_URL || "";
+  let host = "";
+  let ref = "";
+  try {
+    host = new URL(rawUrl).host;
+    ref = host.split(".")[0] || "";
+  } catch {}
+  return {
+    provider: dbProvider,
+    vercelEnv: process.env.VERCEL_ENV || "",
+    supabaseHost: host,
+    supabaseRef: ref,
+    isKnownProductionSupabase: ref === KNOWN_PRODUCTION_SUPABASE_REF
+  };
 }
 
 function optionalTextPatch(value, fallback = "") {
@@ -3517,6 +3618,19 @@ function serveStatic(req, res) {
   });
 }
 
+function isPublicAppPath(pathname = "") {
+  return ["/", "/login", "/signup"].includes(pathname);
+}
+
+function redirectToLogin(res) {
+  res.writeHead(302, {
+    Location: "/login",
+    "Cache-Control": "no-store",
+    "Set-Cookie": clearSessionCookie()
+  });
+  res.end();
+}
+
 async function handleApi(req, res) {
   const url = new URL(req.url, `http://${req.headers.host}`);
   const isLineWebhook = url.pathname === "/api/line/webhook";
@@ -3547,22 +3661,84 @@ async function handleApi(req, res) {
     });
   }
 
+  if (req.method === "GET" && url.pathname === "/api/verify/runtime") {
+    if (process.env.VERCEL_ENV === "production") {
+      return json(res, 404, { ok: false, error: "API not found" });
+    }
+    return json(res, 200, {
+      ok: true,
+      runtime: runtimeSupabaseInfo()
+    });
+  }
+
   if (req.method === "POST" && url.pathname === "/api/logout") {
     destroySession(req);
     return json(res, 200, { ok: true }, { "Set-Cookie": clearSessionCookie() });
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/signup") {
+    const body = await readBody(req);
+    const normalized = validateSignupBody(body);
+    if (normalized.error) return json(res, 400, { ok: false, error: normalized.error });
+    const retryAfter = checkAuthRateLimit(req, "signup", normalized.username);
+    if (retryAfter) {
+      return json(res, 429, { ok: false, error: "ลองใหม่อีกครั้งในภายหลัง" }, { "Retry-After": String(retryAfter) });
+    }
+    if (typeof createSignupTenantAccount !== "function") {
+      return json(res, 503, { ok: false, error: "ระบบสมัครใช้งานยังไม่พร้อมใช้งาน" });
+    }
+    const passwordHash = hashPassword(normalized.password);
+    const userId = `u_${crypto.randomUUID()}`;
+    try {
+      const user = await createSignupTenantAccount({
+        idempotencyKey: normalized.idempotencyKey,
+        userId,
+        username: normalized.username,
+        passwordHash,
+        name: normalized.displayName,
+        businessName: normalized.businessName,
+        defaults: signupDefaults(normalized.businessName)
+      });
+      if (!user?.tenantId || user.role !== "Owner") {
+        return json(res, 500, { ok: false, error: "สมัครใช้งานไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" });
+      }
+      const session = createSession(user);
+      return json(res, 200, { ok: true, user: publicUser(user) }, {
+        "Set-Cookie": sessionCookie(session.token, session.expiresAt)
+      });
+    } catch (error) {
+      if (error.code === "ACCOUNT_EXISTS") {
+        return json(res, 409, { ok: false, error: "บัญชีนี้มีอยู่แล้ว กรุณาเข้าสู่ระบบ" });
+      }
+      if (error.code === "IDEMPOTENCY_CONFLICT" || error.code === "INVALID_SIGNUP_INPUT") {
+        return json(res, 400, { ok: false, error: "คำขอสมัครไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง" });
+      }
+      if (error.code === "SIGNUP_PROVIDER_UNSUPPORTED") {
+        return json(res, 503, { ok: false, error: "ระบบสมัครใช้งานยังไม่พร้อมใช้งาน" });
+      }
+      if (String(error.detail || error.message || "").includes("PGRST202")) {
+        return json(res, 503, { ok: false, error: "ระบบสมัครใช้งานกำลังอัปเดต กรุณาลองใหม่อีกครั้ง" });
+      }
+      console.error("Signup bootstrap failed", error);
+      return json(res, 500, { ok: false, error: "สมัครใช้งานไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" });
+    }
   }
 
   if (req.method === "POST" && url.pathname === "/api/login") {
     const body = await readBody(req);
     const username = String(body.username || body.userId || "").trim();
     const password = String(body.password || body.pin || "");
+    const retryAfter = checkAuthRateLimit(req, "login", username);
+    if (retryAfter) {
+      return json(res, 429, { ok: false, error: "ลองใหม่อีกครั้งในภายหลัง" }, { "Retry-After": String(retryAfter) });
+    }
     const user = typeof findUserForLogin === "function"
       ? await findUserForLogin(username)
       : (await readDb()).users.find(item =>
         item.active !== false &&
         (item.username === username || item.id === username)
       );
-    if (!user) return json(res, 401, { ok: false, error: "ไม่พบผู้ใช้งาน" });
+    if (!user) return json(res, 401, { ok: false, error: "Username หรือ Password ไม่ถูกต้อง" });
     const upgraded = ensurePasswordHash(user, password);
     if (!verifyPassword(password, user.passwordHash)) {
       return json(res, 401, { ok: false, error: "Username หรือ Password ไม่ถูกต้อง" });
@@ -5295,6 +5471,9 @@ async function appHandler(req, res) {
     if (req.url.startsWith("/api/")) {
       const pathname = new URL(req.url, `http://${req.headers.host || "localhost"}`).pathname;
       const sessionUser = getCurrentUser(req);
+      if (!sessionUser?.id && pathname === "/api/state") {
+        return json(res, 401, { ok: false, error: "Unauthorized" }, { "Set-Cookie": clearSessionCookie() });
+      }
       if (
         sessionUser?.id
         && !["/api/login", "/api/logout"].includes(pathname)
@@ -5309,6 +5488,15 @@ async function appHandler(req, res) {
       return await handleApi(req, res);
     }
     const pathname = new URL(req.url, `http://${req.headers.host || "localhost"}`).pathname;
+    const isAssetRequest = Boolean(path.extname(pathname));
+    if (!isAssetRequest && !isPublicAppPath(pathname)) {
+      const routeUser = getCurrentUser(req);
+      if (!routeUser) return redirectToLogin(res);
+      if (dbProvider === "supabase" && typeof resolveTenantForUser === "function") {
+        const tenant = await resolveTenantForUser(routeUser.id);
+        if (!tenant) return redirectToLogin(res);
+      }
+    }
     if (["/settings/users", "/team"].includes(pathname)) {
       const sessionUser = getCurrentUser(req);
       const task = async () => {

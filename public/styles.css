@@ -26285,6 +26285,18 @@ body.login-view .login-card input:focus {
   box-shadow: 0 0 0 4px rgba(139, 61, 255, 0.13), 0 12px 26px rgba(109, 40, 217, 0.12);
 }
 
+html[data-theme="light"] body.signup-view .login-card label {
+  color: #111827;
+}
+
+html[data-theme="light"] body.signup-view .login-card input {
+  color: #0f172a;
+}
+
+html[data-theme="light"] body.signup-view .login-card input::placeholder {
+  color: #9ca3af;
+}
+
 body.login-view .login-card .button.primary {
   min-height: 64px;
   margin-top: 3px;
@@ -26301,6 +26313,26 @@ body.login-view .login-card .button.primary:hover,
 body.login-view .login-card .button.primary:focus-visible {
   transform: translateY(-1px);
   box-shadow: 0 20px 38px rgba(126, 42, 255, 0.32);
+}
+
+body.login-view .login-card-switch {
+  margin: 2px 0 0;
+  color: #566078;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.45;
+  text-align: center;
+}
+
+body.login-view .login-card-switch a {
+  color: #7c3aed;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+body.login-view .login-card-switch a:hover,
+body.login-view .login-card-switch a:focus-visible {
+  text-decoration: underline;
 }
 
 @media (prefers-color-scheme: dark) {

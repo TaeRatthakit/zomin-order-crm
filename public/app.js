@@ -44,7 +44,8 @@ const routeToView = {
   "/admin/line-debug": "lineDebug",
   "/team": "team",
   "/risk": "risk",
-  "/login": "login"
+  "/login": "login",
+  "/signup": "signup"
 };
 const viewToRoute = Object.fromEntries(Object.entries(routeToView).map(([path, view]) => [view, path]));
 const MISSING_CHANNEL_LABEL = "อื่นๆ";
@@ -306,6 +307,10 @@ function routeFromLocation() {
     return hashView;
   }
   return routeToView[location.pathname] || "dashboard";
+}
+
+function isAuthView(view = app.view) {
+  return view === "login" || view === "signup";
 }
 
 function navigateToView(view, replace = false) {
@@ -1459,6 +1464,7 @@ function sortByPriority(customers) {
 function titleFor(view) {
   const titles = {
     login: "เข้าสู่ระบบ",
+    signup: "สมัครใช้งาน",
     dashboard: "แดชบอร์ด",
     opportunities: "เพิ่มยอดขาย",
     orders: "ออเดอร์",
@@ -1729,7 +1735,7 @@ async function loadState() {
     }
     throw error;
   }
-  if (app.currentUser && app.view === "login") {
+  if (app.currentUser && isAuthView()) {
     app.view = "dashboard";
     navigateToView("dashboard", true);
   }
@@ -1755,7 +1761,7 @@ function invalidateStateRequests() {
 }
 
 async function refreshSharedState({ force = false } = {}) {
-  if (!app.currentUser || app.view === "login" || app.stateRefreshInFlight) return;
+  if (!app.currentUser || isAuthView() || app.stateRefreshInFlight) return;
   if (app.profileSaving || app.orderSavePending || app.productSavePending || app.settingsSavePending || app.teamSavePending) return;
   if (!force && app.lastStateLoadedAt && Date.now() - app.lastStateLoadedAt < 5000) return;
   app.stateRefreshInFlight = true;
@@ -1781,7 +1787,7 @@ function userSyncSignature(user = {}) {
 }
 
 async function refreshCurrentUser() {
-  if (!app.currentUser || app.view === "login" || app.currentUserRefreshInFlight || app.profileSaving || app.teamSavePending) return;
+  if (!app.currentUser || isAuthView() || app.currentUserRefreshInFlight || app.profileSaving || app.teamSavePending) return;
   if (document.visibilityState && document.visibilityState !== "visible") return;
   app.currentUserRefreshInFlight = true;
   try {
@@ -1837,7 +1843,7 @@ function loadStateAfterLogin() {
 }
 
 function renderNav() {
-  if (app.view === "login") {
+  if (isAuthView()) {
     els.nav.innerHTML = "";
     if (els.sidebarFooter) {
       els.sidebarFooter.hidden = true;
@@ -2186,7 +2192,8 @@ function applyDateRangeDraft() {
 }
 
 function updateShell() {
-  document.body.classList.toggle("login-view", app.view === "login");
+  document.body.classList.toggle("login-view", isAuthView());
+  document.body.classList.toggle("signup-view", app.view === "signup");
   document.body.classList.toggle("mobile-app-shell", isMobileViewport());
   document.body.classList.toggle("desktop-app-shell", !isMobileViewport());
   document.body.classList.toggle("mobile-home-view", isMobileViewport() && app.view === "dashboard");
@@ -2199,7 +2206,7 @@ function updateShell() {
   if (els.workDateDisplay) {
     updateDatePillLabel();
   }
-  if (!app.currentUser || app.view === "login") {
+  if (!app.currentUser || isAuthView()) {
     els.headerProfile.hidden = true;
     els.headerProfile.innerHTML = "";
     if (els.sidebarFooter) {
@@ -3375,6 +3382,40 @@ function renderLogin() {
             <input name="password" autocomplete="current-password" type="password" required placeholder="กรอกรหัสผ่าน">
           </label>
           <button class="button primary" type="submit">เข้าสู่ระบบ</button>
+          <p class="login-card-switch">ยังไม่มีบัญชี? <a href="/signup" data-auth-route="signup">เริ่มใช้ฟรี 30 วัน</a></p>
+        </form>
+      </div>
+    </section>
+  `;
+}
+
+function renderSignup() {
+  els.content.innerHTML = `
+    <section class="login-layout">
+      <div class="login-desktop-card">
+        <form class="login-card" id="signupForm">
+          <div class="login-card-brand" aria-label="Growup Pilot">
+            <img class="login-page-logo" src="/icons/login-logo-192.png?v=20260718-website-logo-transparent-v1" alt="" aria-hidden="true" width="96" height="96" fetchpriority="high" loading="eager" decoding="async">
+            <strong>Growup<span>Pilot</span></strong>
+          </div>
+          <label>ชื่อธุรกิจ
+            <input name="businessName" autocomplete="organization" required placeholder="กรอกชื่อธุรกิจ">
+          </label>
+          <label>อีเมลหรือชื่อผู้ใช้งาน
+            <input name="username" autocomplete="username" required placeholder="กรอกอีเมลหรือชื่อผู้ใช้งาน">
+          </label>
+          <label>ชื่อผู้ใช้งานในระบบ
+            <input name="displayName" autocomplete="name" placeholder="ชื่อของคุณ">
+          </label>
+          <label>รหัสผ่าน
+            <input name="password" autocomplete="new-password" type="password" minlength="8" required placeholder="อย่างน้อย 8 ตัวอักษร">
+          </label>
+          <label>ยืนยันรหัสผ่าน
+            <input name="confirmPassword" autocomplete="new-password" type="password" minlength="8" required placeholder="กรอกรหัสผ่านอีกครั้ง">
+          </label>
+          <input type="hidden" name="signupRequestId" value="${escapeHtml(crypto.randomUUID?.() || `signup_${Date.now()}_${Math.random().toString(36).slice(2)}`)}">
+          <button class="button primary" type="submit">เริ่มใช้ฟรี 30 วัน</button>
+          <p class="login-card-switch">มีบัญชีแล้ว? <a href="/login" data-auth-route="login">เข้าสู่ระบบ</a></p>
         </form>
       </div>
     </section>
@@ -10412,7 +10453,7 @@ function renderProductDetail(product) {
 function render(options = {}) {
   const mobile = isMobileViewport();
   app.layoutMode = mobile ? "mobile" : "desktop";
-  if (!app.data && app.view !== "login") {
+  if (!app.data && !["login", "signup"].includes(app.view)) {
     if (!mobile) renderNav();
     updateShell();
     els.pageTitle.textContent = titleFor(app.view);
@@ -10440,10 +10481,11 @@ function render(options = {}) {
   if (els.pageSubtitle) {
     els.pageSubtitle.textContent = !mobile && app.view === "dashboard" ? "นี่คือภาพรวมธุรกิจของคุณวันนี้" : "";
   }
-  document.title = app.view === "login" ? "Growup Pilot" : `${titleFor(app.view)} | Growup Pilot`;
+  document.title = ["login", "signup"].includes(app.view) ? "Growup Pilot" : `${titleFor(app.view)} | Growup Pilot`;
   renderSubpageNav();
   const renderer = {
     login: renderLogin,
+    signup: renderSignup,
     dashboard: renderDashboard,
     opportunities: renderOpportunities,
     orders: renderOrders,
@@ -10603,7 +10645,7 @@ function syncViewFromLocation(event = null) {
   const nextCustomerDetailId = nextView === "customers" ? String(event?.state?.customerManagementDetailId || "") : "";
   const previousBusinessPage = app.mobileBusinessPage || "main";
   const wasCustomerManagement = app.view === "customers" || app.view === "settingsCustomers" || (app.view === "settings" && previousBusinessPage === "customers");
-  if (!app.currentUser && nextView !== "login") {
+  if (!app.currentUser && !["login", "signup"].includes(nextView)) {
     applyThemePreference("system", { persistLocal: false });
     if (wasCustomerManagement) resetCustomerManagementState({ resetGroup: true });
     clearBusinessManagementScrollRestore();
@@ -10613,7 +10655,7 @@ function syncViewFromLocation(event = null) {
     render();
     return;
   }
-  if (app.currentUser && nextView === "login") {
+  if (app.currentUser && ["login", "signup"].includes(nextView)) {
     if (wasCustomerManagement) resetCustomerManagementState({ resetGroup: true });
     clearBusinessManagementScrollRestore();
     app.mobileBusinessPage = "main";
@@ -12663,6 +12705,27 @@ document.addEventListener("submit", async event => {
       return;
     }
 
+    if (currentFormId === "signupForm") {
+      const data = Object.fromEntries(new FormData(form).entries());
+      if (String(data.password || "") !== String(data.confirmPassword || "")) {
+        showToast("รหัสผ่านไม่ตรงกัน", "error");
+        return;
+      }
+      const payload = await api("/api/signup", {
+        method: "POST",
+        body: JSON.stringify(data)
+      });
+      saveSession(payload.user);
+      clearBusinessManagementScrollRestore();
+      app.mobileBusinessPage = "main";
+      app.view = "dashboard";
+      navigateToView("dashboard");
+      showToast("สมัครใช้งานสำเร็จ");
+      render();
+      loadStateAfterLogin();
+      return;
+    }
+
     if (currentFormId === "orderForm") {
       const isEdit = Boolean(app.editingOrderId);
       if (!can(isEdit ? "orders.edit" : "orders.create")) {
@@ -13165,8 +13228,8 @@ async function init() {
   if (!app.currentUser) {
     clearBusinessManagementScrollRestore();
     app.mobileBusinessPage = "main";
-    app.view = "login";
-    navigateToView("login", true);
+    app.view = app.view === "signup" ? "signup" : "login";
+    navigateToView(isAuthView(app.view) ? app.view : "login", true);
     render();
     return;
   }
