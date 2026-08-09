@@ -3592,7 +3592,7 @@ function prepareCsvImport(content, db) {
 function serveStatic(req, res) {
   const url = new URL(req.url, `http://${req.headers.host}`);
   const safePath = path.normalize(decodeURIComponent(url.pathname)).replace(/^(\.\.[/\\])+/, "");
-  const requestedPath = safePath === "/" ? "/index.html" : safePath;
+  const requestedPath = safePath === "/" ? "/landing.html" : safePath;
   let filePath = path.join(PUBLIC_DIR, requestedPath);
   if (!filePath.startsWith(PUBLIC_DIR)) return text(res, 403, "Forbidden");
 

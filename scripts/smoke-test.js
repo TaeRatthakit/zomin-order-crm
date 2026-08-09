@@ -1058,7 +1058,7 @@ async function main() {
   ) {
     fail("product actions do not enforce one request, rollback, or immediate row removal");
   }
-  const appShell = await request("/");
+  const appShell = await request("/index.html");
   const orderFormHtml = appShell.text.slice(
     appShell.text.indexOf('<form id="orderForm"'),
     appShell.text.indexOf('<dialog id="deleteOrderDialog"')

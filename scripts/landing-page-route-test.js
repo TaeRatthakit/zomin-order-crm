@@ -7,6 +7,7 @@ const ROOT = path.join(__dirname, "..");
 const appJs = fs.readFileSync(path.join(ROOT, "public", "app.js"), "utf8");
 const serverJs = fs.readFileSync(path.join(ROOT, "server.js"), "utf8");
 const css = fs.readFileSync(path.join(ROOT, "public", "styles.css"), "utf8");
+const landingHtml = fs.readFileSync(path.join(ROOT, "public", "landing.html"), "utf8");
 const landingStart = appJs.indexOf("function renderLanding()");
 const landingEnd = appJs.indexOf("function customerRow", landingStart);
 const landingBlock = appJs.slice(landingStart, landingEnd);
@@ -24,6 +25,11 @@ assert(landingBlock.includes("฿490") && landingBlock.includes("ต้นทุ
 assert(!landingBlock.includes("ผู้ใช้งานสูงสุด 10 คน"), "490 baht landing plan must not invent a user limit");
 assert(!/broadcast| ai |ปัญญาประดิษฐ์/i.test(landingBlock), "landing must not market AI or Broadcast features");
 assert(serverJs.includes('["/", "/login", "/signup"].includes(pathname)'), "server public routing must expose root, login, and signup");
+assert(serverJs.includes('safePath === "/" ? "/landing.html"'), "root route must serve crawlable landing HTML");
+assert(landingHtml.includes("จัดการธุรกิจ ให้เติบโต ไปกับ Growup Pilot"), "root HTML must include crawlable landing H1");
+assert(landingHtml.includes('meta name="description"'), "root HTML must include an SEO description");
+assert(!landingHtml.includes("เพิ่มออเดอร์") && !landingHtml.includes("แก้ไขโปรไฟล์"), "root HTML must not include private app modal copy");
+assert(!landingHtml.includes("orderDialog") && !landingHtml.includes("productDialog"), "root HTML must not include private app modal shells");
 assert(css.includes("body.landing-view") && css.includes(".landing-page"), "landing CSS must be scoped");
 
 console.log("Landing page route/content checks passed.");

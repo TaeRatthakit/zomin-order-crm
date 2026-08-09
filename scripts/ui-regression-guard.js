@@ -15,6 +15,7 @@ const SCOPE = (process.env.UI_CHANGE_SCOPE || "")
 
 const UI_FILES = [
   "public/index.html",
+  "public/landing.html",
   "public/styles.css",
   "public/app.js",
   "public/service-worker.js"
