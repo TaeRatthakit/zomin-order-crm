@@ -25,7 +25,28 @@ const UI_ASSET_RE = /^public\/.*\.(png|jpe?g|webp|svg|ico)$/i;
 const TEXT_UI_RE = /\.(css|js|html)$/i;
 
 const PAGE_PATTERNS = {
-  landing: [/landing/i, /public/i, /hero/i, /features/i, /pricing/i, /how-it-works/i, /"\/": "dashboard"/i, /isAuthView/i, /ผู้ใช้งานสูงสุด 10 คน/i, /จัดการธุรกิจให้เติบโต/i],
+  landing: [
+    /landing/i, /public/i, /hero/i, /features/i, /pricing/i, /how-it-works/i,
+    /"\/": "dashboard"/i, /isAuthView/i, /จัดการธุรกิจให้เติบโต/i,
+    /เลือกแพ็กเกจที่ใช่/i, /ระบบบริหารธุรกิจครบวงจร/i,
+    /รายเดือน/i, /รายปี/i, /จ่ายเป็นรายเดือน/i, /ประหยัด 2 เดือน/i,
+    /Starter/i, /Business/i, /Enterprise/i, /เหมาะสำหรับร้านเล็กและทีมเล็ก/i,
+    /สำหรับธุรกิจที่กำลังเติบโต/i, /สำหรับธุรกิจที่มีทีมขนาดใหญ่/i,
+    /฿490/i, /฿990/i, /฿1,990/i, /฿4,900/i, /฿9,900/i, /฿19,900/i,
+    /฿5,880/i, /฿11,880/i, /฿23,880/i,
+    /ผู้ใช้งานสูงสุด 3 คน/i, /ผู้ใช้งานสูงสุด 10 คน/i, /ผู้ใช้งานไม่จำกัด/i,
+    /จัดการลูกค้า/i, /จัดการออเดอร์/i, /ติดตามโอกาสเพิ่มยอดขาย/i,
+    /รายงานธุรกิจ/i, /จัดการต้นทุนและกำไร/i, /สิทธิ์ Owner \/ Admin \/ Staff/i,
+    /แผนเริ่มต้นสำหรับเจ้าของธุรกิจที่ต้องการจัดการงานขายอย่างเป็นระบบ/i,
+    /ทดลองใช้ฟรี 30 วัน/i, /ทดลองใช้งานฟรี 30 วัน/i,
+    /รายงานยอดขายและกำไร/i, /จัดการต้นทุนและค่าใช้จ่าย/i,
+    /สิทธิ์การใช้งาน Owner, Admin, Staff/i,
+    /ทุกอย่างใน Starter พร้อม/i, /ทุกอย่างใน Business พร้อม/i,
+    /VIP \/ VVIP \/ SUPER VIP/i, /รายงานธุรกิจเชิงลึก/i,
+    /วิเคราะห์ต้นทุนโฆษณาและ ROAS/i, /Import Center/i, /Priority Support/i,
+    /บริการช่วยตั้งค่าระบบโดยทีมงาน/i, /บริการช่วยนำเข้าข้อมูลเดิมโดยทีมงาน/i,
+    /เลือก Business/i, /เลือก Enterprise/i, /แนะนำ/i, /เปรียบเทียบ/i
+  ],
   login: [/login/i, /auth/i, /app-startup/i],
   signup: [/signup/i, /auth/i, /app-startup/i],
   dashboard: [/dashboard/i, /home/i, /growth-banner/i, /hero/i, /onboarding/i],
@@ -118,24 +139,98 @@ function lineMatchesScope(line, scope) {
   return patterns.some(pattern => pattern.test(line));
 }
 
+const pricingRangeCache = new Map();
+
+function pricingSectionRanges(contents) {
+  const lines = contents.split("\n");
+  const ranges = [];
+  for (let index = 0; index < lines.length; index += 1) {
+    if (!/<section id="pricing" class="landing-section landing-pricing"/.test(lines[index])) continue;
+    let depth = 0;
+    for (let cursor = index; cursor < lines.length; cursor += 1) {
+      depth += (lines[cursor].match(/<section\b/g) || []).length;
+      depth -= (lines[cursor].match(/<\/section>/g) || []).length;
+      if (depth <= 0) {
+        ranges.push([index + 1, cursor + 1]);
+        break;
+      }
+    }
+  }
+  return ranges;
+}
+
+function readRevisionFile(file, revision) {
+  if (revision === "working") {
+    return fs.existsSync(file) ? fs.readFileSync(file, "utf8") : "";
+  }
+  const ref = SOURCE_COMPARE_REF || "HEAD";
+  return runGit(["show", `${ref}:${file}`], true);
+}
+
+function pricingRangesFor(file, revision) {
+  const key = `${revision}:${file}`;
+  if (!pricingRangeCache.has(key)) {
+    pricingRangeCache.set(key, pricingSectionRanges(readRevisionFile(file, revision)));
+  }
+  return pricingRangeCache.get(key);
+}
+
+function lineIsInsideApprovedPricing(file, sign, lineNumber) {
+  if (!SCOPE.includes("landing")) return false;
+  if (!/^public\/(app\.js|landing\.html)$/.test(file)) return false;
+  if (!lineNumber) return false;
+  const revision = sign === "+" ? "working" : "base";
+  return pricingRangesFor(file, revision).some(([start, end]) => lineNumber >= start && lineNumber <= end);
+}
+
+function lineIsPricingOnlyHtmlStructure(line, file, sign, lineNumber) {
+  if (!lineIsInsideApprovedPricing(file, sign, lineNumber)) return false;
+  return /^[+-]\s*<\/?(section|div|ul)(\s[^>]*)?>\s*$/i.test(line);
+}
+
 function pathMatchesScope(file) {
   return SCOPE.some(scope => lineMatchesScope(file, scope))
     || (SCOPE.includes("global") && lineMatchesScope(file, "global"));
 }
 
 function classifyOutOfScope(diff) {
-  const lines = diff.split("\n").filter(line => /^[+-](?![+-])/.test(line));
   let activeBlockIsInScope = false;
   let activeBlockDepth = 0;
-  return lines.filter(line => {
-    if (!line.slice(1).trim()) return false;
+  const outOfScope = [];
+  let file = "";
+  let oldLine = 0;
+  let newLine = 0;
+  for (const line of diff.split("\n")) {
+    const fileMatch = line.match(/^diff --git a\/(.+?) b\/(.+)$/);
+    if (fileMatch) {
+      file = fileMatch[2];
+      continue;
+    }
+    const hunkMatch = line.match(/^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
+    if (hunkMatch) {
+      oldLine = Number(hunkMatch[1]);
+      newLine = Number(hunkMatch[2]);
+      continue;
+    }
+    if (!/^[+-](?![+-])/.test(line)) {
+      if (line && oldLine && newLine) {
+        oldLine += 1;
+        newLine += 1;
+      }
+      continue;
+    }
+    const sign = line[0];
+    const lineNumber = sign === "+" ? newLine : oldLine;
+    if (sign === "+") newLine += 1;
+    if (sign === "-") oldLine += 1;
+    if (!line.slice(1).trim()) continue;
     const lineIsInScope = SCOPE.some(scope => lineMatchesScope(line, scope))
       || (SCOPE.includes("global") && lineMatchesScope(line, "global"));
     if (line.includes("{")) {
       if (!activeBlockIsInScope) activeBlockIsInScope = lineIsInScope;
       if (activeBlockIsInScope) activeBlockDepth += (line.match(/\{/g) || []).length;
     }
-    if (lineIsInScope || activeBlockIsInScope) {
+    if (lineIsInScope || activeBlockIsInScope || lineIsPricingOnlyHtmlStructure(line, file, sign, lineNumber)) {
       if (activeBlockIsInScope && line.includes("}")) {
         activeBlockDepth -= (line.match(/\}/g) || []).length;
         if (activeBlockDepth <= 0) {
@@ -143,10 +238,11 @@ function classifyOutOfScope(diff) {
           activeBlockIsInScope = false;
         }
       }
-      return false;
+      continue;
     }
-    return true;
-  });
+    outOfScope.push(line);
+  }
+  return outOfScope;
 }
 
 function main() {

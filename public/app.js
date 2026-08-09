@@ -3560,26 +3560,83 @@ function renderLanding() {
           </div>
         </section>
 
-        <section id="pricing" class="landing-section landing-pricing" aria-labelledby="landingPricingTitle">
+        <section id="pricing" class="landing-section landing-pricing" aria-labelledby="landingPricingTitle" data-landing-pricing data-billing="monthly">
           <div class="landing-section-heading">
-            <h2 id="landingPricingTitle">ราคาเริ่มต้น</h2>
-            <p>แผนเริ่มต้นสำหรับเจ้าของธุรกิจที่ต้องการจัดการงานขายอย่างเป็นระบบ</p>
+            <h2 id="landingPricingTitle">เลือกแพ็กเกจที่ใช่ สำหรับธุรกิจของคุณ</h2>
+            <p>ระบบบริหารธุรกิจครบวงจร ช่วยให้คุณขยายได้มากขึ้น กำไรมากขึ้น และทำงานง่ายขึ้น</p>
           </div>
-          <section class="landing-price-card" aria-label="Starter ราคา 490 บาทต่อเดือน">
-            <div>
-              <p>Starter</p>
-              <h3><span>฿490</span> / เดือน</h3>
-              <small>ทดลองใช้งานฟรี 30 วัน</small>
+          <div class="landing-billing-toggle" aria-label="เลือกรูปแบบการชำระเงิน">
+            <button type="button" data-landing-billing="monthly" aria-pressed="true"><strong>รายเดือน</strong><span>จ่ายเป็นรายเดือน</span></button>
+            <button type="button" data-landing-billing="yearly" aria-pressed="false"><strong>รายปี</strong><span>ประหยัด 2 เดือน</span></button>
+          </div>
+          <div class="landing-price-grid">
+            <section class="landing-price-card" aria-label="Starter ราคา 490 บาทต่อเดือน">
+              <div>
+                <p>Starter</p>
+                <span>เหมาะสำหรับร้านเล็กและทีมเล็ก</span>
+                <h3><span data-price-monthly>฿490</span><span data-price-yearly>฿4,900</span> <small data-price-monthly>/ เดือน</small><small data-price-yearly>/ ปี</small></h3>
+                <del data-price-yearly>฿5,880</del>
+                <small>ทดลองใช้ฟรี 30 วัน</small>
+              </div>
+              <ul>
+                <li>ผู้ใช้งานสูงสุด 3 คน</li>
+                <li>จัดการลูกค้า</li>
+                <li>จัดการออเดอร์</li>
+                <li>ติดตามโอกาสเพิ่มยอดขาย</li>
+                <li>รายงานธุรกิจ</li>
+                <li>จัดการต้นทุนและกำไร</li>
+                <li>สิทธิ์ Owner / Admin / Staff</li>
+              </ul>
               <a class="landing-button landing-button-primary" href="/signup">เริ่มใช้ฟรี 30 วัน</a>
-            </div>
-            <ul>
-              <li>จัดการลูกค้าไม่จำกัด</li>
-              <li>จัดการออเดอร์ไม่จำกัด</li>
-              <li>รายงานยอดขายและกำไร</li>
-              <li>จัดการต้นทุนและค่าใช้จ่าย</li>
-              <li>สิทธิ์การใช้งาน Owner, Admin, Staff</li>
-            </ul>
-          </section>
+            </section>
+            <section class="landing-price-card landing-price-card-featured" aria-label="Business ราคา 990 บาทต่อเดือน">
+              <strong class="landing-plan-badge">แนะนำ</strong>
+              <div>
+                <p>Business</p>
+                <span>สำหรับธุรกิจที่กำลังเติบโต</span>
+                <h3><span data-price-monthly>฿990</span><span data-price-yearly>฿9,900</span> <small data-price-monthly>/ เดือน</small><small data-price-yearly>/ ปี</small></h3>
+                <del data-price-yearly>฿11,880</del>
+              </div>
+              <b class="landing-plan-includes">ทุกอย่างใน Starter พร้อม</b>
+              <ul>
+                <li>ผู้ใช้งานสูงสุด 10 คน</li>
+                <li>VIP / VVIP / SUPER VIP</li>
+                <li>รายงานธุรกิจเชิงลึก</li>
+                <li>วิเคราะห์ต้นทุนโฆษณาและ ROAS</li>
+                <li>Import Center</li>
+                <li>Priority Support</li>
+              </ul>
+              <a class="landing-button landing-button-primary" href="/signup">เลือก Business</a>
+            </section>
+            <section class="landing-price-card" aria-label="Enterprise ราคา 1,990 บาทต่อเดือน">
+              <div>
+                <p>Enterprise</p>
+                <span>สำหรับธุรกิจที่มีทีมขนาดใหญ่</span>
+                <h3><span data-price-monthly>฿1,990</span><span data-price-yearly>฿19,900</span> <small data-price-monthly>/ เดือน</small><small data-price-yearly>/ ปี</small></h3>
+                <del data-price-yearly>฿23,880</del>
+              </div>
+              <b class="landing-plan-includes">ทุกอย่างใน Business พร้อม</b>
+              <ul>
+                <li>ผู้ใช้งานไม่จำกัด</li>
+                <li>เครื่องมือและรายงานของ Business ทั้งหมด</li>
+                <li>Priority Support</li>
+                <li>บริการช่วยตั้งค่าระบบโดยทีมงาน</li>
+                <li>บริการช่วยนำเข้าข้อมูลเดิมโดยทีมงาน</li>
+              </ul>
+              <a class="landing-button landing-button-primary" href="/signup">เลือก Enterprise</a>
+            </section>
+          </div>
+          <div class="landing-plan-compare" aria-label="เปรียบเทียบแพ็กเกจ Growup Pilot">
+            <div class="landing-plan-compare-row landing-plan-compare-head"><span>เปรียบเทียบ</span><b>Starter</b><b>Business</b><b>Enterprise</b></div>
+            <div class="landing-plan-compare-row"><span>ผู้ใช้งานสูงสุด</span><b>3 คน</b><b>10 คน</b><b>ไม่จำกัด</b></div>
+            <div class="landing-plan-compare-row"><span>VIP / VVIP / SUPER VIP</span><b>—</b><b>✓</b><b>✓</b></div>
+            <div class="landing-plan-compare-row"><span>รายงานธุรกิจเชิงลึก</span><b>—</b><b>✓</b><b>✓</b></div>
+            <div class="landing-plan-compare-row"><span>ต้นทุนโฆษณา / ROAS</span><b>—</b><b>✓</b><b>✓</b></div>
+            <div class="landing-plan-compare-row"><span>Import Center</span><b>—</b><b>✓</b><b>✓</b></div>
+            <div class="landing-plan-compare-row"><span>Priority Support</span><b>—</b><b>✓</b><b>✓</b></div>
+            <div class="landing-plan-compare-row"><span>บริการช่วยตั้งค่าระบบโดยทีมงาน</span><b>—</b><b>—</b><b>✓</b></div>
+            <div class="landing-plan-compare-row"><span>บริการช่วยนำเข้าข้อมูลเดิมโดยทีมงาน</span><b>—</b><b>—</b><b>✓</b></div>
+          </div>
         </section>
 
         <section class="landing-final-cta" aria-labelledby="landingFinalTitle">
@@ -11312,6 +11369,19 @@ els.productDialog?.addEventListener("close", () => {
 });
 
 document.addEventListener("click", async event => {
+  const landingBillingButton = event.target.closest("[data-landing-billing]");
+  if (landingBillingButton) {
+    const pricing = landingBillingButton.closest("[data-landing-pricing]");
+    if (pricing) {
+      const billing = landingBillingButton.dataset.landingBilling === "yearly" ? "yearly" : "monthly";
+      pricing.dataset.billing = billing;
+      pricing.querySelectorAll("[data-landing-billing]").forEach(button => {
+        button.setAttribute("aria-pressed", String(button.dataset.landingBilling === billing));
+      });
+      return;
+    }
+  }
+
   if (event.target.closest("#orderSubmitButton")) {
     app.orderSaveClickStartedAt = performance.now();
   }

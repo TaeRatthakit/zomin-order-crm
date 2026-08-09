@@ -7,7 +7,7 @@
     "start": "node server.js",
     "dev": "node server.js",
     "build": "node scripts/verify-build.js",
-    "test": "node scripts/profit-calculation-regression-test.js && node scripts/dashboard-opportunity-summary-test.js && node scripts/smoke-test.js && node scripts/tenant-write-path-test.js && node scripts/signup-login-flow-test.js && node scripts/landing-page-route-test.js",
+    "test": "node scripts/profit-calculation-regression-test.js && node scripts/dashboard-opportunity-summary-test.js && node scripts/smoke-test.js && node scripts/tenant-write-path-test.js && node scripts/signup-login-flow-test.js && node scripts/landing-page-route-test.js && node scripts/ui-regression-guard-test.js",
     "test:opportunity-cycle": "node scripts/opportunity-cycle-test.js",
     "test:permissions": "node scripts/permission-smoke-test.js",
     "test:auth-signup": "node scripts/signup-login-flow-test.js",
