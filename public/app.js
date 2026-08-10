@@ -3381,10 +3381,10 @@ function renderLogin() {
             <img class="login-page-logo" src="/icons/login-logo-192.png?v=20260718-website-logo-transparent-v1" alt="" aria-hidden="true" width="96" height="96" fetchpriority="high" loading="eager" decoding="async">
             <strong>Growup<span>Pilot</span></strong>
           </div>
-          <label>ชื่อผู้ใช้งาน
+          <label>ชื่อผู้ใช้งาน (Username)
             <input name="username" autocomplete="username" required placeholder="กรอกชื่อผู้ใช้งาน">
           </label>
-          <label>รหัสผ่าน
+          <label>รหัสผ่าน (Password)
             <input name="password" autocomplete="current-password" type="password" required placeholder="กรอกรหัสผ่าน">
           </label>
           <button class="button primary" type="submit">เข้าสู่ระบบ</button>
@@ -3484,13 +3484,13 @@ function renderSignup() {
           <label>ชื่อธุรกิจ
             <input name="businessName" autocomplete="organization" required placeholder="กรอกชื่อธุรกิจ">
           </label>
-          <label>ชื่อเข้าใช้งาน
-            <input name="username" autocomplete="username" required placeholder="เช่น nada_shop">
-          </label>
           <label>ชื่อที่แสดงในระบบ
-            <input name="displayName" autocomplete="name" placeholder="เช่น นาดา">
+            <input name="displayName" autocomplete="name" placeholder="กรอกชื่อที่ต้องการให้แสดง">
           </label>
-          <label>รหัสผ่าน
+          <label>ชื่อผู้ใช้งาน (Username)
+            <input name="username" autocomplete="username" required placeholder="กำหนดชื่อผู้ใช้งาน">
+          </label>
+          <label>รหัสผ่าน (Password)
             <input name="password" autocomplete="new-password" type="password" minlength="8" required placeholder="อย่างน้อย 8 ตัวอักษร">
           </label>
           <label>ยืนยันรหัสผ่าน
