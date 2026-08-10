@@ -3482,6 +3482,8 @@ function renderLanding() {
             </ul>
           </div>
           <div class="landing-preview" aria-label="ตัวอย่างหน้าจอ Growup Pilot">
+            <div class="landing-device-stage">
+              <div class="landing-device landing-device-laptop">
             <div class="landing-preview-window">
               <div class="landing-preview-top">
                 <span></span><span></span><span></span>
@@ -3515,6 +3517,22 @@ function renderLanding() {
                 </section>
               </div>
             </div>
+              </div><!-- landing-device-laptop -->
+              <div class="landing-device-base" aria-hidden="true"></div>
+              <div class="landing-device landing-device-phone" aria-label="ตัวอย่างหน้าจอมือถือ Growup Pilot">
+                <div class="landing-phone-top">
+                  <strong class="landing-phone-brand">Growup Pilot</strong>
+                  <span class="landing-phone-action"></span>
+                </div><!-- landing-phone-top -->
+                <div class="landing-phone-list">
+                  <b class="landing-phone-title">ติดตามลูกค้า</b>
+                  <p class="landing-phone-row"><span></span> ลูกค้าใหม่</p>
+                  <p class="landing-phone-row"><span></span> นัดติดตาม</p>
+                  <p class="landing-phone-row"><span></span> โอกาสขาย</p>
+                  <p class="landing-phone-row"><span></span> ดูผลลัพธ์</p>
+                </div><!-- landing-phone-list -->
+              </div><!-- landing-device-phone -->
+            </div><!-- landing-device-stage -->
           </div>
         </section>
 
@@ -3645,6 +3663,7 @@ function renderLanding() {
             <p>เริ่มวันนี้เพื่อให้การดูแลลูกค้า ออเดอร์ และผลลัพธ์ธุรกิจชัดเจนขึ้น โดยไม่เพิ่มความซับซ้อนให้ทีม</p>
           </div>
           <a class="landing-button landing-button-light" href="/signup">เริ่มใช้ฟรี 30 วัน</a>
+          <img class="landing-cta-rocket" src="/onboarding-rocket-100.png" alt="" loading="lazy" decoding="async">
         </section>
       </main>
 
