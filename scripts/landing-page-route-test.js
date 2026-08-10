@@ -65,7 +65,8 @@ assert(!businessSignupConfig.includes("เริ่มใช้ฟรี 30 ว�
 assert(enterpriseSignupConfig.includes("สมัครแพ็กเกจ Enterprise") && enterpriseSignupConfig.includes("฿1,990 / เดือน") && enterpriseSignupConfig.includes("฿19,900 / ปี") && enterpriseSignupConfig.includes("สมัครและเลือก Enterprise"), "Enterprise signup handoff copy missing");
 assert(!enterpriseSignupConfig.includes("เริ่มใช้ฟรี 30 วัน") && !enterpriseSignupConfig.includes("ทดลองใช้ฟรี 30 วัน"), "Enterprise signup must not use Starter free-trial copy");
 assert(!landingBlock.includes("landing-button-light"), "final CTA must not contain the removed white button");
-assert(landingBlock.includes("จัดการลูกค้า ออเดอร์ โอกาสขาย รายงาน ต้นทุนและกำไรในที่เดียว"), "footer must use approved compact copy");
+assert(landingBlock.includes("<footer class=\"landing-footer\">") && landingBlock.includes("© 2026 Growup Pilot"), "footer must keep the copyright-only strip");
+assert(!landingBlock.includes("เมนูท้ายหน้า") && !landingBlock.includes("จัดการลูกค้า ออเดอร์ โอกาสขาย รายงาน ต้นทุนและกำไรในที่เดียว"), "rendered footer must not include nav columns or repeated brand copy");
 assert(appJs.includes('app.view === "landing"') && appJs.includes("Growup Pilot | จัดการธุรกิจให้เติบโต"), "landing route must keep an SEO-specific page title after JS renders");
 assert(serverJs.includes('["/", "/login", "/signup"].includes(pathname)'), "server public routing must expose root, login, and signup");
 assert(serverJs.includes('"/landing.html"') && serverJs.includes('"/login.html"') && serverJs.includes('"/signup.html"'), "public routes must serve crawlable public HTML shells");
@@ -91,6 +92,8 @@ assert(!signupHtml.includes("orderDialog") && !signupHtml.includes("productDialo
 assert(css.includes("body.landing-view") && css.includes(".landing-page"), "landing CSS must be scoped");
 assert(css.includes("body.landing-view .landing-button-primary") && css.includes("color: #ffffff !important"), "public CTA text color must be locked to white");
 assert(css.includes("body.landing-view .landing-nav") && css.includes("display: none !important"), "removed public header nav must stay hidden if stale markup appears");
-assert(css.includes("body.landing-view .landing-footer nav") && css.includes("flex-wrap: nowrap"), "footer must use compact auth-only nav styling");
+assert(landingHtml.includes("<footer class=\"landing-footer\">\n              <small>© 2026 Growup Pilot</small>\n            </footer>"), "landing footer must be a minimal copyright-only strip");
+assert(!landingHtml.includes("เมนูท้ายหน้า") && !landingHtml.includes("จัดการลูกค้า ออเดอร์ โอกาสขาย รายงาน ต้นทุนและกำไรในที่เดียว"), "landing footer must not include nav columns or repeated brand copy");
+assert(css.includes("body.landing-view .landing-footer") && css.includes("min-height: 60px") && css.includes("justify-content: center"), "landing footer must stay compact and centered");
 
 console.log("Landing page route/content checks passed.");

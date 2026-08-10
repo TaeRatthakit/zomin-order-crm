@@ -3740,17 +3740,6 @@ function renderLanding() {
       </main>
 
       <footer class="landing-footer">
-        <div>
-          <a class="landing-brand" href="/" aria-label="Growup Pilot">
-            <img src="/icons/login-logo-192.png?v=20260718-website-logo-transparent-v1" alt="" width="40" height="40" decoding="async">
-            <span>Growup Pilot</span>
-          </a>
-          <p>จัดการลูกค้า ออเดอร์ โอกาสขาย รายงาน ต้นทุนและกำไรในที่เดียว</p>
-        </div>
-        <nav aria-label="เมนูท้ายหน้า">
-          <a href="/login">เข้าสู่ระบบ</a>
-          <a href="/signup">สมัครใช้งาน</a>
-        </nav>
         <small>© 2026 Growup Pilot</small>
       </footer>
     </article>
