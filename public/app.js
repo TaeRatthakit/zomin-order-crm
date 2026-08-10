@@ -3484,11 +3484,11 @@ function renderSignup() {
           <label>ชื่อธุรกิจ
             <input name="businessName" autocomplete="organization" required placeholder="กรอกชื่อธุรกิจ">
           </label>
-          <label>อีเมลหรือชื่อผู้ใช้งาน
-            <input name="username" autocomplete="username" required placeholder="กรอกอีเมลหรือชื่อผู้ใช้งาน">
+          <label>ชื่อเข้าใช้งาน
+            <input name="username" autocomplete="username" required placeholder="เช่น nada_shop">
           </label>
-          <label>ชื่อผู้ใช้งานในระบบ
-            <input name="displayName" autocomplete="name" placeholder="ชื่อของคุณ">
+          <label>ชื่อที่แสดงในระบบ
+            <input name="displayName" autocomplete="name" placeholder="เช่น นาดา">
           </label>
           <label>รหัสผ่าน
             <input name="password" autocomplete="new-password" type="password" minlength="8" required placeholder="อย่างน้อย 8 ตัวอักษร">

@@ -108,6 +108,10 @@ function stripHiddenElements(html) {
   assertIncludes(signup.text, "<title>สมัครใช้งาน | Growup Pilot</title>", "raw /signup");
   assertIncludes(signup.text, 'id="signupForm"', "raw /signup");
   assertIncludes(signup.text, "ชื่อธุรกิจ", "raw /signup");
+  assertIncludes(signup.text, "ชื่อเข้าใช้งาน", "raw /signup");
+  assertIncludes(signup.text, "เช่น nada_shop", "raw /signup");
+  assertIncludes(signup.text, "ชื่อที่แสดงในระบบ", "raw /signup");
+  assertIncludes(signup.text, "เช่น นาดา", "raw /signup");
   assertCleanPublicHtml(signup.text, "raw /signup");
   if (signup.text.includes("เริ่มใช้ฟรี 30 วัน") || signup.text.includes("ทดลองใช้ฟรี 30 วัน")) {
     fail("generic raw /signup should stay neutral until a valid Starter plan is selected");

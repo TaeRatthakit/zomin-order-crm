@@ -302,7 +302,7 @@ async function login(username, password = "pass12345") {
     if (!(tenantBState.orders || []).some(order => order.id === "o_b")) fail("tenant A direct-ID attempt deleted tenant B order");
 
     const signupPayload = {
-      username: "new-owner@example.com",
+      username: "new_owner",
       password: "newpass123",
       businessName: "New Pilot Co",
       displayName: "New Owner",
@@ -347,6 +347,10 @@ async function login(username, password = "pass12345") {
     if (privateState.status !== 401) fail(`private state returned ${privateState.status}: ${privateState.text}`);
     const privateRoute = await request("/dashboard");
     if (privateRoute.status !== 302 || header(privateRoute.headers, "location") !== "/login") fail("private route was accessible after logout without cookie");
+    const usernameLogin = await login("new_owner", "newpass123");
+    const usernameState = (await request("/api/state", { headers: { cookie: usernameLogin.cookie } })).json();
+    if (usernameState.settings?.businessName !== "New Pilot Co") fail("username signup login did not enter bootstrapped tenant state");
+    if (usernameLogin.body.user.username !== "new_owner") fail("username signup login returned the wrong user");
 
     console.log("Signup/Login flow security test passed.");
   } finally {}
