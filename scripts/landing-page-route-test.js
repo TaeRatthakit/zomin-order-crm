@@ -13,9 +13,20 @@ const signupHtml = fs.readFileSync(path.join(ROOT, "public", "signup.html"), "ut
 const landingStart = appJs.indexOf("function renderLanding()");
 const landingEnd = appJs.indexOf("function customerRow", landingStart);
 const landingBlock = appJs.slice(landingStart, landingEnd);
+const signupStart = appJs.indexOf("function renderSignup()");
+const signupEnd = appJs.indexOf("function renderLanding()", signupStart);
+const signupBlock = appJs.slice(signupStart, signupEnd);
 const starterPlanBlock = landingBlock.slice(
   landingBlock.indexOf("<p>Starter</p>"),
   landingBlock.indexOf("<p>Business</p>")
+);
+const businessSignupConfig = appJs.slice(
+  appJs.indexOf("business: {"),
+  appJs.indexOf("enterprise: {")
+);
+const enterpriseSignupConfig = appJs.slice(
+  appJs.indexOf("enterprise: {"),
+  appJs.indexOf("function selectedLandingSignupPlan")
 );
 
 function assert(condition, message) {
@@ -25,8 +36,16 @@ function assert(condition, message) {
 assert(appJs.includes('"/": "landing"'), "root route must render the public landing view");
 assert(appJs.includes('"/dashboard": "dashboard"'), "dashboard route must remain a private app route");
 assert(landingStart !== -1 && landingEnd !== -1, "landing renderer missing");
-assert(landingBlock.includes('href="/signup"') && landingBlock.includes("เริ่มใช้ฟรี 30 วัน"), "landing signup CTA missing");
+assert(signupStart !== -1 && signupEnd !== -1, "signup renderer missing");
+assert(landingBlock.includes('href="${landingSignupPlanUrl("starter")}"') && landingBlock.includes("เริ่มใช้ฟรี 30 วัน"), "Starter landing signup CTA missing plan handoff");
+assert(landingBlock.includes('data-landing-plan="starter"') && landingBlock.includes('data-landing-plan="business"') && landingBlock.includes('data-landing-plan="enterprise"'), "pricing CTA plan markers missing");
+assert(landingBlock.includes('href="${landingSignupPlanUrl("business")}"') && landingBlock.includes("เลือก Business"), "Business CTA must hand off selected plan");
+assert(landingBlock.includes('href="${landingSignupPlanUrl("enterprise")}"') && landingBlock.includes("เลือก Enterprise"), "Enterprise CTA must hand off selected plan");
+assert(appJs.includes("updateLandingPlanCtas(pricing)") && appJs.includes("landingSignupPlanUrl(link.dataset.landingPlan, billing)"), "billing toggle must update pricing CTA plan URLs");
 assert(landingBlock.includes('href="/login"') && landingBlock.includes("เข้าสู่ระบบ"), "landing login link missing");
+assert(!landingBlock.includes('<a href="#features">จุดเด่น</a>'), "public header/footer must not include removed จุดเด่น navigation link");
+assert(!landingBlock.includes('<a href="#how-it-works">วิธีใช้งาน</a>'), "public header/footer must not include removed วิธีใช้งาน navigation link");
+assert(!landingBlock.includes('<a href="#pricing">ราคา</a>'), "public header/footer must not include removed ราคา navigation link");
 assert(landingBlock.includes("฿490") && landingBlock.includes("฿990") && landingBlock.includes("฿1,990"), "monthly pricing must include Starter, Business, and Enterprise");
 assert(landingBlock.includes("฿4,900") && landingBlock.includes("฿9,900") && landingBlock.includes("฿19,900"), "annual pricing must include Starter, Business, and Enterprise");
 assert(landingBlock.includes("฿5,880") && landingBlock.includes("฿11,880") && landingBlock.includes("฿23,880"), "annual comparison prices must be mathematically correct");
@@ -39,11 +58,23 @@ assert(landingBlock.includes("ต้นทุนและกำไร"), "pricin
 assert(landingBlock.includes("ช่วยให้เห็นยอดขาย ต้นทุน และกำไรชัดขึ้น และบริหารธุรกิจได้ง่ายขึ้น"), "landing must use safer business visibility copy");
 assert(starterPlanBlock.includes("ผู้ใช้งานสูงสุด 3 คน") && !starterPlanBlock.includes("ผู้ใช้งานสูงสุด 10 คน"), "Starter plan must use only the approved 3-user limit");
 assert(!/broadcast| ai |ปัญญาประดิษฐ์/i.test(landingBlock), "landing must not market AI or Broadcast features");
+assert(signupBlock.includes("selectedLandingSignupPlan()") && appJs.includes('name="landingSelectedPlan"') && appJs.includes('name="landingSelectedBilling"'), "signup must preserve selected plan and billing in the UI");
+assert(appJs.includes('if (!Object.prototype.hasOwnProperty.call(LANDING_SIGNUP_PLAN_OPTIONS, landingSignupPlan)) return null') && appJs.includes('if (!["monthly", "yearly"].includes(landingSignupBilling)) return null'), "signup plan query values must be allowlisted");
+assert(businessSignupConfig.includes("สมัครแพ็กเกจ Business") && businessSignupConfig.includes("฿990 / เดือน") && businessSignupConfig.includes("฿9,900 / ปี") && businessSignupConfig.includes("สมัครและเลือก Business"), "Business signup handoff copy missing");
+assert(!businessSignupConfig.includes("เริ่มใช้ฟรี 30 วัน") && !businessSignupConfig.includes("ทดลองใช้ฟรี 30 วัน"), "Business signup must not use Starter free-trial copy");
+assert(enterpriseSignupConfig.includes("สมัครแพ็กเกจ Enterprise") && enterpriseSignupConfig.includes("฿1,990 / เดือน") && enterpriseSignupConfig.includes("฿19,900 / ปี") && enterpriseSignupConfig.includes("สมัครและเลือก Enterprise"), "Enterprise signup handoff copy missing");
+assert(!enterpriseSignupConfig.includes("เริ่มใช้ฟรี 30 วัน") && !enterpriseSignupConfig.includes("ทดลองใช้ฟรี 30 วัน"), "Enterprise signup must not use Starter free-trial copy");
+assert(!landingBlock.includes("landing-button-light"), "final CTA must not contain the removed white button");
+assert(landingBlock.includes("จัดการลูกค้า ออเดอร์ โอกาสขาย รายงาน ต้นทุนและกำไรในที่เดียว"), "footer must use approved compact copy");
 assert(appJs.includes('app.view === "landing"') && appJs.includes("Growup Pilot | จัดการธุรกิจให้เติบโต"), "landing route must keep an SEO-specific page title after JS renders");
 assert(serverJs.includes('["/", "/login", "/signup"].includes(pathname)'), "server public routing must expose root, login, and signup");
 assert(serverJs.includes('"/landing.html"') && serverJs.includes('"/login.html"') && serverJs.includes('"/signup.html"'), "public routes must serve crawlable public HTML shells");
 assert(landingHtml.includes("จัดการธุรกิจ ให้เติบโต ไปกับ Growup Pilot"), "root HTML must include crawlable landing H1");
 assert(landingHtml.includes('meta name="description"'), "root HTML must include an SEO description");
+assert(landingHtml.includes('href="/signup?plan=starter&amp;billing=monthly"'), "root HTML must include Starter CTA plan handoff");
+assert(landingHtml.includes('href="/signup?plan=business&amp;billing=monthly"'), "root HTML must include Business CTA plan handoff");
+assert(landingHtml.includes('href="/signup?plan=enterprise&amp;billing=monthly"'), "root HTML must include Enterprise CTA plan handoff");
+assert(!landingHtml.includes('<a href="#features">จุดเด่น</a>') && !landingHtml.includes('<a href="#how-it-works">วิธีใช้งาน</a>') && !landingHtml.includes('<a href="#pricing">ราคา</a>'), "root HTML must not expose removed header/footer nav links");
 assert(landingHtml.includes("ช่วยให้เห็นยอดขาย ต้นทุน และกำไรชัดขึ้น และบริหารธุรกิจได้ง่ายขึ้น"), "root HTML must use safer business visibility copy");
 assert(landingHtml.includes("฿490") && landingHtml.includes("฿990") && landingHtml.includes("฿1,990"), "root HTML must include all monthly plans");
 assert(landingHtml.includes("฿4,900") && landingHtml.includes("฿9,900") && landingHtml.includes("฿19,900"), "root HTML must include all annual plans");
@@ -54,8 +85,12 @@ assert(!landingHtml.includes("เพิ่มออเดอร์") && !landing
 assert(!landingHtml.includes("orderDialog") && !landingHtml.includes("productDialog"), "root HTML must not include private app modal shells");
 assert(loginHtml.includes('id="loginForm"') && loginHtml.includes("เข้าสู่ระบบ"), "login HTML shell must contain login content");
 assert(signupHtml.includes('id="signupForm"') && signupHtml.includes("สมัครใช้งาน"), "signup HTML shell must contain signup content");
+assert(!signupHtml.includes("เริ่มใช้ฟรี 30 วัน") && !signupHtml.includes("ทดลองใช้ฟรี 30 วัน"), "raw generic signup shell must not imply Starter trial before plan validation");
 assert(!loginHtml.includes("orderDialog") && !loginHtml.includes("productDialog") && !loginHtml.includes("เพิ่มออเดอร์"), "login HTML shell must not contain private app shell");
 assert(!signupHtml.includes("orderDialog") && !signupHtml.includes("productDialog") && !signupHtml.includes("เพิ่มออเดอร์"), "signup HTML shell must not contain private app shell");
 assert(css.includes("body.landing-view") && css.includes(".landing-page"), "landing CSS must be scoped");
+assert(css.includes("body.landing-view .landing-button-primary") && css.includes("color: #ffffff !important"), "public CTA text color must be locked to white");
+assert(css.includes("body.landing-view .landing-nav") && css.includes("display: none !important"), "removed public header nav must stay hidden if stale markup appears");
+assert(css.includes("body.landing-view .landing-footer nav") && css.includes("flex-wrap: nowrap"), "footer must use compact auth-only nav styling");
 
 console.log("Landing page route/content checks passed.");

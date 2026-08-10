@@ -109,8 +109,19 @@ function stripHiddenElements(html) {
   assertIncludes(signup.text, 'id="signupForm"', "raw /signup");
   assertIncludes(signup.text, "ชื่อธุรกิจ", "raw /signup");
   assertCleanPublicHtml(signup.text, "raw /signup");
+  if (signup.text.includes("เริ่มใช้ฟรี 30 วัน") || signup.text.includes("ทดลองใช้ฟรี 30 วัน")) {
+    fail("generic raw /signup should stay neutral until a valid Starter plan is selected");
+  }
   if (/(name="(?:card|credit|payment)"|บัตรเครดิต|checkout|payment method|subscription)/i.test(signup.text)) {
     fail("signup raw HTML unexpectedly asks for payment or credit card details");
+  }
+
+  const businessSignup = await request("/signup?plan=business&billing=monthly");
+  if (businessSignup.status !== 200) fail(`raw Business /signup returned ${businessSignup.status}`);
+  assertIncludes(businessSignup.text, 'id="signupForm"', "raw Business /signup");
+  assertCleanPublicHtml(businessSignup.text, "raw Business /signup");
+  if (businessSignup.text.includes("เริ่มใช้ฟรี 30 วัน") || businessSignup.text.includes("ทดลองใช้ฟรี 30 วัน")) {
+    fail("raw Business signup shell must not show Starter trial copy before JS validation");
   }
 
   const prices = ["฿490", "฿4,900", "฿990", "฿9,900", "฿1,990", "฿19,900"];

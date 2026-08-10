@@ -19,6 +19,7 @@
   --shadow-soft: 0 10px 30px rgba(97, 70, 190, 0.08);
   color-scheme: light;
 }
+
 body.desktop-app-shell:not(.login-view) .line-oa-form,
 body.mobile-app-shell:not(.login-view) .line-oa-form {
   border-color: rgba(48, 92, 126, 0.62) !important;
@@ -29239,5 +29240,227 @@ body.landing-view .landing-footer small {
     grid-template-columns: repeat(2, minmax(0, max-content));
     justify-content: start;
     gap: 10px 24px;
+  }
+}
+
+/* Final scoped landing/auth correction: header, public CTA color, signup handoff, final banner, footer. */
+body.landing-view .landing-header {
+  grid-template-columns: auto auto;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+body.landing-view .landing-nav {
+  display: none !important;
+}
+
+body.landing-view .landing-button-primary,
+body.landing-view .landing-button-primary:hover,
+body.landing-view .landing-button-primary:focus-visible,
+body.landing-view .landing-button-primary:active,
+body.landing-view .landing-mobile-cta,
+body.landing-view .landing-mobile-cta:hover,
+body.landing-view .landing-mobile-cta:focus-visible,
+body.login-view .login-card .button.primary,
+body.login-view .login-card .button.primary:hover,
+body.login-view .login-card .button.primary:focus-visible,
+body.login-view .login-card .button.primary:active {
+  color: #ffffff !important;
+}
+
+body.landing-view .landing-signup-plan-summary,
+body.signup-view .landing-signup-plan-summary {
+  display: grid;
+  gap: 7px;
+  padding: 14px 16px;
+  border: 1px solid rgba(124, 58, 237, 0.18);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(245, 240, 255, 0.78));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.86);
+}
+
+body.landing-view .landing-signup-plan-summary span,
+body.signup-view .landing-signup-plan-summary span {
+  color: #7c3aed;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+body.landing-view .landing-signup-plan-summary h2,
+body.signup-view .landing-signup-plan-summary h2 {
+  margin: 0;
+  color: #15172d;
+  font-size: 20px;
+  font-weight: 950;
+  line-height: 1.2;
+}
+
+body.landing-view .landing-signup-plan-summary strong,
+body.signup-view .landing-signup-plan-summary strong {
+  color: #111827;
+  font-size: 24px;
+  font-weight: 950;
+  line-height: 1.1;
+}
+
+body.landing-view .landing-signup-plan-summary small,
+body.signup-view .landing-signup-plan-summary small {
+  color: #667085;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+body.landing-view.signup-view .login-card,
+body.signup-view .login-card {
+  min-height: auto;
+  padding-top: 46px;
+  padding-bottom: 42px;
+  gap: 16px;
+}
+
+body.landing-view .landing-final-cta {
+  align-items: center;
+  min-height: 112px;
+  margin-top: 48px;
+  margin-bottom: 0;
+  padding: 28px 230px 28px 36px;
+  background:
+    radial-gradient(circle at 90% 18%, rgba(255, 255, 255, 0.17), transparent 28%),
+    linear-gradient(135deg, #7c3aed 0%, #5b21b6 52%, #4c1d95 100%);
+}
+
+body.landing-view .landing-final-cta h2 {
+  margin: 0;
+  font-size: clamp(24px, 2.15vw, 31px);
+  line-height: 1.18;
+}
+
+body.landing-view .landing-final-cta p {
+  max-width: 760px;
+  margin: 8px 0 0;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+body.landing-view .landing-final-cta .landing-button {
+  display: none !important;
+}
+
+body.landing-view .landing-cta-rocket {
+  right: 22px;
+  bottom: -46px;
+  width: 226px;
+  max-width: 28%;
+}
+
+body.landing-view .landing-footer {
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 22px 42px;
+  padding: 30px max(29px, calc((100% - 1180px) / 2)) 24px;
+  background: linear-gradient(180deg, #160f34 0%, #10092a 100%);
+}
+
+body.landing-view .landing-footer .landing-brand {
+  color: #ffffff;
+}
+
+body.landing-view .landing-footer p {
+  max-width: 520px;
+  margin-top: 10px;
+  color: rgba(236, 233, 255, 0.68);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.55;
+}
+
+body.landing-view .landing-footer nav {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 24px;
+  align-content: start;
+  justify-content: flex-end;
+  padding-top: 8px;
+}
+
+body.landing-view .landing-footer nav a {
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+body.landing-view .landing-footer small {
+  margin-top: 6px;
+  padding-top: 16px;
+  color: rgba(236, 233, 255, 0.46);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+@media (max-width: 760px) {
+  body.landing-view .landing-header {
+    width: min(100% - 32px, 1180px);
+    min-height: 66px;
+  }
+
+  body.landing-view .landing-actions {
+    display: none;
+  }
+
+  body.landing-view .landing-menu {
+    display: block;
+  }
+
+  body.landing-view.signup-view .login-card,
+  body.signup-view .login-card {
+    padding-top: 30px;
+    padding-bottom: 30px;
+    gap: 13px;
+  }
+
+  body.landing-view .landing-signup-plan-summary,
+  body.signup-view .landing-signup-plan-summary {
+    padding: 12px 14px;
+  }
+
+  body.landing-view .landing-signup-plan-summary h2,
+  body.signup-view .landing-signup-plan-summary h2 {
+    font-size: 18px;
+  }
+
+  body.landing-view .landing-signup-plan-summary strong,
+  body.signup-view .landing-signup-plan-summary strong {
+    font-size: 22px;
+  }
+
+  body.landing-view .landing-final-cta {
+    min-height: 174px;
+    padding: 24px 22px 86px;
+  }
+
+  body.landing-view .landing-final-cta h2 {
+    font-size: 24px;
+  }
+
+  body.landing-view .landing-final-cta p {
+    font-size: 13px;
+    line-height: 1.55;
+  }
+
+  body.landing-view .landing-cta-rocket {
+    right: -4px;
+    bottom: -42px;
+    width: 176px;
+    max-width: 54%;
+  }
+
+  body.landing-view .landing-footer {
+    grid-template-columns: 1fr;
+    gap: 18px;
+    padding: 28px 16px 24px;
+  }
+
+  body.landing-view .landing-footer nav {
+    justify-content: flex-start;
+    padding-top: 0;
   }
 }

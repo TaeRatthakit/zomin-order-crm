@@ -79,23 +79,17 @@
                 <img src="/icons/login-logo-192.png?v=20260718-website-logo-transparent-v1" alt="" width="44" height="44" decoding="async">
                 <span>Growup Pilot</span>
               </a>
-              <nav class="landing-nav" aria-label="เมนูหน้าแนะนำสินค้า">
-                <a href="#features">จุดเด่น</a>
-                <a href="#how-it-works">วิธีใช้งาน</a>
-                <a href="#pricing">ราคา</a>
+              <nav class="landing-nav" aria-label="เมนูหน้าแนะนำสินค้า" hidden aria-hidden="true">
               </nav>
               <div class="landing-actions">
                 <a class="landing-button landing-button-secondary" href="/login">เข้าสู่ระบบ</a>
-                <a class="landing-button landing-button-primary" href="/signup">เริ่มใช้ฟรี 30 วัน</a>
+                <a class="landing-button landing-button-primary" href="/signup?plan=starter&amp;billing=monthly">เริ่มใช้ฟรี 30 วัน</a>
               </div>
               <details class="landing-menu">
                 <summary aria-label="เปิดเมนู">☰</summary>
                 <div>
-                  <a href="#features">จุดเด่น</a>
-                  <a href="#how-it-works">วิธีใช้งาน</a>
-                  <a href="#pricing">ราคา</a>
                   <a href="/login">เข้าสู่ระบบ</a>
-                  <a class="landing-mobile-cta" href="/signup">เริ่มใช้ฟรี 30 วัน</a>
+                  <a class="landing-mobile-cta" href="/signup?plan=starter&amp;billing=monthly">เริ่มใช้ฟรี 30 วัน</a>
                 </div>
               </details>
             </header>
@@ -107,7 +101,7 @@
                   <h1 id="landingHeroTitle">จัดการธุรกิจ ให้เติบโต ไปกับ Growup Pilot</h1>
                   <p class="landing-lead">จัดการลูกค้า ออเดอร์ การติดตาม โอกาสขาย รายงาน ต้นทุน และกำไรในที่เดียว ช่วยให้เห็นยอดขาย ต้นทุน และกำไรชัดขึ้น และบริหารธุรกิจได้ง่ายขึ้น</p>
                   <div class="landing-hero-actions">
-                    <a class="landing-button landing-button-primary" href="/signup">เริ่มใช้ฟรี 30 วัน</a>
+                    <a class="landing-button landing-button-primary" href="/signup?plan=starter&amp;billing=monthly">เริ่มใช้ฟรี 30 วัน</a>
                     <a class="landing-button landing-button-secondary" href="/login">เข้าสู่ระบบ</a>
                   </div>
                   <ul class="landing-trust-list" aria-label="รายละเอียดเริ่มต้น">
@@ -225,7 +219,7 @@
                       <li>จัดการต้นทุนและกำไร</li>
                       <li>สิทธิ์ Owner / Admin / Staff</li>
                     </ul>
-                    <a class="landing-button landing-button-primary" href="/signup">เริ่มใช้ฟรี 30 วัน</a>
+                    <a class="landing-button landing-button-primary" data-landing-plan="starter" href="/signup?plan=starter&amp;billing=monthly">เริ่มใช้ฟรี 30 วัน</a>
                   </section>
                   <section class="landing-price-card landing-price-card-featured" aria-label="Business ราคา 990 บาทต่อเดือน">
                     <strong class="landing-plan-badge">แนะนำ</strong>
@@ -244,7 +238,7 @@
                       <li>Import Center</li>
                       <li>Priority Support</li>
                     </ul>
-                    <a class="landing-button landing-button-primary" href="/signup">เลือก Business</a>
+                    <a class="landing-button landing-button-primary" data-landing-plan="business" href="/signup?plan=business&amp;billing=monthly">เลือก Business</a>
                   </section>
                   <section class="landing-price-card" aria-label="Enterprise ราคา 1,990 บาทต่อเดือน">
                     <div>
@@ -261,7 +255,7 @@
                       <li>บริการช่วยตั้งค่าระบบโดยทีมงาน</li>
                       <li>บริการช่วยนำเข้าข้อมูลเดิมโดยทีมงาน</li>
                     </ul>
-                    <a class="landing-button landing-button-primary" href="/signup">เลือก Enterprise</a>
+                    <a class="landing-button landing-button-primary" data-landing-plan="enterprise" href="/signup?plan=enterprise&amp;billing=monthly">เลือก Enterprise</a>
                   </section>
                 </div>
                 <div class="landing-plan-compare" aria-label="เปรียบเทียบแพ็กเกจ Growup Pilot">
@@ -282,7 +276,6 @@
                   <h2 id="landingFinalTitle">พร้อมเริ่มจัดการธุรกิจให้เป็นระบบขึ้นไหม?</h2>
                   <p>เริ่มวันนี้เพื่อให้การดูแลลูกค้า ออเดอร์ และผลลัพธ์ธุรกิจชัดเจนขึ้น โดยไม่เพิ่มความซับซ้อนให้ทีม</p>
                 </div>
-                <a class="landing-button landing-button-light" href="/signup">เริ่มใช้ฟรี 30 วัน</a>
                 <img class="landing-cta-rocket" src="/onboarding-rocket-100.png" alt="" loading="lazy" decoding="async">
               </section>
             </main>
@@ -293,12 +286,9 @@
                   <img src="/icons/login-logo-192.png?v=20260718-website-logo-transparent-v1" alt="" width="40" height="40" decoding="async">
                   <span>Growup Pilot</span>
                 </a>
-                <p>ระบบจัดการธุรกิจสำหรับจัดการลูกค้า ออเดอร์ โอกาสขาย รายงาน ต้นทุน และกำไรในที่เดียว</p>
+                <p>จัดการลูกค้า ออเดอร์ โอกาสขาย รายงาน ต้นทุนและกำไรในที่เดียว</p>
               </div>
               <nav aria-label="เมนูท้ายหน้า">
-                <a href="#features">จุดเด่น</a>
-                <a href="#how-it-works">วิธีใช้งาน</a>
-                <a href="#pricing">ราคา</a>
                 <a href="/login">เข้าสู่ระบบ</a>
                 <a href="/signup">สมัครใช้งาน</a>
               </nav>

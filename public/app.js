@@ -3395,7 +3395,83 @@ function renderLogin() {
   `;
 }
 
+const LANDING_SIGNUP_PLAN_OPTIONS = {
+  starter: {
+    name: "Starter",
+    title: "สมัครแพ็กเกจ Starter",
+    prices: {
+      monthly: "฿490 / เดือน",
+      yearly: "฿4,900 / ปี"
+    },
+    button: "เริ่มใช้ฟรี 30 วัน",
+    note: "ทดลองใช้ฟรี 30 วัน"
+  },
+  business: {
+    name: "Business",
+    title: "สมัครแพ็กเกจ Business",
+    prices: {
+      monthly: "฿990 / เดือน",
+      yearly: "฿9,900 / ปี"
+    },
+    button: "สมัครและเลือก Business",
+    note: "ยังไม่มีการเรียกเก็บเงินในขั้นตอนนี้"
+  },
+  enterprise: {
+    name: "Enterprise",
+    title: "สมัครแพ็กเกจ Enterprise",
+    prices: {
+      monthly: "฿1,990 / เดือน",
+      yearly: "฿19,900 / ปี"
+    },
+    button: "สมัครและเลือก Enterprise",
+    note: "ยังไม่มีการเรียกเก็บเงินในขั้นตอนนี้"
+  }
+};
+
+function selectedLandingSignupPlan() {
+  const landingSignupParams = new URLSearchParams(window.location.search || "");
+  const landingSignupPlan = String(landingSignupParams.get("plan") || "").toLowerCase();
+  const landingSignupBilling = String(landingSignupParams.get("billing") || "").toLowerCase();
+  if (!Object.prototype.hasOwnProperty.call(LANDING_SIGNUP_PLAN_OPTIONS, landingSignupPlan)) return null;
+  if (!["monthly", "yearly"].includes(landingSignupBilling)) return null;
+  return {
+    id: landingSignupPlan,
+    billing: landingSignupBilling,
+    ...LANDING_SIGNUP_PLAN_OPTIONS[landingSignupPlan]
+  };
+}
+
+function landingSignupPlanUrl(landingPlan, landingBilling = "monthly") {
+  const safeLandingPlan = Object.prototype.hasOwnProperty.call(LANDING_SIGNUP_PLAN_OPTIONS, landingPlan) ? landingPlan : "starter";
+  const safeLandingBilling = landingBilling === "yearly" ? "yearly" : "monthly";
+  return `/signup?plan=${safeLandingPlan}&billing=${safeLandingBilling}`;
+}
+
+function landingSignupPlanSummaryHtml(landingSelectedPlan) {
+  if (!landingSelectedPlan) return "";
+  return `
+          <section class="landing-signup-plan-summary" aria-label="แพ็กเกจที่เลือก">
+            <span>แพ็กเกจที่เลือก</span>
+            <h2>${escapeHtml(landingSelectedPlan.title)}</h2>
+            <strong>${escapeHtml(landingSelectedPlan.prices[landingSelectedPlan.billing])}</strong>
+            <small>${escapeHtml(landingSelectedPlan.note)}</small>
+          </section>
+          <input type="hidden" name="landingSelectedPlan" value="${escapeHtml(landingSelectedPlan.id)}">
+          <input type="hidden" name="landingSelectedBilling" value="${escapeHtml(landingSelectedPlan.billing)}">
+        `;
+}
+
+function updateLandingPlanCtas(pricing) {
+  const billing = pricing?.dataset?.billing === "yearly" ? "yearly" : "monthly";
+  pricing?.querySelectorAll("[data-landing-plan]").forEach(link => {
+    link.setAttribute("href", landingSignupPlanUrl(link.dataset.landingPlan, billing));
+  });
+}
+
 function renderSignup() {
+  const landingSelectedPlan = selectedLandingSignupPlan();
+  const landingSignupButton = landingSelectedPlan ? landingSelectedPlan.button : "สมัครใช้งาน";
+  const landingSignupPlanSummary = landingSignupPlanSummaryHtml(landingSelectedPlan);
   els.content.innerHTML = `
     <section class="login-layout">
       <div class="login-desktop-card">
@@ -3404,6 +3480,7 @@ function renderSignup() {
             <img class="login-page-logo" src="/icons/login-logo-192.png?v=20260718-website-logo-transparent-v1" alt="" aria-hidden="true" width="96" height="96" fetchpriority="high" loading="eager" decoding="async">
             <strong>Growup<span>Pilot</span></strong>
           </div>
+          ${landingSignupPlanSummary}
           <label>ชื่อธุรกิจ
             <input name="businessName" autocomplete="organization" required placeholder="กรอกชื่อธุรกิจ">
           </label>
@@ -3426,6 +3503,8 @@ function renderSignup() {
       </div>
     </section>
   `;
+  const landingSignupSubmitButton = els.content.querySelector("#signupForm .button.primary");
+  if (landingSignupSubmitButton) landingSignupSubmitButton.textContent = landingSignupButton;
 }
 
 function renderLanding() {
@@ -3444,23 +3523,17 @@ function renderLanding() {
           <img src="/icons/login-logo-192.png?v=20260718-website-logo-transparent-v1" alt="" width="44" height="44" decoding="async">
           <span>Growup Pilot</span>
         </a>
-        <nav class="landing-nav" aria-label="เมนูหน้าแนะนำสินค้า">
-          <a href="#features">จุดเด่น</a>
-          <a href="#how-it-works">วิธีใช้งาน</a>
-          <a href="#pricing">ราคา</a>
+        <nav class="landing-nav" aria-label="เมนูหน้าแนะนำสินค้า" hidden aria-hidden="true">
         </nav>
         <div class="landing-actions">
           <a class="landing-button landing-button-secondary" href="/login">เข้าสู่ระบบ</a>
-          <a class="landing-button landing-button-primary" href="/signup">เริ่มใช้ฟรี 30 วัน</a>
+          <a class="landing-button landing-button-primary" href="${landingSignupPlanUrl("starter")}">เริ่มใช้ฟรี 30 วัน</a>
         </div>
         <details class="landing-menu">
           <summary aria-label="เปิดเมนู">☰</summary>
           <div>
-            <a href="#features">จุดเด่น</a>
-            <a href="#how-it-works">วิธีใช้งาน</a>
-            <a href="#pricing">ราคา</a>
             <a href="/login">เข้าสู่ระบบ</a>
-            <a class="landing-mobile-cta" href="/signup">เริ่มใช้ฟรี 30 วัน</a>
+            <a class="landing-mobile-cta" href="${landingSignupPlanUrl("starter")}">เริ่มใช้ฟรี 30 วัน</a>
           </div>
         </details>
       </header>
@@ -3472,7 +3545,7 @@ function renderLanding() {
             <h1 id="landingHeroTitle">จัดการธุรกิจ ให้เติบโต ไปกับ Growup Pilot</h1>
             <p class="landing-lead">จัดการลูกค้า ออเดอร์ การติดตาม โอกาสขาย รายงาน ต้นทุน และกำไรในที่เดียว ช่วยให้เห็นยอดขาย ต้นทุน และกำไรชัดขึ้น และบริหารธุรกิจได้ง่ายขึ้น</p>
             <div class="landing-hero-actions">
-              <a class="landing-button landing-button-primary" href="/signup">เริ่มใช้ฟรี 30 วัน</a>
+              <a class="landing-button landing-button-primary" href="${landingSignupPlanUrl("starter")}">เริ่มใช้ฟรี 30 วัน</a>
               <a class="landing-button landing-button-secondary" href="/login">เข้าสู่ระบบ</a>
             </div>
             <ul class="landing-trust-list" aria-label="รายละเอียดเริ่มต้น">
@@ -3605,7 +3678,7 @@ function renderLanding() {
                 <li>จัดการต้นทุนและกำไร</li>
                 <li>สิทธิ์ Owner / Admin / Staff</li>
               </ul>
-              <a class="landing-button landing-button-primary" href="/signup">เริ่มใช้ฟรี 30 วัน</a>
+              <a class="landing-button landing-button-primary" data-landing-plan="starter" href="${landingSignupPlanUrl("starter")}">เริ่มใช้ฟรี 30 วัน</a>
             </section>
             <section class="landing-price-card landing-price-card-featured" aria-label="Business ราคา 990 บาทต่อเดือน">
               <strong class="landing-plan-badge">แนะนำ</strong>
@@ -3624,7 +3697,7 @@ function renderLanding() {
                 <li>Import Center</li>
                 <li>Priority Support</li>
               </ul>
-              <a class="landing-button landing-button-primary" href="/signup">เลือก Business</a>
+              <a class="landing-button landing-button-primary" data-landing-plan="business" href="${landingSignupPlanUrl("business")}">เลือก Business</a>
             </section>
             <section class="landing-price-card" aria-label="Enterprise ราคา 1,990 บาทต่อเดือน">
               <div>
@@ -3641,7 +3714,7 @@ function renderLanding() {
                 <li>บริการช่วยตั้งค่าระบบโดยทีมงาน</li>
                 <li>บริการช่วยนำเข้าข้อมูลเดิมโดยทีมงาน</li>
               </ul>
-              <a class="landing-button landing-button-primary" href="/signup">เลือก Enterprise</a>
+              <a class="landing-button landing-button-primary" data-landing-plan="enterprise" href="${landingSignupPlanUrl("enterprise")}">เลือก Enterprise</a>
             </section>
           </div>
           <div class="landing-plan-compare" aria-label="เปรียบเทียบแพ็กเกจ Growup Pilot">
@@ -3662,7 +3735,6 @@ function renderLanding() {
             <h2 id="landingFinalTitle">พร้อมเริ่มจัดการธุรกิจให้เป็นระบบขึ้นไหม?</h2>
             <p>เริ่มวันนี้เพื่อให้การดูแลลูกค้า ออเดอร์ และผลลัพธ์ธุรกิจชัดเจนขึ้น โดยไม่เพิ่มความซับซ้อนให้ทีม</p>
           </div>
-          <a class="landing-button landing-button-light" href="/signup">เริ่มใช้ฟรี 30 วัน</a>
           <img class="landing-cta-rocket" src="/onboarding-rocket-100.png" alt="" loading="lazy" decoding="async">
         </section>
       </main>
@@ -3673,12 +3745,9 @@ function renderLanding() {
             <img src="/icons/login-logo-192.png?v=20260718-website-logo-transparent-v1" alt="" width="40" height="40" decoding="async">
             <span>Growup Pilot</span>
           </a>
-          <p>ระบบจัดการธุรกิจสำหรับจัดการลูกค้า ออเดอร์ โอกาสขาย รายงาน ต้นทุน และกำไรในที่เดียว</p>
+          <p>จัดการลูกค้า ออเดอร์ โอกาสขาย รายงาน ต้นทุนและกำไรในที่เดียว</p>
         </div>
         <nav aria-label="เมนูท้ายหน้า">
-          <a href="#features">จุดเด่น</a>
-          <a href="#how-it-works">วิธีใช้งาน</a>
-          <a href="#pricing">ราคา</a>
           <a href="/login">เข้าสู่ระบบ</a>
           <a href="/signup">สมัครใช้งาน</a>
         </nav>
@@ -11407,6 +11476,7 @@ document.addEventListener("click", async event => {
         element.hidden = !isVisible;
         element.setAttribute("aria-hidden", String(!isVisible));
       });
+      updateLandingPlanCtas(pricing);
       return;
     }
   }
