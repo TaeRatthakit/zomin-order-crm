@@ -4,6 +4,7 @@ const path = require("path");
 const crypto = require("crypto");
 require("./lib/env").loadEnv();
 const {
+  provider: dbProvider,
   readDb,
   findUserForLogin,
   readUserById,
@@ -28,6 +29,9 @@ const {
   readSettingsPatch,
   readNotificationReadIds,
   persistNotificationReadIds,
+  withTenantContext,
+  resolveTenantForUser,
+  resolveTenantForLineWebhook,
   uploadProductImageObject,
   productImagePublicBaseUrl,
   verifyPublicProductImageUrl
@@ -230,6 +234,28 @@ function json(res, status, payload, extraHeaders = {}) {
     ...extraHeaders
   });
   res.end(JSON.stringify(payload));
+}
+
+function timingHeaderValue(timings = {}) {
+  return Object.entries(timings)
+    .filter(([, value]) => Number.isFinite(Number(value)))
+    .map(([key, value]) => `${key.replace(/Ms$/, "").toLowerCase()};dur=${Math.max(0, Number(value))}`)
+    .join(", ");
+}
+
+function timingDebugHeader(value = {}) {
+  try {
+    return encodeURIComponent(JSON.stringify(value));
+  } catch {
+    return "";
+  }
+}
+
+function orderSaveHeaders(timings = {}, detail = {}) {
+  return {
+    "Server-Timing": timingHeaderValue(timings),
+    "X-Order-Save-Timings": timingDebugHeader({ ...timings, detail })
+  };
 }
 
 function text(res, status, body, contentType = "text/plain; charset=utf-8") {
@@ -563,15 +589,48 @@ function productCostForOrderSnapshot(order = {}, settings = {}) {
   const productConfig = normalizeSettingsCostRows(settings.productCosts, "costPerJar")
     .find(item => normalizedProductNameKey(item.name) === productNameKey);
   if (!productConfig?.enabled) return 0;
-  const quantity = order.packageId
-    ? Number(order.totalQuantityShipped || order.jars || 0)
+  const salesPackage = salesPackageForOrder(settings, order);
+  const quantity = salesPackage
+    ? Number(order.totalQuantityShipped || salesPackage.totalQuantityShipped || order.jars || 0)
     : Number(order.jars || 0);
   return quantity * Number(productConfig.costPerJar || 0);
 }
 
-function packageExpenseForOrderSnapshot(order = {}) {
-  if (!order.packageId) return 0;
-  return normalizePackageExpenses(order.packageExpenses)
+function moneyMatches(left, right) {
+  return Math.abs(Number(left || 0) - Number(right || 0)) < 0.000001;
+}
+
+function salesPackageForOrder(settings = {}, order = {}) {
+  const productId = String(order.productId || order.product_id || "").trim();
+  const productNameKey = normalizedProductNameKey(order.items || order.product || order.productName || "");
+  const product = normalizeProductRecords(settings.products).find(item =>
+    (productId && String(item.id || "") === productId) ||
+    (productNameKey && normalizedProductNameKey(item.name) === productNameKey)
+  );
+  if (!product) return null;
+  const packages = normalizeSalesPackages(product.salesPackages);
+  const packageId = String(order.packageId || order.package_id || "").trim();
+  if (packageId) return packages.find(item => item.id === packageId) || null;
+  const revenue = Number(order.amount || order.revenueSnapshot || 0);
+  const shipped = Number(order.totalQuantityShipped || order.jars || 0);
+  if (!revenue || !shipped) return null;
+  const matches = packages.filter(item =>
+    item.enabled !== false &&
+    moneyMatches(item.salePrice, revenue) &&
+    moneyMatches(item.totalQuantityShipped, shipped)
+  );
+  return matches.length === 1 ? matches[0] : null;
+}
+
+function packageExpensesForOrder(order = {}, settings = {}) {
+  const explicitExpenses = normalizePackageExpenses(order.packageExpenses);
+  if (explicitExpenses.length) return explicitExpenses;
+  const salesPackage = salesPackageForOrder(settings, order);
+  return salesPackage ? normalizePackageExpenses(salesPackage.expenses) : [];
+}
+
+function packageExpenseForOrderSnapshot(order = {}, settings = {}) {
+  return packageExpensesForOrder(order, settings)
     .filter(expense => expense.enabled)
     .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
 }
@@ -595,7 +654,7 @@ function calculateOrderProfitSnapshot(order = {}, settings = {}, {
 } = {}) {
   const revenueSnapshot = snapshotMoney(order.amount);
   const productCostSnapshot = snapshotMoney(productCostForOrderSnapshot(order, settings));
-  const packageExpenseSnapshot = snapshotMoney(packageExpenseForOrderSnapshot(order));
+  const packageExpenseSnapshot = snapshotMoney(packageExpenseForOrderSnapshot(order, settings));
   const globalExpenseSnapshot = snapshotMoney(globalExpenseForOrderSnapshot(order, settings));
   const profitBeforeAdsSnapshot = snapshotMoney(
     revenueSnapshot - productCostSnapshot - packageExpenseSnapshot - globalExpenseSnapshot
@@ -611,6 +670,36 @@ function calculateOrderProfitSnapshot(order = {}, settings = {}, {
     profitSnapshotCreatedAt: String(createdAt || timestamp),
     profitSnapshotUpdatedAt: timestamp,
     profitSnapshotSource: source
+  };
+}
+
+function effectiveOrderProfitSnapshot(order = {}, settings = {}) {
+  if (!hasOrderProfitSnapshot(order)) {
+    return calculateOrderProfitSnapshot(order, settings, { source: "fallback" });
+  }
+  const snapshotPackageExpense = Number(order.packageExpenseSnapshot || 0);
+  const inferredPackageExpense = packageExpenseForOrderSnapshot(order, settings);
+  const packageExpenseSnapshot = snapshotPackageExpense > 0
+    ? snapshotPackageExpense
+    : inferredPackageExpense;
+  const packageExpenseAdjustment = Math.max(0, packageExpenseSnapshot - snapshotPackageExpense);
+  const profitBeforeAdsSnapshot = snapshotMoney(Number(order.profitBeforeAdsSnapshot || 0) - packageExpenseAdjustment);
+  const profitAfterAdsSnapshot = snapshotMoney(
+    Number.isFinite(Number(order.profitAfterAdsSnapshot))
+      ? Number(order.profitAfterAdsSnapshot || 0) - packageExpenseAdjustment
+      : profitBeforeAdsSnapshot
+  );
+  return {
+    revenueSnapshot: Number(order.revenueSnapshot || 0),
+    productCostSnapshot: Number(order.productCostSnapshot || 0),
+    packageExpenseSnapshot,
+    globalExpenseSnapshot: Number(order.globalExpenseSnapshot || 0),
+    profitBeforeAdsSnapshot,
+    profitAfterAdsSnapshot,
+    profitSnapshotVersion: Number(order.profitSnapshotVersion || 0),
+    profitSnapshotCreatedAt: order.profitSnapshotCreatedAt || "",
+    profitSnapshotUpdatedAt: order.profitSnapshotUpdatedAt || "",
+    profitSnapshotSource: order.profitSnapshotSource || "snapshot"
   };
 }
 
@@ -856,13 +945,20 @@ function resolveActiveProductForOrder(settings = {}, payload = {}, options = {})
   }
   const packageId = String(payload.packageId || payload.package_id || "").trim();
   const salesPackages = normalizeSalesPackages(product.salesPackages);
-  const selectedPackage = packageId
+  let selectedPackage = packageId
     ? salesPackages.find(item => item.id === packageId && item.enabled !== false)
     : null;
   if (packageId && !selectedPackage) {
     const error = new Error(PRODUCT_RESOLUTION_ERROR);
     error.code = "PRODUCT_NOT_FOUND";
     throw error;
+  }
+  if (!selectedPackage) {
+    selectedPackage = salesPackageForOrder({ products: [product] }, {
+      ...payload,
+      productId: product.id,
+      items: product.name
+    });
   }
   return { product, package: selectedPackage };
 }
@@ -1118,8 +1214,12 @@ async function readProductSettingsForSave() {
 }
 
 function marketingPerformanceForDb(db, period = {}) {
+  const orders = (db.orders || []).map(order => ({
+    ...order,
+    ...effectiveOrderProfitSnapshot(order, db.settings || {})
+  }));
   return marketingPerformance({
-    orders: db.orders || [],
+    orders,
     records: db.settings?.adCostRecords || [],
     ...period,
     fallbackProfitForOrder: order => {
@@ -1432,6 +1532,32 @@ function findExactDuplicateOrderWithin24Hours(db, payload = {}) {
   }) || null;
 }
 
+function sameBangkokCalendarDay(firstValue, secondValue) {
+  const firstDate = toDateOnly(firstValue || "");
+  const secondDate = toDateOnly(secondValue || "");
+  return Boolean(firstDate && secondDate && firstDate === secondDate);
+}
+
+function findSimilarOrderCreatedToday(db, payload = {}, savedOrder = {}) {
+  const payloadFields = normalizeDuplicateComparisonFields(payload);
+  const savedCreatedAt = savedOrder.createdAt || savedOrder.created_at || new Date();
+  return (db.orders || []).find(order => {
+    if (order.id && savedOrder.id && order.id === savedOrder.id) return false;
+    if (!sameBangkokCalendarDay(order.createdAt || order.created_at || "", savedCreatedAt)) return false;
+    const existingFields = normalizeDuplicateComparisonFields(order);
+    const matchedFields = Object.keys(payloadFields).filter(key => existingFields[key] === payloadFields[key]);
+    if (matchedFields.length !== 5) return false;
+    order.__duplicateMatch = {
+      matchedFields,
+      payload: payloadFields,
+      existing: existingFields,
+      payloadCreatedAt: toDateOnly(savedCreatedAt),
+      existingCreatedAt: toDateOnly(order.createdAt || order.created_at || "")
+    };
+    return true;
+  }) || null;
+}
+
 function secretInputValue(input, currentValue) {
   const value = String(input || "").trim();
   if (value === "__clear__") return "";
@@ -1573,7 +1699,12 @@ function currentUserFromDb(sessionUser, db) {
   if (!sessionUser) return null;
   const storedUser = (db.users || []).find(user => user.id === sessionUser.id);
   if (!storedUser || storedUser.active === false) return null;
-  return publicUser(storedUser);
+  return publicUser({
+    ...storedUser,
+    tenantId: sessionUser.tenantId || storedUser.tenantId || "",
+    tenantName: sessionUser.tenantName || storedUser.tenantName || "",
+    tenantRole: sessionUser.tenantRole || storedUser.tenantRole || ""
+  });
 }
 
 function canManageUser(currentUser, targetUser = null, nextRole = "") {
@@ -2136,22 +2267,6 @@ function findOrCreateCustomer(db, payload) {
 }
 
 function addOrder(db, payload) {
-  const duplicate = findDuplicateOrder(db, payload);
-  if (duplicate) {
-    console.log("Duplicate order detected", JSON.stringify({
-      matchedFields: duplicate.__duplicateMatch?.matchedFields || [],
-      payload: duplicate.__duplicateMatch?.payload || normalizeDuplicateComparisonFields(payload),
-      existing: duplicate.__duplicateMatch?.existing || normalizeDuplicateComparisonFields(duplicate),
-      existingOrderId: duplicate.id || "",
-      existingOrderNumber: duplicate.orderNumber || duplicate.order_number || "",
-      existingDate: duplicate.date || duplicate.order_date || "",
-      existingTime: duplicate.time || duplicate.order_time || ""
-    }));
-    const error = new Error("duplicate");
-    error.code = "ORDER_DUPLICATE";
-    error.order = duplicate;
-    throw error;
-  }
   const resolvedPayload = applyResolvedProductToPayload(db.settings || {}, payload, {
     allowContainsMatch: Boolean(payload.allowProductContainsMatch)
   });
@@ -3058,7 +3173,25 @@ async function handleLineWebhookEvents(db, settings, events) {
           amount: normalized.amount,
           date: normalized.date
         }));
-        replies.push({ replyToken, messages: [{ type: "text", text: "✅ นำเข้าออเดอร์เรียบร้อยแล้ว\nGrowup Pilot บันทึกข้อมูลเรียบร้อย" }] });
+        const similarOrderToday = findSimilarOrderCreatedToday(db, normalized, order);
+        if (similarOrderToday) {
+          console.log("LINE webhook similar order warning appended", JSON.stringify({
+            groupId: source.groupId || "",
+            lineMessageId: messageId || "",
+            orderNumber: normalized.orderNumber || "",
+            phone: normalized.phone || "",
+            amount: normalized.amount,
+            date: normalized.date,
+            matchedOrderId: similarOrderToday.id || "",
+            matchedOrderNumber: similarOrderToday.orderNumber || similarOrderToday.order_number || ""
+          }));
+        }
+        const successReplyText = "✅ นำเข้าออเดอร์เรียบร้อยแล้ว\nGrowup Pilot บันทึกข้อมูลเรียบร้อย";
+        const replyText = similarOrderToday
+          ? `${successReplyText}\n\n⚠️ พบออเดอร์ที่คล้ายกันภายในวันนี้\nกรุณาตรวจสอบว่าเป็นออเดอร์ใหม่ของลูกค้า หรือเป็นข้อความที่ส่งซ้ำ`
+          : successReplyText;
+        debug.reply_text = replyText;
+        replies.push({ replyToken, messages: [{ type: "text", text: replyText }] });
       }
     } catch (error) {
       if (error.code === "ORDER_DUPLICATE") {
@@ -3129,6 +3262,56 @@ function verifyLineSignature(rawBody, channelSecret, signature) {
   } catch {
     return false;
   }
+}
+
+async function handleLineWebhookPost(req, res, db) {
+  const body = req._parsedBody || await readBody(req);
+  const signature = req.headers["x-line-signature"];
+  const settings = effectiveSettings(db.settings);
+  const httpDebug = addHttpWebhookDebug(db, req, body._rawBody || "", { signatureValidation: "pending" });
+  console.log("LINE webhook raw body", JSON.stringify({
+    receivedAt: httpDebug.received_at,
+    hasEvents: Array.isArray(body.events),
+    eventCount: Array.isArray(body.events) ? body.events.length : -1,
+    bodyLength: Buffer.byteLength(body._rawBody || "", "utf8"),
+    bodyPreview: String(body._rawBody || "").slice(0, 1200)
+  }));
+  if (!settings.lineWebhookEnabled) {
+    httpDebug.signature_validation = "not_checked";
+    httpDebug.error_message = "LINE webhook disabled.";
+    persistWebhookDebugAsync(db);
+    return json(res, 200, { ok: true, received: 0, verification: true });
+  }
+  if (!verifyLineSignature(body._rawBody, settings.lineChannelSecret, signature)) {
+    httpDebug.signature_validation = "fail";
+    httpDebug.error_message = "LINE signature validation failed.";
+    persistWebhookDebugAsync(db);
+    return json(res, 200, { ok: true, received: 0, verification: true });
+  }
+  httpDebug.signature_validation = "pass";
+  const events = Array.isArray(body.events) ? body.events : [{ message: { text: body.text || body.content || "" } }];
+  if (!Array.isArray(body.events)) {
+    console.log("LINE webhook no events array", JSON.stringify({
+      receivedAt: httpDebug.received_at,
+      eventType: body.type || "",
+      sourceType: body.source?.type || "",
+      hasBodyEvents: false
+    }));
+  } else if (!body.events.length) {
+    console.log("LINE webhook empty events array", JSON.stringify({
+      receivedAt: httpDebug.received_at,
+      eventType: body.type || "",
+      sourceType: body.source?.type || "",
+      hasBodyEvents: true,
+      eventCount: 0
+    }));
+  }
+  if (!events.length) {
+    persistWebhookDebugAsync(db);
+    return json(res, 200, { ok: true, received: 0, verification: true });
+  }
+  const parsedOrders = await handleLineWebhookEvents(db, settings, events);
+  return json(res, 200, { ok: true, received: events.length, parsedOrders: parsedOrders.length });
 }
 
 function parseDelimited(content) {
@@ -3379,13 +3562,20 @@ async function handleApi(req, res) {
       return json(res, 401, { ok: false, error: "Username หรือ Password ไม่ถูกต้อง" });
     }
     if (upgraded) {
-      const db = await readDb();
-      const storedUser = db.users.find(item => item.id === user.id);
-      if (storedUser) {
-        storedUser.passwordHash = user.passwordHash;
-        delete storedUser.password;
-        delete storedUser.pin;
-        await writeDb(db);
+      const persistPasswordUpgrade = async () => {
+        const db = await readDb();
+        const storedUser = db.users.find(item => item.id === user.id);
+        if (storedUser) {
+          storedUser.passwordHash = user.passwordHash;
+          delete storedUser.password;
+          delete storedUser.pin;
+          await writeDb(db);
+        }
+      };
+      if (typeof withTenantContext === "function" && user.tenantId) {
+        await withTenantContext(user, persistPasswordUpgrade);
+      } else {
+        await persistPasswordUpgrade();
       }
     }
     const session = createSession(user);
@@ -3794,6 +3984,30 @@ async function handleApi(req, res) {
     });
   }
 
+  if (isLineWebhook && req.method === "POST") {
+    const body = req._parsedBody || await readBody(req);
+    req._parsedBody = body;
+    if (dbProvider !== "supabase") {
+      const db = await readDb();
+      return handleLineWebhookPost(req, res, db);
+    }
+    if (typeof withTenantContext !== "function" || typeof resolveTenantForLineWebhook !== "function") {
+      return json(res, 503, { ok: false, error: "LINE webhook tenant resolver is not configured." });
+    }
+    const tenant = await resolveTenantForLineWebhook(body);
+    if (!tenant) {
+      console.error("LINE webhook rejected without trusted tenant mapping", JSON.stringify({
+        eventCount: Array.isArray(body.events) ? body.events.length : 0,
+        sourceTypes: Array.isArray(body.events) ? [...new Set(body.events.map(event => event?.source?.type || "").filter(Boolean))] : []
+      }));
+      return json(res, 403, { ok: false, error: "LINE webhook tenant mapping is not configured." });
+    }
+    return withTenantContext(tenant, async () => {
+      const db = await readDb();
+      return handleLineWebhookPost(req, res, db);
+    });
+  }
+
   const dbReadStartedAt = Date.now();
   const db = await readDb();
   const dbReadMs = Date.now() - dbReadStartedAt;
@@ -4087,12 +4301,38 @@ async function handleApi(req, res) {
   }
 
   if (req.method === "POST" && url.pathname === "/api/orders") {
+    const routeStartedAt = requestStartedAt;
+    const timings = { dbReadMs };
+    const authStartedAt = Date.now();
     if (!await requirePermission(req, res, db, "orders.create", "ไม่มีสิทธิ์เพิ่มออเดอร์")) return;
+    timings.authMs = Date.now() - authStartedAt;
+    const bodyStartedAt = Date.now();
     const body = await readBody(req);
+    timings.bodyMs = Date.now() - bodyStartedAt;
     let order;
     try {
+      const duplicate = findDuplicateOrder(db, body);
+      if (duplicate) {
+        console.log("Duplicate order detected", JSON.stringify({
+          matchedFields: duplicate.__duplicateMatch?.matchedFields || [],
+          payload: duplicate.__duplicateMatch?.payload || normalizeDuplicateComparisonFields(body),
+          existing: duplicate.__duplicateMatch?.existing || normalizeDuplicateComparisonFields(duplicate),
+          existingOrderId: duplicate.id || "",
+          existingOrderNumber: duplicate.orderNumber || duplicate.order_number || "",
+          existingDate: duplicate.date || duplicate.order_date || "",
+          existingTime: duplicate.time || duplicate.order_time || ""
+        }));
+        const error = new Error("duplicate");
+        error.code = "ORDER_DUPLICATE";
+        error.order = duplicate;
+        throw error;
+      }
+      const addStartedAt = Date.now();
       order = addOrder(db, body);
+      timings.addOrderMs = Date.now() - addStartedAt;
+      const inventoryStartedAt = Date.now();
       adjustInventoryForOrderChange(db, null, order);
+      timings.inventoryMs = Date.now() - inventoryStartedAt;
     } catch (error) {
       if (error.code === "ORDER_DUPLICATE") {
         return json(res, 409, { ok: false, error: "ออเดอร์นี้มีอยู่แล้ว" });
@@ -4111,19 +4351,39 @@ async function handleApi(req, res) {
       }
       throw error;
     }
+    const mutationStartedAt = Date.now();
     const mutation = orderMutationPayload(db, {
       orderId: order.id,
       selectedDate: body.selectedDate || toDateOnly()
     });
+    timings.mutationMs = Date.now() - mutationStartedAt;
     mutation.clientMutationId = String(body.clientMutationId || "");
-    if (typeof persistOrderMutation === "function") await persistOrderMutation(mutation, db.settings);
-    else await writeDb(db);
-    return json(res, 200, { ok: true, mutation });
+    const persistStartedAt = Date.now();
+    const persistTimings = typeof persistOrderMutation === "function"
+      ? await persistOrderMutation(mutation, db.settings)
+      : (await writeDb(db), { totalMs: Date.now() - persistStartedAt });
+    timings.persistMs = Date.now() - persistStartedAt;
+    timings.totalMs = Date.now() - routeStartedAt;
+    console.info("[order-save:server]", JSON.stringify({
+      method: "POST",
+      orderId: order.id,
+      timings,
+      persist: persistTimings,
+      dbRead: readDb.lastTimings || null
+    }));
+    return json(res, 200, { ok: true, mutation, timings: { ...timings, persist: persistTimings, dbRead: readDb.lastTimings || null } }, orderSaveHeaders(timings, {
+      persist: persistTimings,
+      dbRead: readDb.lastTimings || null
+    }));
   }
 
   if (req.method === "PUT" && url.pathname.startsWith("/api/orders/")) {
+    const routeStartedAt = requestStartedAt;
+    const timings = { dbReadMs };
     const id = url.pathname.split("/").pop();
+    const bodyStartedAt = Date.now();
     const body = await readBody(req);
+    timings.bodyMs = Date.now() - bodyStartedAt;
     const bodyKeys = Object.keys(body || {});
     const statusOnly = bodyKeys.length > 0 && bodyKeys.every(key => [
       "status",
@@ -4134,7 +4394,9 @@ async function handleApi(req, res) {
       "clientMutationId"
     ].includes(key));
     const orderPermission = statusOnly ? "orders.status" : "orders.edit";
+    const authStartedAt = Date.now();
     if (!await requirePermission(req, res, db, orderPermission, "ไม่มีสิทธิ์แก้ไขออเดอร์")) return;
+    timings.authMs = Date.now() - authStartedAt;
     const order = db.orders.find(item => item.id === id);
     if (!order) return json(res, 404, { ok: false, error: "ไม่พบออเดอร์" });
     const previousOrder = { ...order };
@@ -4152,9 +4414,11 @@ async function handleApi(req, res) {
       : { originSource: order.originSource, originSourceOther: order.originSourceOther || "" };
     let resolvedPayload = null;
     try {
+      const resolveStartedAt = Date.now();
       resolvedPayload = statusOnly
         ? null
         : applyResolvedProductToPayload(db.settings || {}, { ...order, ...body }, { preservePackageSnapshot: true });
+      timings.productResolveMs = Date.now() - resolveStartedAt;
     } catch (error) {
       if (error.code === "PRODUCT_NOT_FOUND") {
         return json(res, 409, { ok: false, error: PRODUCT_RESOLUTION_ERROR });
@@ -4191,9 +4455,13 @@ async function handleApi(req, res) {
       vipCardStatus: body.vipCardStatus ?? order.vipCardStatus,
       note: body.note ?? order.note
     });
+    const snapshotStartedAt = Date.now();
     applyOrderProfitSnapshot(order, db.settings || {}, "edited");
+    timings.profitSnapshotMs = Date.now() - snapshotStartedAt;
     try {
+      const inventoryStartedAt = Date.now();
       adjustInventoryForOrderChange(db, previousOrder, order);
+      timings.inventoryMs = Date.now() - inventoryStartedAt;
     } catch (error) {
       Object.assign(order, previousOrder);
       if (error.code === "INSUFFICIENT_STOCK") {
@@ -4210,15 +4478,31 @@ async function handleApi(req, res) {
       }
       throw error;
     }
+    const mutationStartedAt = Date.now();
     const mutation = orderMutationPayload(db, {
       orderId: order.id,
       previousCustomerIds,
       selectedDate: body.selectedDate || toDateOnly()
     });
+    timings.mutationMs = Date.now() - mutationStartedAt;
     mutation.clientMutationId = String(body.clientMutationId || "");
-    if (typeof persistOrderMutation === "function") await persistOrderMutation(mutation, db.settings);
-    else await writeDb(db);
-    return json(res, 200, { ok: true, mutation });
+    const persistStartedAt = Date.now();
+    const persistTimings = typeof persistOrderMutation === "function"
+      ? await persistOrderMutation(mutation, db.settings)
+      : (await writeDb(db), { totalMs: Date.now() - persistStartedAt });
+    timings.persistMs = Date.now() - persistStartedAt;
+    timings.totalMs = Date.now() - routeStartedAt;
+    console.info("[order-save:server]", JSON.stringify({
+      method: "PUT",
+      orderId: order.id,
+      timings,
+      persist: persistTimings,
+      dbRead: readDb.lastTimings || null
+    }));
+    return json(res, 200, { ok: true, mutation, timings: { ...timings, persist: persistTimings, dbRead: readDb.lastTimings || null } }, orderSaveHeaders(timings, {
+      persist: persistTimings,
+      dbRead: readDb.lastTimings || null
+    }));
   }
 
   if (req.method === "DELETE" && url.pathname.startsWith("/api/orders/")) {
@@ -5018,14 +5302,47 @@ async function handleApi(req, res) {
 
 async function appHandler(req, res) {
   try {
-    if (req.url.startsWith("/api/")) return await handleApi(req, res);
+    if (req.url.startsWith("/api/")) {
+      const pathname = new URL(req.url, `http://${req.headers.host || "localhost"}`).pathname;
+      const sessionUser = getCurrentUser(req);
+      if (
+        sessionUser?.id
+        && !["/api/login", "/api/logout"].includes(pathname)
+        && dbProvider === "supabase"
+        && typeof withTenantContext === "function"
+        && typeof resolveTenantForUser === "function"
+      ) {
+        const tenant = await resolveTenantForUser(sessionUser.id);
+        if (!tenant) return sessionExpiredResponse(req, res);
+        return await withTenantContext(tenant, () => handleApi(req, res));
+      }
+      return await handleApi(req, res);
+    }
     const pathname = new URL(req.url, `http://${req.headers.host || "localhost"}`).pathname;
     if (["/settings/users", "/team"].includes(pathname)) {
-      const db = await readDb();
       const sessionUser = getCurrentUser(req);
-      const currentUser = currentUserFromDb(sessionUser, db);
-      if (!currentUser) return text(res, 401, "Unauthorized");
-      if (currentUser.role !== "Owner") return text(res, 403, "Forbidden");
+      const task = async () => {
+        const db = await readDb();
+        const currentUser = currentUserFromDb(sessionUser, db);
+        if (!currentUser) {
+          text(res, 401, "Unauthorized");
+          return true;
+        }
+        if (currentUser.role !== "Owner") {
+          text(res, 403, "Forbidden");
+          return true;
+        }
+        return false;
+      };
+      if (sessionUser?.id && dbProvider === "supabase" && typeof withTenantContext === "function" && typeof resolveTenantForUser === "function") {
+        const tenant = await resolveTenantForUser(sessionUser.id);
+        if (!tenant) return text(res, 401, "Unauthorized");
+        const handled = await withTenantContext(tenant, task);
+        if (handled) return;
+      } else {
+        const handled = await task();
+        if (handled) return;
+      }
     }
     return serveStatic(req, res);
   } catch (error) {
