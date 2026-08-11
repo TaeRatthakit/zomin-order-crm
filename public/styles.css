@@ -29459,3 +29459,28 @@ body.landing-view .landing-footer small {
     padding: 0 16px;
   }
 }
+
+html[data-theme] body.login-view .login-card label,
+body.login-view .login-card label {
+  color: #374151;
+}
+
+html[data-theme] body.login-view .login-card input,
+body.login-view .login-card input {
+  color: #111827;
+}
+
+html[data-theme] body.login-view .login-card input::placeholder,
+body.login-view .login-card input::placeholder {
+  color: #9ca3af;
+}
+
+html[data-theme="light"] body.signup-view .login-card label,
+html[data-theme] body.signup-view .login-card label {
+  color: #374151;
+}
+
+html[data-theme="light"] body.signup-view .login-card input,
+html[data-theme] body.signup-view .login-card input {
+  color: #111827;
+}
