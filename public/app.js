@@ -3489,6 +3489,7 @@ function renderSignup() {
           </label>
           <label>ชื่อผู้ใช้งาน (Username)
             <input name="username" autocomplete="username" required placeholder="กำหนดชื่อผู้ใช้งาน">
+            <small class="login-field-error" id="signupUsernameError" data-signup-username-error hidden></small>
           </label>
           <label>รหัสผ่าน (Password)
             <input name="password" autocomplete="new-password" type="password" minlength="8" required placeholder="อย่างน้อย 8 ตัวอักษร">
@@ -3505,6 +3506,33 @@ function renderSignup() {
   `;
   const landingSignupSubmitButton = els.content.querySelector("#signupForm .button.primary");
   if (landingSignupSubmitButton) landingSignupSubmitButton.textContent = landingSignupButton;
+}
+
+function clearSignupUsernameError(form) {
+  const input = form?.elements?.username;
+  const error = form?.querySelector?.("[data-signup-username-error]");
+  if (input) {
+    input.removeAttribute("aria-invalid");
+    input.setCustomValidity("");
+  }
+  if (error) {
+    error.textContent = "";
+    error.hidden = true;
+  }
+}
+
+function showSignupUsernameError(form, message) {
+  const input = form?.elements?.username;
+  const error = form?.querySelector?.("[data-signup-username-error]");
+  if (input) {
+    input.setAttribute("aria-invalid", "true");
+    input.setCustomValidity(message);
+  }
+  if (error) {
+    error.textContent = message;
+    error.hidden = false;
+  }
+  input?.focus?.({ preventScroll: false });
 }
 
 function renderLanding() {
@@ -13058,14 +13086,26 @@ document.addEventListener("submit", async event => {
 
     if (currentFormId === "signupForm") {
       const data = Object.fromEntries(new FormData(form).entries());
+      clearSignupUsernameError(form);
       if (String(data.password || "") !== String(data.confirmPassword || "")) {
         showToast("รหัสผ่านไม่ตรงกัน", "error");
         return;
       }
-      const payload = await api("/api/signup", {
-        method: "POST",
-        body: JSON.stringify(data)
-      });
+      let payload; // signup payload
+      try { // signup duplicate handling
+        payload = await api("/api/signup", {
+          method: "POST",
+          body: JSON.stringify(data)
+        });
+      } catch (signupError) {
+        if (signupError.status === 409 && signupError.payload?.code === "DUPLICATE_USERNAME") {
+          const signupDuplicateMessage = signupError.message || "ชื่อผู้ใช้งานนี้ถูกใช้แล้ว กรุณาใช้ชื่ออื่น";
+          showSignupUsernameError(form, signupDuplicateMessage);
+          showToast(signupDuplicateMessage, "error"); // signup duplicate
+          return; // signup duplicate handled
+        }
+        throw signupError;
+      }
       saveSession(payload.user);
       clearBusinessManagementScrollRestore();
       app.mobileBusinessPage = "main";

@@ -103,6 +103,25 @@ function rpcError(message) {
   return new Response(JSON.stringify({ message }), { status: 400 });
 }
 
+function signupCounts() {
+  return {
+    users: db.users.length,
+    tenants: db.tenants.length,
+    memberships: db.tenant_memberships.length,
+    rolePermissions: db.tenant_role_permissions.length,
+    settings: db.settings.length,
+    followUpRules: db.follow_up_rules.length,
+    bootstraps: db.signup_bootstraps.length
+  };
+}
+
+function assertCountsUnchanged(before, label) {
+  const after = signupCounts();
+  for (const key of Object.keys(before)) {
+    if (after[key] !== before[key]) fail(`${label} changed ${key}: ${before[key]} -> ${after[key]}`);
+  }
+}
+
 function signupBootstrap(payload = {}) {
   const key = String(payload.p_idempotency_key || "").trim();
   const username = String(payload.p_username || "").trim().toLowerCase();
@@ -323,11 +342,55 @@ async function login(username, password = "pass12345") {
     if (db.tenants.filter(row => row.name === "New Pilot Co").length !== 1) fail("duplicate signup created another tenant");
     if (db.tenant_memberships.filter(row => row.tenant_id === signupTenantId && row.role === "Owner").length !== 1) fail("duplicate signup created another Owner");
 
+    const beforeDuplicateCounts = signupCounts();
     const existingAccount = await request("/api/signup", {
       method: "POST",
       body: JSON.stringify({ ...signupPayload, signupRequestId: "signup-test-2" })
     });
     if (existingAccount.status !== 409) fail(`existing account signup returned ${existingAccount.status}`);
+    const existingBody = existingAccount.json();
+    if (existingBody.code !== "DUPLICATE_USERNAME") fail(`duplicate signup returned wrong code: ${existingAccount.text}`);
+    if (existingBody.field !== "username") fail(`duplicate signup returned wrong field: ${existingAccount.text}`);
+    if (existingBody.error !== "ชื่อผู้ใช้งานนี้ถูกใช้แล้ว กรุณาใช้ชื่ออื่น") fail(`duplicate signup returned wrong error: ${existingAccount.text}`);
+    assertCountsUnchanged(beforeDuplicateCounts, "duplicate username signup");
+
+    const beforeCaseDuplicateCounts = signupCounts();
+    const caseDuplicate = await request("/api/signup", {
+      method: "POST",
+      body: JSON.stringify({
+        ...signupPayload,
+        username: "New_Owner",
+        businessName: "Case Duplicate Co",
+        displayName: "Case Duplicate",
+        signupRequestId: "signup-test-case-duplicate"
+      })
+    });
+    if (caseDuplicate.status !== 409) fail(`case duplicate signup returned ${caseDuplicate.status}: ${caseDuplicate.text}`);
+    if (caseDuplicate.json().error !== "ชื่อผู้ใช้งานนี้ถูกใช้แล้ว กรุณาใช้ชื่ออื่น") fail(`case duplicate signup returned wrong error: ${caseDuplicate.text}`);
+    assertCountsUnchanged(beforeCaseDuplicateCounts, "case-normalized duplicate username signup");
+
+    const concurrentPayloads = ["a", "b"].map(suffix => ({
+      username: "race_owner",
+      password: "racepass123",
+      businessName: `Race Pilot ${suffix}`,
+      displayName: `Race Owner ${suffix}`,
+      signupRequestId: `signup-test-race-${suffix}`
+    }));
+    const beforeConcurrentCounts = signupCounts();
+    const concurrentResults = await Promise.all(concurrentPayloads.map(payload =>
+      request("/api/signup", { method: "POST", body: JSON.stringify(payload) })
+    ));
+    const concurrentSuccesses = concurrentResults.filter(result => result.status === 200);
+    const concurrentDuplicates = concurrentResults.filter(result => result.status === 409);
+    if (concurrentSuccesses.length !== 1 || concurrentDuplicates.length !== 1) {
+      fail(`concurrent duplicate signup expected one success and one duplicate: ${concurrentResults.map(result => `${result.status}:${result.text}`).join(" | ")}`);
+    }
+    if (concurrentDuplicates[0].json().error !== "ชื่อผู้ใช้งานนี้ถูกใช้แล้ว กรุณาใช้ชื่ออื่น") fail(`concurrent duplicate returned wrong error: ${concurrentDuplicates[0].text}`);
+    const afterConcurrentCounts = signupCounts();
+    if (afterConcurrentCounts.users !== beforeConcurrentCounts.users + 1) fail("concurrent duplicate created an unexpected user count");
+    if (afterConcurrentCounts.tenants !== beforeConcurrentCounts.tenants + 1) fail("concurrent duplicate created an unexpected tenant count");
+    if (afterConcurrentCounts.memberships !== beforeConcurrentCounts.memberships + 1) fail("concurrent duplicate created an unexpected membership count");
+    if (afterConcurrentCounts.bootstraps !== beforeConcurrentCounts.bootstraps + 1) fail("concurrent duplicate created an unexpected bootstrap count");
 
     const newState = (await request("/api/state", { headers: { cookie: signupCookie } })).json();
     if (newState.settings?.businessName !== "New Pilot Co") fail("new signup session did not enter new tenant state");

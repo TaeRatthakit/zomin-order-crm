@@ -3714,7 +3714,12 @@ async function handleApi(req, res) {
       });
     } catch (error) {
       if (error.code === "ACCOUNT_EXISTS") {
-        return json(res, 409, { ok: false, error: "บัญชีนี้มีอยู่แล้ว กรุณาเข้าสู่ระบบ" });
+        return json(res, 409, {
+          ok: false,
+          code: "DUPLICATE_USERNAME",
+          field: "username",
+          error: "ชื่อผู้ใช้งานนี้ถูกใช้แล้ว กรุณาใช้ชื่ออื่น"
+        });
       }
       if (error.code === "IDEMPOTENCY_CONFLICT" || error.code === "INVALID_SIGNUP_INPUT") {
         return json(res, 400, { ok: false, error: "คำขอสมัครไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง" });
