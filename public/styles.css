@@ -28913,6 +28913,10 @@ body.landing-view .landing-plan-badge {
   font-size: 15px;
 }
 
+body.landing-view .landing-pricing .landing-price-card-featured > .landing-plan-badge {
+  color: #FFFFFF !important;
+}
+
 body.landing-view .landing-price-card > div {
   min-height: 168px;
   gap: 9px 14px;
