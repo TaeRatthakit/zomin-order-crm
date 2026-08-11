@@ -30,6 +30,7 @@ const {
   readSettingsPatch,
   readNotificationReadIds,
   persistNotificationReadIds,
+  validatePromotionCode,
   withTenantContext,
   resolveTenantForUser,
   resolveTenantForLineWebhook,
@@ -60,6 +61,8 @@ const PUBLIC_DIR = path.join(ROOT, "public");
 const AUTH_RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
 const AUTH_RATE_LIMIT_MAX = Number(process.env.AUTH_RATE_LIMIT_MAX || 20);
 const KNOWN_PRODUCTION_SUPABASE_REF = "mjnpzdmrqweugdnvlqwq";
+const SIGNUP_PLAN_IDS = new Set(["starter", "business", "enterprise"]);
+const SIGNUP_BILLING_IDS = new Set(["monthly", "yearly"]);
 const authRateBuckets = new Map();
 
 function sanitizeNotificationIds(ids) {
@@ -518,13 +521,39 @@ function validateSignupBody(body = {}) {
   const businessName = cleanText(body.businessName, "").slice(0, 120);
   const displayName = cleanText(body.name || body.displayName, "") || businessName || username;
   const idempotencyKey = String(body.idempotencyKey || body.signupRequestId || crypto.randomUUID()).trim();
+  const selectedPlan = normalizeSignupPlan(body.landingSelectedPlan || body.selectedPlan || body.plan);
+  const selectedBilling = normalizeSignupBilling(body.landingSelectedBilling || body.selectedBilling || body.billing);
+  const promotionCode = normalizePromotionCodeInput(body.promotionCode || body.promoCode || "");
   if (!isValidSignupUsername(username)) return { error: "กรุณากรอกอีเมลหรือชื่อผู้ใช้งานให้ถูกต้อง" };
   if (password.length < 8 || password.length > 128) return { error: "รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร" };
   if (!businessName || businessName.length < 2) return { error: "กรุณากรอกชื่อธุรกิจ" };
   if (!idempotencyKey || idempotencyKey.length > 120 || /[\u0000-\u001f\u007f]/.test(idempotencyKey)) {
     return { error: "คำขอสมัครไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง" };
   }
-  return { username, password, businessName, displayName, idempotencyKey };
+  if (promotionCode && (!selectedPlan || !selectedBilling)) {
+    return { error: "โค้ดโปรโมชั่นไม่ถูกต้องหรือไม่สามารถใช้กับแพ็กเกจนี้ได้", code: "PROMOTION_CODE_INVALID" };
+  }
+  return { username, password, businessName, displayName, idempotencyKey, selectedPlan, selectedBilling, promotionCode };
+}
+
+function normalizeSignupPlan(value = "") {
+  const plan = String(value || "").trim().toLowerCase();
+  return SIGNUP_PLAN_IDS.has(plan) ? plan : "";
+}
+
+function normalizeSignupBilling(value = "") {
+  const billing = String(value || "").trim().toLowerCase();
+  return SIGNUP_BILLING_IDS.has(billing) ? billing : "";
+}
+
+function normalizePromotionCodeInput(value = "") {
+  return String(value || "").trim().slice(0, 64);
+}
+
+function safePromotionError(code = "") {
+  if (code === "PROMOTION_CODE_EXPIRED") return "โค้ดโปรโมชั่นนี้หมดอายุแล้ว";
+  if (code === "PROMOTION_CODE_EXHAUSTED") return "โค้ดโปรโมชั่นนี้ถูกใช้ครบจำนวนแล้ว";
+  return "โค้ดโปรโมชั่นไม่ถูกต้องหรือไม่สามารถใช้กับแพ็กเกจนี้ได้";
 }
 
 function runtimeSupabaseInfo() {
@@ -3682,10 +3711,56 @@ async function handleApi(req, res) {
     return json(res, 200, { ok: true }, { "Set-Cookie": clearSessionCookie() });
   }
 
+  if (req.method === "POST" && url.pathname === "/api/signup/promotion-code") {
+    const body = await readBody(req);
+    const promotionCode = normalizePromotionCodeInput(body.promotionCode || body.promoCode || body.code || "");
+    const selectedPlan = normalizeSignupPlan(body.landingSelectedPlan || body.selectedPlan || body.plan);
+    const selectedBilling = normalizeSignupBilling(body.landingSelectedBilling || body.selectedBilling || body.billing);
+    if (!promotionCode || !selectedPlan || !selectedBilling || typeof validatePromotionCode !== "function") {
+      return json(res, 400, {
+        ok: false,
+        code: "PROMOTION_CODE_INVALID",
+        error: "โค้ดโปรโมชั่นไม่ถูกต้องหรือไม่สามารถใช้กับแพ็กเกจนี้ได้"
+      });
+    }
+    try {
+      const result = await validatePromotionCode({
+        promotionCode,
+        selectedPlan,
+        selectedBilling
+      });
+      if (!result?.valid) {
+        const reason = String(result?.reason || "PROMOTION_CODE_INVALID");
+        return json(res, 400, {
+          ok: false,
+          code: reason,
+          error: safePromotionError(reason)
+        });
+      }
+      return json(res, 200, {
+        ok: true,
+        promotion: {
+          valid: true,
+          code: result.code,
+          selectedPlan: result.selectedPlan,
+          selectedBilling: result.selectedBilling,
+          benefitType: result.benefitType,
+          benefitDescription: result.benefitDescription
+        }
+      });
+    } catch (error) {
+      if (error.code === "SIGNUP_PROVIDER_UNSUPPORTED") {
+        return json(res, 503, { ok: false, error: "ระบบโปรโมชั่นยังไม่พร้อมใช้งาน" });
+      }
+      console.error("Promotion validation failed", error);
+      return json(res, 500, { ok: false, error: "ตรวจสอบโค้ดโปรโมชั่นไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" });
+    }
+  }
+
   if (req.method === "POST" && url.pathname === "/api/signup") {
     const body = await readBody(req);
     const normalized = validateSignupBody(body);
-    if (normalized.error) return json(res, 400, { ok: false, error: normalized.error });
+    if (normalized.error) return json(res, 400, { ok: false, code: normalized.code, error: normalized.error });
     const retryAfter = checkAuthRateLimit(req, "signup", normalized.username);
     if (retryAfter) {
       return json(res, 429, { ok: false, error: "ลองใหม่อีกครั้งในภายหลัง" }, { "Retry-After": String(retryAfter) });
@@ -3703,7 +3778,10 @@ async function handleApi(req, res) {
         passwordHash,
         name: normalized.displayName,
         businessName: normalized.businessName,
-        defaults: signupDefaults(normalized.businessName)
+        defaults: signupDefaults(normalized.businessName),
+        promotionCode: normalized.promotionCode,
+        selectedPlan: normalized.selectedPlan,
+        selectedBilling: normalized.selectedBilling
       });
       if (!user?.tenantId || user.role !== "Owner") {
         return json(res, 500, { ok: false, error: "สมัครใช้งานไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" });
@@ -3723,6 +3801,9 @@ async function handleApi(req, res) {
       }
       if (error.code === "IDEMPOTENCY_CONFLICT" || error.code === "INVALID_SIGNUP_INPUT") {
         return json(res, 400, { ok: false, error: "คำขอสมัครไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง" });
+      }
+      if (String(error.code || "").startsWith("PROMOTION_CODE_")) {
+        return json(res, 400, { ok: false, code: error.code, error: safePromotionError(error.code) });
       }
       if (error.code === "SIGNUP_PROVIDER_UNSUPPORTED") {
         return json(res, 503, { ok: false, error: "ระบบสมัครใช้งานยังไม่พร้อมใช้งาน" });

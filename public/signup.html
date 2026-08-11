@@ -73,6 +73,16 @@
                 <label>ยืนยันรหัสผ่าน
                   <input name="confirmPassword" autocomplete="new-password" type="password" minlength="8" required placeholder="กรอกรหัสผ่านอีกครั้ง">
                 </label>
+                <details class="signup-promo" data-signup-promo>
+                  <summary>มีโค้ดโปรโมชั่น?</summary>
+                  <div class="signup-promo-panel">
+                    <div class="signup-promo-row">
+                      <input name="promotionCode" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="กรอกโค้ดโปรโมชั่น" data-signup-promo-input>
+                      <button class="button secondary" type="button" data-signup-validate-promotion-code>ใช้โค้ด</button>
+                    </div>
+                    <p class="signup-promo-status" data-signup-promo-status hidden></p>
+                  </div>
+                </details>
                 <input type="hidden" name="signupRequestId" value="signup_shell_initial">
                 <button class="button primary" type="submit">สมัครใช้งาน</button>
                 <p class="login-card-switch">มีบัญชีแล้ว? <a href="/login" data-auth-route="login">เข้าสู่ระบบ</a></p>

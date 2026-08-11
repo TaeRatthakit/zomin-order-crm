@@ -29484,3 +29484,74 @@ html[data-theme="light"] body.signup-view .login-card input,
 html[data-theme] body.signup-view .login-card input {
   color: #111827;
 }
+
+body.signup-view .signup-promo {
+  display: grid;
+  gap: 10px;
+}
+
+body.signup-view .signup-promo summary {
+  width: max-content;
+  cursor: pointer;
+  color: #6d28d9;
+  font-size: 14px;
+  font-weight: 850;
+  line-height: 1.35;
+}
+
+body.signup-view .signup-promo-panel {
+  display: grid;
+  gap: 8px;
+}
+
+body.signup-view .signup-promo-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 9px;
+  align-items: center;
+}
+
+body.signup-view .signup-promo-row input {
+  min-height: 52px;
+}
+
+body.signup-view .signup-promo-row .button.secondary {
+  min-height: 52px;
+  padding: 0 15px;
+  border-color: rgba(124, 58, 237, 0.22);
+  background: rgba(255, 255, 255, 0.72);
+  color: #5b21b6;
+  font-size: 14px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+body.signup-view .signup-promo-status {
+  margin: 0;
+  color: #4b5563;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+body.signup-view .signup-promo-status[data-status="success"] {
+  color: #047857;
+}
+
+body.signup-view .signup-promo-status[data-status="error"] {
+  color: #b91c1c;
+}
+
+body.signup-view .signup-promo-status[data-status="loading"] {
+  color: #6d28d9;
+}
+
+@media (max-width: 520px) {
+  body.signup-view .signup-promo-row {
+    grid-template-columns: 1fr;
+  }
+
+  body.signup-view .signup-promo-row .button.secondary {
+    width: 100%;
+  }
+}

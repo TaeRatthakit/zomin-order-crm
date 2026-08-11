@@ -79,6 +79,12 @@ assert(starterPlanBlock.includes("ผู้ใช้งานสูงสุด 
 assert(!/broadcast| ai |ปัญญาประดิษฐ์/i.test(landingBlock), "landing must not market AI or Broadcast features");
 assert(signupBlock.includes("selectedLandingSignupPlan()") && appJs.includes('name="landingSelectedPlan"') && appJs.includes('name="landingSelectedBilling"'), "signup must preserve selected plan and billing in the UI");
 assert(appJs.includes('if (!Object.prototype.hasOwnProperty.call(LANDING_SIGNUP_PLAN_OPTIONS, landingSignupPlan)) return null') && appJs.includes('if (!["monthly", "yearly"].includes(landingSignupBilling)) return null'), "signup plan query values must be allowlisted");
+assert(signupBlock.includes("signupPromotionHtml()") && appJs.includes('name="promotionCode"') && appJs.includes("มีโค้ดโปรโมชั่น?"), "signup promotion code area missing");
+assert(
+  signupBlock.indexOf("ยืนยันรหัสผ่าน") < signupBlock.indexOf("signupPromotionHtml()")
+    && signupBlock.indexOf("signupPromotionHtml()") < signupBlock.indexOf("signupRequestId"),
+  "signup promotion code area must appear after confirm password and before submit metadata"
+);
 assert(businessSignupConfig.includes("สมัครแพ็กเกจ Business") && businessSignupConfig.includes("฿990 / เดือน") && businessSignupConfig.includes("฿9,900 / ปี") && businessSignupConfig.includes("สมัครและเลือก Business"), "Business signup handoff copy missing");
 assert(!businessSignupConfig.includes("เริ่มใช้ฟรี 30 วัน") && !businessSignupConfig.includes("ทดลองใช้ฟรี 30 วัน"), "Business signup must not use Starter free-trial copy");
 assert(enterpriseSignupConfig.includes("สมัครแพ็กเกจ Enterprise") && enterpriseSignupConfig.includes("฿1,990 / เดือน") && enterpriseSignupConfig.includes("฿19,900 / ปี") && enterpriseSignupConfig.includes("สมัครและเลือก Enterprise"), "Enterprise signup handoff copy missing");
@@ -108,6 +114,12 @@ assert(!landingHtml.includes("เพิ่มออเดอร์") && !landing
 assert(!landingHtml.includes("orderDialog") && !landingHtml.includes("productDialog"), "root HTML must not include private app modal shells");
 assert(loginHtml.includes('id="loginForm"') && loginHtml.includes("เข้าสู่ระบบ"), "login HTML shell must contain login content");
 assert(signupHtml.includes('id="signupForm"') && signupHtml.includes("สมัครใช้งาน"), "signup HTML shell must contain signup content");
+assert(signupHtml.includes("มีโค้ดโปรโมชั่น?") && signupHtml.includes('name="promotionCode"') && signupHtml.includes("กรอกโค้ดโปรโมชั่น"), "signup HTML shell must contain optional promotion code area");
+assert(
+  signupHtml.indexOf("ยืนยันรหัสผ่าน") < signupHtml.indexOf("มีโค้ดโปรโมชั่น?")
+    && signupHtml.indexOf("มีโค้ดโปรโมชั่น?") < signupHtml.indexOf("signup_shell_initial"),
+  "signup HTML promotion code area must appear after confirm password and before submit metadata"
+);
 assert(!signupHtml.includes("เริ่มใช้ฟรี 30 วัน") && !signupHtml.includes("ทดลองใช้ฟรี 30 วัน"), "raw generic signup shell must not imply Starter trial before plan validation");
 assert(!loginHtml.includes("orderDialog") && !loginHtml.includes("productDialog") && !loginHtml.includes("เพิ่มออเดอร์"), "login HTML shell must not contain private app shell");
 assert(!signupHtml.includes("orderDialog") && !signupHtml.includes("productDialog") && !signupHtml.includes("เพิ่มออเดอร์"), "signup HTML shell must not contain private app shell");

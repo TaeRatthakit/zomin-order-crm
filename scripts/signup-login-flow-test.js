@@ -64,7 +64,22 @@ const db = {
   notification_reads: [],
   tenant_role_permissions: [],
   tenant_settings: [],
-  signup_bootstraps: []
+  signup_bootstraps: [],
+  promotion_codes: [
+    { id: "promo_valid", code: "growup20", active: true, benefit_type: "percent_discount", benefit_value: 20, applicable_plans: ["business"], applicable_billing: ["monthly"], starts_at: "2026-01-01T00:00:00.000Z", ends_at: "2027-01-01T00:00:00.000Z", max_redemptions: null, max_redemptions_per_tenant: null },
+    { id: "promo_fixed", code: "fixed300", active: true, benefit_type: "fixed_amount_discount", benefit_value: 300, applicable_plans: ["business"], applicable_billing: ["monthly"], starts_at: null, ends_at: null, max_redemptions: null, max_redemptions_per_tenant: null },
+    { id: "promo_trial", code: "trial30", active: true, benefit_type: "extra_trial_days", benefit_value: 30, applicable_plans: ["starter"], applicable_billing: ["monthly", "yearly"], starts_at: null, ends_at: null, max_redemptions: null, max_redemptions_per_tenant: null },
+    { id: "promo_month", code: "month1", active: true, benefit_type: "free_months", benefit_value: 1, applicable_plans: ["enterprise"], applicable_billing: ["yearly"], starts_at: null, ends_at: null, max_redemptions: null, max_redemptions_per_tenant: null },
+    { id: "promo_inactive", code: "inactive", active: false, benefit_type: "percent_discount", benefit_value: 10, applicable_plans: ["starter"], applicable_billing: ["monthly"], starts_at: null, ends_at: null, max_redemptions: null, max_redemptions_per_tenant: null },
+    { id: "promo_expired", code: "expired", active: true, benefit_type: "percent_discount", benefit_value: 10, applicable_plans: ["starter"], applicable_billing: ["monthly"], starts_at: "2025-01-01T00:00:00.000Z", ends_at: "2025-02-01T00:00:00.000Z", max_redemptions: null, max_redemptions_per_tenant: null },
+    { id: "promo_maxed", code: "maxed", active: true, benefit_type: "percent_discount", benefit_value: 10, applicable_plans: ["starter"], applicable_billing: ["monthly"], starts_at: null, ends_at: null, max_redemptions: 1, max_redemptions_per_tenant: null },
+    { id: "promo_last", code: "lastone", active: true, benefit_type: "percent_discount", benefit_value: 15, applicable_plans: ["business"], applicable_billing: ["monthly"], starts_at: null, ends_at: null, max_redemptions: 1, max_redemptions_per_tenant: null },
+    { id: "promo_per_tenant", code: "tenantonce", active: true, benefit_type: "percent_discount", benefit_value: 5, applicable_plans: ["starter"], applicable_billing: ["monthly"], starts_at: null, ends_at: null, max_redemptions: null, max_redemptions_per_tenant: 1 }
+  ],
+  promotion_redemptions: [
+    { id: "redemption_maxed", promotion_code_id: "promo_maxed", tenant_id: "11111111-1111-4111-8111-111111111111", selected_plan: "starter", selected_billing: "monthly", benefit_type: "percent_discount", benefit_value: 10, benefit_description: "ลด 10%", redeemed_at: "2026-08-01T00:00:00.000Z" },
+    { id: "redemption_per_tenant", promotion_code_id: "promo_per_tenant", tenant_id: "11111111-1111-4111-8111-111111111111", selected_plan: "starter", selected_billing: "monthly", benefit_type: "percent_discount", benefit_value: 5, benefit_description: "ลด 5%", redeemed_at: "2026-08-01T00:00:00.000Z" }
+  ]
 };
 
 function fail(message) {
@@ -103,6 +118,64 @@ function rpcError(message) {
   return new Response(JSON.stringify({ message }), { status: 400 });
 }
 
+function normalizePromotionCode(value = "") {
+  return String(value || "").trim().toUpperCase();
+}
+
+function promotionBenefitDescription(promo) {
+  const value = Number(promo?.benefit_value || 0);
+  if (promo?.benefit_type === "percent_discount") return `ลด ${value}%`;
+  if (promo?.benefit_type === "fixed_amount_discount") return `ลด ฿${value}`;
+  if (promo?.benefit_type === "extra_trial_days") return `เพิ่มระยะทดลองใช้ฟรี ${value} วัน`;
+  if (promo?.benefit_type === "free_months") return `ใช้ฟรีเพิ่ม ${value} เดือน`;
+  return "";
+}
+
+function validatePromotionRule(payload = {}) {
+  const code = normalizePromotionCode(payload.p_code || payload.p_promotion_code || "");
+  const selectedPlan = String(payload.p_selected_plan || "").trim().toLowerCase();
+  const selectedBilling = String(payload.p_selected_billing || "").trim().toLowerCase();
+  const tenantId = String(payload.p_tenant_id || "").trim();
+  const invalid = reason => [{
+    valid: false,
+    code,
+    selected_plan: selectedPlan,
+    selected_billing: selectedBilling,
+    benefit_type: null,
+    benefit_value: null,
+    benefit_description: null,
+    reason
+  }];
+  if (!code || !["starter", "business", "enterprise"].includes(selectedPlan) || !["monthly", "yearly"].includes(selectedBilling)) {
+    return invalid("PROMOTION_CODE_INVALID");
+  }
+  const promo = db.promotion_codes.find(row => normalizePromotionCode(row.code) === code);
+  if (!promo || !promo.active) return invalid("PROMOTION_CODE_INVALID");
+  const now = new Date("2026-08-11T00:00:00.000Z").getTime();
+  if ((promo.starts_at && new Date(promo.starts_at).getTime() > now) || (promo.ends_at && new Date(promo.ends_at).getTime() < now)) {
+    return invalid("PROMOTION_CODE_EXPIRED");
+  }
+  if (!promo.applicable_plans.includes(selectedPlan) || !promo.applicable_billing.includes(selectedBilling)) {
+    return invalid("PROMOTION_CODE_INVALID");
+  }
+  const totalRedemptions = db.promotion_redemptions.filter(row => row.promotion_code_id === promo.id).length;
+  if (promo.max_redemptions && totalRedemptions >= promo.max_redemptions) return invalid("PROMOTION_CODE_EXHAUSTED");
+  if (tenantId && promo.max_redemptions_per_tenant) {
+    const tenantRedemptions = db.promotion_redemptions.filter(row => row.promotion_code_id === promo.id && row.tenant_id === tenantId).length;
+    if (tenantRedemptions >= promo.max_redemptions_per_tenant) return invalid("PROMOTION_CODE_EXHAUSTED");
+  }
+  return [{
+    valid: true,
+    code,
+    selected_plan: selectedPlan,
+    selected_billing: selectedBilling,
+    benefit_type: promo.benefit_type,
+    benefit_value: promo.benefit_value,
+    benefit_description: promotionBenefitDescription(promo),
+    reason: null
+  }];
+}
+
 function signupCounts() {
   return {
     users: db.users.length,
@@ -111,7 +184,8 @@ function signupCounts() {
     rolePermissions: db.tenant_role_permissions.length,
     settings: db.settings.length,
     followUpRules: db.follow_up_rules.length,
-    bootstraps: db.signup_bootstraps.length
+    bootstraps: db.signup_bootstraps.length,
+    redemptions: db.promotion_redemptions.length
   };
 }
 
@@ -132,6 +206,8 @@ function signupBootstrap(payload = {}) {
   }
   if (db.users.some(row => row.username.toLowerCase() === username)) return rpcError("ACCOUNT_EXISTS");
   if (!key || !username || !payload.p_password_hash || !payload.p_business_name) return rpcError("INVALID_SIGNUP_INPUT");
+  const promoResult = payload.p_promotion_code ? validatePromotionRule(payload)[0] : null;
+  if (promoResult && !promoResult.valid) return rpcError(promoResult.reason);
   const tenantId = crypto.randomUUID();
   const userId = String(payload.p_user_id || `u_${crypto.randomUUID()}`);
   db.users.push({
@@ -154,6 +230,20 @@ function signupBootstrap(payload = {}) {
   }
   for (const rule of defaults.followUpRules || []) {
     db.follow_up_rules.push({ id: `${tenantId}:${rule.jars}`, jars: rule.jars, days: rule.days, tenant_id: tenantId });
+  }
+  if (promoResult?.valid) {
+    const promo = db.promotion_codes.find(row => normalizePromotionCode(row.code) === promoResult.code);
+    db.promotion_redemptions.push({
+      id: crypto.randomUUID(),
+      promotion_code_id: promo.id,
+      tenant_id: tenantId,
+      selected_plan: promoResult.selected_plan,
+      selected_billing: promoResult.selected_billing,
+      benefit_type: promo.benefit_type,
+      benefit_value: promo.benefit_value,
+      benefit_description: promoResult.benefit_description,
+      redeemed_at: new Date().toISOString()
+    });
   }
   db.signup_bootstraps.push({ idempotency_key: key, username, user_id: userId, tenant_id: tenantId, status: "completed" });
   return new Response(JSON.stringify(signupResult(userId, tenantId)), { status: 200 });
@@ -181,6 +271,9 @@ global.fetch = async function mockFetch(input, options = {}) {
   const parts = url.pathname.split("/").filter(Boolean);
   if (parts.at(-2) === "rpc" && parts.at(-1) === "growup_signup_bootstrap") {
     return signupBootstrap(JSON.parse(options.body || "{}"));
+  }
+  if (parts.at(-2) === "rpc" && parts.at(-1) === "growup_validate_promotion_code") {
+    return new Response(JSON.stringify(validatePromotionRule(JSON.parse(options.body || "{}"))), { status: 200 });
   }
   const table = parts.at(-1);
   if (!Object.prototype.hasOwnProperty.call(db, table)) {
@@ -341,6 +434,137 @@ async function login(username, password = "pass12345") {
     if (duplicateSubmit.status !== 200) fail(`duplicate idempotent signup returned ${duplicateSubmit.status}: ${duplicateSubmit.text}`);
     if (db.tenants.filter(row => row.name === "New Pilot Co").length !== 1) fail("duplicate signup created another tenant");
     if (db.tenant_memberships.filter(row => row.tenant_id === signupTenantId && row.role === "Owner").length !== 1) fail("duplicate signup created another Owner");
+
+    const validPromo = await request("/api/signup/promotion-code", {
+      method: "POST",
+      body: JSON.stringify({ promotionCode: " GROWUP20 ", selectedPlan: "business", selectedBilling: "monthly" })
+    });
+    if (validPromo.status !== 200) fail(`valid promo returned ${validPromo.status}: ${validPromo.text}`);
+    const validPromoBody = validPromo.json().promotion;
+    if (validPromoBody.code !== "GROWUP20" || validPromoBody.benefitDescription !== "ลด 20%") fail(`valid promo returned unsafe body: ${validPromo.text}`);
+    if (JSON.stringify(validPromoBody).includes("promo_valid") || JSON.stringify(validPromoBody).includes("max_redemptions")) fail(`promo validation leaked internals: ${validPromo.text}`);
+
+    for (const [promotionCode, selectedPlan, selectedBilling, expectedDescription] of [
+      ["fixed300", "business", "monthly", "ลด ฿300"],
+      ["trial30", "starter", "monthly", "เพิ่มระยะทดลองใช้ฟรี 30 วัน"],
+      ["month1", "enterprise", "yearly", "ใช้ฟรีเพิ่ม 1 เดือน"]
+    ]) {
+      const benefitTypePromo = await request("/api/signup/promotion-code", {
+        method: "POST",
+        body: JSON.stringify({ promotionCode, selectedPlan, selectedBilling })
+      });
+      if (benefitTypePromo.status !== 200 || benefitTypePromo.json().promotion.benefitDescription !== expectedDescription) {
+        fail(`benefit type ${promotionCode} returned wrong description: ${benefitTypePromo.text}`);
+      }
+    }
+
+    const invalidPromo = await request("/api/signup/promotion-code", {
+      method: "POST",
+      body: JSON.stringify({ promotionCode: "missing", selectedPlan: "business", selectedBilling: "monthly" })
+    });
+    if (invalidPromo.status !== 400 || invalidPromo.json().code !== "PROMOTION_CODE_INVALID") fail(`invalid promo was not rejected safely: ${invalidPromo.text}`);
+
+    const expiredPromo = await request("/api/signup/promotion-code", {
+      method: "POST",
+      body: JSON.stringify({ promotionCode: "expired", selectedPlan: "starter", selectedBilling: "monthly" })
+    });
+    if (expiredPromo.status !== 400 || expiredPromo.json().code !== "PROMOTION_CODE_EXPIRED" || !expiredPromo.text.includes("หมดอายุ")) fail(`expired promo returned wrong response: ${expiredPromo.text}`);
+
+    const inactivePromo = await request("/api/signup/promotion-code", {
+      method: "POST",
+      body: JSON.stringify({ promotionCode: "inactive", selectedPlan: "starter", selectedBilling: "monthly" })
+    });
+    if (inactivePromo.status !== 400 || inactivePromo.json().code !== "PROMOTION_CODE_INVALID") fail(`inactive promo returned wrong response: ${inactivePromo.text}`);
+
+    const wrongPlanPromo = await request("/api/signup/promotion-code", {
+      method: "POST",
+      body: JSON.stringify({ promotionCode: "growup20", selectedPlan: "starter", selectedBilling: "monthly" })
+    });
+    if (wrongPlanPromo.status !== 400 || wrongPlanPromo.json().code !== "PROMOTION_CODE_INVALID") fail(`wrong plan promo returned wrong response: ${wrongPlanPromo.text}`);
+
+    const wrongBillingPromo = await request("/api/signup/promotion-code", {
+      method: "POST",
+      body: JSON.stringify({ promotionCode: "growup20", selectedPlan: "business", selectedBilling: "yearly" })
+    });
+    if (wrongBillingPromo.status !== 400 || wrongBillingPromo.json().code !== "PROMOTION_CODE_INVALID") fail(`wrong billing promo returned wrong response: ${wrongBillingPromo.text}`);
+
+    const maxedPromo = await request("/api/signup/promotion-code", {
+      method: "POST",
+      body: JSON.stringify({ promotionCode: "maxed", selectedPlan: "starter", selectedBilling: "monthly" })
+    });
+    if (maxedPromo.status !== 400 || maxedPromo.json().code !== "PROMOTION_CODE_EXHAUSTED") fail(`maxed promo returned wrong response: ${maxedPromo.text}`);
+
+    const perTenantRpc = await global.fetch("https://signup-login-test.supabase.co/rest/v1/rpc/growup_validate_promotion_code", {
+      method: "POST",
+      body: JSON.stringify({
+        p_code: "tenantonce",
+        p_selected_plan: "starter",
+        p_selected_billing: "monthly",
+        p_tenant_id: "11111111-1111-4111-8111-111111111111"
+      })
+    });
+    const perTenantBody = (await perTenantRpc.json())[0];
+    if (perTenantBody.valid !== false || perTenantBody.reason !== "PROMOTION_CODE_EXHAUSTED") fail(`per-tenant promo rule was not enforceable: ${JSON.stringify(perTenantBody)}`);
+
+    const beforePromoSignupCounts = signupCounts();
+    const promoSignupPayload = {
+      username: "promo_owner",
+      password: "promopass123",
+      businessName: "Promo Pilot Co",
+      displayName: "Promo Owner",
+      landingSelectedPlan: "business",
+      landingSelectedBilling: "monthly",
+      promotionCode: "growup20",
+      clientDiscountValue: 999999,
+      signupRequestId: "signup-test-promo-1"
+    };
+    const promoSignup = await request("/api/signup", { method: "POST", body: JSON.stringify(promoSignupPayload) });
+    if (promoSignup.status !== 200) fail(`promo signup returned ${promoSignup.status}: ${promoSignup.text}`);
+    const promoTenantId = promoSignup.json().user.tenantId;
+    const promoRedemptions = db.promotion_redemptions.filter(row => row.tenant_id === promoTenantId);
+    if (promoRedemptions.length !== 1) fail(`promo signup recorded ${promoRedemptions.length} redemptions`);
+    if (promoRedemptions[0].benefit_value !== 20 || promoRedemptions[0].benefit_description !== "ลด 20%") fail("promo signup trusted browser-supplied discount instead of server rule");
+    const promoDuplicateSubmit = await request("/api/signup", { method: "POST", body: JSON.stringify(promoSignupPayload) });
+    if (promoDuplicateSubmit.status !== 200) fail(`promo idempotent retry returned ${promoDuplicateSubmit.status}: ${promoDuplicateSubmit.text}`);
+    if (db.promotion_redemptions.filter(row => row.tenant_id === promoTenantId).length !== 1) fail("promo idempotent retry double-redeemed");
+    if (signupCounts().redemptions !== beforePromoSignupCounts.redemptions + 1) fail("promo signup did not increment redemption count exactly once");
+
+    const beforeFailedPromoSignupCounts = signupCounts();
+    const failedPromoSignup = await request("/api/signup", {
+      method: "POST",
+      body: JSON.stringify({
+        ...promoSignupPayload,
+        username: "owner@example.com",
+        businessName: "Failed Promo Co",
+        signupRequestId: "signup-test-promo-fail"
+      })
+    });
+    if (failedPromoSignup.status !== 409) fail(`failed promo duplicate signup returned ${failedPromoSignup.status}: ${failedPromoSignup.text}`);
+    assertCountsUnchanged(beforeFailedPromoSignupCounts, "failed promo signup");
+
+    const concurrentPromoPayloads = ["a", "b"].map(suffix => ({
+      username: `last_promo_${suffix}`,
+      password: "lastpass123",
+      businessName: `Last Promo ${suffix}`,
+      displayName: `Last Promo Owner ${suffix}`,
+      landingSelectedPlan: "business",
+      landingSelectedBilling: "monthly",
+      promotionCode: "lastone",
+      signupRequestId: `signup-test-last-promo-${suffix}`
+    }));
+    const beforeLastPromoCounts = signupCounts();
+    const lastPromoResults = await Promise.all(concurrentPromoPayloads.map(payload =>
+      request("/api/signup", { method: "POST", body: JSON.stringify(payload) })
+    ));
+    const lastPromoSuccesses = lastPromoResults.filter(result => result.status === 200);
+    const lastPromoRejected = lastPromoResults.filter(result => result.status === 400 && result.json().code === "PROMOTION_CODE_EXHAUSTED");
+    if (lastPromoSuccesses.length !== 1 || lastPromoRejected.length !== 1) {
+      fail(`last redemption race expected one success and one exhausted promo: ${lastPromoResults.map(result => `${result.status}:${result.text}`).join(" | ")}`);
+    }
+    const afterLastPromoCounts = signupCounts();
+    if (afterLastPromoCounts.users !== beforeLastPromoCounts.users + 1 || afterLastPromoCounts.tenants !== beforeLastPromoCounts.tenants + 1 || afterLastPromoCounts.redemptions !== beforeLastPromoCounts.redemptions + 1) {
+      fail("last redemption race left partial signup or duplicate redemption data");
+    }
 
     const beforeDuplicateCounts = signupCounts();
     const existingAccount = await request("/api/signup", {

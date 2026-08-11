@@ -116,6 +116,12 @@ function stripHiddenElements(html) {
   assertIncludes(signup.text, "ชื่อผู้ใช้งาน (Username)", "raw /signup");
   assertIncludes(signup.text, "กำหนดชื่อผู้ใช้งาน", "raw /signup");
   assertIncludes(signup.text, "รหัสผ่าน (Password)", "raw /signup");
+  assertIncludes(signup.text, "ยืนยันรหัสผ่าน", "raw /signup");
+  assertIncludes(signup.text, "มีโค้ดโปรโมชั่น?", "raw /signup");
+  assertIncludes(signup.text, "กรอกโค้ดโปรโมชั่น", "raw /signup");
+  if (!(signup.text.indexOf("ยืนยันรหัสผ่าน") < signup.text.indexOf("มีโค้ดโปรโมชั่น?") && signup.text.indexOf("มีโค้ดโปรโมชั่น?") < signup.text.indexOf("signup_shell_initial"))) {
+    fail("raw /signup promotion code area must appear after confirm password and before submit metadata");
+  }
   assertCleanPublicHtml(signup.text, "raw /signup");
   if (signup.text.includes("เริ่มใช้ฟรี 30 วัน") || signup.text.includes("ทดลองใช้ฟรี 30 วัน")) {
     fail("generic raw /signup should stay neutral until a valid Starter plan is selected");

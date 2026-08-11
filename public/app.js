@@ -3461,6 +3461,21 @@ function landingSignupPlanSummaryHtml(landingSelectedPlan) {
         `;
 }
 
+function signupPromotionHtml() {
+  return `
+          <details class="signup-promo" data-signup-promo>
+            <summary>มีโค้ดโปรโมชั่น?</summary>
+            <div class="signup-promo-panel">
+              <div class="signup-promo-row">
+                <input name="promotionCode" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="กรอกโค้ดโปรโมชั่น" data-signup-promo-input>
+                <button class="button secondary" type="button" data-signup-validate-promotion-code>ใช้โค้ด</button>
+              </div>
+              <p class="signup-promo-status" data-signup-promo-status hidden></p>
+            </div>
+          </details>
+        `;
+}
+
 function updateLandingPlanCtas(pricing) {
   const billing = pricing?.dataset?.billing === "yearly" ? "yearly" : "monthly";
   pricing?.querySelectorAll("[data-landing-plan]").forEach(link => {
@@ -3497,6 +3512,7 @@ function renderSignup() {
           <label>ยืนยันรหัสผ่าน
             <input name="confirmPassword" autocomplete="new-password" type="password" minlength="8" required placeholder="กรอกรหัสผ่านอีกครั้ง">
           </label>
+          ${signupPromotionHtml()}
           <input type="hidden" name="signupRequestId" value="${escapeHtml(crypto.randomUUID?.() || `signup_${Date.now()}_${Math.random().toString(36).slice(2)}`)}">
           <button class="button primary" type="submit">เริ่มใช้ฟรี 30 วัน</button>
           <p class="login-card-switch">มีบัญชีแล้ว? <a href="/login" data-auth-route="login">เข้าสู่ระบบ</a></p>
@@ -3533,6 +3549,55 @@ function showSignupUsernameError(form, message) {
     error.hidden = false;
   }
   input?.focus?.({ preventScroll: false });
+}
+
+function signupPromotionPayload(form) {
+  return {
+    promotionCode: String(form?.elements?.promotionCode?.value || "").trim(),
+    selectedPlan: String(form?.elements?.landingSelectedPlan?.value || ""),
+    selectedBilling: String(form?.elements?.landingSelectedBilling?.value || "")
+  };
+}
+
+function setSignupPromotionStatus(form, message, status = "") {
+  const statusEl = form?.querySelector?.("[data-signup-promo-status]");
+  if (!statusEl) return;
+  statusEl.textContent = message || "";
+  statusEl.dataset.status = status || "";
+  statusEl.hidden = !message;
+}
+
+function clearSignupPromotionStatus(form) {
+  setSignupPromotionStatus(form, "", "");
+}
+
+async function validateSignupPromotion(form) {
+  const button = form?.querySelector?.("[data-signup-validate-promotion-code]");
+  const payload = signupPromotionPayload(form);
+  if (!payload.promotionCode) {
+    setSignupPromotionStatus(form, "กรุณากรอกโค้ดโปรโมชั่น", "error");
+    form?.elements?.promotionCode?.focus?.();
+    return;
+  }
+  if (!payload.selectedPlan || !payload.selectedBilling) {
+    setSignupPromotionStatus(form, "โค้ดโปรโมชั่นไม่ถูกต้องหรือไม่สามารถใช้กับแพ็กเกจนี้ได้", "error");
+    return;
+  }
+  try {
+    if (button) button.disabled = true;
+    setSignupPromotionStatus(form, "กำลังตรวจสอบโค้ดโปรโมชั่น...", "loading");
+    const result = await api("/api/signup/promotion-code", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    });
+    const promotion = result.promotion || {};
+    const description = promotion.benefitDescription ? ` ${promotion.benefitDescription}` : "";
+    setSignupPromotionStatus(form, `✓ ใช้โค้ดโปรโมชั่นสำเร็จ${description}`, "success");
+  } catch (error) {
+    setSignupPromotionStatus(form, error.message || "โค้ดโปรโมชั่นไม่ถูกต้องหรือไม่สามารถใช้กับแพ็กเกจนี้ได้", "error");
+  } finally {
+    if (button) button.disabled = false;
+  }
 }
 
 function renderLanding() {
@@ -11473,6 +11538,13 @@ els.productDialog?.addEventListener("close", () => {
 });
 
 document.addEventListener("click", async event => {
+  const signupPromotionButton = event.target.closest("[data-signup-validate-promotion-code]");
+  if (signupPromotionButton) {
+    event.preventDefault();
+    await validateSignupPromotion(signupPromotionButton.closest("form"));
+    return;
+  }
+
   const landingBillingButton = event.target.closest("[data-landing-billing]");
   if (landingBillingButton) {
     const pricing = landingBillingButton.closest("[data-landing-pricing]");
@@ -12709,6 +12781,10 @@ document.addEventListener("drop", event => {
 });
 
 document.addEventListener("input", event => {
+  if (event.target?.matches?.("[data-signup-promo-input]")) {
+    clearSignupPromotionStatus(event.target.form);
+  }
+
   if (event.target?.name === "items" && event.target.form?.id === "orderForm") {
     syncOrderProductSelection({ applyPrice: true });
   }
@@ -13102,6 +13178,12 @@ document.addEventListener("submit", async event => {
           showSignupUsernameError(form, signupDuplicateMessage);
           showToast(signupDuplicateMessage, "error"); // signup duplicate
           return; // signup duplicate handled
+        }
+        if (String(signupError.payload?.code || "").startsWith("PROMOTION_CODE_")) {
+          setSignupPromotionStatus(form, signupError.message || "โค้ดโปรโมชั่นไม่ถูกต้องหรือไม่สามารถใช้กับแพ็กเกจนี้ได้", "error");
+          form.querySelector("[data-signup-promo]")?.setAttribute("open", "");
+          form.elements.promotionCode?.focus?.();
+          return;
         }
         throw signupError;
       }
