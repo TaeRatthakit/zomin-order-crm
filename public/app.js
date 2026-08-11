@@ -3574,7 +3574,6 @@ function renderLanding() {
             <p class="landing-lead">จัดการลูกค้า ออเดอร์ การติดตาม โอกาสขาย รายงาน ต้นทุน และกำไรในที่เดียว ช่วยให้เห็นยอดขาย ต้นทุน และกำไรชัดขึ้น และบริหารธุรกิจได้ง่ายขึ้น</p>
             <div class="landing-hero-actions">
               <a class="landing-button landing-button-primary" href="${landingSignupPlanUrl("starter")}">เริ่มใช้ฟรี 30 วัน</a>
-              <a class="landing-button landing-button-secondary" href="/login">เข้าสู่ระบบ</a>
             </div>
             <ul class="landing-trust-list" aria-label="รายละเอียดเริ่มต้น">
               <li>เริ่มใช้งานง่าย</li>

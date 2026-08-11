@@ -28,6 +28,22 @@ const enterpriseSignupConfig = appJs.slice(
   appJs.indexOf("enterprise: {"),
   appJs.indexOf("function selectedLandingSignupPlan")
 );
+const landingHeaderBlock = landingBlock.slice(
+  landingBlock.indexOf("<header class=\"landing-header\">"),
+  landingBlock.indexOf("</header>", landingBlock.indexOf("<header class=\"landing-header\">"))
+);
+const landingHeroActionsBlock = landingBlock.slice(
+  landingBlock.indexOf("<div class=\"landing-hero-actions\">"),
+  landingBlock.indexOf("</div>", landingBlock.indexOf("<div class=\"landing-hero-actions\">"))
+);
+const landingHtmlHeaderBlock = landingHtml.slice(
+  landingHtml.indexOf("<header class=\"landing-header\">"),
+  landingHtml.indexOf("</header>", landingHtml.indexOf("<header class=\"landing-header\">"))
+);
+const landingHtmlHeroActionsBlock = landingHtml.slice(
+  landingHtml.indexOf("<div class=\"landing-hero-actions\">"),
+  landingHtml.indexOf("</div>", landingHtml.indexOf("<div class=\"landing-hero-actions\">"))
+);
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -38,6 +54,9 @@ assert(appJs.includes('"/dashboard": "dashboard"'), "dashboard route must remain
 assert(landingStart !== -1 && landingEnd !== -1, "landing renderer missing");
 assert(signupStart !== -1 && signupEnd !== -1, "signup renderer missing");
 assert(landingBlock.includes('href="${landingSignupPlanUrl("starter")}"') && landingBlock.includes("เริ่มใช้ฟรี 30 วัน"), "Starter landing signup CTA missing plan handoff");
+assert(landingHeaderBlock.includes('href="/login"') && landingHeaderBlock.includes("เข้าสู่ระบบ"), "header login link must remain");
+assert(landingHeroActionsBlock.includes('href="${landingSignupPlanUrl("starter")}"') && landingHeroActionsBlock.includes("เริ่มใช้ฟรี 30 วัน"), "hero primary trial CTA must remain");
+assert(!landingHeroActionsBlock.includes('href="/login"') && !landingHeroActionsBlock.includes("เข้าสู่ระบบ"), "hero secondary login CTA must be removed");
 assert(landingBlock.includes('data-landing-plan="starter"') && landingBlock.includes('data-landing-plan="business"') && landingBlock.includes('data-landing-plan="enterprise"'), "pricing CTA plan markers missing");
 assert(landingBlock.includes('href="${landingSignupPlanUrl("business")}"') && landingBlock.includes("เลือก Business"), "Business CTA must hand off selected plan");
 assert(landingBlock.includes('href="${landingSignupPlanUrl("enterprise")}"') && landingBlock.includes("เลือก Enterprise"), "Enterprise CTA must hand off selected plan");
@@ -73,6 +92,9 @@ assert(serverJs.includes('"/landing.html"') && serverJs.includes('"/login.html"'
 assert(landingHtml.includes("จัดการธุรกิจ ให้เติบโต ไปกับ Growup Pilot"), "root HTML must include crawlable landing H1");
 assert(landingHtml.includes('meta name="description"'), "root HTML must include an SEO description");
 assert(landingHtml.includes('href="/signup?plan=starter&amp;billing=monthly"'), "root HTML must include Starter CTA plan handoff");
+assert(landingHtmlHeaderBlock.includes('href="/login"') && landingHtmlHeaderBlock.includes("เข้าสู่ระบบ"), "root HTML header login link must remain");
+assert(landingHtmlHeroActionsBlock.includes('href="/signup?plan=starter&amp;billing=monthly"') && landingHtmlHeroActionsBlock.includes("เริ่มใช้ฟรี 30 วัน"), "root HTML hero primary CTA must remain");
+assert(!landingHtmlHeroActionsBlock.includes('href="/login"') && !landingHtmlHeroActionsBlock.includes("เข้าสู่ระบบ"), "root HTML hero secondary login CTA must be removed");
 assert(landingHtml.includes('href="/signup?plan=business&amp;billing=monthly"'), "root HTML must include Business CTA plan handoff");
 assert(landingHtml.includes('href="/signup?plan=enterprise&amp;billing=monthly"'), "root HTML must include Enterprise CTA plan handoff");
 assert(!landingHtml.includes('<a href="#features">จุดเด่น</a>') && !landingHtml.includes('<a href="#how-it-works">วิธีใช้งาน</a>') && !landingHtml.includes('<a href="#pricing">ราคา</a>'), "root HTML must not expose removed header/footer nav links");
