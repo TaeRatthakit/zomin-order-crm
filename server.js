@@ -521,8 +521,10 @@ function validateSignupBody(body = {}) {
   const businessName = cleanText(body.businessName, "").slice(0, 120);
   const displayName = cleanText(body.name || body.displayName, "") || businessName || username;
   const idempotencyKey = String(body.idempotencyKey || body.signupRequestId || crypto.randomUUID()).trim();
-  const selectedPlan = normalizeSignupPlan(body.landingSelectedPlan || body.selectedPlan || body.plan);
-  const selectedBilling = normalizeSignupBilling(body.landingSelectedBilling || body.selectedBilling || body.billing);
+  const rawSelectedPlan = firstPresentSignupValue(body, ["landingSelectedPlan", "selectedPlan", "plan"]);
+  const rawSelectedBilling = firstPresentSignupValue(body, ["landingSelectedBilling", "selectedBilling", "billing"]);
+  const selectedPlan = rawSelectedPlan ? normalizeSignupPlan(rawSelectedPlan) : "starter";
+  const selectedBilling = rawSelectedBilling ? normalizeSignupBilling(rawSelectedBilling) : "monthly";
   const promotionCode = normalizePromotionCodeInput(body.promotionCode || body.promoCode || "");
   if (!isValidSignupUsername(username)) return { error: "กรุณากรอกอีเมลหรือชื่อผู้ใช้งานให้ถูกต้อง" };
   if (password.length < 8 || password.length > 128) return { error: "รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร" };
@@ -530,10 +532,22 @@ function validateSignupBody(body = {}) {
   if (!idempotencyKey || idempotencyKey.length > 120 || /[\u0000-\u001f\u007f]/.test(idempotencyKey)) {
     return { error: "คำขอสมัครไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง" };
   }
-  if (promotionCode && (!selectedPlan || !selectedBilling)) {
-    return { error: "โค้ดโปรโมชั่นไม่ถูกต้องหรือไม่สามารถใช้กับแพ็กเกจนี้ได้", code: "PROMOTION_CODE_INVALID" };
+  if (rawSelectedPlan && !selectedPlan) {
+    return { error: "แพ็กเกจที่เลือกไม่ถูกต้อง", code: "INVALID_SIGNUP_PLAN" };
+  }
+  if (rawSelectedBilling && !selectedBilling) {
+    return { error: "รอบบิลที่เลือกไม่ถูกต้อง", code: "INVALID_SIGNUP_BILLING" };
   }
   return { username, password, businessName, displayName, idempotencyKey, selectedPlan, selectedBilling, promotionCode };
+}
+
+function firstPresentSignupValue(body = {}, keys = []) {
+  for (const key of keys) {
+    if (!Object.prototype.hasOwnProperty.call(body, key)) continue;
+    const value = String(body[key] || "").trim();
+    if (value) return value;
+  }
+  return "";
 }
 
 function normalizeSignupPlan(value = "") {
