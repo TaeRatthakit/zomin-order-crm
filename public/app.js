@@ -180,7 +180,8 @@ const app = {
   notificationHistoryActive: false,
   platformAdmin: null,
   platformAdminLoading: false,
-  platformAdminError: ""
+  platformAdminError: "",
+  billingCheckout: null
 };
 
 const ROLE_PERMISSION_DEFAULTS = {
@@ -9873,8 +9874,23 @@ function renderSettingsSubscription() {
   const subscription = billing.subscription || {};
   const entitlement = billing.entitlement || {};
   const paymentProviderReady = billing.paymentProvider?.configured === true;
+  const checkout = app.billingCheckout || {};
+  const promptpay = checkout.promptpay || {};
+  const promptpayQr = promptpay.promptpay || {};
+  const qrImage = promptpayQr.imageUrlSvg || promptpayQr.imageUrlPng || "";
+  const latestPayment = checkout.payment || (billing.latestPayments || [])[0] || {};
   const subscriptionLabel = [subscription.plan || "starter", subscription.billingInterval || "monthly"].join(" / ");
   const accessLabel = billing.access?.allowed ? "ใช้งานได้" : "ต้องจัดการการชำระเงิน";
+  const checkoutPanel = qrImage || promptpayQr.hostedInstructionsUrl ? `
+        <div class="subscription-checkout-panel">
+          <div class="subscription-checkout-copy">
+            <strong>PromptPay</strong>
+            <small>${escapeHtml(moneyMinorText(promptpay.amountMinor ?? latestPayment.amountMinor ?? subscription.amountDueMinor, promptpay.currency || latestPayment.currency || subscription.currency || "THB"))} · ${escapeHtml(promptpay.status || latestPayment.status || "pending")}</small>
+          </div>
+          ${qrImage ? `<img class="subscription-promptpay-qr" src="${escapeHtml(qrImage)}" alt="PromptPay QR">` : ""}
+          ${promptpayQr.hostedInstructionsUrl ? `<a class="button secondary" href="${escapeHtml(promptpayQr.hostedInstructionsUrl)}" target="_blank" rel="noopener">เปิดหน้าชำระเงิน</a>` : ""}
+        </div>
+      ` : "";
   els.content.innerHTML = settingsSubpageShell(
     "Subscription",
     "แพ็กเกจ",
@@ -9888,10 +9904,20 @@ function renderSettingsSubscription() {
             ${badge(subscription.currency ? moneyMinorText(subscription.amountDueMinor, subscription.currency) : "-")}
           </div>
           <div class="settings-preference-row">
-            <span><strong>ผู้ใช้งาน</strong><small>${Number(billing.activeUsers || 0).toLocaleString("th-TH")} / ${entitlement.maxUsers === null ? "ไม่จำกัด" : Number(entitlement.maxUsers || 0).toLocaleString("th-TH")}</small></span>
-            ${badge(paymentProviderReady ? "provider ready" : "provider required")}
+            <span><strong>ยอดชำระ</strong><small>${escapeHtml(moneyMinorText(subscription.baseAmountMinor || subscription.amountDueMinor || 0, subscription.currency || "THB"))} - ส่วนลด ${escapeHtml(moneyMinorText(subscription.discountAmountMinor || 0, subscription.currency || "THB"))}</small></span>
+            ${badge(moneyMinorText(subscription.amountDueMinor || 0, subscription.currency || "THB"))}
           </div>
+          <div class="settings-preference-row">
+            <span><strong>ผู้ใช้งาน</strong><small>${Number(billing.activeUsers || 0).toLocaleString("th-TH")} / ${entitlement.maxUsers === null ? "ไม่จำกัด" : Number(entitlement.maxUsers || 0).toLocaleString("th-TH")}</small></span>
+            ${badge(paymentProviderReady ? (billing.paymentProvider?.provider || "provider ready") : "provider required")}
+          </div>
+          ${latestPayment.id ? `
+          <div class="settings-preference-row">
+            <span><strong>รายการล่าสุด</strong><small>${escapeHtml(latestPayment.provider || "-")} · ${escapeHtml(latestPayment.providerPaymentReference || latestPayment.id || "-")}</small></span>
+            ${badge(latestPayment.status || "-")}
+          </div>` : ""}
         </div>
+        ${checkoutPanel}
         <div class="pricing-grid settings-subscription-grid">
           <article class="pricing-card">
             <span class="tag">Starter</span>
@@ -12110,12 +12136,14 @@ document.addEventListener("click", async event => {
 
   if (event.target.closest("[data-billing-checkout]")) {
     try {
-      await api("/api/billing/checkout", {
+      const payload = await api("/api/billing/checkout", {
         method: "POST",
         body: JSON.stringify({ idempotencyKey: `checkout-${Date.now()}-${Math.random().toString(16).slice(2)}` })
       });
+      app.billingCheckout = payload;
+      if (payload.billing && app.data) app.data.billing = payload.billing;
       showToast("เริ่มรายการชำระเงินแล้ว");
-      await loadState();
+      render();
     } catch (error) {
       if (error.payload?.billing && app.data) app.data.billing = error.payload.billing;
       showToast(error.message || "เริ่มชำระเงินไม่สำเร็จ", "error");

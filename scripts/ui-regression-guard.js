@@ -61,7 +61,7 @@ const PAGE_PATTERNS = {
   tags: [/\btag/i],
   import: [/import/i],
   reports: [/report/i, /chart/i, /kpi/i],
-  settings: [/setting/i, /business/i, /permission/i, /user/i],
+  settings: [/setting/i, /business/i, /permission/i, /user/i, /subscription/i, /billing/i, /checkout/i, /promptpay/i, /`\s*:\s*"";/],
   finance: [/finance/i, /cost/i, /profit/i, /expense/i, /product-cost/i],
   team: [/team/i, /user/i, /permission/i],
   "platform-admin": [

@@ -32,6 +32,11 @@ const {
   persistNotificationReadIds,
   validatePromotionCode,
   beginSubscriptionPayment,
+  setPaymentProviderReference,
+  recordProviderPaymentSuccess,
+  recordProviderPaymentStatus,
+  activateZeroAmountSubscriptionPayment,
+  readPaymentByProviderReference,
   platformAdminOverview,
   platformAdminTenants,
   platformAdminTenantDetail,
@@ -60,6 +65,14 @@ const {
   normalizeAdCostRecords,
   marketingPerformance
 } = require("./lib/advertising");
+const {
+  STRIPE_PROVIDER,
+  stripePromptPayConfig,
+  createPromptPayPaymentIntent,
+  retrievePaymentIntent,
+  verifyStripeWebhookPayload,
+  stripePaymentStatus
+} = require("./lib/stripe-promptpay");
 
 const PORT = Number(process.env.PORT || 3000);
 const HOST = process.env.HOST || "0.0.0.0";
@@ -604,7 +617,8 @@ function runtimeSupabaseInfo() {
     vercelEnv: process.env.VERCEL_ENV || "",
     supabaseHost: host,
     supabaseRef: ref,
-    isKnownProductionSupabase: ref === KNOWN_PRODUCTION_SUPABASE_REF
+    isKnownProductionSupabase: ref === KNOWN_PRODUCTION_SUPABASE_REF,
+    payment: safePaymentRuntimeInfo()
   };
 }
 
@@ -664,6 +678,7 @@ function publicPayment(payment = {}) {
     id: payment.id || "",
     subscriptionId: payment.subscriptionId || payment.subscription_id || "",
     provider: payment.provider || "",
+    providerPaymentReference: payment.providerPaymentReference || payment.provider_payment_reference || "",
     status: payment.status || "",
     currency: payment.currency || "THB",
     amountMinor: Number(payment.amountMinor ?? payment.amount_minor ?? 0),
@@ -671,6 +686,9 @@ function publicPayment(payment = {}) {
     billingInterval: payment.billingInterval || payment.billing_interval || "",
     billingPeriodStartedAt: payment.billingPeriodStartedAt || payment.billing_period_started_at || "",
     billingPeriodEndsAt: payment.billingPeriodEndsAt || payment.billing_period_ends_at || "",
+    paidAt: payment.paidAt || payment.paid_at || "",
+    failedAt: payment.failedAt || payment.failed_at || "",
+    expiredAt: payment.expiredAt || payment.expired_at || "",
     createdAt: payment.createdAt || payment.created_at || ""
   };
 }
@@ -678,10 +696,34 @@ function publicPayment(payment = {}) {
 function paymentProviderConfig() {
   const provider = String(process.env.PAYMENT_PROVIDER || "").trim().toLowerCase();
   const enabled = booleanEnv(process.env.PAYMENT_PROVIDER_ENABLED, false);
+  if (enabled && ["stripe", "stripe_promptpay", "promptpay"].includes(provider)) {
+    const stripe = stripePromptPayConfig();
+    return {
+      configured: stripe.checkoutConfigured && stripe.testMode,
+      provider: STRIPE_PROVIDER,
+      stripe
+    };
+  }
   const configured = enabled && provider && !["none", "off", "disabled", "provider_required"].includes(provider);
   return {
     configured,
-    provider: configured ? provider : "provider_required"
+    provider: configured ? provider : "provider_required",
+    stripe: stripePromptPayConfig()
+  };
+}
+
+function safePaymentRuntimeInfo() {
+  const config = paymentProviderConfig();
+  return {
+    provider: config.provider,
+    configured: Boolean(config.configured),
+    stripe: {
+      testMode: Boolean(config.stripe?.testMode),
+      checkoutConfigured: Boolean(config.stripe?.checkoutConfigured),
+      webhookConfigured: Boolean(config.stripe?.webhookConfigured),
+      secretKeyConfigured: Boolean(config.stripe?.secretKeyConfigured),
+      publishableKeyConfigured: Boolean(config.stripe?.publishableKeyConfigured)
+    }
   };
 }
 
@@ -698,7 +740,45 @@ function subscriptionBillingPayload(db = {}) {
     activeUsers: activeTenantUserCount(db),
     latestPayments,
     paymentProvider: {
-      configured: paymentProviderConfig().configured
+      ...safePaymentRuntimeInfo()
+    }
+  };
+}
+
+function requestOrigin(req) {
+  const proto = req.headers["x-forwarded-proto"] || (process.env.VERCEL_URL ? "https" : "http");
+  const host = req.headers["x-forwarded-host"] || req.headers.host || process.env.VERCEL_URL || "";
+  return host ? `${proto}://${host}` : "";
+}
+
+function receiptEmailForUser(user = {}) {
+  const value = String(user.username || "").trim();
+  return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value) ? value : "";
+}
+
+function safeStripeEventForStorage(event = {}) {
+  const object = event.data?.object || {};
+  return {
+    id: event.id || "",
+    type: event.type || "",
+    created: event.created || null,
+    livemode: Boolean(event.livemode),
+    data: {
+      object: {
+        id: object.id || "",
+        object: object.object || "",
+        status: object.status || "",
+        amount: Number(object.amount || 0),
+        currency: object.currency || "",
+        payment_method_types: Array.isArray(object.payment_method_types) ? object.payment_method_types : [],
+        metadata: {
+          growup_payment_id: object.metadata?.growup_payment_id || "",
+          growup_tenant_id: object.metadata?.growup_tenant_id || "",
+          growup_subscription_id: object.metadata?.growup_subscription_id || "",
+          growup_plan: object.metadata?.growup_plan || "",
+          growup_billing_interval: object.metadata?.growup_billing_interval || ""
+        }
+      }
     }
   };
 }
@@ -3638,6 +3718,23 @@ async function handleBillingApi(req, res, url, db, currentUser) {
     const idempotencyKey = String(body.idempotencyKey || body.checkoutRequestId || crypto.randomUUID()).trim();
     const providerConfig = paymentProviderConfig();
     try {
+      if (subscription && access.requiresPayment && Number(subscription.amountDueMinor || 0) === 0) {
+        if (typeof activateZeroAmountSubscriptionPayment !== "function") {
+          return json(res, 503, { ok: false, code: "ZERO_AMOUNT_ACTIVATION_REQUIRED", error: "ระบบเปิดใช้งานแพ็กเกจส่วนลดเต็มจำนวนยังไม่พร้อม" });
+        }
+        const payment = await activateZeroAmountSubscriptionPayment({
+          tenantId: currentUser.tenantId,
+          userId: currentUser.id,
+          idempotencyKey
+        });
+        return json(res, 200, {
+          ok: true,
+          provider: "zero_amount",
+          payment: publicPayment(payment),
+          billing: subscriptionBillingPayload({ ...db, payments: [payment, ...(db.payments || [])] })
+        });
+      }
+
       const payment = await beginSubscriptionPayment({
         tenantId: currentUser.tenantId,
         userId: currentUser.id,
@@ -3651,6 +3748,37 @@ async function handleBillingApi(req, res, url, db, currentUser) {
           error: "ยังไม่ได้ตั้งค่าผู้ให้บริการชำระเงินใน Preview",
           payment: publicPayment(payment),
           billing: subscriptionBillingPayload({ ...db, payments: [payment, ...(db.payments || [])] })
+        });
+      }
+      if (providerConfig.provider === STRIPE_PROVIDER) {
+        if (typeof setPaymentProviderReference !== "function") {
+          return json(res, 503, { ok: false, code: "STRIPE_PAYMENT_RPC_REQUIRED", error: "ระบบบันทึก Stripe payment ยังไม่พร้อม" });
+        }
+        const promptpay = payment.providerPaymentReference
+          ? await retrievePaymentIntent(payment.providerPaymentReference)
+          : await createPromptPayPaymentIntent({
+              payment,
+              returnUrl: `${requestOrigin(req)}/settings/subscription`,
+              receiptEmail: receiptEmailForUser(currentUser)
+            });
+        const nextPayment = await setPaymentProviderReference({
+          paymentId: payment.id,
+          tenantId: currentUser.tenantId,
+          provider: STRIPE_PROVIDER,
+          providerPaymentReference: promptpay.paymentIntentId,
+          status: promptpay.localStatus === "processing" ? "processing" : "pending",
+          providerMetadata: {
+            stripe_status: promptpay.status,
+            promptpay_has_qr: Boolean(promptpay.promptpay?.imageUrlPng || promptpay.promptpay?.imageUrlSvg),
+            hosted_instructions_url: promptpay.promptpay?.hostedInstructionsUrl || ""
+          }
+        });
+        return json(res, 200, {
+          ok: true,
+          provider: STRIPE_PROVIDER,
+          payment: publicPayment(nextPayment || payment),
+          promptpay,
+          billing: subscriptionBillingPayload({ ...db, payments: [nextPayment || payment, ...(db.payments || [])] })
         });
       }
       return json(res, 501, {
@@ -3670,11 +3798,91 @@ async function handleBillingApi(req, res, url, db, currentUser) {
       if (detail.includes("PAYMENT_TENANT_FORBIDDEN")) {
         return json(res, 403, { ok: false, code: "PAYMENT_TENANT_FORBIDDEN", error: "ไม่มีสิทธิ์สร้างรายการชำระเงินของ tenant นี้" });
       }
+      if (error.code === "STRIPE_TEST_SECRET_KEY_REQUIRED") {
+        return json(res, 503, { ok: false, code: "STRIPE_TEST_SECRET_KEY_REQUIRED", error: "ยังไม่ได้ตั้งค่า Stripe test secret key สำหรับ Preview" });
+      }
+      if (String(error.code || "").startsWith("STRIPE_")) {
+        return json(res, 502, { ok: false, code: error.code, error: "เชื่อมต่อ Stripe test mode ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" });
+      }
       throw error;
     }
   }
 
   return json(res, 404, { ok: false, error: "API not found" });
+}
+
+async function handleStripeWebhookApi(req, res) {
+  if (req.method !== "POST") return json(res, 405, { ok: false, error: "Method not allowed" });
+  if (dbProvider !== "supabase") return json(res, 503, { ok: false, error: "Stripe webhook requires Supabase provider." });
+  const providerConfig = paymentProviderConfig();
+  if (providerConfig.provider !== STRIPE_PROVIDER || !providerConfig.stripe?.webhookConfigured || !providerConfig.stripe?.testMode) {
+    return json(res, 503, { ok: false, code: "STRIPE_WEBHOOK_NOT_CONFIGURED", error: "Stripe test webhook is not configured for this Preview." });
+  }
+
+  const body = await readBody(req);
+  let event;
+  try {
+    event = verifyStripeWebhookPayload(body._rawBody || "", req.headers["stripe-signature"] || "");
+  } catch (error) {
+    return json(res, 400, { ok: false, code: error.code || "STRIPE_WEBHOOK_INVALID", error: "Invalid Stripe webhook signature." });
+  }
+
+  const supportedTypes = new Set([
+    "payment_intent.succeeded",
+    "payment_intent.processing",
+    "payment_intent.payment_failed",
+    "payment_intent.canceled"
+  ]);
+  if (!supportedTypes.has(String(event.type || ""))) {
+    return json(res, 200, { ok: true, ignored: true, type: event.type || "" });
+  }
+
+  const intent = event.data?.object || {};
+  const paymentIntentId = String(intent.id || "");
+  if (!paymentIntentId || typeof readPaymentByProviderReference !== "function") {
+    return json(res, 200, { ok: true, ignored: true, reason: "payment_reference_missing" });
+  }
+  const payment = await readPaymentByProviderReference(STRIPE_PROVIDER, paymentIntentId);
+  if (!payment?.id) {
+    return json(res, 200, { ok: true, ignored: true, reason: "local_payment_not_found" });
+  }
+
+  const rawEvent = safeStripeEventForStorage(event);
+  const input = {
+    provider: STRIPE_PROVIDER,
+    providerEventId: event.id,
+    paymentId: payment.id,
+    providerPaymentReference: paymentIntentId,
+    amountMinor: Number(intent.amount || 0),
+    currency: String(intent.currency || "").toUpperCase(),
+    rawEvent
+  };
+  try {
+    if (event.type === "payment_intent.succeeded" || stripePaymentStatus(intent.status) === "paid") {
+      if (typeof recordProviderPaymentSuccess !== "function") {
+        return json(res, 503, { ok: false, code: "PAYMENT_SUCCESS_RPC_REQUIRED", error: "Payment success RPC is not configured." });
+      }
+      await recordProviderPaymentSuccess(input);
+    } else {
+      if (typeof recordProviderPaymentStatus !== "function") {
+        return json(res, 503, { ok: false, code: "PAYMENT_STATUS_RPC_REQUIRED", error: "Payment status RPC is not configured." });
+      }
+      const status = event.type === "payment_intent.payment_failed"
+        ? "failed"
+        : (event.type === "payment_intent.canceled" ? "cancelled" : stripePaymentStatus(intent.status));
+      await recordProviderPaymentStatus({ ...input, status });
+    }
+  } catch (error) {
+    console.error("Stripe webhook payment reconciliation failed", {
+      code: error.code || "",
+      message: error.message || "",
+      eventId: event.id || "",
+      paymentIntentId
+    });
+    return json(res, 400, { ok: false, code: error.code || "STRIPE_WEBHOOK_RECONCILE_FAILED", error: "Stripe payment reconciliation failed." });
+  }
+
+  return json(res, 200, { ok: true, received: true, eventId: event.id || "" });
 }
 
 async function handlePlatformAdminApi(req, res, url, currentUser) {
@@ -3939,6 +4147,10 @@ async function handleApi(req, res) {
   const url = new URL(req.url, `http://${req.headers.host}`);
   const isLineWebhook = url.pathname === "/api/line/webhook";
   const requestStartedAt = Date.now();
+
+  if (url.pathname === "/api/stripe/webhook" || url.pathname === "/api/payments/stripe/webhook") {
+    return handleStripeWebhookApi(req, res);
+  }
 
   if (isLineWebhook && req.method === "POST") {
     const body = await readBody(req);
