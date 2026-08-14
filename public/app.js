@@ -19,6 +19,7 @@ const routeToView = {
   "/broadcast": "broadcast",
   "/campaigns": "campaigns",
   "/pricing": "pricing",
+  "/platform-admin": "platformAdmin",
   "/vip": "vip",
   "/tags": "tags",
   "/import": "import",
@@ -176,7 +177,10 @@ const app = {
   notificationFilter: "all",
   notificationReadPending: null,
   notificationTrigger: null,
-  notificationHistoryActive: false
+  notificationHistoryActive: false,
+  platformAdmin: null,
+  platformAdminLoading: false,
+  platformAdminError: ""
 };
 
 const ROLE_PERMISSION_DEFAULTS = {
@@ -410,6 +414,7 @@ function iconSvg(name) {
     file: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h6"/>',
     check: '<path d="m20 6-11 11-5-5"/>',
     clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+    refresh: '<path d="M21 12a9 9 0 0 1-15.5 6.3L3 16"/><path d="M3 21v-5h5"/><path d="M3 12A9 9 0 0 1 18.5 5.7L21 8"/><path d="M21 3v5h-5"/>',
     alert: '<circle cx="12" cy="12" r="9"/><path d="M12 8v5"/><path d="M12 16h.01"/>',
     wallet: '<path d="M4 7.5h13.5A2.5 2.5 0 0 1 20 10v8a2 2 0 0 1-2 2H5a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3h11v3.5"/><path d="M16 12h5v4h-5a2 2 0 0 1 0-4Z"/>',
     bot: '<rect x="5" y="7" width="14" height="12" rx="4"/><path d="M12 3v4"/><path d="M9 13h.01"/><path d="M15 13h.01"/><path d="M9 17h6"/><path d="M3 12h2"/><path d="M19 12h2"/>',
@@ -1481,6 +1486,7 @@ function titleFor(view) {
     broadcast: "กระจายข้อความ",
     campaigns: "แคมเปญ",
     pricing: "แพ็กเกจ",
+    platformAdmin: "Platform Admin",
     notifications: "แจ้งเตือน",
     vip: "ลูกค้า VIP",
     risk: "ลูกค้าเสี่ยงหาย",
@@ -9863,30 +9869,46 @@ function renderSettingsImportExport() {
 
 function renderSettingsSubscription() {
   const daysPerUnit = Math.max(1, Number(app.data.settings.followUpDaysPerUnit || 15));
+  const billing = app.data?.billing || {};
+  const subscription = billing.subscription || {};
+  const entitlement = billing.entitlement || {};
+  const paymentProviderReady = billing.paymentProvider?.configured === true;
+  const subscriptionLabel = [subscription.plan || "starter", subscription.billingInterval || "monthly"].join(" / ");
+  const accessLabel = billing.access?.allowed ? "ใช้งานได้" : "ต้องจัดการการชำระเงิน";
   els.content.innerHTML = settingsSubpageShell(
     "Subscription",
     "แพ็กเกจ",
-    "ดูแพ็กเกจปัจจุบันและทางเลือกสำหรับการใช้งานในอนาคต",
+    "ดูแพ็กเกจปัจจุบัน สิทธิ์การใช้งาน และสถานะการชำระเงิน",
     `
       <form class="panel stack panel-premium settings-subpage-form" id="settingsForm">
         <input name="daysPerUnit" type="hidden" value="${daysPerUnit}">
-        <p class="muted">หน้านี้ยังคงใช้ข้อมูลแพ็กเกจเดิมของ Growup Pilot และไม่ได้เปลี่ยน business logic การชำระเงินจริง</p>
+        <div class="settings-action-grid">
+          <div class="settings-preference-row">
+            <span><strong>${escapeHtml(subscriptionLabel)}</strong><small>${escapeHtml(accessLabel)} · ${escapeHtml(subscription.status || "legacy")}</small></span>
+            ${badge(subscription.currency ? moneyMinorText(subscription.amountDueMinor, subscription.currency) : "-")}
+          </div>
+          <div class="settings-preference-row">
+            <span><strong>ผู้ใช้งาน</strong><small>${Number(billing.activeUsers || 0).toLocaleString("th-TH")} / ${entitlement.maxUsers === null ? "ไม่จำกัด" : Number(entitlement.maxUsers || 0).toLocaleString("th-TH")}</small></span>
+            ${badge(paymentProviderReady ? "provider ready" : "provider required")}
+          </div>
+        </div>
         <div class="pricing-grid settings-subscription-grid">
           <article class="pricing-card">
             <span class="tag">Starter</span>
             <h3>เริ่มต้นดูแลร้าน</h3>
-            <div class="pricing-price">฿0<span>/ทดลอง</span></div>
-            <p class="muted">เหมาะสำหรับทดลอง dashboard, orders, customers และ workflow พื้นฐาน</p>
+            <div class="pricing-price">฿490<span>/เดือน</span></div>
+            <p class="muted">ทดลองใช้ฟรี 30 วัน ผู้ใช้งานสูงสุด 3 คน</p>
           </article>
           <article class="pricing-card featured">
-            <span class="tag">Growth</span>
-            <h3>Growup Pilot Pro</h3>
-            <div class="pricing-price">฿1,990<span>/เดือน</span></div>
-            <p class="muted">สำหรับธุรกิจที่ต้องการ AI insight, broadcast workflow และ command center เต็มรูปแบบ</p>
+            <span class="tag">Business</span>
+            <h3>ทีมที่กำลังเติบโต</h3>
+            <div class="pricing-price">฿990<span>/เดือน</span></div>
+            <p class="muted">ผู้ใช้งานสูงสุด 10 คน พร้อมรายงานและ workflow ทีม</p>
           </article>
         </div>
         <div class="settings-submit-bar">
           <button class="button ghost" type="button" data-view-shortcut="pricing">ดูรายละเอียดแพ็กเกจ</button>
+          <button class="button secondary" type="button" data-billing-checkout>เริ่มชำระเงิน</button>
           <button class="button primary" type="submit">บันทึกการตั้งค่า</button>
         </div>
       </form>
@@ -9939,6 +9961,125 @@ function renderPricing() {
           </ul>
         </article>
       </div>
+    </section>
+  `;
+}
+
+function moneyMinorText(value = 0, currency = "THB") {
+  const amount = Number(value || 0) / 100;
+  return `${currency || "THB"} ${amount.toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+async function loadPlatformAdmin() {
+  if (app.platformAdminLoading) return;
+  app.platformAdminLoading = true;
+  app.platformAdminError = "";
+  try {
+    const [overview, tenants, payments, promotions] = await Promise.all([
+      api("/api/platform-admin/overview"),
+      api("/api/platform-admin/tenants?limit=25"),
+      api("/api/platform-admin/payments?limit=25"),
+      api("/api/platform-admin/promotions")
+    ]);
+    app.platformAdmin = {
+      overview: overview.overview || {},
+      tenants: tenants.result?.items || [],
+      payments: payments.result?.items || [],
+      promotions: promotions.result?.items || []
+    };
+  } catch (error) {
+    app.platformAdminError = error.message || "โหลด Platform Admin ไม่สำเร็จ";
+  } finally {
+    app.platformAdminLoading = false;
+    if (app.view === "platformAdmin") render();
+  }
+}
+
+function renderPlatformAdmin() {
+  if (!app.platformAdmin && !app.platformAdminLoading && !app.platformAdminError) {
+    loadPlatformAdmin();
+  }
+  const overview = app.platformAdmin?.overview || {};
+  const tenants = app.platformAdmin?.tenants || [];
+  const payments = app.platformAdmin?.payments || [];
+  const promotions = app.platformAdmin?.promotions || [];
+  els.content.innerHTML = `
+    <section class="section saas-page platform-admin-page">
+      <div class="page-identity workspace-hero">
+        <div class="page-identity-copy">
+          <span class="page-kicker">Platform Admin</span>
+          <h2>Growup Pilot Control</h2>
+          <p>ตรวจ tenant, subscription, payments และ promotion codes บน environment นี้</p>
+        </div>
+        <button class="button ghost" type="button" data-platform-admin-refresh>${iconSvg("refresh")} รีเฟรช</button>
+      </div>
+      ${app.platformAdminError ? `<div class="empty-state">${escapeHtml(app.platformAdminError)}</div>` : ""}
+      ${app.platformAdminLoading ? `<div class="empty-state">กำลังโหลดข้อมูล...</div>` : `
+        <div class="metric-grid">
+          <article class="metric-card"><span>Tenants</span><strong>${Number(overview.tenants?.total || 0).toLocaleString("th-TH")}</strong><small>Active ${Number(overview.tenants?.active || 0).toLocaleString("th-TH")}</small></article>
+          <article class="metric-card"><span>Active Subs</span><strong>${Number(overview.subscriptions?.active || 0).toLocaleString("th-TH")}</strong><small>Pending ${Number(overview.subscriptions?.pending_payment || 0).toLocaleString("th-TH")}</small></article>
+          <article class="metric-card"><span>Payments</span><strong>${Number(overview.payments?.pending || 0).toLocaleString("th-TH")}</strong><small>Paid ${Number(overview.payments?.paid || 0).toLocaleString("th-TH")}</small></article>
+        </div>
+        <div class="settings-users-layout">
+          <div class="panel stack panel-premium">
+            <div class="section-title"><h2>Tenants</h2><p>รายการล่าสุดจากฐานข้อมูล Preview</p></div>
+            <div class="table-wrap mobile-stack-wrap">
+              <table class="mobile-stack-table"><thead><tr><th>Tenant</th><th>Plan</th><th>Status</th><th>Users</th></tr></thead><tbody>
+                ${tenants.map(tenant => `
+                  <tr>
+                    <td data-label="Tenant"><strong>${escapeHtml(tenant.name || tenant.id)}</strong><small>${escapeHtml(tenant.id || "")}</small></td>
+                    <td data-label="Plan">${escapeHtml([tenant.plan, tenant.billing_interval].filter(Boolean).join(" / ") || "-")}</td>
+                    <td data-label="Status">${badge(tenant.subscription_status || tenant.status || "-")}</td>
+                    <td data-label="Users">${Number(tenant.active_users || 0).toLocaleString("th-TH")}</td>
+                  </tr>
+                `).join("") || `<tr><td colspan="4">ยังไม่มี tenant</td></tr>`}
+              </tbody></table>
+            </div>
+          </div>
+          <div class="panel stack panel-premium">
+            <div class="section-title"><h2>Payments</h2><p>รายการ payment attempt ล่าสุด</p></div>
+            <div class="table-wrap mobile-stack-wrap">
+              <table class="mobile-stack-table"><thead><tr><th>Tenant</th><th>Amount</th><th>Provider</th><th>Status</th></tr></thead><tbody>
+                ${payments.map(payment => `
+                  <tr>
+                    <td data-label="Tenant">${escapeHtml(payment.tenant_name || payment.tenant_id || "-")}</td>
+                    <td data-label="Amount">${escapeHtml(moneyMinorText(payment.amount_minor, payment.currency))}</td>
+                    <td data-label="Provider">${escapeHtml(payment.provider || "-")}</td>
+                    <td data-label="Status">${badge(payment.status || "-")}</td>
+                  </tr>
+                `).join("") || `<tr><td colspan="4">ยังไม่มี payment</td></tr>`}
+              </tbody></table>
+            </div>
+          </div>
+        </div>
+        <div class="settings-users-layout">
+          <form class="panel stack panel-premium" id="platformPromotionForm">
+            <div class="section-title"><h2>Promotion Code</h2><p>สร้างหรืออัปเดตโค้ดผ่าน audited RPC</p></div>
+            <label>Code<input name="code" required maxlength="64" placeholder="GROWUP20"></label>
+            <label>Benefit
+              <select name="benefit_type">
+                <option value="percent_discount">Percent discount</option>
+                <option value="fixed_amount_discount">Fixed amount discount</option>
+                <option value="extra_trial_days">Extra trial days</option>
+                <option value="free_months">Free months</option>
+              </select>
+            </label>
+            <label>Value<input name="benefit_value" required type="number" min="1" step="0.01" value="10"></label>
+            <div class="settings-submit-bar"><button class="button primary" type="submit">บันทึกโค้ด</button></div>
+          </form>
+          <div class="panel stack panel-premium">
+            <div class="section-title"><h2>Promotion Codes</h2><p>สถานะและยอด redemption</p></div>
+            <div class="settings-action-grid settings-action-grid-column">
+              ${promotions.map(code => `
+                <div class="settings-preference-row">
+                  <span><strong>${escapeHtml(code.code)}</strong><small>${escapeHtml(code.benefit_type)} · ${escapeHtml(String(code.benefit_value))} · redeemed ${Number(code.redemptions || 0).toLocaleString("th-TH")}</small></span>
+                  ${badge(code.active === false ? "inactive" : "active")}
+                </div>
+              `).join("") || `<p class="muted">ยังไม่มี promotion code</p>`}
+            </div>
+          </div>
+        </div>
+      `}
     </section>
   `;
 }
@@ -10920,6 +11061,7 @@ function render(options = {}) {
     broadcast: renderBroadcast,
     campaigns: renderCampaigns,
     pricing: renderPricing,
+    platformAdmin: renderPlatformAdmin,
     team: renderTeam,
     settings: renderSettings,
     settingsStore: renderSettingsStore,
@@ -11957,6 +12099,28 @@ document.addEventListener("click", async event => {
 
   if (event.target.closest("[data-logout-all-devices]")) {
     showToast("ปุ่มนี้ถูกย้ายมาไว้ในส่วนอุปกรณ์แล้ว รอเชื่อมระบบออกจากระบบทุกอุปกรณ์");
+    return;
+  }
+
+  if (event.target.closest("[data-platform-admin-refresh]")) {
+    app.platformAdmin = null;
+    await loadPlatformAdmin();
+    return;
+  }
+
+  if (event.target.closest("[data-billing-checkout]")) {
+    try {
+      await api("/api/billing/checkout", {
+        method: "POST",
+        body: JSON.stringify({ idempotencyKey: `checkout-${Date.now()}-${Math.random().toString(16).slice(2)}` })
+      });
+      showToast("เริ่มรายการชำระเงินแล้ว");
+      await loadState();
+    } catch (error) {
+      if (error.payload?.billing && app.data) app.data.billing = error.payload.billing;
+      showToast(error.message || "เริ่มชำระเงินไม่สำเร็จ", "error");
+      render();
+    }
     return;
   }
 
@@ -13195,6 +13359,22 @@ document.addEventListener("submit", async event => {
       showToast("สมัครใช้งานสำเร็จ");
       render();
       loadStateAfterLogin();
+      return;
+    }
+
+    if (currentFormId === "platformPromotionForm") {
+      const data = Object.fromEntries(new FormData(form).entries());
+      data.benefit_value = Number(data.benefit_value || 0);
+      data.active = true;
+      data.applicable_plans = ["starter", "business", "enterprise"];
+      data.applicable_billing = ["monthly", "yearly"];
+      await api("/api/platform-admin/promotions", {
+        method: "POST",
+        body: JSON.stringify(data)
+      });
+      showToast("บันทึก promotion code แล้ว");
+      app.platformAdmin = null;
+      await loadPlatformAdmin();
       return;
     }
 

@@ -64,6 +64,12 @@ const PAGE_PATTERNS = {
   settings: [/setting/i, /business/i, /permission/i, /user/i],
   finance: [/finance/i, /cost/i, /profit/i, /expense/i, /product-cost/i],
   team: [/team/i, /user/i, /permission/i],
+  "platform-admin": [
+    /platform-admin/i, /platformAdmin/i, /PlatformAdmin/i, /Platform Admin/i,
+    /promotion/i, /tenant/i, /payment/i, /subscription/i, /billing/i, /provider/i,
+    /moneyMinorText/i, /refresh/i, /notificationHistoryActive/i, /แพ็กเกจ/i, /ชำระเงิน/i, /ผู้ใช้งาน/i, /ทดลองใช้ฟรี/i, /ทีมที่กำลังเติบโต/i,
+    /^[+-]\s*<\/?(section|div|table|thead|tbody|tr|td|th|form|label|select|option|article|span|small|strong|button|p|h2|h3)(\s|>|$)/i
+  ],
   "export-backup": [/export/i, /backup/i],
   light: [/data-theme="light"/i, /light/i],
   dark: [/data-theme="dark"/i, /dark/i],

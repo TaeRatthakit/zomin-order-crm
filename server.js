@@ -31,6 +31,13 @@ const {
   readNotificationReadIds,
   persistNotificationReadIds,
   validatePromotionCode,
+  beginSubscriptionPayment,
+  platformAdminOverview,
+  platformAdminTenants,
+  platformAdminTenantDetail,
+  platformAdminPayments,
+  platformAdminPromotionCodes,
+  platformAdminUpsertPromotionCode,
   withTenantContext,
   resolveTenantForUser,
   resolveTenantForLineWebhook,
@@ -63,6 +70,20 @@ const AUTH_RATE_LIMIT_MAX = Number(process.env.AUTH_RATE_LIMIT_MAX || 20);
 const KNOWN_PRODUCTION_SUPABASE_REF = "mjnpzdmrqweugdnvlqwq";
 const SIGNUP_PLAN_IDS = new Set(["starter", "business", "enterprise"]);
 const SIGNUP_BILLING_IDS = new Set(["monthly", "yearly"]);
+const PLAN_ENTITLEMENTS = {
+  starter: {
+    maxUsers: 3,
+    features: ["orders", "customers", "dashboard", "import"]
+  },
+  business: {
+    maxUsers: 10,
+    features: ["orders", "customers", "dashboard", "import", "reports", "team", "permissions", "marketing"]
+  },
+  enterprise: {
+    maxUsers: null,
+    features: ["orders", "customers", "dashboard", "import", "reports", "team", "permissions", "marketing", "priority_support"]
+  }
+};
 const authRateBuckets = new Map();
 
 function sanitizeNotificationIds(ids) {
@@ -585,6 +606,138 @@ function runtimeSupabaseInfo() {
     supabaseRef: ref,
     isKnownProductionSupabase: ref === KNOWN_PRODUCTION_SUPABASE_REF
   };
+}
+
+function normalizedSubscription(subscription = null) {
+  if (!subscription) return null;
+  return {
+    id: subscription.id || "",
+    tenantId: subscription.tenantId || subscription.tenant_id || "",
+    plan: String(subscription.plan || "starter").toLowerCase(),
+    billingInterval: String(subscription.billingInterval || subscription.billing_interval || "monthly").toLowerCase(),
+    status: String(subscription.status || "").toLowerCase(),
+    currency: subscription.currency || "THB",
+    baseAmountMinor: Number(subscription.baseAmountMinor ?? subscription.base_amount_minor ?? 0),
+    discountAmountMinor: Number(subscription.discountAmountMinor ?? subscription.discount_amount_minor ?? 0),
+    amountDueMinor: Number(subscription.amountDueMinor ?? subscription.amount_due_minor ?? 0),
+    trialEndsAt: subscription.trialEndsAt || subscription.trial_ends_at || "",
+    currentPeriodEndsAt: subscription.currentPeriodEndsAt || subscription.current_period_ends_at || "",
+    nextRenewalAt: subscription.nextRenewalAt || subscription.next_renewal_at || "",
+    paymentDueAt: subscription.paymentDueAt || subscription.payment_due_at || "",
+    promotionCode: subscription.promotionCode || subscription.promotion_code || "",
+    promotionBenefitDescription: subscription.promotionBenefitDescription || subscription.promotion_benefit_description || "",
+    createdAt: subscription.createdAt || subscription.created_at || "",
+    updatedAt: subscription.updatedAt || subscription.updated_at || ""
+  };
+}
+
+function currentSubscription(db = {}) {
+  return normalizedSubscription((db.subscriptions || []).find(item => item.isInitial !== false && item.is_initial !== false) || (db.subscriptions || [])[0] || null);
+}
+
+function planEntitlement(plan = "starter") {
+  const key = String(plan || "starter").toLowerCase();
+  return PLAN_ENTITLEMENTS[key] || PLAN_ENTITLEMENTS.starter;
+}
+
+function activeTenantUserCount(db = {}) {
+  return (db.users || []).filter(user => user.active !== false).length;
+}
+
+function subscriptionAccess(subscription = null, now = new Date()) {
+  if (!subscription) return { allowed: true, reason: "legacy_no_subscription", requiresPayment: false };
+  const status = String(subscription.status || "").toLowerCase();
+  const trialEnds = subscription.trialEndsAt ? new Date(subscription.trialEndsAt).getTime() : 0;
+  const periodEnds = subscription.currentPeriodEndsAt ? new Date(subscription.currentPeriodEndsAt).getTime() : 0;
+  const nowMs = now.getTime();
+  if (status === "active" && (!periodEnds || periodEnds >= nowMs)) return { allowed: true, reason: "active", requiresPayment: false };
+  if (status === "trialing" && trialEnds && trialEnds >= nowMs) return { allowed: true, reason: "trialing", requiresPayment: false };
+  return {
+    allowed: false,
+    reason: status === "pending_payment" ? "pending_payment" : (status || "subscription_inactive"),
+    requiresPayment: true
+  };
+}
+
+function publicPayment(payment = {}) {
+  return {
+    id: payment.id || "",
+    subscriptionId: payment.subscriptionId || payment.subscription_id || "",
+    provider: payment.provider || "",
+    status: payment.status || "",
+    currency: payment.currency || "THB",
+    amountMinor: Number(payment.amountMinor ?? payment.amount_minor ?? 0),
+    plan: payment.plan || "",
+    billingInterval: payment.billingInterval || payment.billing_interval || "",
+    billingPeriodStartedAt: payment.billingPeriodStartedAt || payment.billing_period_started_at || "",
+    billingPeriodEndsAt: payment.billingPeriodEndsAt || payment.billing_period_ends_at || "",
+    createdAt: payment.createdAt || payment.created_at || ""
+  };
+}
+
+function paymentProviderConfig() {
+  const provider = String(process.env.PAYMENT_PROVIDER || "").trim().toLowerCase();
+  const enabled = booleanEnv(process.env.PAYMENT_PROVIDER_ENABLED, false);
+  const configured = enabled && provider && !["none", "off", "disabled", "provider_required"].includes(provider);
+  return {
+    configured,
+    provider: configured ? provider : "provider_required"
+  };
+}
+
+function subscriptionBillingPayload(db = {}) {
+  const subscription = currentSubscription(db);
+  const latestPayments = (db.payments || [])
+    .map(publicPayment)
+    .sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")))
+    .slice(0, 10);
+  return {
+    subscription,
+    access: subscriptionAccess(subscription),
+    entitlement: planEntitlement(subscription?.plan),
+    activeUsers: activeTenantUserCount(db),
+    latestPayments,
+    paymentProvider: {
+      configured: paymentProviderConfig().configured
+    }
+  };
+}
+
+function isBillingApiPath(pathname = "") {
+  return pathname === "/api/billing/subscription" || pathname === "/api/billing/checkout";
+}
+
+function isPlatformAdminApiPath(pathname = "") {
+  return pathname === "/api/platform-admin" || pathname.startsWith("/api/platform-admin/");
+}
+
+function isSubscriptionAccessExempt(pathname = "") {
+  return isBillingApiPath(pathname)
+    || isPlatformAdminApiPath(pathname)
+    || ["/api/session", "/api/logout", "/api/verify/runtime"].includes(pathname);
+}
+
+function subscriptionBlockedResponse(res, db = {}) {
+  return json(res, 402, {
+    ok: false,
+    code: "SUBSCRIPTION_PAYMENT_REQUIRED",
+    error: "แพ็กเกจนี้ยังรอการชำระเงินหรือหมดอายุ กรุณาจัดการแพ็กเกจเพื่อเข้าใช้งานต่อ",
+    billing: subscriptionBillingPayload(db)
+  });
+}
+
+function safePlatformAdminError(res, error) {
+  const detail = String(error.detail || error.message || "");
+  if (detail.includes("PLATFORM_ADMIN_REQUIRED")) {
+    return json(res, 403, { ok: false, code: "PLATFORM_ADMIN_REQUIRED", error: "ต้องใช้สิทธิ์ Platform Admin" });
+  }
+  if (detail.includes("PLATFORM_ADMIN_WRITE_FORBIDDEN")) {
+    return json(res, 403, { ok: false, code: "PLATFORM_ADMIN_WRITE_FORBIDDEN", error: "ไม่มีสิทธิ์แก้ไขข้อมูล Platform Admin" });
+  }
+  if (detail.includes("INVALID_PROMOTION_CODE")) {
+    return json(res, 400, { ok: false, code: "INVALID_PROMOTION_CODE", error: "ข้อมูลโค้ดโปรโมชั่นไม่ถูกต้อง" });
+  }
+  throw error;
 }
 
 function optionalTextPatch(value, fallback = "") {
@@ -3464,6 +3617,108 @@ async function handleLineWebhookPost(req, res, db) {
   return json(res, 200, { ok: true, received: events.length, parsedOrders: parsedOrders.length });
 }
 
+async function handleBillingApi(req, res, url, db, currentUser) {
+  if (req.method === "GET" && url.pathname === "/api/billing/subscription") {
+    return json(res, 200, { ok: true, billing: subscriptionBillingPayload(db) });
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/billing/checkout") {
+    if (currentUser.role !== "Owner") {
+      return json(res, 403, { ok: false, error: "ต้องใช้สิทธิ์ Owner เพื่อจัดการการชำระเงิน" });
+    }
+    if (typeof beginSubscriptionPayment !== "function") {
+      return json(res, 503, { ok: false, error: "ระบบชำระเงินยังไม่พร้อมใช้งาน" });
+    }
+    const subscription = currentSubscription(db);
+    const access = subscriptionAccess(subscription);
+    if (subscription && !access.requiresPayment) {
+      return json(res, 409, { ok: false, code: "PAYMENT_NOT_REQUIRED", error: "แพ็กเกจนี้ยังไม่ต้องชำระเงิน" });
+    }
+    const body = await readBody(req);
+    const idempotencyKey = String(body.idempotencyKey || body.checkoutRequestId || crypto.randomUUID()).trim();
+    const providerConfig = paymentProviderConfig();
+    try {
+      const payment = await beginSubscriptionPayment({
+        tenantId: currentUser.tenantId,
+        userId: currentUser.id,
+        idempotencyKey,
+        provider: providerConfig.provider
+      });
+      if (!providerConfig.configured) {
+        return json(res, 503, {
+          ok: false,
+          code: "PAYMENT_PROVIDER_REQUIRED",
+          error: "ยังไม่ได้ตั้งค่าผู้ให้บริการชำระเงินใน Preview",
+          payment: publicPayment(payment),
+          billing: subscriptionBillingPayload({ ...db, payments: [payment, ...(db.payments || [])] })
+        });
+      }
+      return json(res, 501, {
+        ok: false,
+        code: "PAYMENT_PROVIDER_ADAPTER_REQUIRED",
+        error: "ยังไม่มี adapter สำหรับผู้ให้บริการชำระเงินที่ตั้งค่าไว้",
+        payment: publicPayment(payment)
+      });
+    } catch (error) {
+      const detail = String(error.detail || error.message || "");
+      if (detail.includes("PAYMENT_NOT_REQUIRED")) {
+        return json(res, 409, { ok: false, code: "PAYMENT_NOT_REQUIRED", error: "แพ็กเกจนี้ยังไม่ต้องชำระเงิน" });
+      }
+      if (detail.includes("SUBSCRIPTION_NOT_FOUND")) {
+        return json(res, 404, { ok: false, code: "SUBSCRIPTION_NOT_FOUND", error: "ไม่พบ subscription ของ tenant นี้" });
+      }
+      if (detail.includes("PAYMENT_TENANT_FORBIDDEN")) {
+        return json(res, 403, { ok: false, code: "PAYMENT_TENANT_FORBIDDEN", error: "ไม่มีสิทธิ์สร้างรายการชำระเงินของ tenant นี้" });
+      }
+      throw error;
+    }
+  }
+
+  return json(res, 404, { ok: false, error: "API not found" });
+}
+
+async function handlePlatformAdminApi(req, res, url, currentUser) {
+  try {
+    if (req.method === "GET" && url.pathname === "/api/platform-admin/overview") {
+      return json(res, 200, { ok: true, overview: await platformAdminOverview(currentUser.id) });
+    }
+    if (req.method === "GET" && url.pathname === "/api/platform-admin/tenants") {
+      return json(res, 200, {
+        ok: true,
+        result: await platformAdminTenants(currentUser.id, {
+          search: url.searchParams.get("search") || "",
+          limit: Number(url.searchParams.get("limit") || 50),
+          offset: Number(url.searchParams.get("offset") || 0)
+        })
+      });
+    }
+    if (req.method === "GET" && url.pathname.startsWith("/api/platform-admin/tenants/")) {
+      const tenantId = url.pathname.split("/").pop();
+      return json(res, 200, { ok: true, result: await platformAdminTenantDetail(currentUser.id, tenantId) });
+    }
+    if (req.method === "GET" && url.pathname === "/api/platform-admin/payments") {
+      return json(res, 200, {
+        ok: true,
+        result: await platformAdminPayments(currentUser.id, {
+          status: url.searchParams.get("status") || "",
+          limit: Number(url.searchParams.get("limit") || 50),
+          offset: Number(url.searchParams.get("offset") || 0)
+        })
+      });
+    }
+    if (req.method === "GET" && url.pathname === "/api/platform-admin/promotions") {
+      return json(res, 200, { ok: true, result: await platformAdminPromotionCodes(currentUser.id) });
+    }
+    if (["POST", "PUT"].includes(req.method) && url.pathname === "/api/platform-admin/promotions") {
+      const body = await readBody(req);
+      return json(res, 200, { ok: true, result: await platformAdminUpsertPromotionCode(currentUser.id, body) });
+    }
+  } catch (error) {
+    return safePlatformAdminError(res, error);
+  }
+  return json(res, 404, { ok: false, error: "API not found" });
+}
+
 function parseDelimited(content) {
   const lines = String(content || "")
     .replace(/\r/g, "")
@@ -4307,6 +4562,19 @@ async function handleApi(req, res) {
     return json(res, 401, { ok: false, error: "เซสชันหมดอายุหรือผู้ใช้งานถูกปิดใช้งาน" }, { "Set-Cookie": clearSessionCookie() });
   }
 
+  if (!isLineWebhook && isBillingApiPath(url.pathname)) {
+    return handleBillingApi(req, res, url, db, currentUser);
+  }
+
+  if (!isLineWebhook && isPlatformAdminApiPath(url.pathname)) {
+    return handlePlatformAdminApi(req, res, url, currentUser);
+  }
+
+  if (!isLineWebhook && !isSubscriptionAccessExempt(url.pathname)) {
+    const access = subscriptionAccess(currentSubscription(db));
+    if (!access.allowed) return subscriptionBlockedResponse(res, db);
+  }
+
   if (req.method === "GET" && url.pathname === "/api/state") {
     const date = url.searchParams.get("date") || toDateOnly();
     const backfilledOrders = backfillMissingOrderProfitSnapshots(db);
@@ -4354,6 +4622,7 @@ async function handleApi(req, res) {
       notificationReadIds,
       currentPermissions,
       permissionCatalog: currentUser.role === "Owner" ? PERMISSION_GROUPS : [],
+      billing: subscriptionBillingPayload(enriched),
       summary: buildSummary(enriched, date)
     });
   }
@@ -5329,6 +5598,16 @@ async function handleApi(req, res) {
     if ((db.users || []).some(item => String(item.username || "").trim() === username)) {
       return json(res, 409, { ok: false, error: "ชื่อเข้าใช้งานนี้ถูกใช้แล้ว" });
     }
+    const subscription = currentSubscription(db);
+    const maxUsers = planEntitlement(subscription?.plan).maxUsers;
+    if (body.active !== false && maxUsers !== null && activeTenantUserCount(db) >= maxUsers) {
+      return json(res, 402, {
+        ok: false,
+        code: "PLAN_USER_LIMIT_REACHED",
+        error: `แพ็กเกจ ${subscription?.plan || "starter"} รองรับผู้ใช้งานสูงสุด ${maxUsers} คน`,
+        billing: subscriptionBillingPayload(db)
+      });
+    }
     const user = {
       id: uid("u"),
       name,
@@ -5358,6 +5637,18 @@ async function handleApi(req, res) {
     }
     if (user.role === "Owner" && user.active !== false && body.active === false && isLastActiveOwner(db.users, user)) {
       return json(res, 409, { ok: false, error: "ไม่สามารถปิดใช้งาน Owner คนสุดท้ายได้" });
+    }
+    if (body.active === true && user.active === false) {
+      const subscription = currentSubscription(db);
+      const maxUsers = planEntitlement(subscription?.plan).maxUsers;
+      if (maxUsers !== null && activeTenantUserCount(db) >= maxUsers) {
+        return json(res, 402, {
+          ok: false,
+          code: "PLAN_USER_LIMIT_REACHED",
+          error: `แพ็กเกจ ${subscription?.plan || "starter"} รองรับผู้ใช้งานสูงสุด ${maxUsers} คน`,
+          billing: subscriptionBillingPayload(db)
+        });
+      }
     }
     if (body.username !== undefined) {
       const username = String(body.username).trim();
