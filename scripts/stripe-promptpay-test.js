@@ -432,6 +432,7 @@ async function postStripeWebhook(event) {
   if (checkoutB.json().payment.id !== checkoutA.json().payment.id || db.payments.filter(row => row.tenant_id === tenants.business).length !== 1) fail("Stripe checkout idempotency did not reuse the local payment");
   if (stripeRequests.length !== 1 || stripeRequests[0].idempotencyKey !== `growup:${checkoutA.json().payment.id}`) fail("Stripe idempotency key was not based on the local payment id");
   if (stripeRequests[0].params.get("payment_method_types[]") !== "promptpay" || stripeRequests[0].params.get("payment_method_data[type]") !== "promptpay") fail("Stripe request did not request PromptPay");
+  if (stripeRequests[0].params.get("payment_method_data[billing_details][email]") !== "business@example.com") fail("Stripe PromptPay request did not include required billing email");
 
   const invalidWebhook = await request("/api/stripe/webhook", { method: "POST", headers: { "stripe-signature": "t=1,v1=bad" }, body: "{}" });
   if (invalidWebhook.status !== 400) fail(`invalid webhook signature was accepted: ${invalidWebhook.status} ${invalidWebhook.text}`);
