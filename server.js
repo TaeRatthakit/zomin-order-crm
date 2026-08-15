@@ -6083,6 +6083,9 @@ async function appHandler(req, res) {
       if (!sessionUser?.id && pathname === "/api/state") {
         return json(res, 401, { ok: false, error: "Unauthorized" }, { "Set-Cookie": clearSessionCookie() });
       }
+      if (!sessionUser?.id && pathname.startsWith("/api/platform-admin")) {
+        return json(res, 401, { ok: false, error: "Unauthorized" }, { "Set-Cookie": clearSessionCookie() });
+      }
       if (
         sessionUser?.id
         && !["/api/login", "/api/logout"].includes(pathname)

@@ -167,6 +167,9 @@ async function login(username) {
     if (!migration.includes(token)) fail(`platform admin migration missing ${token}`);
   }
 
+  const loggedOut = await request("/api/platform-admin/overview");
+  if (loggedOut.status !== 401) fail(`logged-out platform admin API was not blocked: ${loggedOut.status} ${loggedOut.text}`);
+
   const ownerCookie = await login("owner@example.com");
   const denied = await request("/api/platform-admin/overview", { headers: { cookie: ownerCookie } });
   if (denied.status !== 403 || denied.json().code !== "PLATFORM_ADMIN_REQUIRED") fail(`tenant Owner was not blocked from platform admin: ${denied.status} ${denied.text}`);
