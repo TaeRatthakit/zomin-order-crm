@@ -10,8 +10,8 @@ const db = {
     { id: "tenant_b", name: "Tenant B", status: "active" }
   ],
   tenant_memberships: [
-    { id: "m_a_owner", tenant_id: "tenant_a", user_id: "u_a", role: "Owner", is_active: true },
-    { id: "m_b_owner", tenant_id: "tenant_b", user_id: "u_b", role: "Owner", is_active: true }
+    { id: "11111111-1111-4111-8111-111111111111", tenant_id: "tenant_a", user_id: "u_a", role: "Owner", is_active: true },
+    { id: "22222222-2222-4222-8222-222222222222", tenant_id: "tenant_b", user_id: "u_b", role: "Owner", is_active: true }
   ],
   users: [
     { id: "u_a", username: "owner-a", password_hash: "hash", name: "Owner A", role: "Owner", phone: "", is_active: true },
@@ -91,6 +91,9 @@ global.fetch = async function mockFetch(input, options = {}) {
   if (method === "POST") {
     const rows = JSON.parse(options.body || "[]");
     for (const row of rows) {
+      if (table === "tenant_memberships" && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(row.id || ""))) {
+        return new Response(JSON.stringify({ message: `invalid uuid ${row.id}` }), { status: 400 });
+      }
       const key = conflictKey(table, row, url.searchParams);
       const index = db[table].findIndex(existing => conflictKey(table, existing, url.searchParams) === key);
       if (index === -1) db[table].push({ ...row });
@@ -128,6 +131,24 @@ async function expectReject(label, task) {
   const tenantA = await adapter.resolveTenantForUser("u_a");
   const tenantB = await adapter.resolveTenantForUser("u_b");
   if (tenantA?.tenantId !== "tenant_a" || tenantB?.tenantId !== "tenant_b") fail("tenant resolver returned wrong tenant");
+
+  await adapter.withTenantContext(tenantA, async () => {
+    await adapter.writeDb({
+      settings: {},
+      followUpRules: [],
+      tags: [],
+      users: [
+        { id: "u_a", username: "owner-a", passwordHash: "hash", name: "Owner A", role: "Owner", phone: "", active: true },
+        { id: "u_a_staff", username: "staff-a", passwordHash: "hash", name: "Staff A", role: "Staff", phone: "", active: true }
+      ],
+      customers: [],
+      orders: [],
+      lineMessages: [],
+      contactLogs: []
+    });
+  });
+  const staffMembership = db.tenant_memberships.find(row => row.tenant_id === "tenant_a" && row.user_id === "u_a_staff");
+  if (!staffMembership) fail("writeDb did not create tenant membership for new user");
 
   await expectReject("writeDb", () => adapter.writeDb({
     settings: {},
