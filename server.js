@@ -699,7 +699,7 @@ function paymentProviderConfig() {
   if (enabled && ["stripe", "stripe_promptpay", "promptpay"].includes(provider)) {
     const stripe = stripePromptPayConfig();
     return {
-      configured: stripe.checkoutConfigured && stripe.testMode,
+      configured: stripe.checkoutConfigured && stripe.modeConfigured,
       provider: STRIPE_PROVIDER,
       stripe
     };
@@ -718,7 +718,10 @@ function safePaymentRuntimeInfo() {
     provider: config.provider,
     configured: Boolean(config.configured),
     stripe: {
+      mode: config.stripe?.mode || "test",
       testMode: Boolean(config.stripe?.testMode),
+      liveMode: Boolean(config.stripe?.liveMode),
+      modeConfigured: Boolean(config.stripe?.modeConfigured),
       checkoutConfigured: Boolean(config.stripe?.checkoutConfigured),
       webhookConfigured: Boolean(config.stripe?.webhookConfigured),
       secretKeyConfigured: Boolean(config.stripe?.secretKeyConfigured),
@@ -3798,11 +3801,11 @@ async function handleBillingApi(req, res, url, db, currentUser) {
       if (detail.includes("PAYMENT_TENANT_FORBIDDEN")) {
         return json(res, 403, { ok: false, code: "PAYMENT_TENANT_FORBIDDEN", error: "ไม่มีสิทธิ์สร้างรายการชำระเงินของ tenant นี้" });
       }
-      if (error.code === "STRIPE_TEST_SECRET_KEY_REQUIRED") {
-        return json(res, 503, { ok: false, code: "STRIPE_TEST_SECRET_KEY_REQUIRED", error: "ยังไม่ได้ตั้งค่า Stripe test secret key สำหรับ Preview" });
+      if (error.code === "STRIPE_TEST_SECRET_KEY_REQUIRED" || error.code === "STRIPE_LIVE_SECRET_KEY_REQUIRED") {
+        return json(res, 503, { ok: false, code: error.code, error: "ยังไม่ได้ตั้งค่า Stripe secret key ให้ตรงกับ environment" });
       }
       if (String(error.code || "").startsWith("STRIPE_")) {
-        return json(res, 502, { ok: false, code: error.code, error: "เชื่อมต่อ Stripe test mode ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" });
+        return json(res, 502, { ok: false, code: error.code, error: "เชื่อมต่อ Stripe ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" });
       }
       throw error;
     }
@@ -3815,8 +3818,8 @@ async function handleStripeWebhookApi(req, res) {
   if (req.method !== "POST") return json(res, 405, { ok: false, error: "Method not allowed" });
   if (dbProvider !== "supabase") return json(res, 503, { ok: false, error: "Stripe webhook requires Supabase provider." });
   const providerConfig = paymentProviderConfig();
-  if (providerConfig.provider !== STRIPE_PROVIDER || !providerConfig.stripe?.webhookConfigured || !providerConfig.stripe?.testMode) {
-    return json(res, 503, { ok: false, code: "STRIPE_WEBHOOK_NOT_CONFIGURED", error: "Stripe test webhook is not configured for this Preview." });
+  if (providerConfig.provider !== STRIPE_PROVIDER || !providerConfig.stripe?.webhookConfigured || !providerConfig.stripe?.modeConfigured) {
+    return json(res, 503, { ok: false, code: "STRIPE_WEBHOOK_NOT_CONFIGURED", error: "Stripe webhook is not configured for this environment." });
   }
 
   const body = await readBody(req);

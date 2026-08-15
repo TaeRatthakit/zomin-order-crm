@@ -16,6 +16,7 @@ const path = require("path");
 const crypto = require("crypto");
 const { Readable } = require("stream");
 const { hashPassword } = require("../lib/auth");
+const { stripePromptPayConfig } = require("../lib/stripe-promptpay");
 
 const ROOT = path.join(__dirname, "..");
 const migration = fs.readFileSync(path.join(ROOT, "supabase", "migrations", "20260814030000_stripe_promptpay_payment.sql"), "utf8");
@@ -74,6 +75,80 @@ let stripeIntentSequence = 1;
 
 function fail(message) {
   throw new Error(message);
+}
+
+function withEnvPatch(patch, task) {
+  const keys = Object.keys(patch);
+  const previous = Object.fromEntries(keys.map(key => [key, process.env[key]]));
+  try {
+    for (const [key, value] of Object.entries(patch)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+    return task();
+  } finally {
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+}
+
+function assertStripeEnvironmentGuards() {
+  withEnvPatch({
+    VERCEL_ENV: "preview",
+    STRIPE_SECRET_KEY: "sk_test_mock_secret",
+    STRIPE_TEST_SECRET_KEY: undefined,
+    STRIPE_LIVE_SECRET_KEY: undefined,
+    STRIPE_PUBLISHABLE_KEY: undefined,
+    STRIPE_TEST_PUBLISHABLE_KEY: undefined,
+    STRIPE_LIVE_PUBLISHABLE_KEY: undefined
+  }, () => {
+    const config = stripePromptPayConfig();
+    if (!config.testMode || !config.modeConfigured || config.liveMode || config.mode !== "test") {
+      fail(`Preview test Stripe config was rejected: ${JSON.stringify(config)}`);
+    }
+  });
+
+  withEnvPatch({
+    VERCEL_ENV: "preview",
+    STRIPE_SECRET_KEY: "sk_live_mock_secret",
+    STRIPE_TEST_SECRET_KEY: undefined,
+    STRIPE_LIVE_SECRET_KEY: undefined
+  }, () => {
+    const config = stripePromptPayConfig();
+    if (config.modeConfigured || config.checkoutConfigured || config.liveMode || config.testMode) {
+      fail(`Preview accepted a live Stripe secret: ${JSON.stringify(config)}`);
+    }
+  });
+
+  withEnvPatch({
+    VERCEL_ENV: "production",
+    STRIPE_SECRET_KEY: undefined,
+    STRIPE_TEST_SECRET_KEY: "sk_test_mock_secret",
+    STRIPE_LIVE_SECRET_KEY: "sk_live_mock_secret",
+    STRIPE_PUBLISHABLE_KEY: undefined,
+    STRIPE_TEST_PUBLISHABLE_KEY: undefined,
+    STRIPE_LIVE_PUBLISHABLE_KEY: "pk_live_mock_publishable"
+  }, () => {
+    const config = stripePromptPayConfig();
+    if (!config.liveMode || !config.modeConfigured || config.testMode || config.mode !== "live") {
+      fail(`Production live Stripe config was rejected: ${JSON.stringify(config)}`);
+    }
+  });
+
+  withEnvPatch({
+    VERCEL_ENV: "production",
+    STRIPE_SECRET_KEY: "sk_test_mock_secret",
+    STRIPE_TEST_SECRET_KEY: undefined,
+    STRIPE_LIVE_SECRET_KEY: undefined,
+    STRIPE_LIVE_PUBLISHABLE_KEY: undefined
+  }, () => {
+    const config = stripePromptPayConfig();
+    if (config.modeConfigured || config.checkoutConfigured || config.testMode || config.liveMode) {
+      fail(`Production accepted a test Stripe secret: ${JSON.stringify(config)}`);
+    }
+  });
 }
 
 function parseValue(raw = "") {
@@ -406,6 +481,8 @@ async function postStripeWebhook(event) {
 }
 
 (async () => {
+  assertStripeEnvironmentGuards();
+
   for (const token of [
     "growup_set_payment_provider_reference",
     "growup_record_provider_payment_status",
