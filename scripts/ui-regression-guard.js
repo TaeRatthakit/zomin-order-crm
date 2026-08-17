@@ -75,7 +75,17 @@ const PAGE_PATTERNS = {
   dark: [/data-theme="dark"/i, /dark/i],
   mobile: [/mobile/i, /max-width/i],
   desktop: [/desktop/i, /min-width/i],
-  global: [/^(\+|-)\s*(html|body|:root|@media|@supports|\/\*)/i, /sidebar/i, /topbar/i, /mobile-app-shell/i, /desktop-app-shell/i]
+  global: [
+    /^(\+|-)\s*(html|body|:root|@media|@supports|\/\*)/i,
+    /sidebar/i,
+    /topbar/i,
+    /mobile-app-shell/i,
+    /desktop-app-shell/i,
+    /styles\.css\?v=/i,
+    /app\.js\?v=/i,
+    /service-worker\.js\?v=/i,
+    /CACHE_NAME/i
+  ]
 };
 
 function runGit(args, allowEmpty = false) {
