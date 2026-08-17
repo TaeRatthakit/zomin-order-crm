@@ -1,4 +1,4 @@
-const CACHE_NAME = "growup-pilot-pwa-v125-desktop-home-hero-v4";
+const CACHE_NAME = "growup-pilot-pwa-v126-csv-import-only";
 const CORE_ASSETS = [
   "/",
   "/index.html",
@@ -17,7 +17,6 @@ const CORE_ASSETS = [
   "/mobile-home-hero-light-v4.webp?v=20260720-mobile-light-single-frame-v1",
   "/mobile-home-avatar.png",
   "/import-worker.js",
-  "/xlsx.full.min.js",
   "/manifest.webmanifest?v=20260718-installed-app-icon-v2",
   "/icons/logo.png?v=20260718-website-logo-transparent-v1",
   "/icons/login-logo-192.png?v=20260718-website-logo-transparent-v1",

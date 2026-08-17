@@ -1,5 +1,3 @@
-importScripts("/xlsx.full.min.js");
-
 let cancelled = false;
 let activeJobId = "";
 let preparedImport = null;
@@ -147,13 +145,56 @@ function mapColumns(headerRow) {
   return mapped;
 }
 
-function rowsFromSheet(sheet) {
-  return XLSX.utils.sheet_to_json(sheet, {
-    header: 1,
-    raw: false,
-    defval: "",
-    blankrows: false
-  }).filter(row => Array.isArray(row) && row.some(cell => cellText(cell)));
+function isCsvFile(file) {
+  const name = String(file?.name || "").toLowerCase();
+  const type = String(file?.type || "").toLowerCase();
+  return name.endsWith(".csv") || type === "text/csv";
+}
+
+function parseCsvRows(text) {
+  const rows = [];
+  let row = [];
+  let cell = "";
+  let inQuotes = false;
+  const input = String(text || "").replace(/^\uFEFF/, "");
+
+  for (let index = 0; index < input.length; index += 1) {
+    const char = input[index];
+    const next = input[index + 1];
+
+    if (inQuotes) {
+      if (char === "\"" && next === "\"") {
+        cell += "\"";
+        index += 1;
+      } else if (char === "\"") {
+        inQuotes = false;
+      } else {
+        cell += char;
+      }
+      continue;
+    }
+
+    if (char === "\"") {
+      inQuotes = true;
+    } else if (char === ",") {
+      row.push(cell);
+      cell = "";
+    } else if (char === "\n") {
+      row.push(cell);
+      rows.push(row);
+      row = [];
+      cell = "";
+    } else if (char !== "\r") {
+      cell += char;
+    }
+  }
+
+  if (cell || row.length) {
+    row.push(cell);
+    rows.push(row);
+  }
+
+  return rows.filter(item => Array.isArray(item) && item.some(value => cellText(value)));
 }
 
 function normalizePreparedRows(rows, defaultJarPrice) {
@@ -291,16 +332,16 @@ async function request(path, options = {}) {
 }
 
 async function inspectFile(file, defaultJarPrice) {
-  const buffer = await file.arrayBuffer();
-  const workbook = XLSX.read(buffer, { type: "array", raw: false, dense: true, cellDates: true });
-  const sheetNames = workbook.SheetNames || [];
-  if (!sheetNames.length) throw new Error("ไม่พบชีตในไฟล์ที่เลือก");
+  if (!isCsvFile(file)) {
+    throw new Error("รองรับไฟล์ CSV เท่านั้น ระบบปิดการนำเข้า XLSX/XLS ชั่วคราวเพื่อความปลอดภัย");
+  }
+  const rows = parseCsvRows(await file.text());
   preparedImport = {
     fileName: file.name,
-    fileType: (String(file.name).split(".").pop() || "csv").toLowerCase(),
-    sheetNames,
-    selectedSheet: sheetNames[0],
-    rowsBySheet: new Map(sheetNames.map(name => [name, rowsFromSheet(workbook.Sheets[name])]))
+    fileType: "csv",
+    sheetNames: ["CSV"],
+    selectedSheet: "CSV",
+    rowsBySheet: new Map([["CSV", rows]])
   };
   return inspectPreparedSheet(defaultJarPrice);
 }

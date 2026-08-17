@@ -7525,7 +7525,7 @@ function renderImportCenter({ embedded = false } = {}) {
         <span class="import-hero-icon">${iconSvg("upload")}</span>
         <div>
           <h2>Import Orders</h2>
-          <p>นำเข้าออเดอร์จากไฟล์ CSV หรือ Excel เข้าสู่ระบบอย่างง่ายและรวดเร็ว</p>
+          <p>นำเข้าออเดอร์จากไฟล์ CSV เข้าสู่ระบบอย่างง่ายและรวดเร็ว</p>
         </div>
       </div>
       <div class="import-center-grid">
@@ -7534,9 +7534,9 @@ function renderImportCenter({ embedded = false } = {}) {
             <span class="import-upload-cloud">${iconSvg("upload")}</span>
             <strong>${uploadLabel}</strong>
             <small>หรือคลิกเพื่อเลือกไฟล์</small>
-            <em>รองรับไฟล์ CSV, XLSX, XLS (ไม่เกิน 20 MB)</em>
+            <em>รองรับไฟล์ CSV เท่านั้น (ไม่เกิน 20 MB)</em>
             <span class="button primary import-select-button">เลือกไฟล์</span>
-            <input class="file-input" id="csvFile" type="file" accept=".csv,.xlsx,.xls,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ${app.importPreparing || busy ? "disabled" : ""}>
+            <input class="file-input" id="csvFile" type="file" accept=".csv,text/csv" ${app.importPreparing || busy ? "disabled" : ""}>
           </label>
 
           <article class="import-template-card">
@@ -7546,7 +7546,6 @@ function renderImportCenter({ embedded = false } = {}) {
             </div>
             <div class="import-template-actions">
               <a class="import-template-button csv" href="/templates/order-import-template.csv" download>${iconSvg("file")}<span>CSV template</span></a>
-              <a class="import-template-button excel" href="/templates/order-import-template.xlsx" download>${iconSvg("file")}<span>Excel template</span></a>
             </div>
           </article>
 
@@ -7745,6 +7744,12 @@ async function refreshImportCleanup() {
 }
 
 function startCsvImport(file) {
+  const name = String(file?.name || "").toLowerCase();
+  const type = String(file?.type || "").toLowerCase();
+  if (!name.endsWith(".csv") && type !== "text/csv") {
+    showToast("รองรับไฟล์ CSV เท่านั้น ระบบปิดการนำเข้า XLSX/XLS ชั่วคราวเพื่อความปลอดภัย", "error");
+    return;
+  }
   if (app.importWorker) app.importWorker.terminate();
   app.importPreparing = true;
   app.importJob = null;
