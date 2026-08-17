@@ -201,6 +201,9 @@ async function login(username) {
   }
 
   const businessCookie = await login("business@example.com");
+  const anonymousBilling = await request("/api/billing/subscription");
+  if (anonymousBilling.status !== 401) fail(`anonymous billing snapshot should be denied before DB read: ${anonymousBilling.status} ${anonymousBilling.text}`);
+
   const blockedState = await request("/api/state", { headers: { cookie: businessCookie } });
   if (blockedState.status !== 402 || blockedState.json().code !== "SUBSCRIPTION_PAYMENT_REQUIRED") fail(`pending payment tenant was not gated: ${blockedState.status} ${blockedState.text}`);
 

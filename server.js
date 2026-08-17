@@ -6083,7 +6083,7 @@ async function appHandler(req, res) {
     if (req.url.startsWith("/api/")) {
       const pathname = new URL(req.url, `http://${req.headers.host || "localhost"}`).pathname;
       const sessionUser = getCurrentUser(req);
-      if (!sessionUser?.id && pathname === "/api/state") {
+      if (!sessionUser?.id && (pathname === "/api/state" || isBillingApiPath(pathname))) {
         return json(res, 401, { ok: false, error: "Unauthorized" }, { "Set-Cookie": clearSessionCookie() });
       }
       if (!sessionUser?.id && pathname.startsWith("/api/platform-admin")) {
