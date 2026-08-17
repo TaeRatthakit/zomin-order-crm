@@ -17,6 +17,19 @@ function fail(message) {
   throw new Error(message);
 }
 
+function redacted(value) {
+  if (Array.isArray(value)) return value.map(redacted);
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(Object.entries(value).map(([key, item]) => {
+    if (/secret|clientSecret|imageUrl|hostedInstructionsUrl|data|reference/i.test(key)) return [key, "__redacted__"];
+    return [key, redacted(item)];
+  }));
+}
+
+function responseSummary(response) {
+  return `${response.status} ${JSON.stringify(redacted(response.body))}`;
+}
+
 function unique(prefix) {
   return `${prefix}-${Date.now()}-${crypto.randomBytes(3).toString("hex")}`;
 }
@@ -105,8 +118,17 @@ async function prepare() {
       tenantId: "forged"
     }
   });
-  if (checkout.status !== 503 || checkout.body.code !== "PAYMENT_PROVIDER_REQUIRED") {
-    fail(`checkout expected provider blocker, got ${checkout.status} ${checkout.text}`);
+  if (checkout.status === 503 && checkout.body.code !== "PAYMENT_PROVIDER_REQUIRED") {
+    fail(`checkout provider blocker returned unexpected code: ${responseSummary(checkout)}`);
+  } else if (checkout.status === 200) {
+    if (checkout.body.provider !== "stripe_promptpay" || checkout.body.billing?.paymentProvider?.stripe?.testMode !== true) {
+      fail(`checkout expected Stripe PromptPay Test mode: ${responseSummary(checkout)}`);
+    }
+    if (checkout.body.payment?.status !== "processing" || !checkout.body.promptpay?.paymentIntentId) {
+      fail(`checkout did not create a processing PromptPay Test payment: ${responseSummary(checkout)}`);
+    }
+  } else if (checkout.status !== 503) {
+    fail(`checkout returned unexpected status: ${responseSummary(checkout)}`);
   }
   if (checkout.body.payment?.amountMinor !== billing.body.billing.subscription.amountDueMinor || checkout.body.payment?.currency !== "THB") {
     fail("checkout trusted browser-supplied amount/currency instead of subscription snapshot");
