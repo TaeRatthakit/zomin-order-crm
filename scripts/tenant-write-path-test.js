@@ -23,6 +23,8 @@ const db = {
   settings: [
     { id: "products", key: "products", value: [{ id: "product_1", name: "Product A", stockQuantity: 10 }], tenant_id: "tenant_a" },
     { id: "lineGroupId", key: "lineGroupId", value: "group-a", tenant_id: "tenant_a" },
+    { id: "lineGroupIds", key: "lineGroupIds", value: ["group-a", "group-c"], tenant_id: "tenant_a" },
+    { id: "tenant_b:lineGroupId", key: "lineGroupId", value: "group-b", tenant_id: "tenant_b" },
     { id: "products_b", key: "products", value: [{ id: "product_b", name: "Product B", stockQuantity: 10 }], tenant_id: "tenant_b" }
   ],
   follow_up_rules: [],
@@ -117,6 +119,30 @@ global.fetch = async function mockFetch(input, options = {}) {
 
 const adapter = require("../lib/db/supabase-adapter");
 
+async function invokeApp(method, url, body = "", headers = {}) {
+  const { Readable } = require("stream");
+  const app = require("../server");
+  const req = Readable.from(body ? [body] : []);
+  req.method = method;
+  req.url = url;
+  req.headers = { host: "localhost", ...headers };
+  return await new Promise((resolve, reject) => {
+    const res = {
+      statusCode: 200,
+      headers: {},
+      writeHead(status, nextHeaders = {}) {
+        this.statusCode = status;
+        this.headers = { ...this.headers, ...nextHeaders };
+      },
+      end(payload = "") {
+        resolve({ status: this.statusCode, headers: this.headers, body: String(payload || "") });
+      }
+    };
+    req.on("error", reject);
+    app(req, res).catch(reject);
+  });
+}
+
 async function expectReject(label, task) {
   try {
     await task();
@@ -208,15 +234,31 @@ async function expectReject(label, task) {
   const lineTenant = await adapter.resolveTenantForLineWebhook({
     events: [{ source: { type: "group", groupId: "group-a" }, message: { text: "test" } }]
   });
-  if (lineTenant?.tenantId !== "tenant_a") fail("LINE webhook tenant resolver did not use settings mapping");
+  if (lineTenant?.tenantId !== "tenant_a") fail("LINE webhook tenant resolver did not use legacy settings mapping");
+
+  const secondLineTenant = await adapter.resolveTenantForLineWebhook({
+    events: [{ source: { type: "group", groupId: "group-c" }, message: { text: "test" } }]
+  });
+  if (secondLineTenant?.tenantId !== "tenant_a") fail("LINE webhook tenant resolver did not use multi-group settings mapping");
+
+  const legacyLineTenant = await adapter.resolveTenantForLineWebhook({
+    events: [{ source: { type: "group", groupId: "group-b" }, message: { text: "test" } }]
+  });
+  if (legacyLineTenant?.tenantId !== "tenant_b") fail("LINE webhook tenant resolver did not preserve scalar legacy mapping");
 
   process.env.LINE_CHANNEL_SECRET = "line-channel-secret";
   process.env.LINE_WEBHOOK_TENANT_ID = "tenant_a";
-  process.env.LINE_GROUP_ID = "";
+  process.env.LINE_GROUP_ID = "group-a";
   const envLineTenant = await adapter.resolveTenantForLineWebhook({
+    events: [{ source: { type: "group", groupId: "group-a" }, message: { text: "test" } }]
+  });
+  if (envLineTenant?.tenantId !== "tenant_a") fail("LINE webhook tenant resolver did not use explicit grouped env mapping");
+
+  process.env.LINE_GROUP_ID = "";
+  const unconstrainedEnvLineTenant = await adapter.resolveTenantForLineWebhook({
     events: [{ source: { type: "group", groupId: "unconfigured-group" }, message: { text: "test" } }]
   });
-  if (envLineTenant?.tenantId !== "tenant_a") fail("LINE webhook tenant resolver did not use explicit channel tenant mapping");
+  if (unconstrainedEnvLineTenant) fail("LINE webhook tenant resolver trusted tenant env without a group constraint");
 
   process.env.LINE_GROUP_ID = "group-a";
   const constrainedLineTenant = await adapter.resolveTenantForLineWebhook({
@@ -227,10 +269,58 @@ async function expectReject(label, task) {
   process.env.LINE_CHANNEL_SECRET = "";
   process.env.LINE_WEBHOOK_TENANT_ID = "";
   process.env.LINE_GROUP_ID = "";
+  db.settings.push({ id: "tenant_b:lineGroupIds", key: "lineGroupIds", value: ["group-c"], tenant_id: "tenant_b" });
+  const ambiguousLineTenant = await adapter.resolveTenantForLineWebhook({
+    events: [{ source: { type: "group", groupId: "group-c" }, message: { text: "test" } }]
+  });
+  if (ambiguousLineTenant) fail("LINE webhook tenant resolver did not fail closed for ambiguous group mapping");
+  db.settings = db.settings.filter(row => row.id !== "tenant_b:lineGroupIds");
+
+  db.settings.push({ id: "tenant_b:badLineGroupIds", key: "lineGroupIds", value: "group-b", tenant_id: "tenant_b" });
+  const malformedLineTenant = await adapter.resolveTenantForLineWebhook({
+    events: [{ source: { type: "group", groupId: "group-b" }, message: { text: "test" } }]
+  });
+  if (malformedLineTenant) fail("LINE webhook tenant resolver did not fail closed for malformed lineGroupIds");
+  db.settings = db.settings.filter(row => row.id !== "tenant_b:badLineGroupIds");
+
   const unmappedLineTenant = await adapter.resolveTenantForLineWebhook({
     events: [{ source: { type: "group", groupId: "unknown-group" }, message: { text: "test" } }]
   });
   if (unmappedLineTenant) fail("LINE webhook tenant resolver did not fail closed for unknown mapping");
+
+  const missingGroupTenant = await adapter.resolveTenantForLineWebhook({
+    events: [{ source: { type: "user" }, message: { text: "test" } }]
+  });
+  if (missingGroupTenant) fail("LINE webhook tenant resolver did not fail closed for missing group mapping");
+
+  process.env.LINE_WEBHOOK_ENABLED = "true";
+  process.env.LINE_CHANNEL_SECRET = "correct-line-secret";
+  process.env.LINE_WEBHOOK_TENANT_ID = "";
+  process.env.LINE_GROUP_ID = "";
+  const signedPathBody = JSON.stringify({
+    events: [{
+      type: "message",
+      replyToken: "reply-signature-path",
+      source: { type: "group", groupId: "group-c" },
+      message: { type: "text", id: "line-signature-path", text: "สินค้า: Product A" }
+    }]
+  });
+  const signaturePathResponse = await invokeApp("POST", "/api/line/webhook", signedPathBody, {
+    "content-type": "application/json",
+    "x-line-signature": "invalid-signature"
+  });
+  if (signaturePathResponse.status !== 200) fail(`trusted LINE tenant did not reach signature validation path: ${signaturePathResponse.status}`);
+  const signaturePathJson = JSON.parse(signaturePathResponse.body || "{}");
+  if (signaturePathJson.received !== 0 || signaturePathJson.verification !== true) {
+    fail("trusted LINE tenant did not stop at signature validation failure");
+  }
+  process.env.LINE_WEBHOOK_ENABLED = "";
+  process.env.LINE_CHANNEL_SECRET = "";
+
+  await adapter.withTenantContext(secondLineTenant, async () => {
+    const tenantDb = await adapter.readDb();
+    if ((tenantDb.orders || []).some(order => order.tenant_id === "tenant_b")) fail("LINE webhook tenant context read crossed tenant boundary");
+  });
 
   const anyNullTenant = [
     "customers",
