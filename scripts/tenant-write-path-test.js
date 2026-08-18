@@ -94,6 +94,13 @@ global.fetch = async function mockFetch(input, options = {}) {
     });
   }
   if (method === "POST") {
+    if (db.__failPostTable === table) {
+      return new Response(JSON.stringify({
+        code: "23514",
+        message: `violates constraint "${table}_diagnostic_test_check"`,
+        details: "diagnostic test failure"
+      }), { status: 500 });
+    }
     const rows = JSON.parse(options.body || "[]");
     for (const row of rows) {
       const key = conflictKey(table, row, url.searchParams);
@@ -151,6 +158,35 @@ async function expectReject(label, task) {
     throw error;
   }
   fail(`${label} did not reject without tenant context`);
+}
+
+async function captureConsoleError(task) {
+  const original = console.error;
+  const messages = [];
+  console.error = (...args) => {
+    messages.push(args.map(item => String(item)).join(" "));
+  };
+  try {
+    const result = await task();
+    return { result, messages };
+  } finally {
+    console.error = original;
+  }
+}
+
+function assertSafeDiagnosticLog(label, messages) {
+  const text = messages.join("\n");
+  const forbidden = [
+    "test-service-role-key",
+    "correct-line-secret",
+    "line-channel-secret",
+    "คุณข้อมูลลับ",
+    "0812345678",
+    "99/99 ถนนข้อมูลลับ"
+  ];
+  for (const value of forbidden) {
+    if (text.includes(value)) fail(`${label} leaked forbidden diagnostic value: ${value}`);
+  }
 }
 
 (async () => {
@@ -287,16 +323,48 @@ async function expectReject(label, task) {
     events: [{ source: { type: "group", groupId: "unknown-group" }, message: { text: "test" } }]
   });
   if (unmappedLineTenant) fail("LINE webhook tenant resolver did not fail closed for unknown mapping");
+  const unmappedDiagnostic = await adapter.diagnoseLineWebhookTenantRejection({
+    events: [{ source: { type: "group", groupId: "unknown-group" }, message: { text: "test" } }]
+  });
+  if (unmappedDiagnostic.category !== "unmapped_group") fail(`unknown group diagnostic category changed: ${unmappedDiagnostic.category}`);
+  if (!unmappedDiagnostic.groupIds.includes("unknown-group")) fail("unknown group diagnostic did not include incoming groupId");
 
   const missingGroupTenant = await adapter.resolveTenantForLineWebhook({
     events: [{ source: { type: "user" }, message: { text: "test" } }]
   });
   if (missingGroupTenant) fail("LINE webhook tenant resolver did not fail closed for missing group mapping");
+  const missingGroupDiagnostic = await adapter.diagnoseLineWebhookTenantRejection({
+    events: [{ source: { type: "user" }, message: { text: "test" } }]
+  });
+  if (missingGroupDiagnostic.category !== "missing_group_id") fail(`missing group diagnostic category changed: ${missingGroupDiagnostic.category}`);
 
   process.env.LINE_WEBHOOK_ENABLED = "true";
   process.env.LINE_CHANNEL_SECRET = "correct-line-secret";
   process.env.LINE_WEBHOOK_TENANT_ID = "";
   process.env.LINE_GROUP_ID = "";
+  const unknownGroupBody = JSON.stringify({
+    events: [{
+      type: "message",
+      replyToken: "reply-unknown-group",
+      source: { type: "group", groupId: "unknown-group" },
+      message: {
+        type: "text",
+        id: "line-unknown-group",
+        text: "สินค้า: Product A\nชื่อลูกค้า: คุณข้อมูลลับ\nเบอร์โทร: 0812345678\nที่อยู่จัดส่ง: 99/99 ถนนข้อมูลลับ"
+      }
+    }]
+  });
+  const unknownLog = await captureConsoleError(() => invokeApp("POST", "/api/line/webhook", unknownGroupBody, {
+    "content-type": "application/json",
+    "x-line-signature": "invalid-signature"
+  }));
+  if (unknownLog.result.status !== 403) fail(`unknown group diagnostic request returned ${unknownLog.result.status}`);
+  const unknownLogText = unknownLog.messages.join("\n");
+  if (!unknownLogText.includes("unknown-group") || !unknownLogText.includes("unmapped_group")) {
+    fail("unknown group rejection diagnostic did not include safe group/category metadata");
+  }
+  assertSafeDiagnosticLog("unknown group diagnostic", unknownLog.messages);
+
   const signedPathBody = JSON.stringify({
     events: [{
       type: "message",
@@ -314,6 +382,49 @@ async function expectReject(label, task) {
   if (signaturePathJson.received !== 0 || signaturePathJson.verification !== true) {
     fail("trusted LINE tenant did not stop at signature validation failure");
   }
+
+  process.env.LINE_CHANNEL_SECRET = "";
+  const tenantAProducts = db.settings.find(row => row.tenant_id === "tenant_a" && row.key === "products");
+  tenantAProducts.value = [{ id: "product_1", name: "Product A", stockQuantity: 10, archived: false }];
+  const persistenceFailureBody = JSON.stringify({
+    events: [{
+      type: "message",
+      replyToken: "reply-persistence-failure",
+      source: { type: "group", groupId: "group-a", userId: "line-user" },
+      message: {
+        type: "text",
+        id: "line-persistence-failure",
+        text: [
+          "สินค้า: Product A",
+          "เลขออเดอร์: diagnostic-500",
+          "วันที่ซื้อ: 18/8/69",
+          "ชื่อลูกค้า: คุณข้อมูลลับ",
+          "เบอร์โทร: 0812345678",
+          "ที่อยู่จัดส่ง: 99/99 ถนนข้อมูลลับ",
+          "จำนวน: 1",
+          "ยอดซื้อ: 750",
+          "ช่องทางการขาย: LINE"
+        ].join("\n")
+      }
+    }]
+  });
+  db.__failPostTable = "orders";
+  const persistenceLog = await captureConsoleError(() => invokeApp("POST", "/api/line/webhook", persistenceFailureBody, {
+    "content-type": "application/json"
+  }));
+  delete db.__failPostTable;
+  if (persistenceLog.result.status !== 500) fail(`persistence exception did not remain a 500 failure: ${persistenceLog.result.status}`);
+  const persistenceLogText = persistenceLog.messages.join("\n");
+  if (!persistenceLogText) fail(`persistence failure did not emit diagnostic log: ${persistenceLog.result.body}`);
+  if (!persistenceLogText.includes("LINE webhook persistence failed")
+    || !persistenceLogText.includes("\"stage\":\"writeDb\"")
+    || !persistenceLogText.includes("\"tenantId\":\"tenant_a\"")
+    || !persistenceLogText.includes("\"table\":\"orders\"")
+    || !persistenceLogText.includes("orders_diagnostic_test_check")) {
+    fail(`persistence failure diagnostic did not include expected safe metadata: ${persistenceLogText}`);
+  }
+  assertSafeDiagnosticLog("persistence diagnostic", persistenceLog.messages);
+
   process.env.LINE_WEBHOOK_ENABLED = "";
   process.env.LINE_CHANNEL_SECRET = "";
 
