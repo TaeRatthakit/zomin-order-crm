@@ -1567,6 +1567,58 @@ function renderSubpageNav() {
   `;
 }
 
+function ensureDesktopAuthenticatedHeader() {
+  if (isMobileViewport() || !app.currentUser || isPublicView()) return;
+  const topbar = document.querySelector(".topbar");
+  if (!topbar || topbar.querySelector(".topbar-brand")) return;
+  const pageHeading = topbar.querySelector(".page-heading");
+  topbar.innerHTML = `
+    <div class="topbar-main">
+      <div class="topbar-side topbar-side-left">
+        <button id="mobileMenuToggle" class="icon-button mobile-menu-toggle" type="button" aria-label="เปิดเมนู">☰</button>
+        <div id="headerProfile" class="header-profile" hidden></div>
+      </div>
+      <div class="topbar-brand" aria-label="Growup Pilot">
+        <img class="topbar-logo" src="/icons/login-logo-192.png?v=20260718-website-logo-transparent-v1" alt="Growup Pilot" fetchpriority="high" loading="eager" decoding="sync" width="192" height="192">
+      </div>
+      <div class="topbar-side topbar-side-right">
+        <div class="topbar-icon-row">
+          <button id="headerNotificationButton" class="icon-button notification-button" type="button" aria-label="แจ้งเตือน">
+            <svg class="topbar-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+            <span id="headerNotificationBadge" class="notification-badge" hidden>0</span>
+          </button>
+          <button id="mobileThemeButton" class="icon-button mobile-theme-toggle" type="button" aria-label="เปลี่ยนธีม" title="เปลี่ยนธีม" aria-haspopup="dialog" aria-controls="mobileThemeSheetDialog">
+            <span class="mobile-theme-icon" data-mobile-theme-icon="dark" aria-hidden="true"><svg class="topbar-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 7.5A9 9 0 1 1 12 3Z"></path></svg></span>
+            <span class="mobile-theme-icon" data-mobile-theme-icon="light" aria-hidden="true"><svg class="topbar-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2"></path><path d="M12 20v2"></path><path d="m4.93 4.93 1.41 1.41"></path><path d="m17.66 17.66 1.41 1.41"></path><path d="M2 12h2"></path><path d="M20 12h2"></path><path d="m6.34 17.66-1.41 1.41"></path><path d="m19.07 4.93-1.41 1.41"></path></svg></span>
+            <span class="mobile-theme-icon" data-mobile-theme-icon="system" aria-hidden="true"><svg class="topbar-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 3v18"></path><path d="M12 3a9 9 0 0 1 0 18"></path></svg></span>
+          </button>
+          <button id="headerLogoutButton" class="icon-button power-button" type="button" data-logout aria-label="ออกจากระบบ">
+            <svg class="topbar-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2v10"></path><path d="M18.36 5.64a9 9 0 1 1-12.72 0"></path></svg>
+          </button>
+        </div>
+        <div class="date-picker date-pill">
+          <span class="sr-only">วันที่ทำงาน</span>
+          <input id="workDate" type="hidden">
+          <button id="workDateTrigger" class="date-pill-trigger" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="dateRangePicker">
+            <svg class="date-pill-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="16" rx="3"></rect><path d="M8 2.5v4"></path><path d="M16 2.5v4"></path><path d="M3 9.5h18"></path></svg>
+            <span id="workDateDisplay" class="date-pill-display">01/07/2026</span>
+            <svg class="date-pill-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7 10 5 5 5-5"></path></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+  if (pageHeading) topbar.append(pageHeading);
+  els.headerProfile = document.querySelector("#headerProfile");
+  els.headerNotificationButton = document.querySelector("#headerNotificationButton");
+  els.headerNotificationBadge = document.querySelector("#headerNotificationBadge");
+  els.mobileThemeButton = document.querySelector("#mobileThemeButton");
+  els.workDate = document.querySelector("#workDate");
+  els.workDateTrigger = document.querySelector("#workDateTrigger");
+  els.workDateDisplay = document.querySelector("#workDateDisplay");
+  if (els.workDate) els.workDate.value = todayISO();
+}
+
 function toastStatusFor(message, status = "") {
   const explicitStatus = String(status || "").toLowerCase();
   if (["success", "loading", "update", "error"].includes(explicitStatus)) return explicitStatus;
@@ -2203,6 +2255,73 @@ function applyDateRangeDraft() {
   closeDateRangePicker();
 }
 
+function authenticatedPricingPlans() {
+  return [
+    {
+      id: "starter",
+      name: "Starter",
+      description: "เหมาะสำหรับร้านค้าและธุรกิจเริ่มต้น",
+      price: "฿490",
+      trial: "ทดลองใช้ฟรี 30 วัน",
+      includes: "",
+      illustration: "/assets/pricing/starter-storefront.png",
+      features: [
+        "ผู้ใช้งานสูงสุด 3 คน",
+        "จัดการลูกค้า",
+        "จัดการออเดอร์",
+        "ติดตามโอกาสเพิ่มยอดขาย",
+        "รายงานธุรกิจ",
+        "จัดการต้นทุนและกำไร",
+        "สิทธิ์ Owner / Admin / Staff"
+      ]
+    },
+    {
+      id: "business",
+      name: "Business",
+      description: "สำหรับธุรกิจที่กำลังเติบโต",
+      price: "฿990",
+      trial: "",
+      includes: "ทุกอย่างใน Starter พร้อม",
+      illustration: "/assets/pricing/business-growth.png",
+      features: [
+        "ผู้ใช้งานสูงสุด 10 คน",
+        "VIP / VVIP / SUPER VIP",
+        "รายงานธุรกิจเชิงลึก",
+        "วิเคราะห์ต้นทุนโฆษณาและ ROAS",
+        "Import Center",
+        "Priority Support"
+      ]
+    },
+    {
+      id: "enterprise",
+      name: "Enterprise",
+      description: "สำหรับองค์กรและธุรกิจขนาดใหญ่",
+      price: "฿1,990",
+      trial: "",
+      includes: "ทุกอย่างใน Business พร้อม",
+      illustration: "/assets/pricing/enterprise-building.png",
+      features: [
+        "ผู้ใช้งานไม่จำกัด",
+        "เครื่องมือและรายงานของ Business ทั้งหมด",
+        "Priority Support",
+        "บริการช่วยตั้งค่าระบบโดยทีมงาน",
+        "บริการช่วยนำเข้าข้อมูลเดิมโดยทีมงาน"
+      ]
+    }
+  ];
+}
+
+function authenticatedCurrentPlan() {
+  const plan = String(app.data?.billing?.subscription?.plan || "starter").toLowerCase();
+  return ["starter", "business", "enterprise"].includes(plan) ? plan : "starter";
+}
+
+function authenticatedRecommendedPlan(currentPlan = authenticatedCurrentPlan()) {
+  if (currentPlan === "starter") return "business";
+  if (currentPlan === "business") return "enterprise";
+  return "";
+}
+
 function updateShell() {
   document.body.classList.toggle("landing-view", app.view === "landing");
   document.body.classList.toggle("login-view", isAuthView());
@@ -2252,20 +2371,26 @@ function updateShell() {
     markAvatarLoaded(els.headerProfile.querySelector(".profile-avatar-image"));
   }
   if (els.sidebarFooter) {
+    /* pricing-scope: sidebar-upgrade-card:start */
+    const currentPlan = authenticatedCurrentPlan();
+    const upgradeCopy = {
+      starter: ["Business", "ปลดล็อกฟีเจอร์สำหรับธุรกิจที่กำลังเติบโต"],
+      business: ["Enterprise", "เพิ่มผู้ใช้ไม่จำกัดและความสามารถระดับองค์กร"]
+    }[currentPlan];
     els.sidebarFooter.hidden = false;
-    els.sidebarFooter.innerHTML = `
+    els.sidebarFooter.innerHTML = `${upgradeCopy ? `
       <article class="sidebar-upgrade-card">
         <div class="sidebar-upgrade-head">
           <div class="sidebar-upgrade-icon" aria-hidden="true">♛</div>
           <div class="sidebar-upgrade-copy">
-            <strong>อัปเกรดเป็น Pro</strong>
-            <span>ปลดล็อกฟีเจอร์ขั้นสูง</span>
+            <strong>อัปเกรดเป็น ${escapeHtml(upgradeCopy[0])}</strong>
+            <span>${escapeHtml(upgradeCopy[1])}</span>
           </div>
         </div>
         <button class="button primary" type="button" data-view-shortcut="pricing">อัปเกรดเลย</button>
       </article>
-      ${themeControlMarkup()}
-    `;
+    ` : ""}${themeControlMarkup()}`;
+    /* pricing-scope: sidebar-upgrade-card:end */
   }
 }
 
@@ -9948,50 +10073,83 @@ function renderSettingsSubscription() {
 }
 
 function renderPricing() {
+  const currentPlan = authenticatedCurrentPlan();
+  const recommendedPlan = authenticatedRecommendedPlan(currentPlan);
+  const planOrder = { starter: 0, business: 1, enterprise: 2 };
+  const plans = authenticatedPricingPlans();
+  const comparisonRows = [
+    ["ผู้ใช้งานสูงสุด", "3 คน", "10 คน", "ไม่จำกัด"],
+    ["จัดการลูกค้า", true, true, true],
+    ["จัดการออเดอร์", true, true, true],
+    ["ติดตามโอกาสเพิ่มยอดขาย", true, true, true],
+    ["รายงานธุรกิจ", true, true, true],
+    ["จัดการต้นทุนและกำไร", true, true, true],
+    ["สิทธิ์ Owner / Admin / Staff", true, true, true],
+    ["VIP / VVIP / SUPER VIP", false, true, true],
+    ["รายงานธุรกิจเชิงลึก", false, true, true],
+    ["วิเคราะห์ต้นทุนโฆษณา / ROAS", false, true, true],
+    ["Import Center", false, true, true],
+    ["Priority Support", false, true, true],
+    ["เครื่องมือและรายงานของ Business ทั้งหมด", false, false, true],
+    ["บริการช่วยตั้งค่าระบบโดยทีมงาน", false, false, true],
+    ["บริการช่วยนำเข้าข้อมูลเดิมโดยทีมงาน", false, false, true]
+  ];
+  const comparisonValue = value => value === true
+    ? `<span class="authenticated-pricing-check" aria-label="รวมในแพ็กเกจ">${iconSvg("check")}</span>`
+    : value === false
+      ? `<span class="authenticated-pricing-dash" aria-label="ไม่รวมในแพ็กเกจ">–</span>`
+      : `<span>${escapeHtml(value)}</span>`;
+  const comparisonHeaders = plans.map(plan => `
+    <th scope="col">
+      <span class="authenticated-pricing-table-plan-icon"><img src="${escapeHtml(plan.illustration)}" alt="" loading="lazy"></span>
+      <span>${escapeHtml(plan.name)}</span>
+    </th>
+  `).join("");
   els.content.innerHTML = `
-    <section class="section saas-page pricing-page">
-      <div class="page-identity workspace-hero pricing-hero">
-        <div class="page-identity-copy">
-          <span class="page-kicker">Package / Pricing</span>
-          <h2>Growup Pilot สำหรับร้านที่กำลังโต</h2>
-          <p>โครงหน้าแพ็กเกจแบบ SaaS สำหรับรองรับ monthly และ yearly subscription ในอนาคต โดยยังไม่แตะ business logic การชำระเงินจริง</p>
+    <section class="authenticated-pricing-page" aria-label="แพ็กเกจ Growup Pilot">
+      <div class="authenticated-pricing-cards">
+        ${plans.map(plan => {
+          const isCurrent = plan.id === currentPlan;
+          const isRecommended = plan.id === recommendedPlan;
+          const isLower = planOrder[plan.id] < planOrder[currentPlan];
+          const actionLabel = isCurrent ? "แพ็กเกจปัจจุบัน" : (isLower ? `ดู ${plan.name}` : `เลือก ${plan.name}`);
+          return `
+            <article class="authenticated-pricing-card ${isRecommended ? "is-recommended" : ""} ${isCurrent ? "is-current" : ""}" data-pricing-plan="${plan.id}" data-current-plan="${isCurrent ? "true" : "false"}">
+              ${isRecommended ? `<span class="authenticated-pricing-recommendation">แนะนำ</span>` : ""}
+              <div class="authenticated-pricing-card-head">
+                <div class="authenticated-pricing-card-copy">
+                  <h2>${escapeHtml(plan.name)}</h2>
+                  <p>${escapeHtml(plan.description)}</p>
+                  <div class="authenticated-pricing-price">${escapeHtml(plan.price)} <span>/ เดือน</span></div>
+                  ${plan.trial ? `<span class="authenticated-pricing-trial">${escapeHtml(plan.trial)}</span>` : `<p class="authenticated-pricing-includes">${escapeHtml(plan.includes)}</p>`}
+                </div>
+                <div class="authenticated-pricing-illustration authenticated-pricing-illustration-${plan.id}" aria-hidden="true">
+                  <img src="${escapeHtml(plan.illustration)}" alt="" loading="lazy">
+                </div>
+              </div>
+              ${isCurrent ? `<div class="authenticated-pricing-current-badge">${iconSvg("check")} แพ็กเกจปัจจุบัน</div>` : ""}
+              <ul class="authenticated-pricing-features">
+                ${plan.features.map(feature => `<li><span class="authenticated-pricing-feature-check">${iconSvg("check")}</span><span>${escapeHtml(feature)}</span></li>`).join("")}
+              </ul>
+              <button class="authenticated-pricing-cta ${isCurrent ? "is-current" : ""}" type="button" ${isCurrent ? "disabled aria-disabled=\"true\"" : ""}>${escapeHtml(actionLabel)}</button>
+              <p class="authenticated-pricing-note">${isCurrent ? "แผนที่บริษัทของคุณใช้งานอยู่" : (isLower ? "ดูรายละเอียดแพ็กเกจ" : "เพิ่มศักยภาพให้ธุรกิจของคุณ")}</p>
+            </article>
+          `;
+        }).join("")}
+      </div>
+      <section class="authenticated-pricing-comparison" aria-labelledby="authenticatedPricingComparisonTitle">
+        <h2 id="authenticatedPricingComparisonTitle">เปรียบเทียบฟีเจอร์หลัก</h2>
+        <div class="authenticated-pricing-table-wrap">
+          <table class="authenticated-pricing-table">
+            <thead>
+              <tr><th scope="col">เปรียบเทียบฟีเจอร์หลัก</th>${comparisonHeaders}</tr>
+            </thead>
+            <tbody>
+              ${comparisonRows.map(([label, starter, business, enterprise]) => `<tr><th scope="row">${escapeHtml(label)}</th><td>${comparisonValue(starter)}</td><td>${comparisonValue(business)}</td><td>${comparisonValue(enterprise)}</td></tr>`).join("")}
+            </tbody>
+          </table>
         </div>
-      </div>
-      <div class="pricing-grid">
-        <article class="pricing-card">
-          <span class="tag">Starter</span>
-          <h3>เริ่มต้นดูแลร้าน</h3>
-          <div class="pricing-price">฿0<span>/ทดลอง</span></div>
-          <p class="muted">เหมาะสำหรับทดลอง dashboard, orders, customers และ workflow พื้นฐาน</p>
-          <ul class="feature-list">
-            <li>จัดการออเดอร์และลูกค้า</li>
-            <li>Dashboard สรุปงานวันนี้</li>
-            <li>Import CSV / Excel</li>
-          </ul>
-        </article>
-        <article class="pricing-card featured">
-          <span class="tag">Growth</span>
-          <h3>Growup Pilot Pro</h3>
-          <div class="pricing-price">฿1,990<span>/เดือน</span></div>
-          <p class="muted">สำหรับธุรกิจที่ต้องการ AI insight, broadcast workflow และ command center เต็มรูปแบบ</p>
-          <ul class="feature-list">
-            <li>AI Morning Brief และ Opportunity Engine</li>
-            <li>Campaigns, Broadcast, Reports</li>
-            <li>Team access และการตั้งค่าร้านแบบ SaaS</li>
-          </ul>
-        </article>
-        <article class="pricing-card">
-          <span class="tag">Scale</span>
-          <h3>For multi-store teams</h3>
-          <div class="pricing-price">Custom<span>/yearly</span></div>
-          <p class="muted">พื้นที่รองรับแผน enterprise, multi-user workflow, billing และ support เฉพาะทีมขาย</p>
-          <ul class="feature-list">
-            <li>Store profile หลายสาขา</li>
-            <li>Advanced reporting และ export</li>
-            <li>Billing, backup และ onboarding เฉพาะองค์กร</li>
-          </ul>
-        </article>
-      </div>
+      </section>
     </section>
   `;
 }
@@ -11041,6 +11199,7 @@ function renderProductDetail(product) {
 function render(options = {}) {
   const mobile = isMobileViewport();
   app.layoutMode = mobile ? "mobile" : "desktop";
+  ensureDesktopAuthenticatedHeader();
   if (!app.data && !isPublicView()) {
     if (!mobile) renderNav();
     updateShell();

@@ -50,6 +50,10 @@ const PAGE_PATTERNS = {
     /บริการช่วยตั้งค่าระบบโดยทีมงาน/i, /บริการช่วยนำเข้าข้อมูลเดิมโดยทีมงาน/i,
     /เลือก Business/i, /เลือก Enterprise/i, /แนะนำ/i, /เปรียบเทียบ/i
   ],
+  pricing: [
+    /authenticatedPricing/i, /authenticated-pricing/i, /pricing-scope: sidebar-upgrade-card/i,
+    /data-view-shortcut="pricing"/i, /assets\/pricing/i
+  ],
   login: [/login/i, /auth/i, /app-startup/i],
   signup: [/signup/i, /auth/i, /app-startup/i],
   dashboard: [/dashboard/i, /home/i, /growth-banner/i, /hero/i, /onboarding/i],
@@ -194,6 +198,68 @@ function pricingRangesFor(file, revision) {
   return pricingRangeCache.get(key);
 }
 
+const authenticatedPricingRangeCache = new Map();
+
+function functionRanges(contents, names) {
+  const lines = contents.split("\n");
+  const ranges = [];
+  const startPattern = new RegExp(`^\\s*function\\s+(?:${names.join("|")})\\s*\\(`);
+  for (let index = 0; index < lines.length; index += 1) {
+    if (!startPattern.test(lines[index])) continue;
+    let depth = 0;
+    let started = false;
+    for (let cursor = index; cursor < lines.length; cursor += 1) {
+      depth += (lines[cursor].match(/\{/g) || []).length;
+      depth -= (lines[cursor].match(/\}/g) || []).length;
+      if (depth > 0) started = true;
+      if (started && depth <= 0) {
+        ranges.push([index + 1, cursor + 1]);
+        break;
+      }
+    }
+  }
+  return ranges;
+}
+
+function markerRanges(contents, startMarker, endMarker) {
+  const lines = contents.split("\n");
+  const ranges = [];
+  for (let index = 0; index < lines.length; index += 1) {
+    if (!lines[index].includes(startMarker)) continue;
+    const end = lines.findIndex((line, cursor) => cursor > index && line.includes(endMarker));
+    if (end >= 0) ranges.push([index + 1, end + 1]);
+  }
+  return ranges;
+}
+
+function authenticatedPricingRangesFor(file, revision) {
+  const key = `${revision}:${file}`;
+  if (!authenticatedPricingRangeCache.has(key)) {
+    if (file !== "public/app.js") {
+      authenticatedPricingRangeCache.set(key, []);
+    } else {
+      const contents = readRevisionFile(file, revision);
+      authenticatedPricingRangeCache.set(key, [
+        ...functionRanges(contents, [
+          "authenticatedPricingPlans",
+          "authenticatedCurrentPlan",
+          "authenticatedRecommendedPlan",
+          "renderPricing"
+        ]),
+        ...markerRanges(contents, "pricing-scope: sidebar-upgrade-card:start", "pricing-scope: sidebar-upgrade-card:end")
+      ]);
+    }
+  }
+  return authenticatedPricingRangeCache.get(key);
+}
+
+function lineIsInsideAuthenticatedPricing(file, sign, lineNumber) {
+  if (!SCOPE.includes("pricing") || file !== "public/app.js" || !lineNumber) return false;
+  const revision = sign === "+" ? "working" : "base";
+  return authenticatedPricingRangesFor(file, revision)
+    .some(([start, end]) => lineNumber >= start && lineNumber <= end);
+}
+
 function lineIsInsideApprovedPricing(file, sign, lineNumber) {
   if (!SCOPE.includes("landing")) return false;
   if (!/^public\/(app\.js|landing\.html)$/.test(file)) return false;
@@ -244,7 +310,8 @@ function classifyOutOfScope(diff) {
     if (sign === "-") oldLine += 1;
     if (!line.slice(1).trim()) continue;
     const lineIsInScope = SCOPE.some(scope => lineMatchesScope(line, scope))
-      || (SCOPE.includes("global") && lineMatchesScope(line, "global"));
+      || (SCOPE.includes("global") && lineMatchesScope(line, "global"))
+      || lineIsInsideAuthenticatedPricing(file, sign, lineNumber);
     if (line.includes("{")) {
       if (!activeBlockIsInScope) activeBlockIsInScope = lineIsInScope;
       if (activeBlockIsInScope) activeBlockDepth += (line.match(/\{/g) || []).length;
