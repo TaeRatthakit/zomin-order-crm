@@ -23532,6 +23532,87 @@ html[data-theme="light"] body:not(.login-view) .mobile-setup-primary {
   color: #ffffff !important;
 }
 
+/* Settings integrations: Light Theme visual treatment only. */
+html[data-theme="light"] body:not(.login-view) .settings-shared-page .integrations-page .integration-card,
+html[data-theme="light"] body:not(.login-view) .settings-shared-page .integrations-page .integration-help-card {
+  border-color: rgba(124, 58, 237, 0.18) !important;
+  background: #ffffff !important;
+  box-shadow: 0 12px 28px rgba(48, 38, 84, 0.08) !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .settings-shared-page .integrations-page .integration-group h2,
+html[data-theme="light"] body:not(.login-view) .settings-shared-page .integrations-page .integration-copy h3,
+html[data-theme="light"] body:not(.login-view) .settings-shared-page .integrations-page .integration-help-card strong {
+  color: #241633 !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .settings-shared-page .integrations-page .integration-copy p,
+html[data-theme="light"] body:not(.login-view) .settings-shared-page .integrations-page .integration-help-card p {
+  color: #6d6384 !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .settings-shared-page .integrations-page .integration-logo {
+  border: 1px solid rgba(124, 58, 237, 0.16) !important;
+  background: #f1ebff !important;
+  color: #6d28d9 !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .settings-shared-page .integrations-page .integration-logo.line {
+  border-color: rgba(5, 166, 72, 0.22) !important;
+  background: #e9f9ef !important;
+  color: #087f3e !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .settings-shared-page .integrations-page .integration-logo.openai {
+  border-color: rgba(71, 85, 105, 0.18) !important;
+  background: #f1f3f7 !important;
+  color: #243047 !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .settings-shared-page .integrations-page .integration-card-open {
+  color: #6d28d9 !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .settings-shared-page .integrations-page .integration-status {
+  border: 1px solid rgba(124, 58, 237, 0.12) !important;
+  color: #625579 !important;
+  background: #f6f2ff !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .settings-shared-page .integrations-page .integration-status.connected {
+  border-color: rgba(22, 163, 74, 0.18) !important;
+  color: #166534 !important;
+  background: #ecfdf3 !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .settings-shared-page .integrations-page .integration-status.error {
+  border-color: rgba(220, 38, 38, 0.18) !important;
+  color: #b91c1c !important;
+  background: #fff1f2 !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .settings-shared-page .integrations-page .compact-action:not(.danger) {
+  border-color: rgba(109, 40, 217, 0.24) !important;
+  background: #ffffff !important;
+  color: #6d28d9 !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .settings-shared-page .integrations-page .compact-action:not(.danger):hover,
+html[data-theme="light"] body:not(.login-view) .settings-shared-page .integrations-page .compact-action:not(.danger):focus-visible {
+  border-color: rgba(109, 40, 217, 0.38) !important;
+  background: #f7f2ff !important;
+  color: #5b21b6 !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .settings-shared-page .integrations-page .integration-help-card > span {
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(124, 58, 237, 0.16);
+  border-radius: 8px;
+  background: #f1ebff;
+  color: #6d28d9;
+}
+
 html[data-theme="light"] body:not(.login-view) .button.danger,
 html[data-theme="light"] body:not(.login-view) button.button.danger,
 html[data-theme="light"] body:not(.login-view) .product-row-menu button.danger {
