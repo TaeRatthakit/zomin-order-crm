@@ -8,7 +8,7 @@ const { execFileSync } = require("child_process");
 const ROOT = path.resolve(__dirname, "..");
 const UI_PATH = /^public\//;
 const BACKEND_PATH = /^(server\.js|lib\/db\/|lib\/auth\.js|lib\/env\.js|lib\/stripe-promptpay\.js|lib\/customer-sync\.js)/;
-const TOOLING_PATH = /^(scripts\/|package\.json|package-lock\.json)$/;
+const TOOLING_PATH = /^(scripts\/|package\.json$|package-lock\.json$)/;
 const BACKEND_CONTRACT = {
   "server.js": [
     "diagnoseLineWebhookTenantRejection",
