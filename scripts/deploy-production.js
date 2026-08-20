@@ -9,7 +9,7 @@ const DOMAINS = ["www.growuppilot.com", "growuppilot.com", "zomin-order-crm.verc
 function run(command, args, options = {}) {
   const result = spawnSync(command, args, {
     cwd: ROOT,
-    env: process.env,
+    env: options.env || process.env,
     encoding: "utf8",
     stdio: options.inherit ? "inherit" : ["ignore", "pipe", "pipe"]
   });
@@ -27,7 +27,13 @@ function deploymentIdFromOutput(output) {
 }
 
 function main() {
-  run(process.execPath, [path.join(ROOT, "scripts", "production-preflight.js")], { inherit: true });
+  run(process.execPath, [path.join(ROOT, "scripts", "production-preflight.js")], {
+    inherit: true,
+    env: {
+      ...process.env,
+      DEPLOYMENT_MANIFEST_PATH: process.env.DEPLOYMENT_MANIFEST_PATH || "/private/tmp/production-preflight-wrapper.json"
+    }
+  });
   const output = run("npx", ["--no-install", "vercel", "--prod", "--yes"]);
   process.stdout.write(output);
   const deploymentId = deploymentIdFromOutput(output);
