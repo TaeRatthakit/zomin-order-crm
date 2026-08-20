@@ -34,6 +34,9 @@ function main() {
       DEPLOYMENT_MANIFEST_PATH: process.env.DEPLOYMENT_MANIFEST_PATH || "/private/tmp/production-preflight-wrapper.json"
     }
   });
+  run(process.execPath, [path.join(ROOT, "scripts", "production-schema-contract.js")], {
+    inherit: true
+  });
   const output = run("npx", ["--no-install", "vercel", "--prod", "--yes"]);
   process.stdout.write(output);
   const deploymentId = deploymentIdFromOutput(output);
