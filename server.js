@@ -46,6 +46,7 @@ const {
   withTenantContext,
   resolveTenantForUser,
   resolveTenantForLineWebhook,
+  diagnoseLineWebhookTenantRejection,
   uploadProductImageObject,
   productImagePublicBaseUrl,
   verifyPublicProductImageUrl
@@ -3232,6 +3233,37 @@ function lineEventLogPayload(event = {}, text = "") {
   };
 }
 
+function safeDiagnosticErrorMessage(value = "") {
+  return String(value || "")
+    .replace(/0\d{8,9}/g, "[redacted-phone]")
+    .replace(/[A-Za-z0-9_-]{80,}/g, "[redacted-long-token]")
+    .slice(0, 300);
+}
+
+function safeDatabaseErrorDetails(error = {}) {
+  const message = safeDiagnosticErrorMessage(error.message || String(error));
+  const statusMatch = message.match(/\brequest failed:\s*(\d{3})\b/i);
+  const tableMatch = message.match(/Supabase\s+([a-z_]+)\s+request failed/i);
+  const constraintMatch = message.match(/constraint\s+"([^"]+)"/i);
+  return {
+    code: String(error.code || ""),
+    status: statusMatch?.[1] || String(error.status || ""),
+    table: tableMatch?.[1] || String(error.table || ""),
+    constraint: constraintMatch?.[1] || String(error.constraint || ""),
+    message
+  };
+}
+
+function safePersistedOrderDiagnostics(orders = []) {
+  return (orders || []).map(order => ({
+    id: order.id || "",
+    lineMessageId: order.lineMessageId || "",
+    amount: order.amount,
+    date: order.date || "",
+    mode: order.mode || ""
+  }));
+}
+
 function lineDebugFromMessage(message = {}) {
   const event = message.rawEvent || {};
   const source = event.source || {};
@@ -3436,7 +3468,7 @@ async function parseOrderWithAI(textValue, settings = {}) {
   }
 }
 
-async function handleLineWebhookEvents(db, settings, events) {
+async function handleLineWebhookEvents(db, settings, events, options = {}) {
   const parsedOrders = [];
   const replies = [];
   const persistedOrders = [];
@@ -3621,7 +3653,18 @@ async function handleLineWebhookEvents(db, settings, events) {
       message.rawEvent.__debug.supabase_insert_status = "inserted";
     }
   }
-  await writeDb(db);
+  try {
+    await writeDb(db);
+  } catch (error) {
+    console.error("LINE webhook persistence failed", JSON.stringify({
+      stage: "writeDb",
+      tenantId: options.tenant?.tenantId || "",
+      parsedOrders: parsedOrders.length,
+      persistedOrders: safePersistedOrderDiagnostics(persistedOrders),
+      error: safeDatabaseErrorDetails(error)
+    }));
+    throw error;
+  }
   console.log("LINE webhook database write completed", JSON.stringify({
     parsedOrders: parsedOrders.length,
     persistedOrders
@@ -3650,7 +3693,7 @@ function verifyLineSignature(rawBody, channelSecret, signature) {
   }
 }
 
-async function handleLineWebhookPost(req, res, db) {
+async function handleLineWebhookPost(req, res, db, options = {}) {
   const body = req._parsedBody || await readBody(req);
   const signature = req.headers["x-line-signature"];
   const settings = effectiveSettings(db.settings);
@@ -3696,7 +3739,7 @@ async function handleLineWebhookPost(req, res, db) {
     persistWebhookDebugAsync(db);
     return json(res, 200, { ok: true, received: 0, verification: true });
   }
-  const parsedOrders = await handleLineWebhookEvents(db, settings, events);
+  const parsedOrders = await handleLineWebhookEvents(db, settings, events, options);
   return json(res, 200, { ok: true, received: events.length, parsedOrders: parsedOrders.length });
 }
 
@@ -4754,15 +4797,33 @@ async function handleApi(req, res) {
     }
     const tenant = await resolveTenantForLineWebhook(body);
     if (!tenant) {
+      const sourceDiagnostic = Array.isArray(body.events)
+        ? {
+          eventCount: body.events.length,
+          sourceTypes: [...new Set(body.events.map(event => event?.source?.type || "").filter(Boolean))],
+          groupIds: [...new Set(body.events.map(event => String(event?.source?.groupId || "").trim()).filter(Boolean))],
+          missingGroupId: body.events.some(event => event?.source?.type === "group" && !event?.source?.groupId)
+        }
+        : { eventCount: 0, sourceTypes: [], groupIds: [], missingGroupId: true };
+      const resolverDiagnostic = typeof diagnoseLineWebhookTenantRejection === "function"
+        ? await diagnoseLineWebhookTenantRejection(body).catch(error => ({
+          category: "diagnostic_failed",
+          errorCode: error.code || "",
+          errorMessage: safeDiagnosticErrorMessage(error.message || String(error))
+        }))
+        : { category: "diagnostic_unavailable" };
       console.error("LINE webhook rejected without trusted tenant mapping", JSON.stringify({
-        eventCount: Array.isArray(body.events) ? body.events.length : 0,
-        sourceTypes: Array.isArray(body.events) ? [...new Set(body.events.map(event => event?.source?.type || "").filter(Boolean))] : []
+        ...sourceDiagnostic,
+        resolverCategory: resolverDiagnostic.category || "",
+        candidateTenantCount: resolverDiagnostic.candidateTenantCount ?? "",
+        malformedTenantCount: resolverDiagnostic.malformedTenantCount ?? "",
+        matchedTenantIds: resolverDiagnostic.matchedTenantIds || []
       }));
       return json(res, 403, { ok: false, error: "LINE webhook tenant mapping is not configured." });
     }
     return withTenantContext(tenant, async () => {
       const db = await readDb();
-      return handleLineWebhookPost(req, res, db);
+      return handleLineWebhookPost(req, res, db, { tenant });
     });
   }
 

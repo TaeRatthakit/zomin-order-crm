@@ -8,6 +8,15 @@ process.env.DATABASE_PROVIDER = "json";
 process.env.LINE_WEBHOOK_ENABLED = "true";
 process.env.JSON_DB_PATH = path.join(os.tmpdir(), `zomin-line-webhook-${process.pid}.json`);
 
+const lineReplies = [];
+global.fetch = async (url, options = {}) => {
+  if (String(url).includes("api.line.me/v2/bot/message/reply")) {
+    lineReplies.push(JSON.parse(options.body || "{}"));
+    return { ok: true, status: 204, json: async () => null, text: async () => "" };
+  }
+  throw new Error(`Unexpected fetch in LINE webhook test: ${url}`);
+};
+
 function baseDb(overrides = {}) {
   return {
     settings: {
@@ -15,7 +24,7 @@ function baseDb(overrides = {}) {
       defaultJarPrice: 280,
       lineWebhookEnabled: true,
       lineChannelSecret: "",
-      lineChannelAccessToken: "",
+      lineChannelAccessToken: "test-token",
       lineGroupId: "",
       products: [
         {
@@ -56,6 +65,13 @@ function readFixture() {
 
 function fail(message) {
   throw new Error(`LINE webhook duplicate regression failed: ${message}`);
+}
+
+const SUCCESS_REPLY = "✅ นำเข้าออเดอร์เรียบร้อยแล้ว\nGrowup Pilot บันทึกข้อมูลเรียบร้อย";
+const SAME_DAY_WARNING = "⚠️ พบออเดอร์ที่คล้ายกันภายในวันนี้\nกรุณาตรวจสอบว่าเป็นออเดอร์ใหม่ของลูกค้า หรือเป็นข้อความที่ส่งซ้ำ";
+
+function lastReplyText(result) {
+  return result.replies?.at(-1)?.messages?.[0]?.text || "";
 }
 
 function makeRequest(route, options = {}) {
@@ -171,6 +187,7 @@ function lineOrderText({
 }
 
 async function postLineMessage(messageId, text) {
+  lineReplies.length = 0;
   const body = JSON.stringify({
     events: [
       {
@@ -183,7 +200,7 @@ async function postLineMessage(messageId, text) {
   });
   const response = await request("/api/line/webhook", { method: "POST", body });
   if (response.status !== 200) fail(`webhook returned ${response.status}: ${response.text}`);
-  return JSON.parse(response.text);
+  return { ...JSON.parse(response.text), replies: [...lineReplies] };
 }
 
 async function testJulySevenToSixteenCreatesNewOrder() {
@@ -193,12 +210,53 @@ async function testJulySevenToSixteenCreatesNewOrder() {
   });
   const result = await postLineMessage("line-new-8-16", lineOrderText({ orderNumber: "8/16", date: "16/7/69" }));
   if (result.parsedOrders !== 1) fail("07/07/69 -> 16/07/69 did not parse one new order");
+  if (lastReplyText(result) !== SUCCESS_REPLY) fail("success reply changed for a normal new order");
   const db = readFixture();
   const orders = db.orders || [];
   if (orders.length !== 2) fail(`expected 2 orders after >24h import, got ${orders.length}`);
   const created = orders.find(order => order.orderNumber === "8/16");
   if (!created) fail("new order 8/16 was not created");
   if (created.date !== "2026-07-16") fail(`Buddhist year 16/7/69 parsed as ${created.date}`);
+}
+
+async function testSimilarOrderSameDayCreatesNewOrderWithWarning() {
+  writeFixture({
+    customers: [customer()],
+    orders: [existingOrder({
+      id: "o_same_day",
+      orderNumber: "11/16",
+      date: "2026-07-16",
+      time: "09:00:00",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    })]
+  });
+  const result = await postLineMessage("line-similar-same-day", lineOrderText({ orderNumber: "12/16", date: "16/7/69" }));
+  if (result.parsedOrders !== 1) fail("similar same-day order did not parse");
+  const db = readFixture();
+  if ((db.orders || []).length !== 2) fail("similar same-day order was not saved as a new order");
+  const replyText = lastReplyText(result);
+  if (!replyText.startsWith(SUCCESS_REPLY)) fail("similar same-day reply did not keep original success text first");
+  if (!replyText.includes(SAME_DAY_WARNING)) fail("similar same-day reply did not append warning");
+}
+
+async function testSimilarOrderDifferentCreatedDayCreatesNewOrderWithoutWarning() {
+  writeFixture({
+    customers: [customer()],
+    orders: [existingOrder({
+      id: "o_previous_created_day",
+      orderNumber: "13/16",
+      date: "2026-07-16",
+      time: "09:00:00",
+      createdAt: "2026-07-15T03:00:00.000Z",
+      updatedAt: "2026-07-15T03:00:00.000Z"
+    })]
+  });
+  const result = await postLineMessage("line-similar-different-created-day", lineOrderText({ orderNumber: "14/16", date: "16/7/69" }));
+  if (result.parsedOrders !== 1) fail("similar different-created-day order did not parse");
+  const db = readFixture();
+  if ((db.orders || []).length !== 2) fail("similar different-created-day order was not saved as a new order");
+  if (lastReplyText(result) !== SUCCESS_REPLY) fail("different-created-day similar order should not append warning");
 }
 
 async function testGenuineUpsaleWithin24HoursUpdatesExistingCycle() {
@@ -270,6 +328,8 @@ async function testBuddhistYearThailandTimezoneBoundary() {
 
 async function main() {
   await testJulySevenToSixteenCreatesNewOrder();
+  await testSimilarOrderSameDayCreatesNewOrderWithWarning();
+  await testSimilarOrderDifferentCreatedDayCreatesNewOrderWithoutWarning();
   await testGenuineUpsaleWithin24HoursUpdatesExistingCycle();
   await testSameLineMessageDeliveredTwiceWritesOnce();
   await testSameCustomerProductAfter24HoursCreatesNewOrder();
