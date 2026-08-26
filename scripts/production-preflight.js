@@ -23,7 +23,9 @@ const PRICING_PAYMENT_PATHS = new Set([
   "scripts/subscription-upgrade-test.js",
   "scripts/ui-regression-guard.js",
   "server.js",
-  "supabase/migrations/20260822010000_subscription_upgrade.sql"
+  "supabase/migrations/20260818000000_platform_admin_audit_read.sql",
+  "supabase/migrations/20260822010000_subscription_upgrade.sql",
+  "supabase/migrations/20260826010000_legacy_subscription_compatibility.sql"
 ]);
 const BACKEND_CONTRACT = {
   "server.js": [
