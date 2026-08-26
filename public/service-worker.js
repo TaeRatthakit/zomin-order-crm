@@ -1,4 +1,4 @@
-const CACHE_NAME = "growup-pilot-pwa-v127-ui-restore-v1";
+const CACHE_NAME = "growup-pilot-pwa-v128-pricing-handler-v1";
 const CORE_ASSETS = [
   "/",
   "/index.html",
@@ -7,8 +7,8 @@ const CORE_ASSETS = [
   "/favicon-16x16.png?v=20260717-mobile-icon-v1",
   "/favicon-32x32.png?v=20260717-mobile-icon-v1",
   "/favicon-48x48.png?v=20260717-mobile-icon-v1",
-  "/styles.css?v=20260817-ui-restore-v1",
-  "/app.js?v=20260817-ui-restore-v1",
+  "/styles.css?v=20260826-pricing-handler-v1",
+  "/app.js?v=20260826-pricing-handler-v1",
   "/onboarding-rocket-0.png?v=20260723-final-spec-v1",
   "/onboarding-rocket-33.png?v=20260723-final-spec-v1",
   "/onboarding-rocket-66.png?v=20260723-final-spec-v1",
