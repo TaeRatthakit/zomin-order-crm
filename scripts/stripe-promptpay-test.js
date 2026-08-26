@@ -16,7 +16,7 @@ const path = require("path");
 const crypto = require("crypto");
 const { Readable } = require("stream");
 const { hashPassword } = require("../lib/auth");
-const { stripePromptPayConfig } = require("../lib/stripe-promptpay");
+const { stripePromptPayConfig, findPaymentIntentByPaymentId } = require("../lib/stripe-promptpay");
 
 const ROOT = path.join(__dirname, "..");
 const migration = fs.readFileSync(path.join(ROOT, "supabase", "migrations", "20260814030000_stripe_promptpay_payment.sql"), "utf8");
@@ -365,7 +365,13 @@ function stripeIntentResponse(options = {}) {
         image_url_svg: `https://q.stripe.test/${idempotencyKey}.svg`
       }
     },
-    metadata: Object.fromEntries([...params.entries()].filter(([key]) => key.startsWith("metadata[")))
+    metadata: {
+      growup_payment_id: params.get("metadata[growup_payment_id]") || "",
+      growup_tenant_id: params.get("metadata[growup_tenant_id]") || "",
+      growup_subscription_id: params.get("metadata[growup_subscription_id]") || "",
+      growup_plan: params.get("metadata[growup_plan]") || "",
+      growup_billing_interval: params.get("metadata[growup_billing_interval]") || ""
+    }
   };
   stripeIntentsByIdempotency.set(idempotencyKey, intent);
   return new Response(JSON.stringify(intent), { status: 200 });
@@ -375,6 +381,12 @@ global.fetch = async function mockFetch(input, options = {}) {
   const url = new URL(String(input));
   if (url.host === "api.stripe.com") {
     if (url.pathname === "/v1/payment_intents" && String(options.method || "POST").toUpperCase() === "POST") return stripeIntentResponse(options);
+    if (url.pathname === "/v1/payment_intents/search") {
+      const query = String(url.searchParams.get("query") || "");
+      const paymentId = query.match(/metadata\['growup_payment_id'\]:'([^']+)'/)?.[1] || "";
+      const data = [...stripeIntentsByIdempotency.values()].filter(intent => intent.metadata?.growup_payment_id === paymentId);
+      return new Response(JSON.stringify({ object: "search_result", data }), { status: 200 });
+    }
     const match = url.pathname.match(/^\/v1\/payment_intents\/([^/]+)$/);
     if (match) {
       const intent = [...stripeIntentsByIdempotency.values()].find(item => item.id === match[1]);
@@ -510,6 +522,8 @@ async function postStripeWebhook(event) {
   if (stripeRequests.length !== 1 || stripeRequests[0].idempotencyKey !== `growup:${checkoutA.json().payment.id}`) fail("Stripe idempotency key was not based on the local payment id");
   if (stripeRequests[0].params.get("payment_method_types[]") !== "promptpay" || stripeRequests[0].params.get("payment_method_data[type]") !== "promptpay") fail("Stripe request did not request PromptPay");
   if (stripeRequests[0].params.get("payment_method_data[billing_details][email]") !== "business@example.com") fail("Stripe PromptPay request did not include required billing email");
+  const recoveredIntent = await findPaymentIntentByPaymentId(checkoutA.json().payment.id);
+  if (recoveredIntent?.paymentIntentId !== checkoutA.json().promptpay.paymentIntentId || recoveredIntent.localStatus !== "pending") fail("Stripe PaymentIntent metadata recovery did not find the existing pending intent");
 
   const invalidWebhook = await request("/api/stripe/webhook", { method: "POST", headers: { "stripe-signature": "t=1,v1=bad" }, body: "{}" });
   if (invalidWebhook.status !== 400) fail(`invalid webhook signature was accepted: ${invalidWebhook.status} ${invalidWebhook.text}`);

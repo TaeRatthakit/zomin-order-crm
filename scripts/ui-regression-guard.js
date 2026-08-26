@@ -52,7 +52,8 @@ const PAGE_PATTERNS = {
   ],
   pricing: [
     /authenticatedPricing/i, /authenticated-pricing/i, /pricing-scope: sidebar-upgrade-card/i,
-    /data-view-shortcut="pricing"/i, /assets\/pricing/i
+    /data-view-shortcut="pricing"/i, /assets\/pricing/i, /subscription-checkout/i, /subscription-summary/i,
+    /subscription-/i, /Pricing checkout/i, /subscription checkout/i, /renderSettingsSubscription/i, /ชำระเงินแพ็กเกจ/i
   ],
   login: [/login/i, /auth/i, /app-startup/i],
   signup: [/signup/i, /auth/i, /app-startup/i],
@@ -199,6 +200,7 @@ function pricingRangesFor(file, revision) {
 }
 
 const authenticatedPricingRangeCache = new Map();
+const settingsSubscriptionRangeCache = new Map();
 
 function functionRanges(contents, names) {
   const lines = contents.split("\n");
@@ -246,6 +248,8 @@ function authenticatedPricingRangesFor(file, revision) {
           "authenticatedRecommendedPlan",
           "renderPricing"
         ]),
+        ...markerRanges(contents, "pricing-scope: authenticated-upgrade-state:start", "pricing-scope: authenticated-upgrade-state:end"),
+        ...markerRanges(contents, "pricing-scope: authenticated-upgrade-handler:start", "pricing-scope: authenticated-upgrade-handler:end"),
         ...markerRanges(contents, "pricing-scope: sidebar-upgrade-card:start", "pricing-scope: sidebar-upgrade-card:end")
       ]);
     }
@@ -266,6 +270,22 @@ function lineIsInsideApprovedPricing(file, sign, lineNumber) {
   if (!lineNumber) return false;
   const revision = sign === "+" ? "working" : "base";
   return pricingRangesFor(file, revision).some(([start, end]) => lineNumber >= start && lineNumber <= end);
+}
+
+function settingsSubscriptionRangesFor(file, revision) {
+  const key = `${revision}:${file}`;
+  if (!settingsSubscriptionRangeCache.has(key)) {
+    if (file !== "public/app.js") settingsSubscriptionRangeCache.set(key, []);
+    else settingsSubscriptionRangeCache.set(key, functionRanges(readRevisionFile(file, revision), ["renderSettingsSubscription"]));
+  }
+  return settingsSubscriptionRangeCache.get(key);
+}
+
+function lineIsInsideSettingsSubscription(file, sign, lineNumber) {
+  if (!SCOPE.includes("settings") && !SCOPE.includes("pricing")) return false;
+  if (file !== "public/app.js" || !lineNumber) return false;
+  const revision = sign === "+" ? "working" : "base";
+  return settingsSubscriptionRangesFor(file, revision).some(([start, end]) => lineNumber >= start && lineNumber <= end);
 }
 
 function lineIsPricingOnlyHtmlStructure(line, file, sign, lineNumber) {
@@ -311,7 +331,8 @@ function classifyOutOfScope(diff) {
     if (!line.slice(1).trim()) continue;
     const lineIsInScope = SCOPE.some(scope => lineMatchesScope(line, scope))
       || (SCOPE.includes("global") && lineMatchesScope(line, "global"))
-      || lineIsInsideAuthenticatedPricing(file, sign, lineNumber);
+      || lineIsInsideAuthenticatedPricing(file, sign, lineNumber)
+      || lineIsInsideSettingsSubscription(file, sign, lineNumber);
     if (line.includes("{")) {
       if (!activeBlockIsInScope) activeBlockIsInScope = lineIsInScope;
       if (activeBlockIsInScope) activeBlockDepth += (line.match(/\{/g) || []).length;

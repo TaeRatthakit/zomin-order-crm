@@ -9,6 +9,22 @@ const ROOT = path.resolve(__dirname, "..");
 const UI_PATH = /^public\//;
 const BACKEND_PATH = /^(server\.js|lib\/db\/|lib\/auth\.js|lib\/env\.js|lib\/stripe-promptpay\.js|lib\/customer-sync\.js)/;
 const TOOLING_PATH = /^(scripts\/|package\.json$|package-lock\.json$)/;
+const PRICING_PAYMENT_PATHS = new Set([
+  "lib/db/json-adapter.js",
+  "lib/db/supabase-adapter.js",
+  "lib/stripe-promptpay.js",
+  "package.json",
+  "public/app.js",
+  "public/styles.css",
+  "scripts/production-preflight-test.js",
+  "scripts/production-preflight.js",
+  "scripts/rpc-security-grants-test.js",
+  "scripts/stripe-promptpay-test.js",
+  "scripts/subscription-upgrade-test.js",
+  "scripts/ui-regression-guard.js",
+  "server.js",
+  "supabase/migrations/20260822010000_subscription_upgrade.sql"
+]);
 const BACKEND_CONTRACT = {
   "server.js": [
     "diagnoseLineWebhookTenantRejection",
@@ -138,6 +154,13 @@ function check(options = {}) {
     if (unexpectedFiles.length) errors.push(`Backend recovery changed unrelated files: ${unexpectedFiles.join(", ")}`);
     if (!approvedBackendChange) errors.push("Backend change is not explicitly approved.");
     if (!requiredTestsPassed) errors.push("Required backend regression tests are not recorded as passed.");
+  } else if (scope === "pricing-payment") {
+    const unexpectedPricingPaymentFiles = files.filter(file => !PRICING_PAYMENT_PATHS.has(file));
+    if (unexpectedPricingPaymentFiles.length) {
+      errors.push(`Pricing/payment release changed unrelated files: ${unexpectedPricingPaymentFiles.join(", ")}`);
+    }
+    if (!approvedBackendChange) errors.push("Pricing/payment backend change is not explicitly approved.");
+    if (!requiredTestsPassed) errors.push("Required pricing/payment regression tests are not recorded as passed.");
   } else {
     errors.push(`Unknown release scope: ${scope || "(empty)"}`);
   }
@@ -186,6 +209,7 @@ if (require.main === module) main();
 
 module.exports = {
   BACKEND_CONTRACT,
+  PRICING_PAYMENT_PATHS,
   check,
   changedFiles,
   missingBackendContract,

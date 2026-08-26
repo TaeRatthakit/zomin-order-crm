@@ -106,4 +106,24 @@ checkResult = result(cwd, candidate, "line-backend-recovery", {
 });
 if (!checkResult.ok || !checkResult.manifest.uiSnapshotUnchanged) fail("backend recovery changed the approved UI snapshot");
 
+cwd = createRepo();
+write(cwd, "server.js", "async function handleLineWebhookEvents(db, settings, events, options = {}) {}\\nfunction diagnoseLineWebhookTenantRejection() {}\\nconst persistenceLog = 'LINE webhook persistence failed';\\n// pricing payment backend\\n");
+write(cwd, "public/styles.css", "body { color: white; }\\n/* pricing payment ui */\\n");
+write(cwd, "supabase/migrations/20260822010000_subscription_upgrade.sql", "create table if not exists public.subscription_upgrade_attempts ();\\n");
+candidate = commitCandidate(cwd, "approved pricing payment release");
+checkResult = result(cwd, candidate, "pricing-payment", {
+  BACKEND_CHANGE_APPROVED: "true",
+  REQUIRED_BACKEND_TESTS_PASSED: "true"
+});
+if (!checkResult.ok) fail("approved pricing/payment release should be eligible");
+
+cwd = createRepo();
+write(cwd, "public/customers.html", "unrelated customer ui\\n");
+candidate = commitCandidate(cwd, "pricing payment release with unrelated file");
+checkResult = result(cwd, candidate, "pricing-payment", {
+  BACKEND_CHANGE_APPROVED: "true",
+  REQUIRED_BACKEND_TESTS_PASSED: "true"
+});
+if (checkResult.ok) fail("pricing/payment release should reject unrelated files");
+
 console.log("Production preflight guard tests passed.");

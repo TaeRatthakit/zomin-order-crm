@@ -32,11 +32,16 @@ const {
   persistNotificationReadIds,
   validatePromotionCode,
   beginSubscriptionPayment,
+  beginSubscriptionUpgrade,
   setPaymentProviderReference,
   recordProviderPaymentSuccess,
   recordProviderPaymentStatus,
+  recordSubscriptionUpgradeSuccess,
+  recordSubscriptionUpgradeStatus,
   activateZeroAmountSubscriptionPayment,
   readPaymentByProviderReference,
+  readPendingSubscriptionUpgrades,
+  closeTerminalSubscriptionUpgradeAttempt,
   platformAdminOverview,
   platformAdminTenants,
   platformAdminTenantDetail,
@@ -71,6 +76,7 @@ const {
   stripePromptPayConfig,
   createPromptPayPaymentIntent,
   retrievePaymentIntent,
+  findPaymentIntentByPaymentId,
   verifyStripeWebhookPayload,
   stripePaymentStatus
 } = require("./lib/stripe-promptpay");
@@ -676,15 +682,33 @@ function subscriptionAccess(subscription = null, now = new Date()) {
 }
 
 function publicPayment(payment = {}) {
+  const providerMetadata = payment.providerMetadata || payment.provider_metadata || {};
+  const operation = payment.operation || payment.checkout_metadata?.operation || "";
+  const lastProviderStatus = String(providerMetadata.last_provider_status || "").toLowerCase();
+  const observedProviderStatus = String(providerMetadata.stripe_status || "").toLowerCase();
+  const localStatus = String(payment.status || "").toLowerCase();
+  // A generic/local paid flag is not payment proof for subscription upgrades.
+  // The upgrade success RPC records last_provider_status=succeeded only after
+  // the verified webhook atomically activates the target subscription.
+  const providerStatus = lastProviderStatus
+    || (localStatus === "paid" ? (observedProviderStatus && observedProviderStatus !== "succeeded" ? observedProviderStatus : "pending") : observedProviderStatus)
+    || localStatus;
+  const verifiedSuccess = operation === "subscription_upgrade"
+    ? localStatus === "paid" && lastProviderStatus === "succeeded" && Boolean(payment.paidAt || payment.paid_at)
+    : localStatus === "paid" && (lastProviderStatus === "succeeded" || observedProviderStatus === "succeeded");
   return {
     id: payment.id || "",
     subscriptionId: payment.subscriptionId || payment.subscription_id || "",
     provider: payment.provider || "",
-    providerPaymentReference: payment.providerPaymentReference || payment.provider_payment_reference || "",
     status: payment.status || "",
+    providerStatus,
+    verifiedSuccess,
     currency: payment.currency || "THB",
     amountMinor: Number(payment.amountMinor ?? payment.amount_minor ?? 0),
     plan: payment.plan || "",
+    currentPlan: payment.currentPlan || payment.current_plan || "",
+    targetPlan: payment.targetPlan || payment.target_plan || payment.plan || "",
+    operation,
     billingInterval: payment.billingInterval || payment.billing_interval || "",
     billingPeriodStartedAt: payment.billingPeriodStartedAt || payment.billing_period_started_at || "",
     billingPeriodEndsAt: payment.billingPeriodEndsAt || payment.billing_period_ends_at || "",
@@ -693,6 +717,294 @@ function publicPayment(payment = {}) {
     expiredAt: payment.expiredAt || payment.expired_at || "",
     createdAt: payment.createdAt || payment.created_at || ""
   };
+}
+
+const RESUMABLE_UPGRADE_PAYMENT_STATUSES = new Set([
+  "pending",
+  "processing",
+  "requires_action",
+  "requires_payment_method",
+  "requires_confirmation",
+  "requires_capture",
+  "open",
+  "awaiting_payment"
+]);
+
+function pendingUpgradePaymentFor(db = {}, currentUser = {}, pendingUpgrades = []) {
+  const tenantId = String(currentUser.tenantId || "");
+  const payments = (db.payments || [])
+    .filter(payment => String(payment.tenantId || payment.tenant_id || tenantId) === tenantId);
+  const paymentById = new Map(payments.map(payment => [String(payment.id || ""), payment]));
+  const attempts = (pendingUpgrades || [])
+    .filter(attempt => String(attempt.tenantId || "") === tenantId)
+    .filter(attempt => ["pending", "processing"].includes(String(attempt.status || "").toLowerCase()));
+  const candidates = attempts.map(attempt => ({
+    attempt,
+    payment: paymentById.get(String(attempt.paymentId || "")) || null
+  }));
+  const upgradePayments = payments.filter(payment => {
+    if (!RESUMABLE_UPGRADE_PAYMENT_STATUSES.has(String(payment.status || "").toLowerCase())) return false;
+    const metadata = payment.checkoutMetadata || payment.checkout_metadata || {};
+    const operation = String(payment.operation || metadata.operation || "").toLowerCase();
+    return operation === "subscription_upgrade"
+      || Boolean(payment.targetPlan || payment.target_plan || metadata.target_plan);
+  });
+  candidates.push(...upgradePayments.map(payment => ({
+    attempt: attempts.find(item => String(item.paymentId || "") === String(payment.id || "")) || null,
+    payment
+  })));
+  return candidates.find(candidate => candidate.payment || candidate.attempt) || null;
+}
+
+const MAX_SUBSCRIPTION_QR_PROXY_BYTES = 1024 * 1024;
+
+function stripeQrImageSource(promptpay = {}) {
+  const qr = promptpay.promptpay || promptpay.qr || promptpay;
+  return String(
+    qr.imageUrlPng
+      || qr.image_url_png
+      || qr.imageUrlSvg
+      || qr.image_url_svg
+      || qr.pngUrl
+      || qr.svgUrl
+      || promptpay.qr?.pngUrl
+      || promptpay.qr?.svgUrl
+      || ""
+  ).trim();
+}
+
+function stripeQrHostedInstructions(promptpay = {}) {
+  const qr = promptpay.promptpay || promptpay.qr || promptpay;
+  return String(qr.hostedInstructionsUrl || qr.hosted_instructions_url || "").trim();
+}
+
+function stripeQrImageContentType(source = "", upstreamContentType = "") {
+  const contentType = String(upstreamContentType || "").split(";")[0].trim().toLowerCase();
+  if (contentType === "image/png" || contentType === "image/svg+xml") return contentType;
+  if (/\.svg(?:$|[?#])/i.test(source)) return "image/svg+xml";
+  if (/\.png(?:$|[?#])/i.test(source)) return "image/png";
+  return "";
+}
+
+function stripeQrDataUri(source = "") {
+  const match = String(source || "").match(/^data:(image\/(?:png|svg\+xml));base64,([A-Za-z0-9+/=\s]+)$/i);
+  if (!match) return null;
+  return {
+    contentType: match[1].toLowerCase() === "image/svg+xml" ? "image/svg+xml" : "image/png",
+    bytes: Buffer.from(match[2].replace(/\s+/g, ""), "base64")
+  };
+}
+
+async function serveSubscriptionQrImage(req, res, db, currentUser) {
+  if (currentUser.role !== "Owner") {
+    return json(res, 403, { ok: false, code: "UPGRADE_OWNER_REQUIRED", error: "ต้องใช้สิทธิ์ Owner เพื่อดู QR Code" });
+  }
+  let pendingUpgradeAttempts = [];
+  try {
+    pendingUpgradeAttempts = await readPendingSubscriptionUpgrades(currentUser.tenantId);
+  } catch {
+    pendingUpgradeAttempts = [];
+  }
+  const pendingCandidate = pendingUpgradePaymentFor(db, currentUser, pendingUpgradeAttempts);
+  const pendingPayment = pendingCandidate?.payment || {};
+  let paymentReference = String(
+    pendingPayment.providerPaymentReference
+      || pendingPayment.provider_payment_reference
+      || pendingCandidate?.attempt?.providerPaymentReference
+      || pendingCandidate?.attempt?.provider_payment_reference
+      || ""
+  ).trim();
+  let recoveredPromptpay = null;
+  try {
+    if (!paymentReference) {
+      const recovered = await recoverPendingUpgradePaymentReference(pendingPayment, currentUser);
+      if (recovered) {
+        recoveredPromptpay = recovered.promptpay;
+        paymentReference = recovered.payment.providerPaymentReference;
+      }
+    }
+    if (!paymentReference) {
+      return json(res, 404, { ok: false, code: "QR_NOT_AVAILABLE", error: "ยังไม่มี QR Code สำหรับรายการนี้" });
+    }
+    const promptpay = recoveredPromptpay || await retrievePaymentIntent(paymentReference);
+    const source = stripeQrImageSource(promptpay);
+    if (!source) {
+      return json(res, 404, { ok: false, code: "QR_NOT_AVAILABLE", error: "Stripe ยังไม่ส่ง QR Code สำหรับรายการนี้" });
+    }
+
+    const dataUri = stripeQrDataUri(source);
+    if (dataUri) {
+      if (!dataUri.bytes.length || dataUri.bytes.length > MAX_SUBSCRIPTION_QR_PROXY_BYTES) {
+        return json(res, 502, { ok: false, code: "QR_IMAGE_INVALID", error: "ไม่สามารถโหลด QR Code ได้" });
+      }
+      res.writeHead(200, {
+        "Content-Type": dataUri.contentType,
+        "Cache-Control": "private, no-store",
+        "X-Content-Type-Options": "nosniff"
+      });
+      return res.end(dataUri.bytes);
+    }
+
+    const sourceUrl = new URL(source);
+    const trustedHost = sourceUrl.protocol === "https:"
+      && (sourceUrl.hostname === "stripe.com" || sourceUrl.hostname.endsWith(".stripe.com"));
+    if (!trustedHost) {
+      return json(res, 502, { ok: false, code: "QR_SOURCE_INVALID", error: "ไม่สามารถโหลด QR Code ได้" });
+    }
+    const upstream = await fetch(sourceUrl, { method: "GET", redirect: "error" });
+    if (!upstream.ok) {
+      return json(res, 502, { ok: false, code: "QR_SOURCE_UNAVAILABLE", error: "ไม่สามารถโหลด QR Code ได้" });
+    }
+    const contentType = stripeQrImageContentType(source, upstream.headers.get("content-type"));
+    if (!contentType) {
+      return json(res, 502, { ok: false, code: "QR_IMAGE_TYPE_INVALID", error: "ไม่สามารถโหลด QR Code ได้" });
+    }
+    const bytes = Buffer.from(await upstream.arrayBuffer());
+    if (!bytes.length || bytes.length > MAX_SUBSCRIPTION_QR_PROXY_BYTES) {
+      return json(res, 502, { ok: false, code: "QR_IMAGE_INVALID", error: "ไม่สามารถโหลด QR Code ได้" });
+    }
+    res.writeHead(200, {
+      "Content-Type": contentType,
+      "Cache-Control": "private, no-store",
+      "X-Content-Type-Options": "nosniff"
+    });
+    return res.end(bytes);
+  } catch (error) {
+    console.warn("Subscription QR retrieval failed", JSON.stringify({
+      code: error.code || "QR_RETRIEVAL_FAILED",
+      status: error.status || 0
+    }));
+    return json(res, 502, { ok: false, code: "QR_RETRIEVAL_FAILED", error: "ไม่สามารถโหลด QR Code ได้" });
+  }
+}
+
+function upgradePaymentView({ payment = {}, attempt = null, currentPlan = "", targetPlan = "" } = {}) {
+  const metadata = payment.checkoutMetadata || payment.checkout_metadata || {};
+  const providerPaymentReference = String(
+    payment.providerPaymentReference
+      || payment.provider_payment_reference
+      || attempt?.providerPaymentReference
+      || ""
+  );
+  const normalizedTarget = String(targetPlan || payment.targetPlan || payment.target_plan || payment.plan || attempt?.targetPlan || "").toLowerCase();
+  const normalizedCurrent = String(currentPlan || payment.currentPlan || payment.current_plan || attempt?.currentPlan || "").toLowerCase();
+  return {
+    id: payment.id || attempt?.paymentId || "",
+    tenantId: payment.tenantId || payment.tenant_id || attempt?.tenantId || "",
+    subscriptionId: payment.subscriptionId || payment.subscription_id || attempt?.subscriptionId || "",
+    provider: payment.provider || attempt?.provider || STRIPE_PROVIDER,
+    status: payment.status || attempt?.status || "pending",
+    currency: payment.currency || attempt?.currency || "THB",
+    amountMinor: Number(payment.amountMinor ?? payment.amount_minor ?? attempt?.amountMinor ?? 0),
+    plan: normalizedTarget,
+    currentPlan: normalizedCurrent || String(metadata.current_plan || "").toLowerCase(),
+    targetPlan: normalizedTarget || String(metadata.target_plan || "").toLowerCase(),
+    operation: "subscription_upgrade",
+    billingInterval: payment.billingInterval || payment.billing_interval || attempt?.billingInterval || "monthly",
+    idempotencyKey: payment.idempotencyKey || payment.idempotency_key || attempt?.idempotencyKey || "",
+    providerPaymentReference,
+    billingPeriodStartedAt: payment.billingPeriodStartedAt || payment.billing_period_started_at || attempt?.billingPeriodStartedAt || "",
+    billingPeriodEndsAt: payment.billingPeriodEndsAt || payment.billing_period_ends_at || attempt?.billingPeriodEndsAt || "",
+    createdAt: payment.createdAt || payment.created_at || attempt?.createdAt || ""
+  };
+}
+
+function upgradeViewFromPayment(payment, upgradePayment) {
+  return {
+    id: payment.id || payment.upgradeId || "",
+    upgradeId: payment.id || payment.upgradeId || "",
+    paymentId: upgradePayment.id,
+    tenantId: upgradePayment.tenantId,
+    subscriptionId: upgradePayment.subscriptionId,
+    currentPlan: upgradePayment.currentPlan,
+    targetPlan: upgradePayment.targetPlan,
+    provider: upgradePayment.provider,
+    status: upgradePayment.status,
+    currency: upgradePayment.currency,
+    amountMinor: upgradePayment.amountMinor,
+    billingInterval: upgradePayment.billingInterval,
+    idempotencyKey: upgradePayment.idempotencyKey,
+    providerPaymentReference: upgradePayment.providerPaymentReference,
+    billingPeriodStartedAt: upgradePayment.billingPeriodStartedAt,
+    billingPeriodEndsAt: upgradePayment.billingPeriodEndsAt,
+    createdAt: upgradePayment.createdAt
+  };
+}
+
+async function recoverPendingUpgradePaymentReference(payment, currentUser) {
+  const paymentReference = String(
+    payment?.providerPaymentReference
+      || payment?.provider_payment_reference
+      || ""
+  ).trim();
+  if (paymentReference || !payment?.id || typeof findPaymentIntentByPaymentId !== "function") return null;
+
+  const promptpay = await findPaymentIntentByPaymentId(payment.id);
+  if (!promptpay || !["pending", "processing"].includes(String(promptpay.localStatus || "").toLowerCase())) return null;
+  if (typeof setPaymentProviderReference !== "function") {
+    const error = new Error("STRIPE_PAYMENT_RPC_REQUIRED");
+    error.code = "STRIPE_PAYMENT_RPC_REQUIRED";
+    throw error;
+  }
+
+  const nextPayment = await setPaymentProviderReference({
+    paymentId: payment.id,
+    tenantId: currentUser.tenantId,
+    provider: STRIPE_PROVIDER,
+    providerPaymentReference: promptpay.paymentIntentId,
+    status: promptpay.status === "processing" ? "processing" : "pending",
+    providerMetadata: {
+      stripe_status: promptpay.status,
+      promptpay_has_qr: Boolean(stripeQrImageSource(promptpay)),
+      hosted_instructions_url: stripeQrHostedInstructions(promptpay),
+      operation: "subscription_upgrade",
+      recovery: "stripe_metadata_lookup"
+    }
+  });
+  if (!nextPayment?.providerPaymentReference) {
+    const error = new Error("STRIPE_PAYMENT_REFERENCE_PERSIST_FAILED");
+    error.code = "STRIPE_PAYMENT_REFERENCE_PERSIST_FAILED";
+    throw error;
+  }
+  return {
+    promptpay,
+    payment: { ...payment, ...nextPayment }
+  };
+}
+
+async function reconcileResumablePayment(payment, attempt, promptpay, currentUser) {
+  const providerStatus = String(promptpay.status || "").toLowerCase();
+  const localStatus = String(promptpay.localStatus || "pending").toLowerCase();
+  const storedPaymentStatus = String(payment?.status || "").toLowerCase();
+  const eventId = `resume-${String(payment.id || attempt?.paymentId || "payment")}-${providerStatus || localStatus}`.slice(0, 160);
+  // A checkout resume is read-only. Only a verified Stripe webhook may
+  // activate a subscription, even when a retrieved PaymentIntent is already
+  // succeeded. This keeps resume separate from success reconciliation.
+  if (localStatus === "paid") {
+    return "paid";
+  }
+  // A terminal local payment is historical evidence, not a resumable attempt.
+  // Do not send a second status event for it: the status RPC intentionally
+  // rejects rows that are no longer pending/processing. The caller will fall
+  // through to the normal upgrade RPC, which creates a fresh idempotent
+  // payment attempt without mutating the terminal row.
+  if (["failed", "cancelled", "expired", "paid"].includes(storedPaymentStatus)) {
+    return storedPaymentStatus;
+  }
+  if (!["failed", "cancelled", "expired"].includes(localStatus)) return localStatus;
+  const input = {
+    provider: STRIPE_PROVIDER,
+    providerEventId: eventId,
+    paymentId: payment.id || attempt?.paymentId,
+    providerPaymentReference: promptpay.paymentIntentId,
+    amountMinor: promptpay.amountMinor,
+    currency: promptpay.currency,
+    status: localStatus,
+    rawEvent: { source: "subscription_upgrade_resume", stripeStatus: promptpay.status }
+  };
+  if (attempt && typeof recordSubscriptionUpgradeStatus === "function") await recordSubscriptionUpgradeStatus(input);
+  else if (typeof recordProviderPaymentStatus === "function") await recordProviderPaymentStatus(input);
+  return localStatus;
 }
 
 function paymentProviderConfig() {
@@ -789,7 +1101,10 @@ function safeStripeEventForStorage(event = {}) {
 }
 
 function isBillingApiPath(pathname = "") {
-  return pathname === "/api/billing/subscription" || pathname === "/api/billing/checkout";
+  return pathname === "/api/billing/subscription"
+    || pathname === "/api/billing/checkout"
+    || pathname === "/api/billing/upgrade"
+    || pathname === "/api/billing/upgrade/qr";
 }
 
 function isPlatformAdminApiPath(pathname = "") {
@@ -3745,8 +4060,288 @@ async function handleLineWebhookPost(req, res, db, options = {}) {
 }
 
 async function handleBillingApi(req, res, url, db, currentUser) {
+  if (req.method === "GET" && url.pathname === "/api/billing/upgrade/qr") {
+    return serveSubscriptionQrImage(req, res, db, currentUser);
+  }
+
   if (req.method === "GET" && url.pathname === "/api/billing/subscription") {
     return json(res, 200, { ok: true, billing: subscriptionBillingPayload(db) });
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/billing/upgrade") {
+    if (currentUser.role !== "Owner") {
+      return json(res, 403, { ok: false, code: "UPGRADE_OWNER_REQUIRED", error: "ต้องใช้สิทธิ์ Owner เพื่ออัปเกรดแพ็กเกจ" });
+    }
+    if (typeof beginSubscriptionUpgrade !== "function") {
+      return json(res, 503, { ok: false, code: "SUBSCRIPTION_UPGRADE_REQUIRED", error: "ระบบอัปเกรดแพ็กเกจยังไม่พร้อมใช้งาน" });
+    }
+    const body = await readBody(req);
+    const targetPlan = normalizeSignupPlan(body.targetPlan || body.plan);
+    const subscription = currentSubscription(db);
+    const currentPlan = String(subscription?.plan || "").toLowerCase();
+    const planOrder = { starter: 0, business: 1, enterprise: 2 };
+    if (!targetPlan || !subscription || !planOrder[targetPlan] || planOrder[targetPlan] <= Number(planOrder[currentPlan] ?? -1)) {
+      return json(res, 409, { ok: false, code: "UPGRADE_NOT_ALLOWED", error: "ไม่สามารถอัปเกรดไปยังแพ็กเกจนี้ได้" });
+    }
+
+    const providerConfig = paymentProviderConfig();
+    if (!providerConfig.configured) {
+      return json(res, 503, {
+        ok: false,
+        code: "PAYMENT_PROVIDER_REQUIRED",
+        error: "ยังไม่ได้ตั้งค่าผู้ให้บริการชำระเงินใน Preview"
+      });
+    }
+    if (providerConfig.provider !== STRIPE_PROVIDER) {
+      return json(res, 501, {
+        ok: false,
+        code: "PAYMENT_PROVIDER_ADAPTER_REQUIRED",
+        error: "ยังไม่มี adapter สำหรับผู้ให้บริการชำระเงินที่ตั้งค่าไว้"
+      });
+    }
+    const idempotencyKey = `pricing-upgrade-${currentUser.tenantId}-${crypto.randomUUID()}`;
+    let pendingUpgradeAttempts = [];
+    if (typeof readPendingSubscriptionUpgrades === "function") {
+      try {
+        pendingUpgradeAttempts = await readPendingSubscriptionUpgrades(currentUser.tenantId);
+      } catch (error) {
+        console.error("Pending subscription upgrade lookup failed", error.message);
+      }
+    }
+    try {
+      const pendingCandidate = pendingUpgradePaymentFor(db, currentUser, pendingUpgradeAttempts);
+      const pendingView = pendingCandidate
+        ? upgradePaymentView({
+            payment: pendingCandidate.payment || {},
+            attempt: pendingCandidate.attempt,
+            currentPlan,
+            targetPlan: pendingCandidate.payment?.plan || pendingCandidate.attempt?.targetPlan || ""
+          })
+        : null;
+      const pendingTarget = String(pendingView?.targetPlan || "").toLowerCase();
+      if (pendingView && pendingTarget && pendingTarget !== targetPlan) {
+        return json(res, 409, {
+          ok: false,
+          code: "UPGRADE_IN_PROGRESS",
+          error: "คุณมีรายการชำระเงินที่ยังไม่เสร็จสิ้น กรุณาดำเนินการรายการเดิมให้เรียบร้อยก่อน",
+          pendingPayment: publicPayment(pendingView),
+          billing: subscriptionBillingPayload({ ...db, payments: [pendingView, ...(db.payments || [])] })
+        });
+      }
+
+      // A prior request may have created the Stripe PaymentIntent before the
+      // local reference write completed. Recover that exact intent by its
+      // server-owned metadata instead of creating a second payment.
+      if (pendingView && pendingTarget === targetPlan && !pendingView.providerPaymentReference && pendingCandidate.payment) {
+        const recovered = await recoverPendingUpgradePaymentReference(pendingCandidate.payment, currentUser);
+        if (recovered) {
+          const recoveredView = upgradePaymentView({
+            payment: recovered.payment,
+            attempt: pendingCandidate.attempt,
+            currentPlan,
+            targetPlan
+          });
+          return json(res, 200, {
+            ok: true,
+            provider: STRIPE_PROVIDER,
+            resumed: true,
+            recovered: true,
+            upgrade: upgradeViewFromPayment(pendingCandidate.attempt || {}, recoveredView),
+            payment: publicPayment(recoveredView),
+            promptpay: recovered.promptpay,
+            billing: subscriptionBillingPayload({ ...db, payments: [recoveredView, ...(db.payments || [])] })
+          });
+        }
+      }
+
+      // Legacy upgrade rows can predate the current RPC contract. If the
+      // authoritative payment already has a Stripe reference, resume that
+      // exact PaymentIntent directly instead of asking the RPC to create or
+      // reject another attempt.
+      if (pendingView && pendingTarget === targetPlan && pendingView.providerPaymentReference) {
+        const promptpay = await retrievePaymentIntent(pendingView.providerPaymentReference);
+        const reconciledStatus = await reconcileResumablePayment(
+          pendingCandidate.payment || pendingView,
+          pendingCandidate.attempt,
+          promptpay,
+          currentUser
+        );
+        if (["pending", "processing"].includes(reconciledStatus)) {
+          console.log("Subscription upgrade resumed existing payment", JSON.stringify({
+            tenantId: currentUser.tenantId,
+            paymentId: pendingView.id,
+            paymentIntentId: promptpay.paymentIntentId,
+            stripeStatus: promptpay.status,
+            localStatus: promptpay.localStatus,
+            resumed: true
+          }));
+          return json(res, 200, {
+            ok: true,
+            provider: STRIPE_PROVIDER,
+            resumed: true,
+            upgrade: upgradeViewFromPayment(pendingCandidate.attempt || {}, pendingView),
+            payment: publicPayment(pendingView),
+            promptpay,
+            billing: subscriptionBillingPayload({ ...db, payments: [pendingView, ...(db.payments || [])] })
+          });
+        }
+        if (reconciledStatus === "paid") {
+          console.log("Subscription upgrade observed succeeded payment awaiting webhook", JSON.stringify({
+            tenantId: currentUser.tenantId,
+            paymentId: pendingView.id,
+            paymentIntentId: promptpay.paymentIntentId,
+            stripeStatus: promptpay.status,
+            resumed: true,
+            awaitingWebhook: true
+          }));
+          return json(res, 200, {
+            ok: true,
+            provider: STRIPE_PROVIDER,
+            resumed: true,
+            awaitingWebhook: true,
+            upgrade: upgradeViewFromPayment(pendingCandidate.attempt || {}, pendingView),
+            payment: publicPayment(pendingView),
+            promptpay,
+            billing: subscriptionBillingPayload({ ...db, payments: [pendingView, ...(db.payments || [])] })
+          });
+        }
+        // A terminal provider state was reconciled above. Continue through
+        // the normal RPC path so a fresh attempt can be created safely.
+        if (["failed", "cancelled", "expired", "paid"].includes(reconciledStatus)) {
+          if (pendingCandidate.attempt && ["failed", "cancelled", "expired"].includes(reconciledStatus)
+            && typeof closeTerminalSubscriptionUpgradeAttempt === "function") {
+            await closeTerminalSubscriptionUpgradeAttempt({
+              attemptId: pendingCandidate.attempt.id || pendingCandidate.attempt.upgradeId,
+              tenantId: currentUser.tenantId,
+              status: reconciledStatus
+            });
+          }
+          pendingUpgradeAttempts = [];
+        }
+      }
+
+      const upgrade = await beginSubscriptionUpgrade({
+        tenantId: currentUser.tenantId,
+        userId: currentUser.id,
+        targetPlan,
+        idempotencyKey,
+        provider: providerConfig.provider
+      });
+      if (!upgrade?.paymentId) {
+        return json(res, 503, { ok: false, code: "SUBSCRIPTION_UPGRADE_REQUIRED", error: "สร้างรายการอัปเกรดไม่สำเร็จ" });
+      }
+      const upgradePayment = {
+        id: upgrade.paymentId,
+        tenantId: upgrade.tenantId,
+        subscriptionId: upgrade.subscriptionId,
+        provider: upgrade.provider,
+        status: upgrade.status,
+        currency: upgrade.currency,
+        amountMinor: upgrade.amountMinor,
+        plan: upgrade.targetPlan,
+        currentPlan: upgrade.currentPlan,
+        targetPlan: upgrade.targetPlan,
+        operation: "subscription_upgrade",
+        billingInterval: upgrade.billingInterval,
+        idempotencyKey: upgrade.idempotencyKey,
+        providerPaymentReference: upgrade.providerPaymentReference,
+        billingPeriodStartedAt: upgrade.billingPeriodStartedAt,
+        billingPeriodEndsAt: upgrade.billingPeriodEndsAt,
+        createdAt: upgrade.createdAt
+      };
+      const existingUpgradePayment = (db.payments || []).find(payment => (
+        String(payment.id || "") === String(upgrade.paymentId || "")
+      ));
+      const providerPaymentReference = String(
+        upgradePayment.providerPaymentReference
+          || existingUpgradePayment?.providerPaymentReference
+          || existingUpgradePayment?.provider_payment_reference
+          || ""
+      );
+      if (providerConfig.provider === STRIPE_PROVIDER) {
+        if (typeof setPaymentProviderReference !== "function") {
+          return json(res, 503, { ok: false, code: "STRIPE_PAYMENT_RPC_REQUIRED", error: "ระบบบันทึก Stripe payment ยังไม่พร้อม" });
+        }
+        const promptpay = providerPaymentReference
+          ? await retrievePaymentIntent(providerPaymentReference)
+          : await createPromptPayPaymentIntent({
+              payment: upgradePayment,
+              returnUrl: `${requestOrigin(req)}/pricing`,
+              receiptEmail: receiptEmailForUser(currentUser)
+            });
+        const nextPayment = await setPaymentProviderReference({
+          paymentId: upgradePayment.id,
+          tenantId: currentUser.tenantId,
+          provider: STRIPE_PROVIDER,
+          providerPaymentReference: promptpay.paymentIntentId,
+          status: promptpay.status === "processing" ? "processing" : "pending",
+          providerMetadata: {
+            stripe_status: promptpay.status,
+            promptpay_has_qr: Boolean(stripeQrImageSource(promptpay)),
+            hosted_instructions_url: stripeQrHostedInstructions(promptpay),
+            operation: "subscription_upgrade",
+            current_plan: upgrade.currentPlan,
+            target_plan: upgrade.targetPlan
+          }
+        });
+        const payment = publicPayment({ ...upgradePayment, ...nextPayment, currentPlan: upgrade.currentPlan, targetPlan: upgrade.targetPlan, operation: "subscription_upgrade" });
+        return json(res, 200, {
+          ok: true,
+          provider: STRIPE_PROVIDER,
+          upgrade,
+          payment,
+          promptpay,
+          billing: subscriptionBillingPayload({ ...db, payments: [payment, ...(db.payments || [])] })
+        });
+      }
+      return json(res, 501, { ok: false, code: "PAYMENT_PROVIDER_ADAPTER_REQUIRED", error: "ยังไม่มี adapter สำหรับผู้ให้บริการชำระเงินที่ตั้งค่าไว้" });
+    } catch (error) {
+      const detail = String(error.code || error.detail || error.message || "");
+      for (const code of ["UPGRADE_NOT_ALLOWED", "UPGRADE_IN_PROGRESS", "UPGRADE_IDEMPOTENCY_CONFLICT", "SUBSCRIPTION_NOT_UPGRADABLE", "SUBSCRIPTION_NOT_FOUND", "UPGRADE_TENANT_FORBIDDEN", "INVALID_SUBSCRIPTION_UPGRADE_INPUT"]) {
+        if (detail.includes(code)) {
+          const status = code === "UPGRADE_TENANT_FORBIDDEN" ? 403 : 409;
+          const pendingCandidate = pendingUpgradePaymentFor(db, currentUser, pendingUpgradeAttempts);
+          const pendingView = pendingCandidate
+            ? upgradePaymentView({
+                payment: pendingCandidate.payment || {},
+                attempt: pendingCandidate.attempt,
+                currentPlan,
+                targetPlan: pendingCandidate.payment?.plan || pendingCandidate.attempt?.targetPlan || ""
+              })
+            : null;
+          return json(res, status, {
+            ok: false,
+            code,
+            error: code === "UPGRADE_IN_PROGRESS" ? "มีรายการอัปเกรดที่กำลังดำเนินการอยู่" : "ไม่สามารถเริ่มรายการอัปเกรดนี้ได้",
+            ...(code === "UPGRADE_IN_PROGRESS" && pendingView
+              ? {
+                  pendingPayment: publicPayment(pendingView),
+                  billing: subscriptionBillingPayload({ ...db, payments: [pendingView, ...(db.payments || [])] })
+                }
+              : {})
+          });
+        }
+      }
+      if (error.code === "STRIPE_TEST_SECRET_KEY_REQUIRED" || error.code === "STRIPE_LIVE_SECRET_KEY_REQUIRED") {
+        return json(res, 503, { ok: false, code: error.code, error: "ยังไม่ได้ตั้งค่า Stripe secret key ให้ตรงกับ environment" });
+      }
+      if (String(error.code || "").startsWith("STRIPE_")) {
+        return json(res, 502, { ok: false, code: error.code, error: "เชื่อมต่อ Stripe ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" });
+      }
+      if (detail.includes("SUBSCRIPTION_UPGRADE_EVENT_MISMATCH")) {
+        console.error("Subscription upgrade reconciliation rejected", JSON.stringify({
+          tenantId: currentUser.tenantId,
+          targetPlan,
+          code: "SUBSCRIPTION_UPGRADE_EVENT_MISMATCH"
+        }));
+        return json(res, 409, {
+          ok: false,
+          code: "PAYMENT_RECONCILIATION_RETRY",
+          error: "ระบบกำลังตรวจสอบการชำระเงิน กรุณารอสักครู่แล้วลองเปิดรายการเดิมอีกครั้ง"
+        });
+      }
+      throw error;
+    }
   }
 
   if (req.method === "POST" && url.pathname === "/api/billing/checkout") {
@@ -3813,11 +4408,11 @@ async function handleBillingApi(req, res, url, db, currentUser) {
           tenantId: currentUser.tenantId,
           provider: STRIPE_PROVIDER,
           providerPaymentReference: promptpay.paymentIntentId,
-          status: promptpay.localStatus === "processing" ? "processing" : "pending",
+          status: promptpay.status === "processing" ? "processing" : "pending",
           providerMetadata: {
             stripe_status: promptpay.status,
-            promptpay_has_qr: Boolean(promptpay.promptpay?.imageUrlPng || promptpay.promptpay?.imageUrlSvg),
-            hosted_instructions_url: promptpay.promptpay?.hostedInstructionsUrl || ""
+            promptpay_has_qr: Boolean(stripeQrImageSource(promptpay)),
+            hosted_instructions_url: stripeQrHostedInstructions(promptpay)
           }
         });
         return json(res, 200, {
@@ -3906,18 +4501,32 @@ async function handleStripeWebhookApi(req, res) {
   };
   try {
     if (event.type === "payment_intent.succeeded" || stripePaymentStatus(intent.status) === "paid") {
-      if (typeof recordProviderPaymentSuccess !== "function") {
-        return json(res, 503, { ok: false, code: "PAYMENT_SUCCESS_RPC_REQUIRED", error: "Payment success RPC is not configured." });
+      if (payment.operation === "subscription_upgrade") {
+        if (typeof recordSubscriptionUpgradeSuccess !== "function") {
+          return json(res, 503, { ok: false, code: "SUBSCRIPTION_UPGRADE_SUCCESS_RPC_REQUIRED", error: "Subscription upgrade success RPC is not configured." });
+        }
+        await recordSubscriptionUpgradeSuccess(input);
+      } else {
+        if (typeof recordProviderPaymentSuccess !== "function") {
+          return json(res, 503, { ok: false, code: "PAYMENT_SUCCESS_RPC_REQUIRED", error: "Payment success RPC is not configured." });
+        }
+        await recordProviderPaymentSuccess(input);
       }
-      await recordProviderPaymentSuccess(input);
     } else {
-      if (typeof recordProviderPaymentStatus !== "function") {
-        return json(res, 503, { ok: false, code: "PAYMENT_STATUS_RPC_REQUIRED", error: "Payment status RPC is not configured." });
-      }
       const status = event.type === "payment_intent.payment_failed"
         ? "failed"
         : (event.type === "payment_intent.canceled" ? "cancelled" : stripePaymentStatus(intent.status));
-      await recordProviderPaymentStatus({ ...input, status });
+      if (payment.operation === "subscription_upgrade") {
+        if (typeof recordSubscriptionUpgradeStatus !== "function") {
+          return json(res, 503, { ok: false, code: "SUBSCRIPTION_UPGRADE_STATUS_RPC_REQUIRED", error: "Subscription upgrade status RPC is not configured." });
+        }
+        await recordSubscriptionUpgradeStatus({ ...input, status });
+      } else {
+        if (typeof recordProviderPaymentStatus !== "function") {
+          return json(res, 503, { ok: false, code: "PAYMENT_STATUS_RPC_REQUIRED", error: "Payment status RPC is not configured." });
+        }
+        await recordProviderPaymentStatus({ ...input, status });
+      }
     }
   } catch (error) {
     console.error("Stripe webhook payment reconciliation failed", {
@@ -6143,8 +6752,9 @@ async function handleApi(req, res) {
 async function appHandler(req, res) {
   try {
     if (await handlePlatformAdminRequest(req, res)) return;
+    const requestPathname = new URL(req.url, `http://${req.headers.host || "localhost"}`).pathname;
     if (req.url.startsWith("/api/")) {
-      const pathname = new URL(req.url, `http://${req.headers.host || "localhost"}`).pathname;
+      const pathname = requestPathname;
       const sessionUser = getCurrentUser(req);
       if (!sessionUser?.id && (pathname === "/api/state" || isBillingApiPath(pathname))) {
         return json(res, 401, { ok: false, error: "Unauthorized" }, { "Set-Cookie": clearSessionCookie() });
@@ -6202,7 +6812,11 @@ async function appHandler(req, res) {
     }
     return serveStatic(req, res);
   } catch (error) {
-    return json(res, 500, { ok: false, error: error.message || "Server error" });
+    console.error("Unhandled request error", JSON.stringify({
+      path: req.url || "",
+      code: String(error?.code || "INTERNAL_ERROR")
+    }));
+    return json(res, 500, { ok: false, error: "เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง" });
   }
 }
 

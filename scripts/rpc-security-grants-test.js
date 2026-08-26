@@ -4,10 +4,16 @@ const fs = require("fs");
 const path = require("path");
 
 const ROOT = path.join(__dirname, "..");
-const migrationPath = path.join(ROOT, "supabase", "migrations", "20260817000000_rpc_execute_grants.sql");
-const migration = fs.readFileSync(migrationPath, "utf8").replace(/\s+/g, " ").toLowerCase();
+const migrationPaths = [
+  path.join(ROOT, "supabase", "migrations", "20260817000000_rpc_execute_grants.sql"),
+  path.join(ROOT, "supabase", "migrations", "20260818000000_platform_admin_audit_read.sql"),
+  path.join(ROOT, "supabase", "migrations", "20260822010000_subscription_upgrade.sql")
+];
+const migration = migrationPaths.map(file => fs.readFileSync(file, "utf8")).join(" ").replace(/\s+/g, " ").toLowerCase();
 
 const functions = [
+  "growup_platform_admin_audit_log(text, text, text, integer, integer)",
+  "growup_begin_subscription_upgrade(uuid, text, text, text, text)",
   "growup_activate_zero_amount_subscription_payment(uuid, text, text)",
   "growup_begin_subscription_payment(uuid, text, text, text)",
   "growup_normalize_promotion_code(text)",
@@ -22,6 +28,8 @@ const functions = [
   "growup_promotion_benefit_description(text, numeric)",
   "growup_record_provider_payment_status(text, text, uuid, text, integer, text, text, jsonb)",
   "growup_record_provider_payment_success(text, text, uuid, text, integer, text, jsonb)",
+  "growup_record_subscription_upgrade_status(text, text, uuid, text, integer, text, text, jsonb)",
+  "growup_record_subscription_upgrade_success(text, text, uuid, text, integer, text, jsonb)",
   "growup_require_platform_admin(text)",
   "growup_set_payment_provider_reference(uuid, uuid, text, text, text, jsonb)",
   "growup_signup_bootstrap(text, text, text, text, text, text, jsonb, text, text, text)",
