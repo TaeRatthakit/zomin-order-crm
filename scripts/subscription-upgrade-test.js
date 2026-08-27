@@ -277,7 +277,7 @@ async function postWebhook(payload) {
     "amount_minor",
     "target_plan"
   ]) if (!migration.includes(token)) fail(`upgrade migration missing ${token}`);
-  if (!appSource.includes("data-pricing-upgrade=") || !appSource.includes('event.target.closest("[data-pricing-upgrade=\\"true\\"]")')) fail("pricing upgrade action binding missing");
+  if (!appSource.includes("data-pricing-upgrade=") || !appSource.includes('event.target.closest("[data-pricing-action]")') || !appSource.includes("beginSubscriptionCheckoutForUi")) fail("pricing upgrade action binding missing");
   if (!appSource.includes('disabled aria-disabled=\\"true\\"')) fail("current pricing button is not disabled");
   if (appSource.includes('subscription.plan === targetPlan && targetPlan && targetPlan !== currentPlan ? "succeeded"')) fail("checkout inferred success from the subscription target plan");
   if (!appSource.includes("function subscriptionPaymentDisplayStatus(promptpay = {}, payment = {})")) fail("checkout payment status helper is missing");

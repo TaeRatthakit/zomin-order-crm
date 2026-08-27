@@ -446,7 +446,6 @@ async function login(username, password = "pass12345") {
 
     for (const [promotionCode, selectedPlan, selectedBilling, expectedDescription] of [
       ["fixed300", "business", "monthly", "ลด ฿300"],
-      ["trial30", "starter", "monthly", "เพิ่มระยะทดลองใช้ฟรี 30 วัน"],
       ["month1", "enterprise", "yearly", "ใช้ฟรีเพิ่ม 1 เดือน"]
     ]) {
       const benefitTypePromo = await request("/api/signup/promotion-code", {
@@ -456,6 +455,14 @@ async function login(username, password = "pass12345") {
       if (benefitTypePromo.status !== 200 || benefitTypePromo.json().promotion.benefitDescription !== expectedDescription) {
         fail(`benefit type ${promotionCode} returned wrong description: ${benefitTypePromo.text}`);
       }
+    }
+
+    const extraTrialPromo = await request("/api/signup/promotion-code", {
+      method: "POST",
+      body: JSON.stringify({ promotionCode: "trial30", selectedPlan: "starter", selectedBilling: "monthly" })
+    });
+    if (extraTrialPromo.status !== 400 || extraTrialPromo.json().code !== "PROMOTION_CODE_INVALID") {
+      fail(`extra-trial promo must not extend the exact 30-day contract: ${extraTrialPromo.text}`);
     }
 
     const invalidPromo = await request("/api/signup/promotion-code", {

@@ -32,9 +32,11 @@ const {
   persistNotificationReadIds,
   validatePromotionCode,
   beginSubscriptionPayment,
+  beginSubscriptionCheckout,
   beginSubscriptionUpgrade,
   setPaymentProviderReference,
   recordProviderPaymentSuccess,
+  recordSubscriptionCheckoutSuccess,
   recordProviderPaymentStatus,
   recordSubscriptionUpgradeSuccess,
   recordSubscriptionUpgradeStatus,
@@ -81,6 +83,11 @@ const {
   stripePaymentStatus
 } = require("./lib/stripe-promptpay");
 const { handlePlatformAdminRequest } = require("./lib/platform-admin-http");
+const {
+  PRICE_CATALOG_MINOR,
+  subscriptionAccess,
+  subscriptionCheckoutIntent
+} = require("./lib/subscription-lifecycle");
 
 const PORT = Number(process.env.PORT || 3000);
 const HOST = process.env.HOST || "0.0.0.0";
@@ -642,7 +649,9 @@ function normalizedSubscription(subscription = null) {
     baseAmountMinor: Number(subscription.baseAmountMinor ?? subscription.base_amount_minor ?? 0),
     discountAmountMinor: Number(subscription.discountAmountMinor ?? subscription.discount_amount_minor ?? 0),
     amountDueMinor: Number(subscription.amountDueMinor ?? subscription.amount_due_minor ?? 0),
+    trialStartedAt: subscription.trialStartedAt || subscription.trial_started_at || "",
     trialEndsAt: subscription.trialEndsAt || subscription.trial_ends_at || "",
+    currentPeriodStartedAt: subscription.currentPeriodStartedAt || subscription.current_period_started_at || "",
     currentPeriodEndsAt: subscription.currentPeriodEndsAt || subscription.current_period_ends_at || "",
     nextRenewalAt: subscription.nextRenewalAt || subscription.next_renewal_at || "",
     paymentDueAt: subscription.paymentDueAt || subscription.payment_due_at || "",
@@ -664,21 +673,6 @@ function planEntitlement(plan = "starter") {
 
 function activeTenantUserCount(db = {}) {
   return (db.users || []).filter(user => user.active !== false).length;
-}
-
-function subscriptionAccess(subscription = null, now = new Date()) {
-  if (!subscription) return { allowed: true, reason: "legacy_no_subscription", requiresPayment: false };
-  const status = String(subscription.status || "").toLowerCase();
-  const trialEnds = subscription.trialEndsAt ? new Date(subscription.trialEndsAt).getTime() : 0;
-  const periodEnds = subscription.currentPeriodEndsAt ? new Date(subscription.currentPeriodEndsAt).getTime() : 0;
-  const nowMs = now.getTime();
-  if (status === "active" && (!periodEnds || periodEnds >= nowMs)) return { allowed: true, reason: "active", requiresPayment: false };
-  if (status === "trialing" && trialEnds && trialEnds >= nowMs) return { allowed: true, reason: "trialing", requiresPayment: false };
-  return {
-    allowed: false,
-    reason: status === "pending_payment" ? "pending_payment" : (status || "subscription_inactive"),
-    requiresPayment: true
-  };
 }
 
 function publicPayment(payment = {}) {
@@ -756,6 +750,35 @@ function pendingUpgradePaymentFor(db = {}, currentUser = {}, pendingUpgrades = [
   return candidates.find(candidate => candidate.payment || candidate.attempt) || null;
 }
 
+function pendingSubscriptionCheckoutFor(db = {}, currentUser = {}, pendingUpgrades = []) {
+  const tenantId = String(currentUser.tenantId || "");
+  const subscription = currentSubscription(db);
+  const attemptsByPaymentId = new Map((pendingUpgrades || []).map(attempt => [String(attempt.paymentId || ""), attempt]));
+  const candidates = (db.payments || [])
+    .filter(payment => String(payment.tenantId || payment.tenant_id || tenantId) === tenantId)
+    .filter(payment => RESUMABLE_UPGRADE_PAYMENT_STATUSES.has(String(payment.status || "").toLowerCase()))
+    .map(payment => {
+      const metadata = payment.checkoutMetadata || payment.checkout_metadata || {};
+      const storedOperation = String(payment.operation || metadata.operation || "").toLowerCase();
+      const paymentPlan = String(payment.plan || payment.targetPlan || metadata.target_plan || "").toLowerCase();
+      const operation = storedOperation || (attemptsByPaymentId.has(String(payment.id || ""))
+        ? "subscription_upgrade"
+        : (paymentPlan && paymentPlan === subscription?.plan
+          ? (subscription?.status === "pending_payment" && !subscription?.currentPeriodStartedAt ? "subscription_activation" : "subscription_renewal")
+          : ""));
+      return {
+        payment,
+        attempt: attemptsByPaymentId.get(String(payment.id || "")) || null,
+        operation
+      };
+    })
+    .filter(candidate => ["subscription_activation", "subscription_renewal", "subscription_upgrade"].includes(candidate.operation)
+      || Boolean(candidate.attempt))
+    .sort((left, right) => String(right.payment.createdAt || right.payment.created_at || "")
+      .localeCompare(String(left.payment.createdAt || left.payment.created_at || "")));
+  return candidates[0] || null;
+}
+
 const MAX_SUBSCRIPTION_QR_PROXY_BYTES = 1024 * 1024;
 
 function stripeQrImageSource(promptpay = {}) {
@@ -805,7 +828,7 @@ async function serveSubscriptionQrImage(req, res, db, currentUser) {
   } catch {
     pendingUpgradeAttempts = [];
   }
-  const pendingCandidate = pendingUpgradePaymentFor(db, currentUser, pendingUpgradeAttempts);
+  const pendingCandidate = pendingSubscriptionCheckoutFor(db, currentUser, pendingUpgradeAttempts);
   const pendingPayment = pendingCandidate?.payment || {};
   let paymentReference = String(
     pendingPayment.providerPaymentReference
@@ -957,7 +980,7 @@ async function recoverPendingUpgradePaymentReference(payment, currentUser) {
       stripe_status: promptpay.status,
       promptpay_has_qr: Boolean(stripeQrImageSource(promptpay)),
       hosted_instructions_url: stripeQrHostedInstructions(promptpay),
-      operation: "subscription_upgrade",
+      operation: payment.operation || payment.checkoutMetadata?.operation || payment.checkout_metadata?.operation || "subscription_upgrade",
       recovery: "stripe_metadata_lookup"
     }
   });
@@ -1047,12 +1070,25 @@ function safePaymentRuntimeInfo() {
 function subscriptionBillingPayload(db = {}) {
   const subscription = currentSubscription(db);
   const latestPayments = (db.payments || [])
-    .map(publicPayment)
+    .map(payment => {
+      const view = publicPayment(payment);
+      if (!view.operation && view.plan) {
+        view.operation = view.plan !== subscription?.plan
+          ? "subscription_upgrade"
+          : (subscription?.status === "pending_payment" && !subscription?.currentPeriodStartedAt
+            ? "subscription_activation"
+            : "subscription_renewal");
+        view.currentPlan = subscription?.plan || view.currentPlan;
+        view.targetPlan = view.plan;
+      }
+      return view;
+    })
     .sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")))
     .slice(0, 10);
   return {
     subscription,
     access: subscriptionAccess(subscription),
+    priceCatalogMinor: PRICE_CATALOG_MINOR,
     entitlement: planEntitlement(subscription?.plan),
     activeUsers: activeTenantUserCount(db),
     latestPayments,
@@ -4072,15 +4108,16 @@ async function handleBillingApi(req, res, url, db, currentUser) {
     if (currentUser.role !== "Owner") {
       return json(res, 403, { ok: false, code: "UPGRADE_OWNER_REQUIRED", error: "ต้องใช้สิทธิ์ Owner เพื่ออัปเกรดแพ็กเกจ" });
     }
-    if (typeof beginSubscriptionUpgrade !== "function") {
+    if (typeof beginSubscriptionCheckout !== "function") {
       return json(res, 503, { ok: false, code: "SUBSCRIPTION_UPGRADE_REQUIRED", error: "ระบบอัปเกรดแพ็กเกจยังไม่พร้อมใช้งาน" });
     }
     const body = await readBody(req);
     const targetPlan = normalizeSignupPlan(body.targetPlan || body.plan);
     const subscription = currentSubscription(db);
     const currentPlan = String(subscription?.plan || "").toLowerCase();
+    const billingInterval = normalizeSignupBilling(body.billingInterval || body.billing || subscription?.billingInterval || "monthly");
     const planOrder = { starter: 0, business: 1, enterprise: 2 };
-    if (!targetPlan || !subscription || !planOrder[targetPlan] || planOrder[targetPlan] <= Number(planOrder[currentPlan] ?? -1)) {
+    if (!targetPlan || !billingInterval || !subscription || !planOrder[targetPlan] || planOrder[targetPlan] <= Number(planOrder[currentPlan] ?? -1)) {
       return json(res, 409, { ok: false, code: "UPGRADE_NOT_ALLOWED", error: "ไม่สามารถอัปเกรดไปยังแพ็กเกจนี้ได้" });
     }
 
@@ -4220,10 +4257,12 @@ async function handleBillingApi(req, res, url, db, currentUser) {
         }
       }
 
-      const upgrade = await beginSubscriptionUpgrade({
+      const upgrade = await beginSubscriptionCheckout({
         tenantId: currentUser.tenantId,
         userId: currentUser.id,
         targetPlan,
+        billingInterval,
+        intent: "subscription_upgrade",
         idempotencyKey,
         provider: providerConfig.provider
       });
@@ -4241,7 +4280,7 @@ async function handleBillingApi(req, res, url, db, currentUser) {
         plan: upgrade.targetPlan,
         currentPlan: upgrade.currentPlan,
         targetPlan: upgrade.targetPlan,
-        operation: "subscription_upgrade",
+        operation: upgrade.operation || "subscription_upgrade",
         billingInterval: upgrade.billingInterval,
         idempotencyKey: upgrade.idempotencyKey,
         providerPaymentReference: upgrade.providerPaymentReference,
@@ -4297,9 +4336,9 @@ async function handleBillingApi(req, res, url, db, currentUser) {
       return json(res, 501, { ok: false, code: "PAYMENT_PROVIDER_ADAPTER_REQUIRED", error: "ยังไม่มี adapter สำหรับผู้ให้บริการชำระเงินที่ตั้งค่าไว้" });
     } catch (error) {
       const detail = String(error.code || error.detail || error.message || "");
-      for (const code of ["UPGRADE_NOT_ALLOWED", "UPGRADE_IN_PROGRESS", "UPGRADE_IDEMPOTENCY_CONFLICT", "SUBSCRIPTION_NOT_UPGRADABLE", "SUBSCRIPTION_NOT_FOUND", "UPGRADE_TENANT_FORBIDDEN", "INVALID_SUBSCRIPTION_UPGRADE_INPUT"]) {
+      for (const code of ["UPGRADE_NOT_ALLOWED", "UPGRADE_IN_PROGRESS", "UPGRADE_IDEMPOTENCY_CONFLICT", "SUBSCRIPTION_NOT_UPGRADABLE", "SUBSCRIPTION_NOT_FOUND", "UPGRADE_TENANT_FORBIDDEN", "INVALID_SUBSCRIPTION_UPGRADE_INPUT", "SUBSCRIPTION_CHECKOUT_IN_PROGRESS", "SUBSCRIPTION_CHECKOUT_IDEMPOTENCY_CONFLICT", "SUBSCRIPTION_CHECKOUT_OWNER_REQUIRED", "INVALID_SUBSCRIPTION_CHECKOUT_INPUT"]) {
         if (detail.includes(code)) {
-          const status = code === "UPGRADE_TENANT_FORBIDDEN" ? 403 : 409;
+          const status = ["UPGRADE_TENANT_FORBIDDEN", "SUBSCRIPTION_CHECKOUT_OWNER_REQUIRED"].includes(code) ? 403 : 409;
           const pendingCandidate = pendingUpgradePaymentFor(db, currentUser, pendingUpgradeAttempts);
           const pendingView = pendingCandidate
             ? upgradePaymentView({
@@ -4348,19 +4387,28 @@ async function handleBillingApi(req, res, url, db, currentUser) {
     if (currentUser.role !== "Owner") {
       return json(res, 403, { ok: false, error: "ต้องใช้สิทธิ์ Owner เพื่อจัดการการชำระเงิน" });
     }
-    if (typeof beginSubscriptionPayment !== "function") {
+    if (typeof beginSubscriptionCheckout !== "function") {
       return json(res, 503, { ok: false, error: "ระบบชำระเงินยังไม่พร้อมใช้งาน" });
     }
     const subscription = currentSubscription(db);
     const access = subscriptionAccess(subscription);
-    if (subscription && !access.requiresPayment) {
-      return json(res, 409, { ok: false, code: "PAYMENT_NOT_REQUIRED", error: "แพ็กเกจนี้ยังไม่ต้องชำระเงิน" });
-    }
     const body = await readBody(req);
+    const targetPlan = normalizeSignupPlan(body.targetPlan || body.plan || subscription?.plan);
+    const billingInterval = normalizeSignupBilling(body.billingInterval || body.billing || subscription?.billingInterval || "monthly");
+    let intent = subscriptionCheckoutIntent(subscription, targetPlan, billingInterval);
+    if (subscription?.status === "pending_payment"
+      && targetPlan === subscription.plan
+      && billingInterval === subscription.billingInterval
+      && !subscription.currentPeriodStartedAt) {
+      intent = "subscription_activation";
+    }
+    if (!subscription || !intent) {
+      return json(res, 409, { ok: false, code: "SUBSCRIPTION_CHECKOUT_NOT_ALLOWED", error: "ไม่สามารถเริ่มรายการชำระเงินสำหรับแพ็กเกจนี้ได้" });
+    }
     const idempotencyKey = String(body.idempotencyKey || body.checkoutRequestId || crypto.randomUUID()).trim();
     const providerConfig = paymentProviderConfig();
     try {
-      if (subscription && access.requiresPayment && Number(subscription.amountDueMinor || 0) === 0) {
+      if (intent === "subscription_activation" && access.requiresPayment && Number(subscription.amountDueMinor || 0) === 0) {
         if (typeof activateZeroAmountSubscriptionPayment !== "function") {
           return json(res, 503, { ok: false, code: "ZERO_AMOUNT_ACTIVATION_REQUIRED", error: "ระบบเปิดใช้งานแพ็กเกจส่วนลดเต็มจำนวนยังไม่พร้อม" });
         }
@@ -4377,9 +4425,12 @@ async function handleBillingApi(req, res, url, db, currentUser) {
         });
       }
 
-      const payment = await beginSubscriptionPayment({
+      const payment = await beginSubscriptionCheckout({
         tenantId: currentUser.tenantId,
         userId: currentUser.id,
+        targetPlan,
+        billingInterval,
+        intent,
         idempotencyKey,
         provider: providerConfig.provider
       });
@@ -4412,15 +4463,21 @@ async function handleBillingApi(req, res, url, db, currentUser) {
           providerMetadata: {
             stripe_status: promptpay.status,
             promptpay_has_qr: Boolean(stripeQrImageSource(promptpay)),
-            hosted_instructions_url: stripeQrHostedInstructions(promptpay)
+            hosted_instructions_url: stripeQrHostedInstructions(promptpay),
+            operation: payment.operation,
+            current_plan: payment.currentPlan,
+            target_plan: payment.targetPlan
           }
         });
+        const paymentView = { ...payment, ...(nextPayment || {}), operation: payment.operation, currentPlan: payment.currentPlan, targetPlan: payment.targetPlan };
         return json(res, 200, {
           ok: true,
           provider: STRIPE_PROVIDER,
-          payment: publicPayment(nextPayment || payment),
+          resumed: Boolean(payment.providerPaymentReference),
+          payment: publicPayment(paymentView),
+          ...(payment.operation === "subscription_upgrade" ? { upgrade: upgradeViewFromPayment(payment, paymentView) } : {}),
           promptpay,
-          billing: subscriptionBillingPayload({ ...db, payments: [nextPayment || payment, ...(db.payments || [])] })
+          billing: subscriptionBillingPayload({ ...db, payments: [paymentView, ...(db.payments || [])] })
         });
       }
       return json(res, 501, {
@@ -4439,6 +4496,15 @@ async function handleBillingApi(req, res, url, db, currentUser) {
       }
       if (detail.includes("PAYMENT_TENANT_FORBIDDEN")) {
         return json(res, 403, { ok: false, code: "PAYMENT_TENANT_FORBIDDEN", error: "ไม่มีสิทธิ์สร้างรายการชำระเงินของ tenant นี้" });
+      }
+      if (detail.includes("SUBSCRIPTION_CHECKOUT_OWNER_REQUIRED")) {
+        return json(res, 403, { ok: false, code: "SUBSCRIPTION_CHECKOUT_OWNER_REQUIRED", error: "ต้องใช้สิทธิ์ Owner เพื่อจัดการการชำระเงิน" });
+      }
+      if (detail.includes("SUBSCRIPTION_CHECKOUT_IN_PROGRESS")) {
+        return json(res, 409, { ok: false, code: "SUBSCRIPTION_CHECKOUT_IN_PROGRESS", error: "มีรายการชำระเงินอื่นที่กำลังดำเนินการอยู่ กรุณาดำเนินการรายการเดิมให้เสร็จก่อน" });
+      }
+      if (detail.includes("SUBSCRIPTION_DOWNGRADE_NOT_ALLOWED") || detail.includes("SUBSCRIPTION_CHECKOUT_INTENT_MISMATCH")) {
+        return json(res, 409, { ok: false, code: "SUBSCRIPTION_CHECKOUT_NOT_ALLOWED", error: "ไม่สามารถเริ่มรายการชำระเงินสำหรับแพ็กเกจนี้ได้" });
       }
       if (error.code === "STRIPE_TEST_SECRET_KEY_REQUIRED" || error.code === "STRIPE_LIVE_SECRET_KEY_REQUIRED") {
         return json(res, 503, { ok: false, code: error.code, error: "ยังไม่ได้ตั้งค่า Stripe secret key ให้ตรงกับ environment" });
@@ -4497,21 +4563,15 @@ async function handleStripeWebhookApi(req, res) {
     providerPaymentReference: paymentIntentId,
     amountMinor: Number(intent.amount || 0),
     currency: String(intent.currency || "").toUpperCase(),
+    operation: payment.operation || "",
     rawEvent
   };
   try {
     if (event.type === "payment_intent.succeeded" || stripePaymentStatus(intent.status) === "paid") {
-      if (payment.operation === "subscription_upgrade") {
-        if (typeof recordSubscriptionUpgradeSuccess !== "function") {
-          return json(res, 503, { ok: false, code: "SUBSCRIPTION_UPGRADE_SUCCESS_RPC_REQUIRED", error: "Subscription upgrade success RPC is not configured." });
-        }
-        await recordSubscriptionUpgradeSuccess(input);
-      } else {
-        if (typeof recordProviderPaymentSuccess !== "function") {
-          return json(res, 503, { ok: false, code: "PAYMENT_SUCCESS_RPC_REQUIRED", error: "Payment success RPC is not configured." });
-        }
-        await recordProviderPaymentSuccess(input);
+      if (typeof recordSubscriptionCheckoutSuccess !== "function") {
+        return json(res, 503, { ok: false, code: "SUBSCRIPTION_CHECKOUT_SUCCESS_RPC_REQUIRED", error: "Subscription checkout success RPC is not configured." });
       }
+      await recordSubscriptionCheckoutSuccess(input);
     } else {
       const status = event.type === "payment_intent.payment_failed"
         ? "failed"
@@ -4872,6 +4932,13 @@ async function handleApi(req, res) {
           ok: false,
           code: reason,
           error: safePromotionError(reason)
+        });
+      }
+      if (result.benefitType === "extra_trial_days") {
+        return json(res, 400, {
+          ok: false,
+          code: "PROMOTION_CODE_INVALID",
+          error: "โค้ดนี้ไม่สามารถขยายช่วงทดลองใช้ฟรี 30 วันได้"
         });
       }
       return json(res, 200, {

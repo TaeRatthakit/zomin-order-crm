@@ -22422,6 +22422,270 @@ html[data-theme="light"] body:not(.login-view) .subscription-summary-secure p {
   }
 }
 
+/* pricing-scope: subscription-lifecycle:start */
+body.desktop-app-shell:not(.login-view) .authenticated-pricing-toolbar,
+body.mobile-app-shell:not(.login-view) .authenticated-pricing-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 4px 2px;
+}
+
+.authenticated-pricing-toolbar h1,
+.authenticated-pricing-toolbar p {
+  margin: 0;
+}
+
+.authenticated-pricing-toolbar h1 {
+  color: inherit;
+  font-size: clamp(24px, 3vw, 36px);
+}
+
+.authenticated-pricing-toolbar p {
+  margin-top: 6px;
+  color: rgba(232, 232, 246, 0.72);
+}
+
+.authenticated-pricing-billing-toggle {
+  display: inline-grid;
+  grid-template-columns: repeat(2, minmax(92px, 1fr));
+  padding: 4px;
+  border: 1px solid rgba(168, 126, 255, 0.26);
+  border-radius: 12px;
+  background: rgba(20, 17, 36, 0.72);
+}
+
+.authenticated-pricing-billing-toggle button {
+  min-height: 38px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: rgba(240, 234, 255, 0.74);
+  font: inherit;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.authenticated-pricing-billing-toggle button[aria-pressed="true"] {
+  background: linear-gradient(135deg, #7c3aed, #5b21b6);
+  color: #fff;
+  box-shadow: 0 8px 20px rgba(91, 33, 182, 0.28);
+}
+
+.authenticated-pricing-card.is-expired {
+  border-color: rgba(251, 191, 36, 0.62) !important;
+}
+
+.authenticated-pricing-card.is-expired .authenticated-pricing-current-badge {
+  background: rgba(251, 191, 36, 0.14);
+  color: #fcd34d;
+}
+
+.subscription-paywall-page {
+  display: grid;
+  min-height: min(720px, calc(100vh - 180px));
+  place-items: center;
+  padding: 28px;
+}
+
+.subscription-paywall-card {
+  width: min(620px, 100%);
+  padding: clamp(28px, 5vw, 48px);
+  border: 1px solid rgba(168, 126, 255, 0.3);
+  border-radius: 24px;
+  background: linear-gradient(160deg, rgba(28, 22, 54, 0.98), rgba(12, 12, 24, 0.98));
+  color: #f7f3ff;
+  text-align: center;
+  box-shadow: 0 28px 70px rgba(7, 4, 18, 0.34);
+}
+
+.subscription-paywall-icon {
+  display: inline-grid;
+  width: 64px;
+  height: 64px;
+  place-items: center;
+  border-radius: 20px;
+  background: rgba(139, 92, 246, 0.18);
+  color: #c4b5fd;
+}
+
+.subscription-paywall-icon .nav-icon {
+  width: 32px;
+  height: 32px;
+}
+
+.subscription-paywall-kicker {
+  margin: 22px 0 4px;
+  color: #c4b5fd;
+  font-weight: 900;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.subscription-paywall-card h1 {
+  margin: 0;
+  font-size: clamp(28px, 5vw, 42px);
+}
+
+.subscription-paywall-card > p:not(.subscription-paywall-kicker) {
+  margin: 12px auto 0;
+  color: rgba(240, 234, 255, 0.78);
+  line-height: 1.7;
+}
+
+.subscription-paywall-summary {
+  display: grid;
+  gap: 0;
+  margin: 26px 0;
+  overflow: hidden;
+  border: 1px solid rgba(168, 126, 255, 0.18);
+  border-radius: 16px;
+  text-align: left;
+}
+
+.subscription-paywall-summary div {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 14px 18px;
+  border-bottom: 1px solid rgba(168, 126, 255, 0.12);
+}
+
+.subscription-paywall-summary div:last-child {
+  border-bottom: 0;
+}
+
+.subscription-paywall-summary dt {
+  color: rgba(240, 234, 255, 0.68);
+}
+
+.subscription-paywall-summary dd {
+  margin: 0;
+  font-weight: 900;
+}
+
+.subscription-paywall-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.subscription-paywall-owner-note {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding: 14px;
+  border-radius: 14px;
+  background: rgba(251, 191, 36, 0.1);
+  color: #fcd34d;
+  font-weight: 800;
+}
+
+.subscription-expiry-warning {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 18px;
+  padding: 14px 16px;
+  border: 1px solid rgba(251, 191, 36, 0.3);
+  border-radius: 14px;
+  background: rgba(251, 191, 36, 0.09);
+  color: #fcd34d;
+}
+
+.subscription-expiry-warning p {
+  display: grid;
+  flex: 1;
+  gap: 2px;
+  margin: 0;
+}
+
+.subscription-expiry-warning small {
+  color: inherit;
+  opacity: .78;
+}
+
+html[data-theme="light"] .authenticated-pricing-toolbar p {
+  color: #667085;
+}
+
+html[data-theme="light"] .authenticated-pricing-billing-toggle {
+  border-color: #ddd6fe;
+  background: #f5f3ff;
+}
+
+html[data-theme="light"] .authenticated-pricing-billing-toggle button {
+  color: #5b5570;
+}
+
+html[data-theme="light"] .authenticated-pricing-billing-toggle button[aria-pressed="true"] {
+  color: #fff;
+}
+
+html[data-theme="light"] .subscription-paywall-card {
+  border-color: #e4dcff;
+  background: #fff;
+  color: #18132b;
+  box-shadow: 0 24px 60px rgba(76, 29, 149, 0.12);
+}
+
+html[data-theme="light"] .subscription-paywall-card > p:not(.subscription-paywall-kicker),
+html[data-theme="light"] .subscription-paywall-summary dt {
+  color: #667085;
+}
+
+html[data-theme="light"] .subscription-paywall-summary {
+  border-color: #ece7f7;
+}
+
+html[data-theme="light"] .subscription-paywall-summary div {
+  border-bottom-color: #ece7f7;
+}
+
+html[data-theme="light"] .subscription-expiry-warning {
+  background: #fffbeb;
+  color: #92400e;
+}
+
+@media (max-width: 720px) {
+  body.mobile-app-shell:not(.login-view) .authenticated-pricing-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .authenticated-pricing-billing-toggle {
+    width: 100%;
+  }
+
+  .subscription-paywall-page {
+    min-height: calc(100vh - 150px);
+    padding: 12px 0 28px;
+  }
+
+  .subscription-paywall-card {
+    padding: 28px 20px;
+    border-radius: 20px;
+  }
+
+  .subscription-paywall-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .subscription-expiry-warning {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .subscription-expiry-warning .button {
+    width: 100%;
+  }
+}
+/* pricing-scope: subscription-lifecycle:end */
+
 body:not(.login-view) .settings-logo-preview strong,
 body:not(.login-view) .settings-metric-card strong,
 body:not(.login-view) .settings-detail-panel strong,

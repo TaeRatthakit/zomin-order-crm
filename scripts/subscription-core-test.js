@@ -188,10 +188,10 @@ function signupBootstrap(payload = {}) {
     let freeMonths = 0;
     if (promo?.benefit_type === "percent_discount") discount = Math.min(base, Math.round((base * Number(promo.benefit_value)) / 100));
     if (promo?.benefit_type === "fixed_amount_discount") discount = Math.min(base, Math.round(Number(promo.benefit_value) * 100));
-    if (promo?.benefit_type === "extra_trial_days") extraTrialDays = Math.max(0, Math.floor(Number(promo.benefit_value)));
+    if (promo?.benefit_type === "extra_trial_days") throw new Error("PROMOTION_CODE_INVALID");
     if (promo?.benefit_type === "free_months") freeMonths = Math.max(0, Math.floor(Number(promo.benefit_value)));
     const now = new Date();
-    const trialEnds = new Date(now.getTime() + (30 + extraTrialDays) * 24 * 60 * 60 * 1000);
+    const trialEnds = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
     db.subscriptions.push({
       id: crypto.randomUUID(),
       tenant_id: tenantId,
@@ -374,10 +374,7 @@ function assertSubscription(row, expected) {
   assertSubscription(subscriptionForTenant(fixed.json().user.tenantId), { plan: "business", billing_interval: "yearly", status: "pending_payment", base_amount_minor: 990000, discount_amount_minor: 30000, amount_due_minor: 960000 });
 
   const trial = await signup({ username: "trial@example.com", plan: "starter", billing: "monthly", promotionCode: "TRIAL15", signupRequestId: "sub-trial" });
-  assert(trial.status === 200, `trial promo signup failed: ${trial.text}`);
-  const trialSub = subscriptionForTenant(trial.json().user.tenantId);
-  assertSubscription(trialSub, { plan: "starter", billing_interval: "monthly", status: "trialing", base_amount_minor: 49000, discount_amount_minor: 0, amount_due_minor: 49000, extra_trial_days: 15 });
-  assert(Math.round((new Date(trialSub.trial_ends_at) - new Date(trialSub.trial_started_at)) / (24 * 60 * 60 * 1000)) === 45, "extra trial days did not extend trial deterministically");
+  assert(trial.status === 400, `extra-trial promotion must not extend the exact 30-day contract: ${trial.status} ${trial.text}`);
 
   const month = await signup({ username: "month@example.com", plan: "enterprise", billing: "yearly", promotionCode: "MONTH1", signupRequestId: "sub-month" });
   assert(month.status === 200, `free-month promo signup failed: ${month.text}`);

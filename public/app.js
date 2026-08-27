@@ -183,7 +183,9 @@ const app = {
   platformAdminError: "",
   /* pricing-scope: authenticated-upgrade-state:start */
   pricingUpgradeLoading: "",
-  billingCheckout: null
+  billingCheckout: null,
+  pricingBillingInterval: "",
+  subscriptionBlocked: false
 };
 app.billingCheckoutHydrationKey = "";
 app.subscriptionQrLoadState = null;
@@ -1782,6 +1784,8 @@ async function loadState() {
     const payload = await api(`/api/state?date=${encodeURIComponent(selectedDate)}&_=${Date.now()}`);
     if (sequence !== app.stateRequestSequence) return;
     app.data = payload;
+    /* pricing-scope: authenticated-upgrade-state:start */
+    app.subscriptionBlocked = false;
     app.lastStateLoadedAt = Date.now();
     app.desktopAnalyticsIndex = null;
     app.mobileAnalyticsIndex = null;
@@ -1800,6 +1804,29 @@ async function loadState() {
       app.view = "login";
       navigateToView("login", true);
       render();
+      return;
+    }
+    if (error.status === 402 && error.payload?.code === "SUBSCRIPTION_PAYMENT_REQUIRED" && error.payload?.billing) {
+      app.subscriptionBlocked = true;
+      app.data = {
+        currentUser: app.currentUser,
+        users: app.currentUser ? [app.currentUser] : [],
+        customers: [],
+        orders: [],
+        contactLogs: [],
+        tags: [],
+        settings: {},
+        summary: {},
+        currentPermissions: {},
+        permissionCatalog: [],
+        notificationReadIds: [],
+        billing: error.payload.billing
+      };
+      applyUserTheme(app.currentUser);
+      render();
+      if (app.view === "settingsSubscription") {
+        hydrateSubscriptionCheckout().catch(hydrationError => console.warn("[subscription-checkout]", hydrationError.message || hydrationError));
+      }
       return;
     }
     throw error;
@@ -1837,10 +1864,13 @@ function subscriptionCheckoutTargetFromState() {
   const latestPayment = (billing.latestPayments || [])[0] || {};
   const currentPlan = String(subscription.plan || "").toLowerCase();
   const targetPlan = String(latestPayment.targetPlan || latestPayment.plan || "").toLowerCase();
-  if (latestPayment.operation !== "subscription_upgrade" || !targetPlan || targetPlan === currentPlan) return null;
+  const operation = String(latestPayment.operation || "").toLowerCase();
+  if (!["subscription_activation", "subscription_renewal", "subscription_upgrade"].includes(operation) || !targetPlan) return null;
   return {
     paymentId: String(latestPayment.id || ""),
-    targetPlan
+    targetPlan,
+    billingInterval: String(latestPayment.billingInterval || subscription.billingInterval || "monthly").toLowerCase(),
+    operation
   };
 }
 
@@ -1853,9 +1883,9 @@ async function hydrateSubscriptionCheckout() {
   if (app.billingCheckoutHydrationKey === hydrationKey) return;
   app.billingCheckoutHydrationKey = hydrationKey;
   try {
-    const payload = await api("/api/billing/upgrade", {
+    const payload = await api(target.operation === "subscription_upgrade" ? "/api/billing/upgrade" : "/api/billing/checkout", {
       method: "POST",
-      body: JSON.stringify({ targetPlan: target.targetPlan })
+      body: JSON.stringify({ targetPlan: target.targetPlan, billingInterval: target.billingInterval })
     });
     if (app.view !== "settingsSubscription") return;
     app.billingCheckout = payload;
@@ -2310,6 +2340,7 @@ function authenticatedPricingPlans() {
       name: "Starter",
       description: "เหมาะสำหรับร้านค้าและธุรกิจเริ่มต้น",
       price: "฿490",
+      prices: { monthly: "฿490", yearly: "฿4,900" },
       trial: "ทดลองใช้ฟรี 30 วัน",
       includes: "",
       illustration: "/assets/pricing/starter-storefront.png",
@@ -2328,6 +2359,7 @@ function authenticatedPricingPlans() {
       name: "Business",
       description: "สำหรับธุรกิจที่กำลังเติบโต",
       price: "฿990",
+      prices: { monthly: "฿990", yearly: "฿9,900" },
       trial: "",
       includes: "ทุกอย่างใน Starter พร้อม",
       illustration: "/assets/pricing/business-growth.png",
@@ -2345,6 +2377,7 @@ function authenticatedPricingPlans() {
       name: "Enterprise",
       description: "สำหรับองค์กรและธุรกิจขนาดใหญ่",
       price: "฿1,990",
+      prices: { monthly: "฿1,990", yearly: "฿19,900" },
       trial: "",
       includes: "ทุกอย่างใน Business พร้อม",
       illustration: "/assets/pricing/enterprise-building.png",
@@ -2368,6 +2401,73 @@ function authenticatedRecommendedPlan(currentPlan = authenticatedCurrentPlan()) 
   if (currentPlan === "starter") return "business";
   if (currentPlan === "business") return "enterprise";
   return "";
+}
+
+function authenticatedBillingAccess() {
+  return app.data?.billing?.access || { allowed: true, effectiveStatus: "active", requiresPayment: false };
+}
+
+function authenticatedBillingInterval() {
+  const selected = String(app.pricingBillingInterval || "").toLowerCase();
+  if (["monthly", "yearly"].includes(selected)) return selected;
+  const current = String(app.data?.billing?.subscription?.billingInterval || "monthly").toLowerCase();
+  return ["monthly", "yearly"].includes(current) ? current : "monthly";
+}
+
+function subscriptionExpirationText(subscription = {}, access = authenticatedBillingAccess()) {
+  const value = access.expiresAt
+    || (subscription.status === "trialing" ? subscription.trialEndsAt : subscription.currentPeriodEndsAt)
+    || "";
+  return value ? formatDate(value) : "ไม่ระบุ";
+}
+
+function renderSubscriptionPaywall() {
+  const billing = app.data?.billing || {};
+  const subscription = billing.subscription || {};
+  const access = billing.access || {};
+  const planNames = { starter: "Starter", business: "Business", enterprise: "Enterprise" };
+  const plan = String(subscription.plan || "starter").toLowerCase();
+  const interval = String(subscription.billingInterval || "monthly").toLowerCase();
+  const isBillingOwner = app.currentUser?.role === "Owner";
+  els.content.innerHTML = `
+    <section class="subscription-paywall-page" aria-labelledby="subscriptionPaywallTitle">
+      <article class="subscription-paywall-card">
+        <span class="subscription-paywall-icon">${iconSvg("wallet")}</span>
+        <p class="subscription-paywall-kicker">Subscription required</p>
+        <h1 id="subscriptionPaywallTitle">แพ็กเกจของคุณหมดอายุแล้ว</h1>
+        <p>ชำระค่าบริการเพื่อเข้าใช้งาน Growup Pilot ต่อ ข้อมูลธุรกิจทั้งหมดของคุณยังถูกเก็บไว้อย่างปลอดภัย</p>
+        <dl class="subscription-paywall-summary">
+          <div><dt>แพ็กเกจ</dt><dd>${escapeHtml(planNames[plan] || plan)}</dd></div>
+          <div><dt>รอบชำระ</dt><dd>${interval === "yearly" ? "รายปี" : "รายเดือน"}</dd></div>
+          <div><dt>หมดอายุเมื่อ</dt><dd>${escapeHtml(subscriptionExpirationText(subscription, access))}</dd></div>
+        </dl>
+        ${isBillingOwner ? `
+          <div class="subscription-paywall-actions">
+            <button class="button primary" type="button" data-subscription-renew="${escapeHtml(plan)}" data-billing-interval="${escapeHtml(interval)}">ต่ออายุแพ็กเกจ</button>
+            <button class="button ghost" type="button" data-view-shortcut="pricing">ดูแพ็กเกจอื่น</button>
+          </div>
+        ` : `
+          <div class="subscription-paywall-owner-note">${iconSvg("shield")}<span>กรุณาติดต่อ Owner เพื่อดำเนินการต่ออายุแพ็กเกจ</span></div>
+          <button class="button ghost" type="button" data-view-shortcut="pricing">ดูรายละเอียดแพ็กเกจ</button>
+        `}
+      </article>
+    </section>
+  `;
+}
+
+function renderSubscriptionExpiryWarning() {
+  const access = authenticatedBillingAccess();
+  if (!access.allowed || !access.warningMilestone || !els.content || isPublicView()) return;
+  const subscription = app.data?.billing?.subscription || {};
+  const days = Number(access.daysRemaining || 0);
+  const trial = access.effectiveStatus === "trialing";
+  els.content.insertAdjacentHTML("afterbegin", `
+    <aside class="subscription-expiry-warning" role="status">
+      <span>${iconSvg("clock")}</span>
+      <p><strong>${trial ? "ช่วงทดลองใช้ฟรี" : "แพ็กเกจของคุณ"}เหลือ ${days} วัน</strong><small>ครบกำหนด ${escapeHtml(subscriptionExpirationText(subscription, access))} — การใช้งานยังไม่ถูกจำกัดก่อนวันหมดอายุ</small></p>
+      ${app.currentUser?.role === "Owner" ? `<button class="button ghost" type="button" data-view-shortcut="pricing">ดูแพ็กเกจ</button>` : ""}
+    </aside>
+  `);
 }
 
 function updateShell() {
@@ -10052,11 +10152,11 @@ function subscriptionPaymentDisplayStatus(promptpay = {}, payment = {}) {
   const providerStatus = String(payment.providerStatus || "").toLowerCase();
   const promptStatus = String(promptpay.status || "").toLowerCase();
   const verifiedSuccess = payment.verifiedSuccess === true;
-  if (operation === "subscription_upgrade" && !verifiedSuccess) {
+  if (["subscription_activation", "subscription_renewal", "subscription_upgrade"].includes(operation) && !verifiedSuccess) {
     if (["requires_action", "processing", "requires_payment_method", "failed", "canceled", "cancelled"].includes(promptStatus)) return promptStatus;
     if (["requires_action", "processing", "requires_payment_method", "failed", "canceled", "cancelled"].includes(providerStatus)) return providerStatus;
     // Stripe can report succeeded before the signed webhook is reconciled.
-    // Keep the upgrade visibly unpaid until the success RPC has committed.
+    // Keep every subscription checkout visibly unpaid until the success RPC commits.
     return "pending";
   }
   return promptStatus || providerStatus || String(payment.status || "pending").toLowerCase() || "pending";
@@ -10090,6 +10190,8 @@ function renderSettingsSubscription() {
   const selectedPlan = planNames[targetPlan] || planNames[currentPlan] || "Business";
   const amountMinor = Number(promptpay.amountMinor ?? latestPayment.amountMinor ?? (targetPlan === "enterprise" ? 199000 : targetPlan === "business" ? 99000 : subscription.amountDueMinor || 0));
   const amount = `฿${(amountMinor / 100).toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const billingInterval = String(latestPayment.billingInterval || checkout.upgrade?.billingInterval || subscription.billingInterval || "monthly").toLowerCase();
+  const intervalCopy = billingInterval === "yearly" ? "ปี" : "เดือน";
   const status = subscriptionPaymentDisplayStatus(promptpay, latestPayment);
   const statusCopy = {
     pending: ["รอการชำระเงิน", "กรุณาชำระภายในเวลาที่กำหนด เพื่อรักษารายการนี้ไว้", "pending"],
@@ -10104,8 +10206,9 @@ function renderSettingsSubscription() {
   }[status] || ["รอการชำระเงิน", "กรุณาชำระภายในเวลาที่กำหนด เพื่อรักษารายการนี้ไว้", "pending"];
   const hasCheckout = Boolean(targetPlan || checkout.promptpay || latestPayment.id);
   const isSuccess = statusCopy[2] === "success"
-    && (String(latestPayment.operation || "").toLowerCase() !== "subscription_upgrade" || latestPayment.verifiedSuccess === true);
-  const canRetry = statusCopy[2] === "failed" && targetPlan && targetPlan !== currentPlan;
+    && (!["subscription_activation", "subscription_renewal", "subscription_upgrade"].includes(String(latestPayment.operation || "").toLowerCase())
+      || latestPayment.verifiedSuccess === true);
+  const canRetry = statusCopy[2] === "failed" && targetPlan && app.currentUser?.role === "Owner";
   const hostedInstructionsUrl = promptpayQr.hostedInstructionsUrl
     || promptpayQr.hosted_instructions_url
     || normalizedQr.hostedInstructionsUrl
@@ -10168,14 +10271,14 @@ function renderSettingsSubscription() {
     <section class="subscription-checkout-page" aria-label="ชำระเงินแพ็กเกจ">
       <header class="subscription-checkout-header">
         <button class="subscription-checkout-back" type="button" data-view-shortcut="pricing" aria-label="กลับไปเลือกแพ็กเกจ">${iconSvg("arrow")}</button>
-        <div><h1>ชำระเงินแพ็กเกจ</h1><p>อัปเกรดแพ็กเกจและเริ่มใช้งานฟีเจอร์เพิ่มเติม</p></div>
+        <div><h1>ชำระเงินแพ็กเกจ</h1><p>ต่ออายุหรืออัปเกรดแพ็กเกจด้วย PromptPay</p></div>
       </header>
       ${hasCheckout ? `<div class="subscription-checkout-grid">
-        <div class="subscription-selected-plan-mobile"><span>${escapeHtml(selectedPlan)}</span><strong>${escapeHtml(amount.replace(".00", ""))}</strong><small>/ เดือน</small></div>
+        <div class="subscription-selected-plan-mobile"><span>${escapeHtml(selectedPlan)}</span><strong>${escapeHtml(amount.replace(".00", ""))}</strong><small>/ ${escapeHtml(intervalCopy)}</small></div>
         <div class="subscription-checkout-left">${paymentCard}</div>
         <aside class="subscription-summary-card">
           <div class="subscription-card-heading"><span class="subscription-card-icon">${iconSvg("clipboard")}</span><h2>สรุปรายการ</h2></div>
-          <dl class="subscription-summary-list"><div><dt>แพ็กเกจ</dt><dd>${escapeHtml(selectedPlan)}</dd></div><div><dt>ค่าบริการ</dt><dd>${escapeHtml(amount)} / เดือน</dd></div><div><dt>วิธีชำระเงิน</dt><dd>PromptPay</dd></div></dl>
+          <dl class="subscription-summary-list"><div><dt>แพ็กเกจ</dt><dd>${escapeHtml(selectedPlan)}</dd></div><div><dt>ค่าบริการ</dt><dd>${escapeHtml(amount)} / ${escapeHtml(intervalCopy)}</dd></div><div><dt>วิธีชำระเงิน</dt><dd>PromptPay</dd></div></dl>
           <div class="subscription-summary-total"><span>ยอดชำระทั้งหมด</span><strong>${escapeHtml(amount)}</strong></div>
           <div class="subscription-summary-callout"><span>${iconSvg("briefcase")}</span><p>แพ็กเกจจะเริ่มใช้งานหลังจากระบบยืนยันการชำระเงินสำเร็จ</p></div>
           <div class="subscription-summary-secure"><span>${iconSvg("shield")}</span><p>การชำระเงินดำเนินการอย่างปลอดภัยผ่าน Stripe</p></div>
@@ -10218,6 +10321,11 @@ function renderSettingsSubscription() {
 function renderPricing() {
   const currentPlan = authenticatedCurrentPlan();
   const recommendedPlan = authenticatedRecommendedPlan(currentPlan);
+  const subscription = app.data?.billing?.subscription || {};
+  const access = authenticatedBillingAccess();
+  const billingInterval = authenticatedBillingInterval();
+  const isBillingOwner = app.currentUser?.role === "Owner";
+  const currentStatus = String(subscription.status || "").toLowerCase();
   const planOrder = { starter: 0, business: 1, enterprise: 2 };
   const plans = authenticatedPricingPlans();
   const comparisonRows = [
@@ -10250,32 +10358,62 @@ function renderPricing() {
   `).join("");
   els.content.innerHTML = `
     <section class="authenticated-pricing-page" aria-label="แพ็กเกจ Growup Pilot">
+      <div class="authenticated-pricing-toolbar">
+        <div>
+          <h1>เลือกแพ็กเกจที่เหมาะกับธุรกิจ</h1>
+          <p>${access.allowed ? "เปลี่ยนหรือวางแผนต่ออายุด้วยราคาที่ระบบกำหนด" : "เลือกต่ออายุแพ็กเกจเดิมหรืออัปเกรดเพื่อกลับมาใช้งาน"}</p>
+        </div>
+        <div class="authenticated-pricing-billing-toggle" role="group" aria-label="รอบชำระเงิน">
+          <button type="button" data-pricing-billing="monthly" aria-pressed="${billingInterval === "monthly"}">รายเดือน</button>
+          <button type="button" data-pricing-billing="yearly" aria-pressed="${billingInterval === "yearly"}">รายปี</button>
+        </div>
+      </div>
       <div class="authenticated-pricing-cards">
         ${plans.map(plan => {
           const isCurrent = plan.id === currentPlan;
           const isRecommended = plan.id === recommendedPlan;
           const isLower = planOrder[plan.id] < planOrder[currentPlan];
-          const actionLabel = isCurrent ? "แพ็กเกจปัจจุบัน" : (isLower ? `ดู ${plan.name}` : `เลือก ${plan.name}`);
+          const isExpiredCurrent = isCurrent && !access.allowed;
+          const isActiveCurrent = isCurrent && access.allowed && currentStatus === "active";
+          const isPendingCurrent = isCurrent && currentStatus === "pending_payment";
+          const action = isCurrent
+            ? ((isExpiredCurrent || isActiveCurrent || isPendingCurrent) ? (isPendingCurrent ? "activation" : "renewal") : "")
+            : (!isLower ? "upgrade" : "");
+          const canCheckout = Boolean(action) && isBillingOwner;
+          const actionLabel = !isBillingOwner
+            ? "ติดต่อ Owner เพื่อดำเนินการ"
+            : isExpiredCurrent
+              ? `ใช้งาน ${plan.name} ต่อ`
+              : isPendingCurrent
+                ? `ชำระเงิน ${plan.name}`
+                : isActiveCurrent
+                  ? `ต่ออายุ ${plan.name}`
+                  : isCurrent
+                    ? "แพ็กเกจปัจจุบัน"
+                    : (isLower ? `ดู ${plan.name}` : `เลือก ${plan.name}`);
+          const disabled = !canCheckout;
+          const intervalCopy = billingInterval === "yearly" ? "/ ปี" : "/ เดือน";
+          const price = plan.prices?.[billingInterval] || plan.price;
           return `
-            <article class="authenticated-pricing-card ${isRecommended ? "is-recommended" : ""} ${isCurrent ? "is-current" : ""}" data-pricing-plan="${plan.id}" data-current-plan="${isCurrent ? "true" : "false"}">
+            <article class="authenticated-pricing-card ${isRecommended ? "is-recommended" : ""} ${isCurrent ? "is-current" : ""} ${isExpiredCurrent ? "is-expired" : ""}" data-pricing-plan="${plan.id}" data-current-plan="${isCurrent ? "true" : "false"}">
               ${isRecommended ? `<span class="authenticated-pricing-recommendation">แนะนำ</span>` : ""}
               <div class="authenticated-pricing-card-head">
                 <div class="authenticated-pricing-card-copy">
                   <h2>${escapeHtml(plan.name)}</h2>
                   <p>${escapeHtml(plan.description)}</p>
-                  <div class="authenticated-pricing-price">${escapeHtml(plan.price)} <span>/ เดือน</span></div>
-                  ${plan.trial ? `<span class="authenticated-pricing-trial">${escapeHtml(plan.trial)}</span>` : `<p class="authenticated-pricing-includes">${escapeHtml(plan.includes)}</p>`}
+                  <div class="authenticated-pricing-price">${escapeHtml(price)} <span>${escapeHtml(intervalCopy)}</span></div>
+                  ${plan.trial && currentStatus === "trialing" && access.allowed ? `<span class="authenticated-pricing-trial">${escapeHtml(plan.trial)}</span>` : `<p class="authenticated-pricing-includes">${escapeHtml(plan.includes || "ชำระผ่าน PromptPay อย่างปลอดภัย")}</p>`}
                 </div>
                 <div class="authenticated-pricing-illustration authenticated-pricing-illustration-${plan.id}" aria-hidden="true">
                   <img src="${escapeHtml(plan.illustration)}" alt="" loading="lazy">
                 </div>
               </div>
-              ${isCurrent ? `<div class="authenticated-pricing-current-badge">${iconSvg("check")} แพ็กเกจปัจจุบัน</div>` : ""}
+              ${isCurrent ? `<div class="authenticated-pricing-current-badge">${iconSvg(isExpiredCurrent ? "clock" : "check")} ${isExpiredCurrent ? (currentStatus === "trialing" ? "ทดลองใช้ฟรีสิ้นสุดแล้ว" : "แพ็กเกจหมดอายุแล้ว") : "แพ็กเกจปัจจุบัน"}</div>` : ""}
               <ul class="authenticated-pricing-features">
                 ${plan.features.map(feature => `<li><span class="authenticated-pricing-feature-check">${iconSvg("check")}</span><span>${escapeHtml(feature)}</span></li>`).join("")}
               </ul>
-              <button class="authenticated-pricing-cta ${isCurrent ? "is-current" : ""} ${isLower ? "is-unavailable" : ""} ${app.pricingUpgradeLoading === plan.id ? "is-loading" : ""}" type="button" data-pricing-upgrade="${isLower || isCurrent ? "false" : "true"}" ${isCurrent || isLower ? "disabled aria-disabled=\"true\"" : ""} ${app.pricingUpgradeLoading === plan.id ? "aria-busy=\"true\"" : ""}>${app.pricingUpgradeLoading === plan.id ? "กำลังเตรียมการชำระเงิน..." : escapeHtml(actionLabel)}</button>
-              <p class="authenticated-pricing-note">${isCurrent ? "แผนที่บริษัทของคุณใช้งานอยู่" : (isLower ? "ดูรายละเอียดแพ็กเกจ" : "เพิ่มศักยภาพให้ธุรกิจของคุณ")}</p>
+              <button class="authenticated-pricing-cta ${isCurrent && !action ? "is-current" : ""} ${disabled ? "is-unavailable" : ""} ${app.pricingUpgradeLoading === plan.id ? "is-loading" : ""}" type="button" data-pricing-action="${escapeHtml(action)}" data-pricing-upgrade="${action === "upgrade" ? "true" : "false"}" data-billing-interval="${escapeHtml(billingInterval)}" ${disabled ? "disabled aria-disabled=\"true\"" : ""} ${app.pricingUpgradeLoading === plan.id ? "aria-busy=\"true\"" : ""}>${app.pricingUpgradeLoading === plan.id ? "กำลังเตรียมการชำระเงิน..." : escapeHtml(actionLabel)}</button>
+              <p class="authenticated-pricing-note">${!isBillingOwner ? "สิทธิ์ชำระเงินเป็นของ Owner เท่านั้น" : isExpiredCurrent ? "ข้อมูลเดิมจะกลับมาใช้งานได้หลังยืนยันการชำระเงิน" : isCurrent ? "แผนที่บริษัทของคุณใช้งานอยู่" : (isLower ? "ยังไม่รองรับการดาวน์เกรด" : "เพิ่มศักยภาพให้ธุรกิจของคุณ")}</p>
             </article>
           `;
         }).join("")}
@@ -10295,6 +10433,18 @@ function renderPricing() {
       </section>
     </section>
   `;
+}
+
+async function beginSubscriptionCheckoutForUi({ targetPlan, billingInterval, action, idempotencyKey = "" } = {}) {
+  const endpoint = action === "upgrade" ? "/api/billing/upgrade" : "/api/billing/checkout";
+  return api(endpoint, {
+    method: "POST",
+    body: JSON.stringify({
+      targetPlan,
+      billingInterval,
+      ...(idempotencyKey ? { idempotencyKey } : {})
+    })
+  });
 }
 
 function moneyMinorText(value = 0, currency = "THB") {
@@ -11375,7 +11525,8 @@ function render(options = {}) {
     ? "Growup Pilot | จัดการธุรกิจให้เติบโต"
     : isPublicView() ? "Growup Pilot" : `${titleFor(app.view)} | Growup Pilot`;
   renderSubpageNav();
-  const renderer = {
+  const blockedView = app.subscriptionBlocked && !["pricing", "settingsSubscription"].includes(app.view);
+  const renderer = blockedView ? renderSubscriptionPaywall : ({
     login: renderLogin,
     landing: renderLanding,
     signup: renderSignup,
@@ -11415,8 +11566,9 @@ function render(options = {}) {
     settingsVip: renderSettingsVip,
     settingsLine: renderSettingsLine,
     lineDebug: renderLineDebug
-  }[app.view] || renderDashboard;
+  }[app.view] || renderDashboard);
   const renderResult = renderer();
+  if (!blockedView) renderSubscriptionExpiryWarning();
   if (mobile) {
     els.content.dataset.renderedView = app.view;
     if (!options.deferMobileNavSync) renderNav();
@@ -12460,18 +12612,50 @@ document.addEventListener("click", async event => {
   }
 
   /* pricing-scope: authenticated-upgrade-handler:start */
+  const pricingBillingButton = event.target.closest("[data-pricing-billing]");
+  if (pricingBillingButton && app.view === "pricing") {
+    const nextInterval = String(pricingBillingButton.dataset.pricingBilling || "").toLowerCase();
+    if (["monthly", "yearly"].includes(nextInterval)) {
+      app.pricingBillingInterval = nextInterval;
+      render();
+    }
+    return;
+  }
+
+  const paywallRenewButton = event.target.closest("[data-subscription-renew]");
+  if (paywallRenewButton && !app.pricingUpgradeLoading) {
+    const targetPlan = String(paywallRenewButton.dataset.subscriptionRenew || "").toLowerCase();
+    const billingInterval = String(paywallRenewButton.dataset.billingInterval || "monthly").toLowerCase();
+    app.pricingUpgradeLoading = targetPlan;
+    render();
+    try {
+      const payload = await beginSubscriptionCheckoutForUi({ targetPlan, billingInterval, action: "renewal" });
+      app.billingCheckout = payload;
+      if (payload.billing && app.data) app.data.billing = payload.billing;
+      setView("settingsSubscription");
+    } catch (error) {
+      if (error.payload?.billing && app.data) app.data.billing = error.payload.billing;
+      showToast(error.message || "เริ่มรายการต่ออายุไม่สำเร็จ", "error");
+      render();
+    } finally {
+      app.pricingUpgradeLoading = "";
+    }
+    return;
+  }
+
   const subscriptionQrRetryButton = event.target.closest("[data-subscription-qr-retry]");
   if (subscriptionQrRetryButton && !app.pricingUpgradeLoading) {
     const targetPlan = String(subscriptionQrRetryButton.dataset.subscriptionQrRetry || "").toLowerCase();
+    const latestPayment = app.billingCheckout?.payment || app.data?.billing?.latestPayments?.[0] || {};
+    const operation = String(latestPayment.operation || "").toLowerCase();
+    const billingInterval = String(latestPayment.billingInterval || authenticatedBillingInterval()).toLowerCase();
+    const action = operation === "subscription_upgrade" ? "upgrade" : "renewal";
     if (!targetPlan) return;
     app.pricingUpgradeLoading = targetPlan;
     app.subscriptionQrLoadState = { paymentId: String(app.billingCheckout?.payment?.id || ""), state: "loading" };
     render();
     try {
-      const payload = await api("/api/billing/upgrade", {
-        method: "POST",
-        body: JSON.stringify({ targetPlan })
-      });
+      const payload = await beginSubscriptionCheckoutForUi({ targetPlan, billingInterval, action });
       app.billingCheckout = payload;
       app.subscriptionQrLoadState = null;
       if (payload.billing && app.data) app.data.billing = payload.billing;
@@ -12489,14 +12673,15 @@ document.addEventListener("click", async event => {
   const billingRetryButton = event.target.closest("[data-billing-retry]");
   if (billingRetryButton && !app.pricingUpgradeLoading) {
     const targetPlan = String(billingRetryButton.dataset.billingRetry || "").toLowerCase();
+    const latestPayment = app.billingCheckout?.payment || app.data?.billing?.latestPayments?.[0] || {};
+    const operation = String(latestPayment.operation || "").toLowerCase();
+    const billingInterval = String(latestPayment.billingInterval || authenticatedBillingInterval()).toLowerCase();
+    const action = operation === "subscription_upgrade" ? "upgrade" : "renewal";
     if (!targetPlan) return;
     app.pricingUpgradeLoading = targetPlan;
     render();
     try {
-      const payload = await api("/api/billing/upgrade", {
-        method: "POST",
-        body: JSON.stringify({ targetPlan })
-      });
+      const payload = await beginSubscriptionCheckoutForUi({ targetPlan, billingInterval, action });
       app.billingCheckout = payload;
       if (payload.billing && app.data) app.data.billing = payload.billing;
       showToast("เริ่มรายการชำระเงินใหม่แล้ว");
@@ -12510,35 +12695,29 @@ document.addEventListener("click", async event => {
     return;
   }
 
-  const pricingUpgradeButton = event.target.closest("[data-pricing-upgrade=\"true\"]");
-  if (pricingUpgradeButton && app.view === "pricing") {
-    const card = pricingUpgradeButton.closest("[data-pricing-plan]");
+  const pricingCheckoutButton = event.target.closest("[data-pricing-action]");
+  if (pricingCheckoutButton && app.view === "pricing") {
+    const card = pricingCheckoutButton.closest("[data-pricing-plan]");
     const targetPlan = String(card?.dataset?.pricingPlan || "").toLowerCase();
-    const currentPlan = authenticatedCurrentPlan();
-    const planOrder = { starter: 0, business: 1, enterprise: 2 };
-    if (!targetPlan || !planOrder[targetPlan] || planOrder[targetPlan] <= Number(planOrder[currentPlan] ?? -1) || app.pricingUpgradeLoading) return;
+    const action = String(pricingCheckoutButton.dataset.pricingAction || "").toLowerCase();
+    const billingInterval = String(pricingCheckoutButton.dataset.billingInterval || authenticatedBillingInterval()).toLowerCase();
+    if (!targetPlan || !["activation", "renewal", "upgrade"].includes(action) || app.pricingUpgradeLoading) return;
     app.pricingUpgradeLoading = targetPlan;
     render();
     try {
-      const payload = await api("/api/billing/upgrade", {
-        method: "POST",
-        body: JSON.stringify({ targetPlan })
-      });
+      const payload = await beginSubscriptionCheckoutForUi({ targetPlan, billingInterval, action });
       app.billingCheckout = payload;
       if (payload.billing && app.data) app.data.billing = payload.billing;
       app.pricingUpgradeLoading = "";
-      showToast(`เริ่มรายการอัปเกรด ${targetPlan === "business" ? "Business" : "Enterprise"} แล้ว`);
+      showToast(action === "upgrade" ? "เริ่มรายการอัปเกรดแล้ว" : "เริ่มรายการต่ออายุแล้ว");
       setView("settingsSubscription");
     } catch (error) {
       app.pricingUpgradeLoading = "";
       if (error.payload?.billing && app.data) app.data.billing = error.payload.billing;
       const pendingTarget = String(error.payload?.pendingPayment?.targetPlan || "").toLowerCase();
-      if (error.payload?.code === "UPGRADE_IN_PROGRESS" && pendingTarget) {
+      if (["UPGRADE_IN_PROGRESS", "SUBSCRIPTION_CHECKOUT_IN_PROGRESS"].includes(error.payload?.code) && pendingTarget) {
         try {
-          const resumed = await api("/api/billing/upgrade", {
-            method: "POST",
-            body: JSON.stringify({ targetPlan: pendingTarget })
-          });
+          const resumed = await beginSubscriptionCheckoutForUi({ targetPlan: pendingTarget, billingInterval, action: "upgrade" });
           app.billingCheckout = resumed;
           if (resumed.billing && app.data) app.data.billing = resumed.billing;
           showToast("คุณมีรายการชำระเงินค้างอยู่ เปิดรายการเดิมให้แล้ว");
