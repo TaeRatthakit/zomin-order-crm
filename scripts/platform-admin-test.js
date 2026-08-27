@@ -193,8 +193,15 @@ async function login(username) {
   if (createPromo.status !== 200 || createPromo.json().result.promotion.code !== "GROWUP25") fail(`platform promo create failed: ${createPromo.status} ${createPromo.text}`);
   if (db.platform_admin_audit_log.length !== 1 || db.platform_admin_audit_log[0].actor_user_id !== "u_platform") fail("platform admin write did not append audit log");
 
-  const shell = await request("/platform-admin", { headers: { cookie: platformCookie } });
-  if (shell.status !== 200 || !shell.text.includes("app.js")) fail(`platform admin route did not serve app shell: ${shell.status}`);
+  const platformLogin = await request("/api/platform-admin/login", {
+    method: "POST",
+    body: JSON.stringify({ username: "platform@example.com", password: "pass12345" })
+  });
+  if (platformLogin.status !== 200) fail(`Platform Admin login failed: ${platformLogin.status} ${platformLogin.text}`);
+  const platformSessionCookie = header(platformLogin.headers, "set-cookie");
+  if (!platformSessionCookie.includes("growup_platform_admin_session=")) fail("Platform Admin session cookie was not issued");
+  const shell = await request("/platform-admin", { headers: { cookie: platformSessionCookie } });
+  if (shell.status !== 200 || !shell.text.includes("platform-admin.js")) fail(`platform admin route did not serve protected app shell: ${shell.status}`);
 
   console.log("Platform Admin checks passed.");
 })().catch(error => {

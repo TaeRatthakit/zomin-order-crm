@@ -74,6 +74,7 @@ const {
   verifyStripeWebhookPayload,
   stripePaymentStatus
 } = require("./lib/stripe-promptpay");
+const { handlePlatformAdminRequest } = require("./lib/platform-admin-http");
 
 const PORT = Number(process.env.PORT || 3000);
 const HOST = process.env.HOST || "0.0.0.0";
@@ -6141,6 +6142,7 @@ async function handleApi(req, res) {
 
 async function appHandler(req, res) {
   try {
+    if (await handlePlatformAdminRequest(req, res)) return;
     if (req.url.startsWith("/api/")) {
       const pathname = new URL(req.url, `http://${req.headers.host || "localhost"}`).pathname;
       const sessionUser = getCurrentUser(req);
