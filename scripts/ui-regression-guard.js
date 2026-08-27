@@ -246,6 +246,7 @@ function authenticatedPricingRangesFor(file, revision) {
           "authenticatedPricingPlans",
           "authenticatedCurrentPlan",
           "authenticatedRecommendedPlan",
+          "subscriptionExpirationText",
           "renderPricing"
         ]),
         ...markerRanges(contents, "pricing-scope: authenticated-upgrade-state:start", "pricing-scope: authenticated-upgrade-state:end"),

@@ -2418,7 +2418,8 @@ function subscriptionExpirationText(subscription = {}, access = authenticatedBil
   const value = access.expiresAt
     || (subscription.status === "trialing" ? subscription.trialEndsAt : subscription.currentPeriodEndsAt)
     || "";
-  return value ? formatDate(value) : "ไม่ระบุ";
+  const dateOnly = bangkokDateOnly(value);
+  return dateOnly ? formatDate(dateOnly) : "ไม่ระบุ";
 }
 
 function renderSubscriptionPaywall() {

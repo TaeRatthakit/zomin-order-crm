@@ -105,6 +105,7 @@ for (const token of [
   "ใช้งาน ${plan.name} ต่อ",
   "data-pricing-billing=\"monthly\"",
   "data-pricing-billing=\"yearly\"",
+  "formatDate(dateOnly)",
   "subscription_activation",
   "subscription_renewal",
   "latestPayment.verifiedSuccess === true"
