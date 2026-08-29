@@ -31267,3 +31267,182 @@ html[data-theme="light"] body.desktop-app-shell:not(.login-view) .mobile-setup-w
   background: #ede9fe !important;
   color: #4c1d95 !important;
 }
+
+/* pricing-scope: profile-plan-status:start */
+body:not(.login-view) .plan-status-badge {
+  --plan-icon-cutout: #2a1d42;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  width: max-content;
+  max-width: 100%;
+  min-height: 28px;
+  box-sizing: border-box;
+  padding: 5px 10px 5px 7px;
+  border: 1px solid rgba(157, 113, 255, 0.2);
+  border-radius: 999px;
+  background: rgba(119, 61, 214, 0.13);
+  color: #e8dcff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+body:not(.login-view) .plan-status-icon {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  display: grid;
+  place-items: center;
+  color: #a96fff;
+}
+
+body:not(.login-view) .plan-status-icon .nav-icon {
+  width: 18px;
+  height: 18px;
+  overflow: visible;
+}
+
+body:not(.login-view) .plan-status-name {
+  flex: 0 0 auto;
+  color: #c6a5ff;
+  font-weight: 800;
+}
+
+body:not(.login-view) .plan-status-separator {
+  flex: 0 0 auto;
+  color: rgba(232, 220, 255, 0.62);
+}
+
+body:not(.login-view) .plan-status-remaining {
+  min-width: 0;
+  overflow: hidden;
+  color: rgba(242, 239, 250, 0.86);
+  font-weight: 600;
+  text-overflow: ellipsis;
+}
+
+body:not(.login-view) .plan-status-badge.is-warning .plan-status-remaining {
+  color: #ffc76b;
+}
+
+body:not(.login-view) .plan-status-badge.is-expired .plan-status-remaining {
+  color: #ff9c9c;
+}
+
+html[data-theme="light"] body:not(.login-view) .plan-status-badge {
+  --plan-icon-cutout: #f2edff;
+  border-color: rgba(124, 58, 237, 0.14);
+  background: rgba(124, 58, 237, 0.08);
+  color: #4c1d95;
+}
+
+html[data-theme="light"] body:not(.login-view) .plan-status-icon {
+  color: #6425d0;
+}
+
+html[data-theme="light"] body:not(.login-view) .plan-status-name {
+  color: #5b21b6;
+}
+
+html[data-theme="light"] body:not(.login-view) .plan-status-separator {
+  color: rgba(76, 29, 149, 0.54);
+}
+
+html[data-theme="light"] body:not(.login-view) .plan-status-remaining {
+  color: #57516a;
+}
+
+html[data-theme="light"] body:not(.login-view) .plan-status-badge.is-warning .plan-status-remaining {
+  color: #b45309;
+}
+
+html[data-theme="light"] body:not(.login-view) .plan-status-badge.is-expired .plan-status-remaining {
+  color: #b91c1c;
+}
+
+@media (max-width: 780px) {
+  body.mobile-app-shell:not(.login-view) .topbar {
+    height: 132px;
+    padding-inline: 0;
+  }
+
+  body.mobile-app-shell:not(.login-view) .topbar-main {
+    grid-template-columns: 140px minmax(64px, 1fr) 120px;
+  }
+
+  body.mobile-app-shell:not(.login-view) .topbar-logo {
+    width: 64px;
+    height: 64px;
+  }
+
+  body.mobile-app-shell:not(.login-view) .header-profile {
+    width: 136px;
+    display: grid;
+    grid-template-rows: 55px 28px;
+    align-content: start;
+    gap: 9px;
+  }
+
+  body.mobile-app-shell:not(.login-view) .header-profile-trigger {
+    width: 136px;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  body.mobile-app-shell:not(.login-view) .header-profile-copy {
+    min-width: 0;
+    max-width: 73px;
+  }
+
+  body.mobile-app-shell:not(.login-view) .header-profile-copy strong,
+  body.mobile-app-shell:not(.login-view) .header-profile-copy > span {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  body.mobile-app-shell:not(.login-view) .topbar-icon-row {
+    margin: 8px 3px 22px 0;
+  }
+
+  body.mobile-app-shell:not(.login-view) .date-pill,
+  body.mobile-app-shell.mobile-home-view:not(.login-view) .date-pill {
+    width: 116px;
+    min-width: 116px;
+    min-height: 35px;
+  }
+
+  body.mobile-app-shell:not(.login-view) .plan-status-badge {
+    align-self: start;
+    min-height: 28px;
+    gap: 4px;
+    padding: 5px 8px 5px 6px;
+    font-size: 9px;
+  }
+
+  body.mobile-app-shell:not(.login-view) .plan-status-icon,
+  body.mobile-app-shell:not(.login-view) .plan-status-icon .nav-icon {
+    width: 16px;
+    height: 16px;
+  }
+
+  body.mobile-app-shell:not(.login-view) .plan-status-icon {
+    flex-basis: 16px;
+  }
+}
+
+@media (max-width: 360px) {
+  body.mobile-app-shell:not(.login-view) .plan-status-badge {
+    gap: 3px;
+    padding-inline: 5px;
+    font-size: 8.5px;
+  }
+}
+/* pricing-scope: profile-plan-status:end */

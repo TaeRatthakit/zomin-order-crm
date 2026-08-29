@@ -438,6 +438,9 @@ function iconSvg(name) {
     flag: '<path d="M4 21V5"/><path d="M4 5h11l-1.5 4L15 13H4"/>',
     shield: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-5"/>',
     monitor: '<rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/>',
+    rocket: '<path fill="currentColor" stroke="none" d="M20.98 2.55c-4.43.08-8.02 1.67-10.97 4.87L7.89 9.73l-3.54.42a1.12 1.12 0 0 0-.8.47l-1.48 2.07a.7.7 0 0 0 .37 1.08l4.52 1.4 1.87 1.87 1.4 4.52a.7.7 0 0 0 1.08.37l2.07-1.48c.26-.19.43-.48.47-.8l.42-3.54 2.31-2.12c3.2-2.95 4.79-6.54 4.87-10.97a.45.45 0 0 0-.47-.47Z"/><path fill="currentColor" stroke="none" d="M7.6 16.4c-2.38.42-4.09 2.08-5.03 4.92 2.84-.94 4.5-2.65 4.92-5.03l.11.11Z"/><circle cx="16.3" cy="7.7" r="1.75" fill="var(--plan-icon-cutout, #f3effc)" stroke="none"/>', /* subscription-plan-status */
+    crown: '<circle cx="3.25" cy="7" r="1.45" fill="currentColor" stroke="none"/><circle cx="12" cy="3.65" r="1.55" fill="currentColor" stroke="none"/><circle cx="20.75" cy="7" r="1.45" fill="currentColor" stroke="none"/><path fill="currentColor" stroke="none" d="m3.55 7.45 4.4 3.18 3.63-6.18a.49.49 0 0 1 .84 0l3.63 6.18 4.4-3.18-1.66 9.39H5.21L3.55 7.45Z"/><rect x="5.1" y="18.45" width="13.8" height="2.25" rx="1.12" fill="currentColor" stroke="none"/>', /* subscription-plan-status */
+    building: '<path fill="currentColor" stroke="none" d="M8.2 2.5h7.6c.55 0 1 .45 1 1V21H7.2V3.5c0-.55.45-1 1-1Z"/><path fill="currentColor" stroke="none" d="M3.3 8.7h3.9V21H2.3V9.7c0-.55.45-1 1-1Zm13.5-1.3h3.9c.55 0 1 .45 1 1V21h-4.9V7.4Z"/><path fill="var(--plan-icon-cutout, #f3effc)" stroke="none" d="M9.5 5h1.7v2H9.5zm3.3 0h1.7v2h-1.7zM9.5 8.7h1.7v2H9.5zm3.3 0h1.7v2h-1.7zm-3.3 3.7h1.7v2H9.5zm3.3 0h1.7v2h-1.7zM4 11h1.5v1.8H4zm0 3.4h1.5v1.8H4zm14.3-4.5h1.5v1.8h-1.5zm0 3.4h1.5v1.8h-1.5zM11 17h2v4h-2z"/>', /* subscription-plan-status */
     arrow: '<path d="m15 18-6-6 6-6"/>',
     settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 8 19.4a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 8a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V3a2 2 0 1 1 4 0v.09A1.7 1.7 0 0 0 16 4.6a1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9c0 .38.14.74.4 1a1.7 1.7 0 0 0 1.1.4H21a2 2 0 1 1 0 4h-.09c-.41 0-.81.15-1.1.4a1.7 1.7 0 0 0-.41 1.1Z"/>',
     trash: '<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="m19 6-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/>',
@@ -2170,6 +2173,7 @@ function syncMobileHeaderProfile() {
           <span>${escapeHtml(profileRoleLabel(app.currentUser.role))}</span>
         </div>
       </button>
+      ${subscriptionPlanBadgeMarkup() /* subscription-plan-status */}
     `;
   } else {
     const image = existing.querySelector(".profile-avatar-image");
@@ -2183,6 +2187,10 @@ function syncMobileHeaderProfile() {
     if (nameElement) nameElement.textContent = name;
     const roleElement = existing.querySelector(".header-profile-copy span");
     if (roleElement) roleElement.textContent = profileRoleLabel(app.currentUser.role);
+    const currentBadge = els.headerProfile.querySelector(".plan-status-badge"); /* subscription-plan-status */
+    const nextBadge = subscriptionPlanBadgeMarkup(); /* subscription-plan-status */
+    if (currentBadge) currentBadge.outerHTML = nextBadge || ""; /* subscription-plan-status */
+    else if (nextBadge) existing.insertAdjacentHTML("afterend", nextBadge); /* subscription-plan-status */
   }
   markAvatarLoaded(els.headerProfile.querySelector(".profile-avatar-image"));
 }
@@ -2397,6 +2405,42 @@ function authenticatedCurrentPlan() {
   return ["starter", "business", "enterprise"].includes(plan) ? plan : "starter";
 }
 
+function subscriptionPlanBadgeMarkup() {
+  const subscription = app.data?.billing?.subscription;
+  if (!subscription || typeof subscription !== "object") return "";
+  const planKey = String(subscription.plan || "").trim().toLowerCase();
+  const plan = {
+    starter: { name: "Starter", icon: "rocket" },
+    business: { name: "Business", icon: "crown" },
+    enterprise: { name: "Enterprise", icon: "building" }
+  }[planKey];
+  if (!plan) return "";
+
+  const access = app.data?.billing?.access || {};
+  const status = String(access.effectiveStatus || subscription.status || "").trim().toLowerCase();
+  const daysRaw = access.daysRemaining;
+  const daysValue = daysRaw === null || daysRaw === undefined || daysRaw === "" ? NaN : Number(daysRaw);
+  const hasDays = Number.isFinite(daysValue);
+  const days = hasDays ? Math.max(0, Math.ceil(daysValue)) : null;
+  const expired = access.allowed === false || status === "expired";
+  const remainingLabel = expired
+    ? "หมดอายุ"
+    : days === null
+      ? "ไม่จำกัดวัน"
+      : status === "trialing"
+        ? `ทดลองใช้เหลือ ${days} วัน`
+        : `เหลือ ${days} วัน`;
+  const warning = !expired && days !== null && days <= 7;
+  return `
+    <span class="plan-status-badge${warning ? " is-warning" : ""}${expired ? " is-expired" : ""}" aria-label="แพ็กเกจ ${escapeHtml(plan.name)} ${escapeHtml(remainingLabel)}">
+      <span class="plan-status-icon" aria-hidden="true">${iconSvg(plan.icon)}</span>
+      <span class="plan-status-name">${escapeHtml(plan.name)}</span>
+      <span class="plan-status-separator" aria-hidden="true">·</span>
+      <span class="plan-status-remaining">${escapeHtml(remainingLabel)}</span>
+    </span>
+  `;
+}
+
 function authenticatedRecommendedPlan(currentPlan = authenticatedCurrentPlan()) {
   if (currentPlan === "starter") return "business";
   if (currentPlan === "business") return "enterprise";
@@ -2514,6 +2558,7 @@ function updateShell() {
         <div class="header-profile-copy">
           <strong>${escapeHtml(app.currentUser.name)}</strong>
           <span>${escapeHtml(profileRoleLabel(app.currentUser.role))}</span>
+          ${subscriptionPlanBadgeMarkup() /* subscription-plan-status */}
         </div>
       </button>
     `;
