@@ -8138,6 +8138,50 @@ small,
   .mobile-business-menu-row.green { color: var(--mb-green); }
   .mobile-business-menu-row.cyan { color: var(--mb-cyan); }
 
+  .business-upgrade-row,
+  .business-support-line-row {
+    font: inherit;
+    text-decoration: none;
+  }
+
+  .business-upgrade-row {
+    display: none;
+    border-color: color-mix(in srgb, var(--mb-purple) 34%, transparent);
+    background: linear-gradient(100deg, rgba(77, 24, 137, 0.3), rgba(24, 12, 50, 0.96));
+  }
+
+  .business-support-line-row {
+    border-color: color-mix(in srgb, var(--mb-green) 32%, transparent);
+    background: linear-gradient(100deg, rgba(7, 88, 50, 0.28), rgba(3, 27, 22, 0.96));
+  }
+
+  .business-support-line-row:is(:hover, :focus-visible),
+  .business-upgrade-row:is(:hover, :focus-visible) {
+    border-color: color-mix(in srgb, currentColor 52%, transparent);
+    transform: translateY(-1px);
+  }
+
+  .business-support-line-icon .nav-icon {
+    width: 27px;
+    height: 27px;
+  }
+
+  .business-support-copy-desktop {
+    display: none;
+  }
+
+  body.mobile-app-shell:not(.login-view) .business-upgrade-row {
+    display: grid;
+  }
+
+  body.desktop-app-shell:not(.login-view) .business-support-copy-mobile {
+    display: none;
+  }
+
+  body.desktop-app-shell:not(.login-view) .business-support-copy-desktop {
+    display: block;
+  }
+
   .mobile-business-menu-row .mobile-business-icon {
     width: 44px;
     height: 44px;
@@ -25792,6 +25836,13 @@ html[data-theme="light"] body:not(.login-view) .mobile-business-page:not(.mobile
   background: rgba(124, 58, 237, 0.10) !important;
   color: #6d28d9 !important;
   box-shadow: 0 8px 20px rgba(109, 40, 217, 0.13) !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .mobile-business-page:not(.mobile-business-subpage) .business-support-line-icon {
+  border-color: rgba(6, 199, 85, 0.22) !important;
+  background: #eafbf1 !important;
+  color: #06c755 !important;
+  box-shadow: 0 8px 20px rgba(6, 199, 85, 0.12) !important;
 }
 
 html[data-theme="light"] body:not(.login-view) .mobile-business-page:not(.mobile-business-subpage) .mobile-business-data-row-meta {

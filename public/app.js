@@ -5338,6 +5338,42 @@ function mobileBusinessInfoRow(title, value, icon, tone) {
   `;
 }
 
+function businessSupportLineIcon() {
+  return `
+    <span class="mobile-business-icon business-support-line-icon" aria-hidden="true">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path fill="currentColor" d="M12 2.5c5.52 0 10 3.72 10 8.3 0 4.08-3.55 7.49-8.34 8.17-.37.08-.87.24-1 .54-.12.27-.08.7-.04.97l.16.92c.05.27.21 1.06-.92.58-1.14-.48-6.12-3.61-8.35-6.18C2.01 14.14 2 12.35 2 10.8c0-4.58 4.48-8.3 10-8.3Z"/>
+        <path stroke="var(--business-line-letter, #fff)" stroke-width="1.15" stroke-linecap="round" stroke-linejoin="round" d="M5.15 8.75v4.2h2.1m1.05-4.2v4.2m1.45 0v-4.2l2.8 4.2v-4.2m4.05 0h-2.25v4.2h2.25m-2.25-2.1h1.85"/>
+      </svg>
+    </span>
+  `;
+}
+
+function businessUpgradeRow() {
+  return `
+    <button class="mobile-business-menu-row purple business-upgrade-row" type="button" data-view-shortcut="pricing">
+      ${mobileBusinessIcon("crown")}
+      <span><strong>อัปเกรดแพ็กเกจ</strong><small>เลือกแพ็กเกจที่เหมาะกับธุรกิจ</small></span>
+      <span class="mobile-business-chevron" aria-hidden="true">${iconSvg("arrow")}</span>
+    </button>
+  `;
+}
+
+function businessSupportLineRow() {
+  const supportLineUrl = "https://lin.ee/w0iL43N";
+  return `
+    <a class="mobile-business-menu-row green business-support-line-row" href="${supportLineUrl}" target="_blank" rel="noopener noreferrer" aria-label="ติดต่อ Support Growup Pilot ทาง LINE">
+      ${businessSupportLineIcon()}
+      <span>
+        <strong>ติดต่อทาง LINE</strong>
+        <small class="business-support-copy-mobile">สอบถามการใช้งานและแพ็กเกจ</small>
+        <small class="business-support-copy-desktop">สอบถามการใช้งาน แพ็กเกจ หรือการชำระเงิน</small>
+      </span>
+      <span class="mobile-business-chevron" aria-hidden="true">${iconSvg("arrow")}</span>
+    </a>
+  `;
+}
+
 function mobileSetupWizardState() {
   const products = normalizeProductRecords();
   const productCosts = normalizeProductCostEntries(app.data.settings || {});
@@ -5570,6 +5606,8 @@ function renderMobileBusinessMain() {
         <h2>ข้อมูลการใช้งาน</h2>
         <div class="mobile-business-menu-list">
           ${mobileBusinessInfoRow("วันที่เริ่มใช้งาน", startDate ? formatDate(startDate) : "ไม่มีข้อมูล", "clipboard", "purple")}
+          ${businessUpgradeRow()}
+          ${businessSupportLineRow()}
         </div>
       </section>
     </section>
