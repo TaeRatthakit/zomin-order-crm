@@ -31363,9 +31363,15 @@ html[data-theme="light"] body:not(.login-view) .plan-status-badge.is-expired .pl
   color: #b91c1c;
 }
 
+@media (min-width: 821px) {
+  body.desktop-app-shell:not(.login-view) .sidebar {
+    padding-top: 124px;
+  }
+}
+
 @media (max-width: 780px) {
   body.mobile-app-shell:not(.login-view) .topbar {
-    height: 132px;
+    height: 126px;
     padding-inline: 0;
   }
 
@@ -31424,17 +31430,17 @@ html[data-theme="light"] body:not(.login-view) .plan-status-badge.is-expired .pl
     min-height: 28px;
     gap: 4px;
     padding: 5px 8px 5px 6px;
-    font-size: 9px;
+    font-size: 10px;
   }
 
   body.mobile-app-shell:not(.login-view) .plan-status-icon,
   body.mobile-app-shell:not(.login-view) .plan-status-icon .nav-icon {
-    width: 16px;
-    height: 16px;
+    width: 18px;
+    height: 18px;
   }
 
   body.mobile-app-shell:not(.login-view) .plan-status-icon {
-    flex-basis: 16px;
+    flex-basis: 18px;
   }
 }
 
@@ -31442,7 +31448,7 @@ html[data-theme="light"] body:not(.login-view) .plan-status-badge.is-expired .pl
   body.mobile-app-shell:not(.login-view) .plan-status-badge {
     gap: 3px;
     padding-inline: 5px;
-    font-size: 8.5px;
+    font-size: 9.5px;
   }
 }
 /* pricing-scope: profile-plan-status:end */

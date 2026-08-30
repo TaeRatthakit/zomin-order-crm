@@ -2405,14 +2405,14 @@ function authenticatedCurrentPlan() {
   return ["starter", "business", "enterprise"].includes(plan) ? plan : "starter";
 }
 
-function subscriptionPlanBadgeMarkup() {
+function subscriptionPlanBadgeMarkup() { /* subscription-plan-status */
   const subscription = app.data?.billing?.subscription;
   if (!subscription || typeof subscription !== "object") return "";
   const planKey = String(subscription.plan || "").trim().toLowerCase();
   const plan = {
-    starter: { name: "Starter", icon: "rocket" },
-    business: { name: "Business", icon: "crown" },
-    enterprise: { name: "Enterprise", icon: "building" }
+    "starter": { name: "Starter", icon: "rocket" },
+    "business": { name: "Business", icon: "crown" },
+    "enterprise": { name: "Enterprise", icon: "building" }
   }[planKey];
   if (!plan) return "";
 
@@ -2427,9 +2427,7 @@ function subscriptionPlanBadgeMarkup() {
     ? "หมดอายุ"
     : days === null
       ? "ไม่จำกัดวัน"
-      : status === "trialing"
-        ? `ทดลองใช้เหลือ ${days} วัน`
-        : `เหลือ ${days} วัน`;
+      : `เหลือ ${days} วัน`;
   const warning = !expired && days !== null && days <= 7;
   return `
     <span class="plan-status-badge${warning ? " is-warning" : ""}${expired ? " is-expired" : ""}" aria-label="แพ็กเกจ ${escapeHtml(plan.name)} ${escapeHtml(remainingLabel)}">
@@ -2558,9 +2556,9 @@ function updateShell() {
         <div class="header-profile-copy">
           <strong>${escapeHtml(app.currentUser.name)}</strong>
           <span>${escapeHtml(profileRoleLabel(app.currentUser.role))}</span>
-          ${subscriptionPlanBadgeMarkup() /* subscription-plan-status */}
         </div>
       </button>
+      ${subscriptionPlanBadgeMarkup() /* subscription-plan-status */}
     `;
     markAvatarLoaded(els.headerProfile.querySelector(".profile-avatar-image"));
   }
