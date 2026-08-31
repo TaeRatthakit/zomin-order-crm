@@ -1,0 +1,10 @@
+.git
+.env*
+data/
+ui-baselines/
+docs/
+.github/
+AGENTS.md
+PROGRESS_REPORT.md
+README*.md
+*.rtf

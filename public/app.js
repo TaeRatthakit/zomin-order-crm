@@ -4805,6 +4805,10 @@ function renderMobileDashboard(viewModel) {
 
         ${mobileDashboardSummaryCard(channelRows, s.salesToday || 0)}
         ${mobileDashboardAlertsCard(alerts)}
+        <section class="mobile-home-theme-card" aria-labelledby="mobileHomeThemeTitle">
+          <h3 id="mobileHomeThemeTitle">ธีมหน้าจอ</h3>
+          ${themeControlMarkup() /* Mobile Dashboard reuses the existing theme behavior. */}
+        </section><!-- Mobile Dashboard theme controls -->
       </div>
     </section>
   `;
