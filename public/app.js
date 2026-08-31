@@ -10349,6 +10349,12 @@ function renderSettingsSubscription() {
   const summaryAction = isSuccess
     ? `<button class="button primary subscription-primary-action" type="button" data-view-shortcut="dashboard">เริ่มใช้งาน</button>`
     : `<button class="button ghost subscription-back-action" type="button" data-view-shortcut="pricing">${iconSvg("arrow")} กลับไปเลือกแพ็กเกจ</button>`;
+  // Checkout promo is an isolated UI draft, never part of billing/payment payloads.
+  const promoKey = `${app.currentUser?.id || ""}:${qrPaymentId}`;
+  if (app.subscriptionPromoUi?.checkoutKey !== promoKey) {
+    app.subscriptionPromoUi = { checkoutKey: promoKey, code: "", message: "", empty: false, busy: false };
+  }
+  const promoUi = app.subscriptionPromoUi;
   els.content.innerHTML = `
     <section class="subscription-checkout-page" aria-label="ชำระเงินแพ็กเกจ">
       <header class="subscription-checkout-header">
@@ -10361,6 +10367,14 @@ function renderSettingsSubscription() {
         <aside class="subscription-summary-card">
           <div class="subscription-card-heading"><span class="subscription-card-icon">${iconSvg("clipboard")}</span><h2>สรุปรายการ</h2></div>
           <dl class="subscription-summary-list"><div><dt>แพ็กเกจ</dt><dd>${escapeHtml(selectedPlan)}</dd></div><div><dt>ค่าบริการ</dt><dd>${escapeHtml(amount)} / ${escapeHtml(intervalCopy)}</dd></div><div><dt>วิธีชำระเงิน</dt><dd>PromptPay</dd></div></dl>
+          ${!isSuccess ? `<form class="subscription-promo" data-subscription-promo-form novalidate>
+            <label for="subscriptionPromoCode">โค้ดส่วนลด</label>
+            <div class="subscription-promo-controls">
+              <input id="subscriptionPromoCode" type="text" placeholder="กรอกโค้ดโปรโมชั่น" maxlength="64" autocomplete="off" spellcheck="false" aria-describedby="subscriptionPromoMessage" aria-invalid="${promoUi.empty}" value="${escapeHtml(promoUi.code)}">
+              <button class="button secondary" type="submit"${promoUi.busy ? " disabled" : ""}>ใช้โค้ด</button>
+            </div>
+            <p id="subscriptionPromoMessage" class="subscription-promo-message" role="status" aria-live="polite" aria-atomic="true"${promoUi.message ? "" : " hidden"}>${escapeHtml(promoUi.message)}</p>
+          </form>` : ""}
           <div class="subscription-summary-total"><span>ยอดชำระทั้งหมด</span><strong>${escapeHtml(amount)}</strong></div>
           <div class="subscription-summary-callout"><span>${iconSvg("briefcase")}</span><p>แพ็กเกจจะเริ่มใช้งานหลังจากระบบยืนยันการชำระเงินสำเร็จ</p></div>
           <div class="subscription-summary-secure"><span>${iconSvg("shield")}</span><p>การชำระเงินดำเนินการอย่างปลอดภัยผ่าน Stripe</p></div>
@@ -10371,6 +10385,52 @@ function renderSettingsSubscription() {
       `}
     </section>
   `;
+  const promoForm = els.content.querySelector("[data-subscription-promo-form]");
+  if (promoForm) {
+    const promoInput = promoForm.querySelector("input");
+    const promoButton = promoForm.querySelector("button");
+    const promoMessage = promoForm.querySelector("[role=status]");
+    promoInput.addEventListener("input", () => {
+      promoUi.code = promoInput.value;
+      promoUi.message = "";
+      promoUi.empty = false;
+      promoInput.setAttribute("aria-invalid", "false");
+      promoMessage.textContent = "";
+      promoMessage.hidden = true;
+    });
+    promoInput.addEventListener("keydown", event => {
+      if (event.key !== "Enter" || event.isComposing) return;
+      event.preventDefault();
+      promoForm.requestSubmit();
+    });
+    promoForm.addEventListener("submit", event => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (promoUi.busy) return;
+      promoUi.code = promoInput.value.trim();
+      promoInput.value = promoUi.code;
+      promoUi.empty = !promoUi.code;
+      // Future integration point: an explicitly approved server validator can
+      // supply valid/invalid/expired/usage-limit, benefits, plan/interval scope
+      // and authoritative totals. Do not infer any of those rules locally.
+      // This placeholder performs no request, redemption, or checkout refresh.
+      promoUi.message = promoUi.empty
+        ? "กรุณากรอกโค้ดโปรโมชั่น"
+        : "ระบบโค้ดโปรโมชั่นกำลังเตรียมพร้อมใช้งาน";
+      promoInput.setAttribute("aria-invalid", String(promoUi.empty));
+      promoMessage.textContent = promoUi.message;
+      promoMessage.hidden = false;
+      promoUi.busy = true;
+      promoButton.disabled = true;
+      setTimeout(() => {
+        promoUi.busy = false;
+        if (app.subscriptionPromoUi === promoUi) {
+          const activeButton = els.content.querySelector("[data-subscription-promo-form] button");
+          if (activeButton) activeButton.disabled = false;
+        }
+      }, 600);
+    });
+  }
   const qrImageElement = els.content.querySelector("[data-subscription-qr-image]");
   const setQrState = state => {
     const stateElement = els.content.querySelector("[data-subscription-qr-state]");

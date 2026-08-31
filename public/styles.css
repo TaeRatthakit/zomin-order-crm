@@ -22184,6 +22184,108 @@ body:not(.login-view) .subscription-summary-list > div:first-child dd {
   color: #b185ff;
 }
 
+/* subscription checkout: isolated promo scaffold; no amount/QR styling changes. */
+body:not(.login-view) .subscription-promo {
+  display: grid;
+  gap: 9px;
+  margin: 22px 0 0;
+  min-width: 0;
+}
+
+body:not(.login-view) .subscription-promo label {
+  color: #e6e0f3;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+body:not(.login-view) .subscription-promo-controls {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  min-width: 0;
+}
+
+body:not(.login-view) .subscription-promo input {
+  flex: 1 1 0;
+  min-width: 0;
+  width: 100%;
+  min-height: 44px;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid #645477;
+  border-radius: 10px;
+  background: #21192f;
+  color: #f7f8fc;
+  font: inherit;
+  font-size: 16px;
+}
+
+body:not(.login-view) .subscription-promo input::placeholder {
+  color: #b9afc8;
+  opacity: 1;
+}
+
+body:not(.login-view) .subscription-promo input:focus-visible {
+  outline: 2px solid #b185ff;
+  outline-offset: 2px;
+}
+
+body:not(.login-view) .subscription-promo button {
+  flex: 0 0 auto;
+  min-height: 44px;
+  margin: 0;
+  padding: 10px 16px;
+  border: 1px solid #9773cf;
+  border-radius: 10px;
+  background: #352447;
+  color: #eadbff;
+  white-space: nowrap;
+}
+
+body:not(.login-view) .subscription-promo button:disabled {
+  opacity: .6;
+  cursor: default;
+}
+
+body:not(.login-view) .subscription-promo-message {
+  margin: 0;
+  color: #c9bfd9;
+  font-size: 12px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+body:not(.login-view) .subscription-promo-message[hidden] {
+  display: none;
+}
+
+html[data-theme="light"] body:not(.login-view) .subscription-promo label {
+  color: #302640;
+}
+
+html[data-theme="light"] body:not(.login-view) .subscription-promo input {
+  border-color: #cfc4df;
+  background: #fff;
+  color: #211a2e;
+}
+
+html[data-theme="light"] body:not(.login-view) .subscription-promo input::placeholder,
+html[data-theme="light"] body:not(.login-view) .subscription-promo-message {
+  color: #71627e;
+}
+
+html[data-theme="light"] body:not(.login-view) .subscription-promo button {
+  border-color: #c1a1ed;
+  background: #f5efff;
+  color: #642bb0;
+}
+
+@media (max-width: 380px) { /* subscription checkout promo */
+  body:not(.login-view) .subscription-promo-controls {
+    flex-direction: column;
+  }
+}
+
 body:not(.login-view) .subscription-summary-total {
   display: flex;
   align-items: flex-end;
