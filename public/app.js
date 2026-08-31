@@ -183,6 +183,9 @@ const app = {
   platformAdminError: "",
   /* pricing-scope: authenticated-upgrade-state:start */
   pricingUpgradeLoading: "",
+  checkoutPromotionCode: "",
+  checkoutPromotionError: "",
+  checkoutPromoQuote: null,
   billingCheckout: null,
   pricingBillingInterval: "",
   subscriptionBlocked: false
@@ -10348,6 +10351,10 @@ function renderSettingsSubscription() {
       <div class="subscription-security-note"><span>${iconSvg("shield")}</span><div><strong>ปลอดภัย มั่นใจได้</strong><p>การชำระเงินดำเนินการอย่างปลอดภัยผ่าน Stripe</p></div></div>
       ${hostedInstructionsUrl ? `<a class="subscription-hosted-link" href="${escapeHtml(hostedInstructionsUrl)}" target="_blank" rel="noopener">${iconSvg("external")} เปิดหน้าชำระเงิน</a>` : ""}
       ${canRetry ? `<button class="button secondary subscription-retry" type="button" data-billing-retry="${escapeHtml(targetPlan)}">ลองชำระเงินอีกครั้ง</button>` : ""}
+      ${app.data?.billing?.checkoutPromoEnabled && latestPayment.promotion && app.currentUser?.role === "Owner" && ["pending","requires_action"].includes(status) ?
+        `<div class="subscription-promo-abandon">${app.promoAbandonConfirmId===latestPayment.id ?
+          `<p>ยืนยันละทิ้งรายการนี้? QR เดิมจะใช้ชำระไม่ได้หลังยกเลิกสำเร็จ</p><button class="button secondary" type="button" data-promo-abandon-confirm="${escapeHtml(latestPayment.id)}" ${app.pricingUpgradeLoading ? "disabled" : ""}>ยืนยันละทิ้งรายการ</button> <button class="button ghost" type="button" data-promo-abandon-back>เก็บรายการไว้</button>` :
+          `<button class="button ghost" type="button" data-promo-abandon="${escapeHtml(latestPayment.id)}">ละทิ้งรายการชำระเงินนี้</button>`}</div>` : ""}
     </article>
   `;
   const summaryAction = isSuccess
@@ -10371,7 +10378,7 @@ function renderSettingsSubscription() {
         <aside class="subscription-summary-card">
           <div class="subscription-card-heading"><span class="subscription-card-icon">${iconSvg("clipboard")}</span><h2>สรุปรายการ</h2></div>
           <dl class="subscription-summary-list"><div><dt>แพ็กเกจ</dt><dd>${escapeHtml(selectedPlan)}</dd></div><div><dt>ค่าบริการ</dt><dd>${escapeHtml(amount)} / ${escapeHtml(intervalCopy)}</dd></div><div><dt>วิธีชำระเงิน</dt><dd>PromptPay</dd></div></dl>
-          ${!isSuccess ? `<form class="subscription-promo" data-subscription-promo-form novalidate>
+          ${!app.data?.billing?.checkoutPromoEnabled && !isSuccess ? `<form class="subscription-promo" data-subscription-promo-form novalidate>
             <label for="subscriptionPromoCode">โค้ดส่วนลด</label>
             <div class="subscription-promo-controls">
               <input id="subscriptionPromoCode" type="text" placeholder="กรอกโค้ดโปรโมชั่น" maxlength="64" autocomplete="off" spellcheck="false" aria-describedby="subscriptionPromoMessage" aria-invalid="${promoUi.empty}" value="${escapeHtml(promoUi.code)}">
@@ -10379,6 +10386,7 @@ function renderSettingsSubscription() {
             </div>
             <p id="subscriptionPromoMessage" class="subscription-promo-message" role="status" aria-live="polite" aria-atomic="true"${promoUi.message ? "" : " hidden"}>${escapeHtml(promoUi.message)}</p>
           </form>` : ""}
+          ${app.data?.billing?.checkoutPromoEnabled && latestPayment.promotion ? `<dl class="subscription-summary-list"><div><dt>โค้ดโปรโมชั่น</dt><dd>${escapeHtml(latestPayment.promotion.code)}</dd></div><div><dt>ราคาก่อนส่วนลด</dt><dd>${escapeHtml(moneyMinorText(latestPayment.promotion.baseAmountMinor))}</dd></div><div><dt>ส่วนลด</dt><dd>${escapeHtml(moneyMinorText(latestPayment.promotion.discountAmountMinor))}</dd></div></dl><p class="subscription-promo-benefit">${escapeHtml(latestPayment.promotion.benefitDescription)}</p>` : ""}
           <div class="subscription-summary-total"><span>ยอดชำระทั้งหมด</span><strong>${escapeHtml(amount)}</strong></div>
           <div class="subscription-summary-callout"><span>${iconSvg("briefcase")}</span><p>แพ็กเกจจะเริ่มใช้งานหลังจากระบบยืนยันการชำระเงินสำเร็จ</p></div>
           <div class="subscription-summary-secure"><span>${iconSvg("shield")}</span><p>การชำระเงินดำเนินการอย่างปลอดภัยผ่าน Stripe</p></div>
@@ -10514,6 +10522,20 @@ function renderPricing() {
           <button type="button" data-pricing-billing="yearly" aria-pressed="${billingInterval === "yearly"}">รายปี</button>
         </div>
       </div>
+      ${app.data?.billing?.checkoutPromoEnabled && isBillingOwner ? `<div class="authenticated-pricing-promo">
+        <label for="checkoutPromotionCode">โค้ดโปรโมชั่น (ถ้ามี)</label>
+        <input id="checkoutPromotionCode" type="text" maxlength="64" autocomplete="off" spellcheck="false" placeholder="กรอกโค้ดก่อนเลือกต่ออายุหรืออัปเกรด" value="${escapeHtml(app.checkoutPromotionCode || "")}" aria-describedby="checkoutPromoHelp checkoutPromoError" ${app.pricingUpgradeLoading ? "disabled" : ""}>
+        <small id="checkoutPromoHelp">กรอกโค้ดแล้วเลือกแพ็กเกจเพื่อตรวจสอบสิทธิ์ก่อนยืนยัน สิทธิ์ฟรีวัน/เดือนไม่ต้องชำระผ่าน Stripe</small>
+        <p id="checkoutPromoError" role="alert" ${app.checkoutPromotionError ? "" : "hidden"}>${escapeHtml(app.checkoutPromotionError || "")}</p>
+        ${app.checkoutPromoQuote ? `<div class="authenticated-pricing-promo-confirmation" role="status">
+          <p>โค้ดโปรโมชั่น: <strong>${escapeHtml(app.checkoutPromoQuote.quote.code)}</strong></p>
+          <p>สิทธิ์ที่ได้รับ: ${escapeHtml(app.checkoutPromoQuote.quote.mode === "free_service"
+            ? `ใช้งาน ${{starter:"Starter",business:"Business",enterprise:"Enterprise"}[app.checkoutPromoQuote.quote.plan]} ฟรี ${Number(app.checkoutPromoQuote.quote.benefit_value)} ${app.checkoutPromoQuote.quote.benefit_type === "service_days" ? "วัน" : "เดือน"}`
+            : `ส่วนลด ${moneyMinorText(app.checkoutPromoQuote.quote.discount_amount_minor)}`)}</p>
+          <p>ยอดชำระวันนี้: <strong>${app.checkoutPromoQuote.quote.amount_minor === 0 ? "฿0" : escapeHtml(moneyMinorText(app.checkoutPromoQuote.quote.amount_minor))}</strong></p>
+          <button class="button primary" type="button" data-checkout-promo-continue ${app.pricingUpgradeLoading ? "disabled" : ""}>${app.pricingUpgradeLoading ? "กำลังดำเนินการ..." : app.checkoutPromoQuote.quote.mode === "free_service" ? "เริ่มใช้งานฟรี" : "ดำเนินการชำระเงิน"}</button>
+        </div>` : ""}
+      </div>` : ""}
       <div class="authenticated-pricing-cards">
         ${plans.map(plan => {
           const isCurrent = plan.id === currentPlan;
@@ -10581,13 +10603,14 @@ function renderPricing() {
   `;
 }
 
-async function beginSubscriptionCheckoutForUi({ targetPlan, billingInterval, action, idempotencyKey = "" } = {}) {
+async function beginSubscriptionCheckoutForUi({ targetPlan, billingInterval, action, idempotencyKey = "", promotionCode = "" } = {}) {
   const endpoint = action === "upgrade" ? "/api/billing/upgrade" : "/api/billing/checkout";
   return api(endpoint, {
     method: "POST",
     body: JSON.stringify({
       targetPlan,
       billingInterval,
+      ...(promotionCode ? { promotionCode } : {}),
       ...(idempotencyKey ? { idempotencyKey } : {})
     })
   });
@@ -12758,8 +12781,27 @@ document.addEventListener("click", async event => {
   }
 
   /* pricing-scope: authenticated-upgrade-handler:start */
+  const abandonButton=event.target.closest("[data-promo-abandon]");
+  if (abandonButton && app.view === "settingsSubscription") { app.promoAbandonConfirmId=abandonButton.dataset.promoAbandon; render(); return; }
+  if (event.target.closest("[data-promo-abandon-back]")) { app.promoAbandonConfirmId=""; render(); return; }
+  const confirmAbandon=event.target.closest("[data-promo-abandon-confirm]");
+  if (confirmAbandon && app.view === "settingsSubscription" && !app.pricingUpgradeLoading) {
+    app.pricingUpgradeLoading="promo-abandon";
+    render();
+    try {
+      const payload=await api("/api/billing/promo/abandon",{method:"POST",body:JSON.stringify({paymentId:confirmAbandon.dataset.promoAbandonConfirm,confirmAbandon:true})});
+      app.billingCheckout={payment:payload.payment};
+      app.promoAbandonConfirmId="";
+      showToast("ยกเลิกรายการและคืนโควตาโปรโมชั่นแล้ว");
+    } catch (error) { showToast(error.message || "ยังยกเลิกไม่สำเร็จ โควตายังถูกจองไว้","error"); }
+    finally { app.pricingUpgradeLoading=""; render(); }
+    return;
+  }
   const pricingBillingButton = event.target.closest("[data-pricing-billing]");
   if (pricingBillingButton && app.view === "pricing") {
+    app.checkoutPromotionCode = String(els.content.querySelector("#checkoutPromotionCode")?.value || app.checkoutPromotionCode || "");
+    app.checkoutPromotionError = "";
+    app.checkoutPromoQuote = null;
     const nextInterval = String(pricingBillingButton.dataset.pricingBilling || "").toLowerCase();
     if (["monthly", "yearly"].includes(nextInterval)) {
       app.pricingBillingInterval = nextInterval;
@@ -12827,7 +12869,8 @@ document.addEventListener("click", async event => {
     app.pricingUpgradeLoading = targetPlan;
     render();
     try {
-      const payload = await beginSubscriptionCheckoutForUi({ targetPlan, billingInterval, action });
+      const payload = await beginSubscriptionCheckoutForUi({ targetPlan, billingInterval, action,
+        promotionCode: app.data?.billing?.checkoutPromoEnabled ? String(latestPayment.promotion?.code || "") : "" });
       app.billingCheckout = payload;
       if (payload.billing && app.data) app.data.billing = payload.billing;
       showToast("เริ่มรายการชำระเงินใหม่แล้ว");
@@ -12841,6 +12884,37 @@ document.addEventListener("click", async event => {
     return;
   }
 
+  if (event.target.closest("[data-checkout-promo-continue]") && app.view === "pricing" && app.checkoutPromoQuote && !app.pricingUpgradeLoading) {
+    const selected=app.checkoutPromoQuote;
+    app.pricingUpgradeLoading=selected.quote.plan;
+    render();
+    try {
+      if (selected.quote.mode === "free_service") {
+        await api("/api/billing/promo/redeem",{method:"POST",body:JSON.stringify({quoteToken:selected.quoteToken})});
+        app.checkoutPromoQuote=null;
+        app.checkoutPromotionCode="";
+        app.pricingUpgradeLoading="";
+        await loadState();
+        showToast("รับสิทธิ์บริการฟรีแล้ว");
+        setView("dashboard");
+      } else {
+        const payload=await beginSubscriptionCheckoutForUi({targetPlan:selected.quote.plan,billingInterval:selected.quote.billing,
+          action:selected.action,promotionCode:selected.quote.code});
+        app.billingCheckout=payload;
+        if (payload.billing && app.data) app.data.billing=payload.billing;
+        app.checkoutPromoQuote=null;
+        app.checkoutPromotionCode="";
+        app.pricingUpgradeLoading="";
+        setView("settingsSubscription");
+      }
+    } catch (error) {
+      app.checkoutPromotionError=error.message || "ใช้โปรโมชั่นไม่สำเร็จ กรุณาตรวจสอบอีกครั้ง";
+      app.pricingUpgradeLoading="";
+      render();
+    }
+    return;
+  }
+
   const pricingCheckoutButton = event.target.closest("[data-pricing-action]");
   if (pricingCheckoutButton && app.view === "pricing") {
     const card = pricingCheckoutButton.closest("[data-pricing-plan]");
@@ -12848,10 +12922,22 @@ document.addEventListener("click", async event => {
     const action = String(pricingCheckoutButton.dataset.pricingAction || "").toLowerCase();
     const billingInterval = String(pricingCheckoutButton.dataset.billingInterval || authenticatedBillingInterval()).toLowerCase();
     if (!targetPlan || !["activation", "renewal", "upgrade"].includes(action) || app.pricingUpgradeLoading) return;
+    const promotionCode = app.data?.billing?.checkoutPromoEnabled
+      ? String(els.content.querySelector("#checkoutPromotionCode")?.value || "").trim() : "";
+    app.checkoutPromotionCode = promotionCode;
+    app.checkoutPromotionError = "";
     app.pricingUpgradeLoading = targetPlan;
     render();
     try {
-      const payload = await beginSubscriptionCheckoutForUi({ targetPlan, billingInterval, action });
+      if (promotionCode) {
+        const result=await api("/api/billing/promo/quote",{method:"POST",body:JSON.stringify({promotionCode,targetPlan,billingInterval})});
+        app.checkoutPromoQuote={...result,action};
+        app.pricingUpgradeLoading="";
+        render();
+        return;
+      }
+      const payload = await beginSubscriptionCheckoutForUi({ targetPlan, billingInterval, action, promotionCode });
+      app.checkoutPromotionCode = "";
       app.billingCheckout = payload;
       if (payload.billing && app.data) app.data.billing = payload.billing;
       app.pricingUpgradeLoading = "";
@@ -12859,6 +12945,7 @@ document.addEventListener("click", async event => {
       setView("settingsSubscription");
     } catch (error) {
       app.pricingUpgradeLoading = "";
+      if (String(error.payload?.code || "").startsWith("PROMOTION_")) app.checkoutPromotionError = error.message;
       if (error.payload?.billing && app.data) app.data.billing = error.payload.billing;
       const pendingTarget = String(error.payload?.pendingPayment?.targetPlan || "").toLowerCase();
       if (["UPGRADE_IN_PROGRESS", "SUBSCRIPTION_CHECKOUT_IN_PROGRESS"].includes(error.payload?.code) && pendingTarget) {
@@ -13703,6 +13790,20 @@ document.addEventListener("drop", event => {
 document.addEventListener("input", event => {
   if (event.target?.matches?.("[data-signup-promo-input]")) {
     clearSignupPromotionStatus(event.target.form);
+  }
+
+  if (event.target?.id === "checkoutPromotionCode") {
+    app.checkoutPromotionCode = event.target.value;
+    app.checkoutPromotionError = "";
+    // A displayed quote is immutable. Editing the code requires a fresh
+    // server-authoritative quote before Continue can be used again.
+    app.checkoutPromoQuote = null;
+    event.target.removeAttribute("aria-invalid");
+    const error = document.querySelector("#checkoutPromoError");
+    if (error) {
+      error.textContent = "";
+      error.hidden = true;
+    }
   }
 
   if (event.target?.name === "items" && event.target.form?.id === "orderForm") {

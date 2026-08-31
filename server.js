@@ -40,6 +40,10 @@ const {
   recordProviderPaymentStatus,
   recordSubscriptionUpgradeSuccess,
   recordSubscriptionUpgradeStatus,
+  releaseCanceledPromoPayment,
+  abandonPromoCheckout,
+  quoteCheckoutPromotion,
+  redeemZeroPaymentPromo,
   activateZeroAmountSubscriptionPayment,
   readPaymentByProviderReference,
   readPendingSubscriptionUpgrades,
@@ -78,11 +82,14 @@ const {
   stripePromptPayConfig,
   createPromptPayPaymentIntent,
   retrievePaymentIntent,
+  cancelPromoTestPaymentIntent,
   findPaymentIntentByPaymentId,
   verifyStripeWebhookPayload,
   stripePaymentStatus
 } = require("./lib/stripe-promptpay");
 const { handlePlatformAdminRequest } = require("./lib/platform-admin-http");
+const { checkoutPromoEnabled, checkoutPromoError, publicCheckoutPromotion, signCheckoutQuote,
+  verifyCheckoutQuote, effectivePromoSubscription } = require("./lib/checkout-promo");
 const {
   PRICE_CATALOG_MINOR,
   subscriptionAccess,
@@ -662,8 +669,15 @@ function normalizedSubscription(subscription = null) {
   };
 }
 
-function currentSubscription(db = {}) {
+function baseSubscription(db = {}) {
   return normalizedSubscription((db.subscriptions || []).find(item => item.isInitial !== false && item.is_initial !== false) || (db.subscriptions || [])[0] || null);
+}
+
+function currentSubscription(db = {}) {
+  const base=baseSubscription(db);
+  if (!checkoutPromoEnabled()) return base;
+  const raw=(db.subscriptions || []).find(item=>item.id===base?.id);
+  return effectivePromoSubscription(base,raw?.promotionSnapshot);
 }
 
 function planEntitlement(plan = "starter") {
@@ -691,6 +705,7 @@ function publicPayment(payment = {}) {
     ? localStatus === "paid" && lastProviderStatus === "succeeded" && Boolean(payment.paidAt || payment.paid_at)
     : localStatus === "paid" && (lastProviderStatus === "succeeded" || observedProviderStatus === "succeeded");
   return {
+    ...(checkoutPromoEnabled() && publicCheckoutPromotion(payment) ? { promotion: publicCheckoutPromotion(payment) } : {}),
     id: payment.id || "",
     subscriptionId: payment.subscriptionId || payment.subscription_id || "",
     provider: payment.provider || "",
@@ -912,6 +927,7 @@ function upgradePaymentView({ payment = {}, attempt = null, currentPlan = "", ta
   const normalizedTarget = String(targetPlan || payment.targetPlan || payment.target_plan || payment.plan || attempt?.targetPlan || "").toLowerCase();
   const normalizedCurrent = String(currentPlan || payment.currentPlan || payment.current_plan || attempt?.currentPlan || "").toLowerCase();
   return {
+    ...(checkoutPromoEnabled() && publicCheckoutPromotion(payment) ? { promotion: publicCheckoutPromotion(payment) } : {}),
     id: payment.id || attempt?.paymentId || "",
     tenantId: payment.tenantId || payment.tenant_id || attempt?.tenantId || "",
     subscriptionId: payment.subscriptionId || payment.subscription_id || attempt?.subscriptionId || "",
@@ -997,7 +1013,7 @@ async function recoverPendingUpgradePaymentReference(payment, currentUser) {
 
 async function reconcileResumablePayment(payment, attempt, promptpay, currentUser) {
   const providerStatus = String(promptpay.status || "").toLowerCase();
-  const localStatus = String(promptpay.localStatus || "pending").toLowerCase();
+  let localStatus = String(promptpay.localStatus || "pending").toLowerCase();
   const storedPaymentStatus = String(payment?.status || "").toLowerCase();
   const eventId = `resume-${String(payment.id || attempt?.paymentId || "payment")}-${providerStatus || localStatus}`.slice(0, 160);
   // A checkout resume is read-only. Only a verified Stripe webhook may
@@ -1015,6 +1031,15 @@ async function reconcileResumablePayment(payment, attempt, promptpay, currentUse
     return storedPaymentStatus;
   }
   if (!["failed", "cancelled", "expired"].includes(localStatus)) return localStatus;
+  if (checkoutPromoEnabled() && payment.checkoutMetadata?.promotion?.reservation_id) {
+    const authoritativeStatus = await cancelPromoTestPaymentIntent(payment, promptpay.paymentIntentId, localStatus);
+    if (authoritativeStatus !== "canceled") return stripePaymentStatus(authoritativeStatus);
+    localStatus = "cancelled";
+    await releaseCanceledPromoPayment({ paymentId: payment.id, tenantId: currentUser.tenantId,
+      providerPaymentReference: promptpay.paymentIntentId, amountMinor: payment.amountMinor,
+      currency: payment.currency, providerEventId: `promo-cancel-${payment.id}` });
+    return localStatus;
+  }
   const input = {
     provider: STRIPE_PROVIDER,
     providerEventId: eventId,
@@ -1089,6 +1114,7 @@ function subscriptionBillingPayload(db = {}) {
     subscription,
     access: subscriptionAccess(subscription),
     priceCatalogMinor: PRICE_CATALOG_MINOR,
+    ...(checkoutPromoEnabled() ? { checkoutPromoEnabled: true } : {}),
     entitlement: planEntitlement(subscription?.plan),
     activeUsers: activeTenantUserCount(db),
     latestPayments,
@@ -1137,7 +1163,8 @@ function safeStripeEventForStorage(event = {}) {
 }
 
 function isBillingApiPath(pathname = "") {
-  return pathname === "/api/billing/subscription"
+  return (checkoutPromoEnabled() && ["/api/billing/promo/quote","/api/billing/promo/redeem","/api/billing/promo/abandon"].includes(pathname))
+    || pathname === "/api/billing/subscription"
     || pathname === "/api/billing/checkout"
     || pathname === "/api/billing/upgrade"
     || pathname === "/api/billing/upgrade/qr";
@@ -4096,6 +4123,45 @@ async function handleLineWebhookPost(req, res, db, options = {}) {
 }
 
 async function handleBillingApi(req, res, url, db, currentUser) {
+  if (req.method === "POST" && ["/api/billing/promo/quote","/api/billing/promo/redeem"].includes(url.pathname)) {
+    if (!checkoutPromoEnabled()) return json(res,404,{ok:false,error:"API not found"});
+    if (currentUser.role!=="Owner") return json(res,403,{ok:false,error:"ต้องใช้สิทธิ์ Owner เพื่อใช้โปรโมชั่น"});
+    const body=await readBody(req);
+    try {
+      if (url.pathname.endsWith("/quote")) {
+        const quote=await quoteCheckoutPromotion({tenantId:currentUser.tenantId,userId:currentUser.id,
+          code:normalizePromotionCodeInput(body.promotionCode),plan:normalizeSignupPlan(body.targetPlan),billing:normalizeSignupBilling(body.billingInterval)});
+        return json(res,200,{ok:true,quote,quoteToken:signCheckoutQuote(quote,currentUser)});
+      }
+      const quote=verifyCheckoutQuote(body.quoteToken,currentUser);
+      if (quote.mode!=="free_service") throw new Error("PROMOTION_CHECKOUT_NOT_ALLOWED");
+      const result=await redeemZeroPaymentPromo({...quote,tenantId:currentUser.tenantId,userId:currentUser.id});
+      return json(res,200,{ok:true,...result,requiresPayment:false});
+    } catch (error) { return json(res,409,checkoutPromoError(error)||{ok:false,error:"ยังไม่สามารถใช้โปรโมชั่นนี้ได้ กรุณาตรวจสอบใหม่"}); }
+  }
+  if (req.method === "POST" && url.pathname === "/api/billing/promo/abandon") {
+    if (!checkoutPromoEnabled()) return json(res, 404, { ok: false, error: "API not found" });
+    if (currentUser.role !== "Owner") return json(res, 403, { ok: false, error: "ต้องใช้สิทธิ์ Owner เพื่อยืนยันละทิ้งรายการ" });
+    const body = await readBody(req);
+    if (body.confirmAbandon !== true) return json(res, 400, { ok: false, error: "กรุณายืนยันว่าต้องการละทิ้งรายการชำระเงินนี้" });
+    const payment = (db.payments || []).find(row => row.id === body.paymentId && row.tenantId === currentUser.tenantId);
+    if (!payment?.checkoutMetadata?.promotion?.reservation_id || !payment.providerPaymentReference) {
+      return json(res, 404, { ok: false, error: "ไม่พบรายการชำระเงินโปรโมชั่นของบริษัทนี้" });
+    }
+    try {
+      payment.checkoutMetadata = await abandonPromoCheckout({ paymentId: payment.id,tenantId: currentUser.tenantId,
+        userId: currentUser.id,confirmed: true });
+      const status = await cancelPromoTestPaymentIntent(payment,payment.providerPaymentReference,"abandoned");
+      if (status !== "canceled") return json(res, 409, { ok: false, error: "รายการกำลังดำเนินการหรือชำระแล้ว ระบบจะรอผลยืนยันจาก Stripe" });
+      await releaseCanceledPromoPayment({ paymentId: payment.id,tenantId: currentUser.tenantId,
+        providerPaymentReference: payment.providerPaymentReference,amountMinor: payment.amountMinor,
+        currency: payment.currency,providerEventId: `promo-cancel-${payment.id}` });
+      return json(res, 200, { ok: true, payment: publicPayment({ ...payment,status:"cancelled",
+        providerMetadata:{ ...payment.providerMetadata,last_provider_status:"cancelled" } }) });
+    } catch (error) {
+      return json(res, 409, checkoutPromoError(error) || { ok: false,error: "ยังยืนยันการยกเลิกไม่ได้ โควตายังถูกจองไว้ กรุณาตรวจสถานะอีกครั้ง" });
+    }
+  }
   if (req.method === "GET" && url.pathname === "/api/billing/upgrade/qr") {
     return serveSubscriptionQrImage(req, res, db, currentUser);
   }
@@ -4113,7 +4179,9 @@ async function handleBillingApi(req, res, url, db, currentUser) {
     }
     const body = await readBody(req);
     const targetPlan = normalizeSignupPlan(body.targetPlan || body.plan);
-    const subscription = currentSubscription(db);
+    const promotionCode = normalizePromotionCodeInput(body.promotionCode);
+    if (promotionCode && !checkoutPromoEnabled()) return json(res, 409, checkoutPromoError(new Error("PROMOTION_CHECKOUT_NOT_ALLOWED")));
+    const subscription = baseSubscription(db);
     const currentPlan = String(subscription?.plan || "").toLowerCase();
     const billingInterval = normalizeSignupBilling(body.billingInterval || body.billing || subscription?.billingInterval || "monthly");
     const planOrder = { starter: 0, business: 1, enterprise: 2 };
@@ -4156,6 +4224,9 @@ async function handleBillingApi(req, res, url, db, currentUser) {
           })
         : null;
       const pendingTarget = String(pendingView?.targetPlan || "").toLowerCase();
+      if (promotionCode && pendingView && publicCheckoutPromotion(pendingCandidate.payment)?.code !== promotionCode.toUpperCase()) {
+        return json(res, 409, checkoutPromoError(new Error("PROMOTION_CHECKOUT_CONFLICT")));
+      }
       if (pendingView && pendingTarget && pendingTarget !== targetPlan) {
         return json(res, 409, {
           ok: false,
@@ -4263,6 +4334,7 @@ async function handleBillingApi(req, res, url, db, currentUser) {
         targetPlan,
         billingInterval,
         intent: "subscription_upgrade",
+        ...(promotionCode ? { promotionCode } : {}),
         idempotencyKey,
         provider: providerConfig.provider
       });
@@ -4271,6 +4343,7 @@ async function handleBillingApi(req, res, url, db, currentUser) {
       }
       const upgradePayment = {
         id: upgrade.paymentId,
+        ...(upgrade.checkoutMetadata ? { checkoutMetadata: upgrade.checkoutMetadata } : {}),
         tenantId: upgrade.tenantId,
         subscriptionId: upgrade.subscriptionId,
         provider: upgrade.provider,
@@ -4336,6 +4409,8 @@ async function handleBillingApi(req, res, url, db, currentUser) {
       return json(res, 501, { ok: false, code: "PAYMENT_PROVIDER_ADAPTER_REQUIRED", error: "ยังไม่มี adapter สำหรับผู้ให้บริการชำระเงินที่ตั้งค่าไว้" });
     } catch (error) {
       const detail = String(error.code || error.detail || error.message || "");
+      const promoError = checkoutPromoError(error);
+      if (promoError) return json(res, 409, promoError);
       for (const code of ["UPGRADE_NOT_ALLOWED", "UPGRADE_IN_PROGRESS", "UPGRADE_IDEMPOTENCY_CONFLICT", "SUBSCRIPTION_NOT_UPGRADABLE", "SUBSCRIPTION_NOT_FOUND", "UPGRADE_TENANT_FORBIDDEN", "INVALID_SUBSCRIPTION_UPGRADE_INPUT", "SUBSCRIPTION_CHECKOUT_IN_PROGRESS", "SUBSCRIPTION_CHECKOUT_IDEMPOTENCY_CONFLICT", "SUBSCRIPTION_CHECKOUT_OWNER_REQUIRED", "INVALID_SUBSCRIPTION_CHECKOUT_INPUT"]) {
         if (detail.includes(code)) {
           const status = ["UPGRADE_TENANT_FORBIDDEN", "SUBSCRIPTION_CHECKOUT_OWNER_REQUIRED"].includes(code) ? 403 : 409;
@@ -4390,10 +4465,12 @@ async function handleBillingApi(req, res, url, db, currentUser) {
     if (typeof beginSubscriptionCheckout !== "function") {
       return json(res, 503, { ok: false, error: "ระบบชำระเงินยังไม่พร้อมใช้งาน" });
     }
-    const subscription = currentSubscription(db);
+    const subscription = baseSubscription(db);
     const access = subscriptionAccess(subscription);
     const body = await readBody(req);
     const targetPlan = normalizeSignupPlan(body.targetPlan || body.plan || subscription?.plan);
+    const promotionCode = normalizePromotionCodeInput(body.promotionCode);
+    if (promotionCode && !checkoutPromoEnabled()) return json(res, 409, checkoutPromoError(new Error("PROMOTION_CHECKOUT_NOT_ALLOWED")));
     const billingInterval = normalizeSignupBilling(body.billingInterval || body.billing || subscription?.billingInterval || "monthly");
     let intent = subscriptionCheckoutIntent(subscription, targetPlan, billingInterval);
     if (subscription?.status === "pending_payment"
@@ -4408,6 +4485,9 @@ async function handleBillingApi(req, res, url, db, currentUser) {
     const idempotencyKey = String(body.idempotencyKey || body.checkoutRequestId || crypto.randomUUID()).trim();
     const providerConfig = paymentProviderConfig();
     try {
+      if (promotionCode && (intent === "subscription_activation" || !providerConfig.configured || providerConfig.provider !== STRIPE_PROVIDER)) {
+        return json(res, 409, checkoutPromoError(new Error("PROMOTION_CHECKOUT_NOT_ALLOWED")));
+      }
       if (intent === "subscription_activation" && access.requiresPayment && Number(subscription.amountDueMinor || 0) === 0) {
         if (typeof activateZeroAmountSubscriptionPayment !== "function") {
           return json(res, 503, { ok: false, code: "ZERO_AMOUNT_ACTIVATION_REQUIRED", error: "ระบบเปิดใช้งานแพ็กเกจส่วนลดเต็มจำนวนยังไม่พร้อม" });
@@ -4425,12 +4505,13 @@ async function handleBillingApi(req, res, url, db, currentUser) {
         });
       }
 
-      const payment = await beginSubscriptionCheckout({
+      let payment = await beginSubscriptionCheckout({
         tenantId: currentUser.tenantId,
         userId: currentUser.id,
         targetPlan,
         billingInterval,
         intent,
+        ...(promotionCode ? { promotionCode } : {}),
         idempotencyKey,
         provider: providerConfig.provider
       });
@@ -4447,13 +4528,36 @@ async function handleBillingApi(req, res, url, db, currentUser) {
         if (typeof setPaymentProviderReference !== "function") {
           return json(res, 503, { ok: false, code: "STRIPE_PAYMENT_RPC_REQUIRED", error: "ระบบบันทึก Stripe payment ยังไม่พร้อม" });
         }
-        const promptpay = payment.providerPaymentReference
-          ? await retrievePaymentIntent(payment.providerPaymentReference)
-          : await createPromptPayPaymentIntent({
+        let promptpay;
+        if (payment.providerPaymentReference) {
+          promptpay = await retrievePaymentIntent(payment.providerPaymentReference);
+          const reconciledStatus = await reconcileResumablePayment(payment,null,promptpay,currentUser);
+          if (reconciledStatus === "paid") {
+            return json(res,200,{ok:true,provider:STRIPE_PROVIDER,resumed:true,awaitingWebhook:true,
+              payment:publicPayment(payment),promptpay,
+              billing:subscriptionBillingPayload({ ...db,payments:[payment,...(db.payments || [])] })});
+          }
+          if (!["pending","processing"].includes(reconciledStatus)) {
+            // The prior TEST intent is terminal and has been reconciled. The
+            // existing checkout RPC now creates a fresh payment/reservation;
+            // no canceled intent or released reservation is ever resurrected.
+            payment = await beginSubscriptionCheckout({
+              tenantId:currentUser.tenantId,userId:currentUser.id,targetPlan,billingInterval,intent,
+              ...(promotionCode ? { promotionCode } : {}),
+              idempotencyKey:`${idempotencyKey}-retry-${crypto.randomUUID()}`,provider:providerConfig.provider
+            });
+            promptpay = payment.providerPaymentReference
+              ? await retrievePaymentIntent(payment.providerPaymentReference)
+              : await createPromptPayPaymentIntent({payment,
+                  returnUrl:`${requestOrigin(req)}/settings/subscription`,receiptEmail:receiptEmailForUser(currentUser)});
+          }
+        } else {
+          promptpay = await createPromptPayPaymentIntent({
               payment,
               returnUrl: `${requestOrigin(req)}/settings/subscription`,
               receiptEmail: receiptEmailForUser(currentUser)
             });
+        }
         const nextPayment = await setPaymentProviderReference({
           paymentId: payment.id,
           tenantId: currentUser.tenantId,
@@ -4488,6 +4592,8 @@ async function handleBillingApi(req, res, url, db, currentUser) {
       });
     } catch (error) {
       const detail = String(error.detail || error.message || "");
+      const promoError = checkoutPromoError(error);
+      if (promoError) return json(res, 409, promoError);
       if (detail.includes("PAYMENT_NOT_REQUIRED")) {
         return json(res, 409, { ok: false, code: "PAYMENT_NOT_REQUIRED", error: "แพ็กเกจนี้ยังไม่ต้องชำระเงิน" });
       }
@@ -4573,9 +4679,23 @@ async function handleStripeWebhookApi(req, res) {
       }
       await recordSubscriptionCheckoutSuccess(input);
     } else {
-      const status = event.type === "payment_intent.payment_failed"
+      let status = event.type === "payment_intent.payment_failed"
         ? "failed"
         : (event.type === "payment_intent.canceled" ? "cancelled" : stripePaymentStatus(intent.status));
+      if (checkoutPromoEnabled() && payment.checkoutMetadata?.promotion?.reservation_id) {
+        if (["failed","cancelled","expired","paid"].includes(payment.status)) {
+          return json(res, 200, { ok: true, ignored: true, reason: "terminal_promo_payment" });
+        }
+        if (["failed","cancelled","expired"].includes(status)) {
+          const authoritativeStatus = await cancelPromoTestPaymentIntent(payment, paymentIntentId, status);
+          if (authoritativeStatus !== "canceled") return json(res, 200, { ok: true, ignored: true, reason: "awaiting_authoritative_payment_event" });
+          status = "cancelled";
+          await releaseCanceledPromoPayment({ paymentId: payment.id, tenantId: payment.tenantId,
+            providerPaymentReference: paymentIntentId, amountMinor: payment.amountMinor,
+            currency: payment.currency, providerEventId: `promo-cancel-${payment.id}` });
+          return json(res, 200, { ok: true, received: true, eventId: event.id });
+        }
+      }
       if (payment.operation === "subscription_upgrade") {
         if (typeof recordSubscriptionUpgradeStatus !== "function") {
           return json(res, 503, { ok: false, code: "SUBSCRIPTION_UPGRADE_STATUS_RPC_REQUIRED", error: "Subscription upgrade status RPC is not configured." });

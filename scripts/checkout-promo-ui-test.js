@@ -7,7 +7,7 @@ const vm = require("node:vm");
 const { execFileSync } = require("node:child_process");
 const root = path.join(__dirname, "..");
 const source = fs.readFileSync(path.join(root, "public/app.js"), "utf8");
-const baseline = "ee95f55433899ca163ba64ffe589273210cf43bd";
+const baseline = "2c493c398c0a7ba7debaf94a23540395a2f1bcb9";
 
 function functionSource(text, name) {
   const start = text.indexOf(`function ${name}(`);
@@ -63,6 +63,7 @@ function mount(app = fixture(), text = source) {
   const context = {
     app, els: { content },
     escapeHtml: value => String(value ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]),
+    moneyMinorText: value => `THB ${(Number(value || 0) / 100).toFixed(2)}`,
     iconSvg: () => "<svg aria-hidden=\"true\"></svg>",
     setTimeout: (callback, delay) => { assert.equal(delay, 600); timers.push(callback); },
     fetch() { throw new Error("Promo must not make network requests"); },
@@ -138,9 +139,20 @@ function main() {
     }
   }
   assert.equal(functionSource(source, "hydrateSubscriptionCheckout"), functionSource(oldSource, "hydrateSubscriptionCheckout"));
-  assert.equal(functionSource(source, "renderPricing"), functionSource(oldSource, "renderPricing"));
+  const integratedApp = fixture();
+  integratedApp.data.billing.checkoutPromoEnabled = true;
+  integratedApp.billingCheckout.payment.promotion = {
+    code: "PREVIEW10", benefitDescription: "ลด 10%", baseAmountMinor: 99000, discountAmountMinor: 9900
+  };
+  const integrated = mount(integratedApp);
+  assert.ok(!integrated.content.innerHTML.includes("data-subscription-promo-form"), "Preview consumer does not show the old inert checkout field");
+  assert.match(integrated.content.innerHTML, /PREVIEW10/);
+  assert.match(integrated.content.innerHTML, /ลด 10%/);
+  const pricingSource = functionSource(source, "renderPricing");
+  assert.match(pricingSource, /checkoutPromoEnabled && isBillingOwner/);
+  assert.match(pricingSource, /สิทธิ์ฟรีวัน\/เดือนไม่ต้องชำระผ่าน Stripe/);
   assert.equal(functionSource(source, "subscriptionPaymentDisplayStatus"), functionSource(oldSource, "subscriptionPaymentDisplayStatus"));
-  console.log("Checkout promo UI passed: 60 baseline-identical payment render cases; trim/empty/neutral/rapid-submit/XSS/draft-isolation; zero API calls, zero payment mutations, no QR remount. Pricing/hydration/success logic unchanged.");
+  console.log("Checkout promo UI passed: Production placeholder remains baseline-identical with the feature off; Preview consumer summary, trim/empty/rapid-submit/XSS/draft-isolation and no QR remount passed.");
 }
 
 module.exports = { functionSource, fixture, mount, source, root };

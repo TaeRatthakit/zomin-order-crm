@@ -2,7 +2,7 @@
   "use strict";
 
   const root = document.getElementById("platform-admin-app");
-  const state = { user: null, snapshot: null, range: null, preset: "month", promos: [], paymentFilter: "all", settings: null, menuOpen: false, loading: false, routeToken: 0, routeController: null };
+  const state = { user: null, snapshot: null, range: null, preset: "month", promos: [], promoKpis: null, promoAudit: [], promoLoading: false, promoAuditLoading: false, promoLoadingMore: false, promoAuditLoadingMore: false, promoHasMore: false, promoAuditHasMore: false, promoError: "", promoAuditError: "", promoEditingId: null, promoSaving: false, paymentFilter: "all", settings: null, menuOpen: false, loading: false, routeToken: 0, routeController: null };
   const cache = { dashboard: new Map(), endpoints: new Map(), inFlight: new Map() };
   const CACHE_TTL_MS = 45_000;
   const icons = { home: "⌂", revenue: "↗", plans: "♛", payments: "▣", usage: "⌁", companies: "▤", health: "●", promos: "◇", actions: "!", settings: "⚙" };
@@ -204,7 +204,7 @@
       ${card("การใช้งานของลูกค้า", homeCardIcons.usage, [cardMetric("เข้าใช้งานวันนี้", h.usage.activeCompanies, "is-orange"), cardMetric("ออเดอร์วันนี้", h.usage.ordersToday, "is-blue"), cardMetric("ไม่ได้ใช้งานเกิน 14 วัน", h.usage.inactiveCompanies, "is-orange")], "/platform-admin/usage", "orange")}
       ${card("ลูกค้า / บริษัท", homeCardIcons.companies, [cardMetric("ทั้งหมด", h.companies.total, "is-blue"), cardMetric("Active", h.companies.active, "is-blue"), cardMetric("Trial", h.companies.trial, "is-blue")], "/platform-admin/companies", "")}
       ${card("สถานะระบบ", homeCardIcons.health, [cardMetric("LINE", h.health.line, "is-green"), cardMetric("Stripe", h.health.stripe, "is-green"), cardMetric("Supabase", h.health.supabase, "is-green")], "/platform-admin/health", "green")}
-      ${card("โค้ดส่วนลด / Promo", homeCardIcons.promos, [cardMetric("โค้ดที่ใช้งานอยู่", h.promos.active, "is-orange"), cardMetric("ใช้ไปแล้ว", h.promos.used, "is-orange"), cardMetric("เหลือใช้ / Unlimited", h.promos.remaining, "is-orange")], "/platform-admin/promos", "orange")}
+      ${card("โค้ดส่วนลด / Promo", homeCardIcons.promos, [cardMetric("โค้ดที่ใช้งานอยู่", h.promos.active, "is-orange"), cardMetric("ใช้ไปแล้ว", h.promos.used, "is-orange"), cardMetric("เหลือใช้ / ไม่จำกัด", h.promos.remaining, "is-orange")], "/platform-admin/promos", "orange")}
       ${card("สิ่งที่ต้องจัดการ", homeCardIcons.actions, [alertCardMetric("Payment Failed", h.actions.paymentFailed), alertCardMetric("Trial ใกล้หมด", h.actions.trialExpiring), alertCardMetric("LINE ไม่เชื่อม", h.actions.lineDisconnected)], "/platform-admin/actions", "red")}
     </section>`;
   }
@@ -276,7 +276,204 @@
 
   function healthPage(snapshot) { const services = [[homeCardIcons.health, "LINE", snapshot.home.health.line], [homeCardIcons.payments, "Stripe", snapshot.home.health.stripe], [homeCardIcons.health, "Supabase", snapshot.home.health.supabase], [homeCardIcons.companies, "Production", "ควรตรวจสอบ"]]; return `${pageHead("สถานะระบบ", "ตรวจสอบแบบอ่านอย่างเดียว · ไม่ส่ง event ไม่สร้างธุรกรรม") }<div class="pa-panel pa-health-panel"><ul class="pa-health-list">${services.map(([icon, name, status]) => `<li><span class="pa-health-icon">${icon}</span><span class="pa-health-name"><strong>${name}</strong><small>last successful check</small></span><span class="pa-status ${statusClass(status)}">${status}</span><span class="pa-muted">ไม่มีข้อมูลเวลา</span></li>`).join("")}</ul><div class="pa-note">ไม่แสดง secret/token ใด ๆ และไม่ทำ active probe ที่อาจกระทบ Payment หรือ LINE</div></div>`; }
 
-  async function promosPage(signal) { const data = await loadCachedEndpoint("promos", "/api/platform-admin/promos", signal); state.promos = data.promos || []; const disabled = "disabled"; const active = state.promos.filter(item => item.status === "active").length; const used = state.promos.reduce((sum, item) => sum + Number(item.usedCount || 0), 0); return `${pageHead("โค้ดส่วนลด / Promo", "Promo store แยกสำหรับ Platform Admin พร้อม Audit Log") }<div class="pa-promo-heading"><div class="pa-stat-strip"><div><small>โค้ดที่ใช้งานอยู่</small><strong>${number(active)}</strong></div><div><small>ใช้ไปแล้ว</small><strong>${number(used)}</strong></div><div><small>โค้ดทั้งหมด</small><strong>${number(state.promos.length)}</strong></div></div><button class="pa-button" type="button" disabled title="การเขียน Promo ถูกปิดไว้จนกว่าจะมี Production store ที่ผ่านการตรวจสอบ">+ สร้างโค้ดใหม่</button></div><div class="pa-panel pa-promo-form-panel"><form id="pa-promo-form" class="pa-promo-form"><div class="pa-field"><label>Code</label><input name="code" required placeholder="WELCOME10" ${disabled}></div><div class="pa-field"><label>ประเภท</label><select name="type" ${disabled}><option value="percentage">เปอร์เซ็นต์</option><option value="fixed_thb">ลดเป็น THB</option><option value="free_days">ฟรี X วัน</option><option value="free_months">ฟรี X เดือน</option></select></div><div class="pa-field"><label>มูลค่า</label><input name="value" type="number" min="0" required ${disabled}></div><div class="pa-field"><label>จำกัดใช้รวม</label><input name="usageLimit" placeholder="Unlimited" ${disabled}></div><div class="pa-field span-2"><label>คำอธิบาย</label><input name="description" ${disabled}></div><div class="pa-field"><label>หมดอายุ</label><input name="expiresAt" type="date" ${disabled}></div><label class="pa-switch"><input name="newCustomersOnly" type="checkbox" ${disabled}> ลูกค้าใหม่เท่านั้น</label><button class="pa-button" type="submit" ${disabled}>บันทึก Promo</button></form></div><div class="pa-panel pa-promo-table-panel"><div class="pa-section-head"><div><h2>รายการ Promo</h2><p class="pa-panel-subtitle">การปิดใช้งานไม่ลบ redemption เดิม</p></div></div>${state.promos.length ? `<div class="pa-table-wrap"><table class="pa-table"><thead><tr><th>Code</th><th>ส่วนลด</th><th>ประเภท</th><th>ใช้แล้ว / จำกัด</th><th>หมดอายุ</th><th>สถานะ</th><th>จัดการ</th></tr></thead><tbody>${state.promos.map(promo => `<tr><td><strong>${display(promo.code)}</strong><br><small class="pa-muted">${display(promo.description)}</small></td><td>${number(promo.value)}</td><td>${display(promo.type)}</td><td>${number(promo.usedCount)} / ${promo.usageLimit === null ? "Unlimited" : number(promo.usageLimit)}</td><td>${dateLabel(promo.expiresAt)}</td><td><span class="pa-status ${statusClass(promo.status)}">${display(promo.status)}</span></td><td>${promo.status === "active" ? `<button class="pa-button danger" data-disable-promo="${escapeHtml(promo.id)}" ${disabled}>ปิดใช้งาน</button>` : "—"}</td></tr>`).join("")}</tbody></table></div>` : `<div class="pa-empty">ยังไม่มี Promo</div>`}</div></div><div class="pa-panel pa-audit-panel"><h2>Audit Log</h2><p class="pa-panel-subtitle">เฉพาะ action ของ Platform Admin</p><div class="pa-note">${data.auditLog?.length ? data.auditLog.map(log => `${escapeHtml(log.action)} · ${escapeHtml(log.promoId)} · ${dateLabel(String(log.at || "").slice(0, 10))}`).join("<br>") : "ยังไม่มี Audit Log"}</div></div>`; }
+  function promoTypeLabel(type) {
+    return ({ percentage: "เปอร์เซ็นต์", fixed_thb: "ลดเป็น THB", free_days: "ฟรี X วัน", free_months: "ฟรี X เดือน" })[type] || type || "—";
+  }
+
+  function promoValueFieldConfig(type) {
+    return ({
+      percentage: { label: "ส่วนลด (%)", placeholder: "เช่น 10", min: "0.01", max: "100", step: "0.01", inputmode: "decimal", message: "กรุณาระบุส่วนลดมากกว่า 0 และไม่เกิน 100%" },
+      fixed_thb: { label: "ส่วนลด (บาท)", placeholder: "เช่น 500", min: "0.01", max: "", step: "0.01", inputmode: "decimal", message: "กรุณาระบุจำนวนเงินมากกว่า 0 บาท" },
+      free_days: { label: "จำนวนวัน", placeholder: "เช่น 7", min: "1", max: "", step: "1", inputmode: "numeric", message: "กรุณาระบุจำนวนวันเป็นจำนวนเต็มอย่างน้อย 1 วัน" },
+      free_months: { label: "จำนวนเดือน", placeholder: "เช่น 1", min: "1", max: "", step: "1", inputmode: "numeric", message: "กรุณาระบุจำนวนเดือนเป็นจำนวนเต็มอย่างน้อย 1 เดือน" }
+    })[type] || null;
+  }
+
+  function promoValueValidationMessage(type, rawValue) {
+    const config = promoValueFieldConfig(type) || promoValueFieldConfig("percentage");
+    const value = Number(String(rawValue ?? "").trim());
+    if (!Number.isFinite(value) || value <= 0) return config.message;
+    if (type === "percentage" && value > 100) return config.message;
+    if (["free_days", "free_months"].includes(type) && !Number.isInteger(value)) return config.message;
+    return "";
+  }
+
+  function applyPromoValueFieldType(form, reportInvalid = false) {
+    const type = String(form?.elements?.type?.value || "percentage");
+    const config = promoValueFieldConfig(type) || promoValueFieldConfig("percentage");
+    const input = form?.elements?.value;
+    const label = form?.querySelector("[data-promo-value-label]");
+    if (!input) return;
+    if (label) label.textContent = config.label;
+    input.placeholder = config.placeholder;
+    input.min = config.min;
+    input.step = config.step;
+    input.inputMode = config.inputmode;
+    if (config.max) input.max = config.max;
+    else input.removeAttribute("max");
+    input.setCustomValidity(promoValueValidationMessage(type, input.value));
+    if (reportInvalid && input.value && !input.checkValidity()) input.reportValidity();
+  }
+
+  function promoListHtml() {
+    if (state.promoLoading && !state.promos.length) return `<div class="pa-empty">กำลังโหลด Promo…</div>`;
+    if (state.promoError && !state.promos.length) return `<div class="pa-empty">${escapeHtml(state.promoError)}</div>`;
+    if (!state.promos.length) return `<div class="pa-empty">ยังไม่มี Promo</div>`;
+    const table = `<div class="pa-table-wrap"><table class="pa-table"><thead><tr><th>Code</th><th>ส่วนลด</th><th>ประเภท</th><th>ใช้แล้ว / จำกัด</th><th>หมดอายุ</th><th>สถานะ</th><th>จัดการ</th></tr></thead><tbody>${state.promos.map(promo => `<tr><td><strong>${display(promo.code)}</strong><br><small class="pa-muted">${display(promo.description)}</small></td><td>${number(promo.value)}</td><td>${escapeHtml(promoTypeLabel(promo.type))}</td><td>${number(promo.usedCount)} / ${promo.usageLimit === null ? "ไม่จำกัด" : number(promo.usageLimit)}</td><td>${promo.noExpiry ? "ไม่หมดอายุ" : dateLabel(String(promo.expiresAt || "").slice(0, 10))}</td><td><span class="pa-status ${statusClass(promo.status)}">${display(promo.status)}</span></td><td><div class="pa-promo-actions"><button class="pa-table-action" type="button" data-edit-promo="${escapeHtml(promo.id)}">แก้ไข</button><button class="pa-table-action ${promo.active ? "danger" : ""}" type="button" data-promo-status="${escapeHtml(promo.id)}" data-active="${promo.active ? "false" : "true"}">${promo.active ? "ปิดใช้งาน" : "เปิดใช้งาน"}</button></div></td></tr>`).join("")}</tbody></table></div>`;
+    const more = state.promoHasMore ? `<div class="pa-pagination"><span>แสดง ${number(state.promos.length)} รายการ</span><button class="pa-button secondary" type="button" data-promo-load-more ${state.promoLoadingMore ? "disabled" : ""}>${state.promoLoadingMore ? "กำลังโหลด…" : "โหลดเพิ่ม"}</button></div>` : "";
+    return `${table}${more}`;
+  }
+
+  function promoAuditHtml() {
+    if (state.promoAuditLoading && !state.promoAudit.length) return "กำลังโหลด Audit Log…";
+    if (state.promoAuditError) return escapeHtml(state.promoAuditError);
+    if (!state.promoAudit.length) return "ยังไม่มี Audit Log";
+    const rows = state.promoAudit.map(log => `${escapeHtml(log.action)} · ${escapeHtml(log.code || log.promoId)} · ${escapeHtml(log.actor)} · ${dateLabel(String(log.at || "").slice(0, 10))}${log.changedFields?.length ? ` · ${escapeHtml(log.changedFields.join(", "))}` : ""}`).join("<br>");
+    return `${rows}${state.promoAuditHasMore ? `<div class="pa-pagination"><span>แสดง ${number(state.promoAudit.length)} รายการ</span><button class="pa-button secondary" type="button" data-promo-audit-load-more ${state.promoAuditLoadingMore ? "disabled" : ""}>${state.promoAuditLoadingMore ? "กำลังโหลด…" : "โหลด Audit เพิ่ม"}</button></div>` : ""}`;
+  }
+
+  function promoPage() {
+    const editing = state.promos.find(item => item.id === state.promoEditingId) || null;
+    const form = editing || { code: "", type: "percentage", value: "", usageLimit: null, usagePerCompany: 1, description: "", startsAt: "", expiresAt: "", noExpiry: true, newCustomersOnly: false, plans: ["starter", "business", "enterprise"] };
+    const kpis = state.promoKpis || { active: null, used: null, total: null };
+    const selected = value => form.type === value ? "selected" : "";
+    const checked = value => form.plans.includes(value) ? "checked" : "";
+    const disabled = state.promoSaving ? "disabled" : "";
+    const listContent = promoListHtml();
+    const valueField = promoValueFieldConfig(form.type) || promoValueFieldConfig("percentage");
+    return `${pageHead("โค้ดส่วนลด / Promo", "ข้อมูลจริงจาก Preview Supabase พร้อม Audit Log")}
+      <div class="pa-promo-heading"><div class="pa-stat-strip"><div><small>โค้ดที่ใช้งานอยู่</small><strong>${number(kpis.active)}</strong></div><div><small>ใช้ไปแล้ว</small><strong>${number(kpis.used)}</strong></div><div><small>โค้ดทั้งหมด</small><strong>${number(kpis.total)}</strong></div></div><button class="pa-button" type="button" data-new-promo>+ สร้างโค้ดใหม่</button></div>
+      <div class="pa-panel pa-promo-form-panel"><form id="pa-promo-form" class="pa-promo-form" data-promo-id="${escapeHtml(editing?.id || "")}">
+        <div class="pa-field"><label>Code</label><input name="code" required maxlength="64" placeholder="WELCOME10" value="${escapeHtml(form.code)}" ${disabled}></div>
+        <div class="pa-field"><label>ประเภท</label><select name="type" ${disabled}><option value="percentage" ${selected("percentage")}>เปอร์เซ็นต์</option><option value="fixed_thb" ${selected("fixed_thb")}>ลดเป็น THB</option><option value="free_days" ${selected("free_days")}>ฟรี X วัน</option><option value="free_months" ${selected("free_months")}>ฟรี X เดือน</option></select></div>
+        <div class="pa-field"><label data-promo-value-label>${valueField.label}</label><input name="value" type="number" min="${valueField.min}" ${valueField.max ? `max="${valueField.max}"` : ""} step="${valueField.step}" inputmode="${valueField.inputmode}" placeholder="${valueField.placeholder}" required value="${escapeHtml(form.value)}" ${disabled}></div>
+        <div class="pa-field"><label>จำนวนครั้งที่ใช้ได้ทั้งหมด</label><input name="usageLimit" inputmode="numeric" placeholder="ไม่จำกัด" value="${form.usageLimit === null ? "" : escapeHtml(form.usageLimit)}" ${disabled}></div>
+        <div class="pa-field span-2"><label>คำอธิบาย</label><input name="description" maxlength="500" value="${escapeHtml(form.description)}" ${disabled}></div>
+        <div class="pa-field"><label>เริ่มใช้</label><input name="startsAt" type="date" value="${escapeHtml(String(form.startsAt || "").slice(0, 10))}" ${disabled}></div>
+        <div class="pa-field"><label>หมดอายุ</label><input name="expiresAt" type="date" value="${escapeHtml(String(form.expiresAt || "").slice(0, 10))}" ${form.noExpiry ? "disabled" : disabled}></div>
+        <div class="pa-field"><label>จำนวนครั้งที่ใช้ได้ต่อบริษัท</label><input name="usagePerCompany" inputmode="numeric" placeholder="ไม่จำกัด" value="${form.usagePerCompany === null ? "" : escapeHtml(form.usagePerCompany)}" ${disabled}></div>
+        <div class="pa-field pa-promo-plans"><label>แพ็กเกจ</label><span><label><input type="checkbox" name="plans" value="starter" ${checked("starter")} ${disabled}> Starter</label><label><input type="checkbox" name="plans" value="business" ${checked("business")} ${disabled}> Business</label><label><input type="checkbox" name="plans" value="enterprise" ${checked("enterprise")} ${disabled}> Enterprise</label></span></div>
+        <label class="pa-switch"><input name="noExpiry" type="checkbox" ${form.noExpiry ? "checked" : ""} ${disabled}> ไม่หมดอายุ</label>
+        <label class="pa-switch"><input name="newCustomersOnly" type="checkbox" ${form.newCustomersOnly ? "checked" : ""} ${disabled}> ลูกค้าใหม่เท่านั้น</label>
+        <div class="pa-promo-form-actions"><button class="pa-button" type="submit" ${disabled}>${state.promoSaving ? "กำลังบันทึก…" : editing ? "บันทึกการแก้ไข" : "บันทึก Promo"}</button>${editing ? `<button class="pa-button secondary" type="button" data-cancel-promo-edit>ยกเลิก</button>` : ""}</div>
+      </form></div>
+      <div class="pa-panel pa-promo-table-panel"><div class="pa-section-head"><div><h2>รายการ Promo</h2><p class="pa-panel-subtitle">การปิดใช้งานไม่ลบ redemption เดิม</p></div></div><div data-promo-list>${listContent}</div></div>
+      <div class="pa-panel pa-audit-panel"><h2>Audit Log</h2><p class="pa-panel-subtitle">โหลดแยกจากรายการ Promo เพื่อไม่บล็อกหน้า</p><div class="pa-note" data-promo-audit>${promoAuditHtml()}</div></div>`;
+  }
+
+  function refreshPromoView(token) {
+    if (token !== state.routeToken || location.pathname !== "/platform-admin/promos") return;
+    shell(promoPage());
+    bindRouteActions();
+  }
+
+  function refreshPromoListView(token) {
+    if (token !== state.routeToken || location.pathname !== "/platform-admin/promos") return;
+    const list = root.querySelector("[data-promo-list]");
+    if (list) { list.innerHTML = promoListHtml(); bindPromoListActions(); }
+  }
+
+  function refreshPromoAuditView(token) {
+    if (token !== state.routeToken || location.pathname !== "/platform-admin/promos") return;
+    const audit = root.querySelector("[data-promo-audit]");
+    if (audit) { audit.innerHTML = promoAuditHtml(); bindPromoAuditActions(); }
+  }
+
+  function bindPromoListActions() {
+    root.querySelectorAll("[data-edit-promo]").forEach(button => button.addEventListener("click", () => { state.promoEditingId = button.dataset.editPromo; refreshPromoView(state.routeToken); root.querySelector("#pa-promo-form input[name=code]")?.focus(); }));
+    root.querySelectorAll("[data-promo-status]").forEach(button => button.addEventListener("click", async () => {
+      const active = button.dataset.active === "true";
+      if (!confirm(active ? "เปิดใช้งาน Promo นี้หรือไม่?" : "ปิดใช้งาน Promo นี้หรือไม่?")) return;
+      try {
+        button.disabled = true;
+        await api(`/api/platform-admin/promos/${encodeURIComponent(button.dataset.promoStatus)}/status`, { method: "PUT", body: JSON.stringify({ active }) });
+        cache.endpoints.delete("promos:0");
+        cache.endpoints.delete("promo-audit:0");
+        showToast(active ? "เปิดใช้งาน Promo แล้ว" : "ปิดใช้งาน Promo แล้ว");
+        await renderRoute();
+      } catch (error) { button.disabled = false; showToast(error.message); }
+    }));
+    root.querySelector("[data-promo-load-more]")?.addEventListener("click", async () => {
+      if (state.promoLoadingMore) return;
+      const token = state.routeToken;
+      const offset = state.promos.length;
+      state.promoLoadingMore = true;
+      refreshPromoListView(token);
+      try {
+        const data = await loadCachedEndpoint(`promos:${offset}`, `/api/platform-admin/promos?limit=25&offset=${offset}`, state.routeController?.signal);
+        if (token !== state.routeToken || location.pathname !== "/platform-admin/promos") return;
+        state.promos = [...state.promos, ...(data.promos || [])];
+        state.promoHasMore = Boolean(data.pagination?.hasMore);
+      } catch (error) {
+        if (error?.name !== "AbortError" && token === state.routeToken) showToast(error.message || "โหลด Promo ไม่สำเร็จ");
+      } finally {
+        state.promoLoadingMore = false;
+        refreshPromoListView(token);
+      }
+    });
+  }
+
+  function bindPromoAuditActions() {
+    root.querySelector("[data-promo-audit-load-more]")?.addEventListener("click", async () => {
+      if (state.promoAuditLoadingMore) return;
+      const token = state.routeToken;
+      const offset = state.promoAudit.length;
+      state.promoAuditLoadingMore = true;
+      refreshPromoAuditView(token);
+      try {
+        const data = await loadCachedEndpoint(`promo-audit:${offset}`, `/api/platform-admin/promos/audit?limit=20&offset=${offset}`, state.routeController?.signal);
+        if (token !== state.routeToken || location.pathname !== "/platform-admin/promos") return;
+        state.promoAudit = [...state.promoAudit, ...(data.auditLog || [])];
+        state.promoAuditHasMore = Boolean(data.pagination?.hasMore);
+      } catch (error) {
+        if (error?.name !== "AbortError" && token === state.routeToken) showToast(error.message || "โหลด Audit Log ไม่สำเร็จ");
+      } finally {
+        state.promoAuditLoadingMore = false;
+        refreshPromoAuditView(token);
+      }
+    });
+  }
+
+  function beginPromoLoads(token, controller) {
+    state.promos = [];
+    state.promoKpis = null;
+    state.promoAudit = [];
+    state.promoLoading = true;
+    state.promoAuditLoading = true;
+    state.promoLoadingMore = false;
+    state.promoAuditLoadingMore = false;
+    state.promoHasMore = false;
+    state.promoAuditHasMore = false;
+    state.promoError = "";
+    state.promoAuditError = "";
+    loadCachedEndpoint("promos:0", "/api/platform-admin/promos?limit=25&offset=0", controller.signal).then(data => {
+      if (token !== state.routeToken || location.pathname !== "/platform-admin/promos") return;
+      state.promos = data.promos || [];
+      state.promoKpis = data.kpis || null;
+      state.promoHasMore = Boolean(data.pagination?.hasMore);
+      state.promoLoading = false;
+      refreshPromoView(token);
+    }).catch(error => {
+      if (error?.name === "AbortError" || token !== state.routeToken) return;
+      state.promoLoading = false;
+      state.promoError = error.message || "โหลด Promo ไม่สำเร็จ";
+      refreshPromoView(token);
+    });
+    const loadAudit = () => loadCachedEndpoint("promo-audit:0", "/api/platform-admin/promos/audit?limit=20&offset=0", controller.signal).then(data => {
+      if (token !== state.routeToken || location.pathname !== "/platform-admin/promos") return;
+      state.promoAudit = data.auditLog || [];
+      state.promoAuditHasMore = Boolean(data.pagination?.hasMore);
+      state.promoAuditLoading = false;
+      refreshPromoAuditView(token);
+    }).catch(error => {
+      if (error?.name === "AbortError" || token !== state.routeToken) return;
+      state.promoAuditLoading = false;
+      state.promoAuditError = error.message || "โหลด Audit Log ไม่สำเร็จ";
+      refreshPromoAuditView(token);
+    });
+    const auditTimer = setTimeout(loadAudit, 0);
+    controller.signal.addEventListener("abort", () => clearTimeout(auditTimer), { once: true });
+  }
 
   function actionsPage(snapshot) { const rows = [["Payment Failed", snapshot.home.actions.paymentFailed, "bad"], ["Trial ใกล้หมด", snapshot.home.actions.trialExpiring, "warn"], ["LINE ไม่เชื่อม", snapshot.home.actions.lineDisconnected, "bad"], ["Inactive companies", snapshot.home.actions.inactive, "warn"]]; return `${pageHead("สิ่งที่ต้องจัดการ", "รายการแจ้งเตือนเพื่อการตรวจสอบเท่านั้น") }<div class="pa-filter-pills"><button class="pa-filter-pill active">ทั้งหมด</button><button class="pa-filter-pill">Payment Failed</button><button class="pa-filter-pill">Trial ใกล้หมด</button><button class="pa-filter-pill">LINE ไม่เชื่อม</button></div><div class="pa-panel pa-actions-panel"><div class="pa-section-head"><h2>รายการที่ต้องตรวจสอบ</h2></div><ul class="pa-action-list">${rows.map(([label, value, tone]) => `<li><span class="pa-action-icon ${tone}">${homeCardIcons.alert}</span><span><strong>${label}</strong><small>พบรายการที่ต้องตรวจสอบ</small></span><strong class="pa-action-count">${number(value)}</strong><button class="pa-table-action" type="button">ดูรายละเอียด</button></li>`).join("")}</ul></div>`; }
 
@@ -290,6 +487,17 @@
     if (!state.user) { renderLogin(); return; }
     const token = ++state.routeToken;
     const path = location.pathname;
+    if (path === "/platform-admin/promos") {
+      const controller = new AbortController();
+      state.routeController?.abort();
+      state.routeController = controller;
+      state.promoLoading = true;
+      state.promoAuditLoading = true;
+      shell(promoPage());
+      bindRouteActions();
+      beginPromoLoads(token, controller);
+      return;
+    }
     const needsSnapshot = !state.snapshot || path === "/platform-admin" || ["/platform-admin/revenue", "/platform-admin/payments"].includes(path);
     if (needsSnapshot) {
       const requestedRange = state.range || presetRange(state.preset);
@@ -333,13 +541,6 @@
     else if (path === "/platform-admin/health") content = healthPage(state.snapshot);
     else if (path === "/platform-admin/actions") content = actionsPage(state.snapshot);
     else if (path === "/platform-admin/settings") content = settingsPage();
-    else if (path === "/platform-admin/promos") {
-      const controller = new AbortController();
-      state.routeController = controller;
-      try { content = await promosPage(controller.signal); }
-      catch (error) { if (error?.name === "AbortError" || token !== state.routeToken) return; return; }
-      finally { if (state.routeController === controller) state.routeController = null; }
-    }
     else content = home(state.snapshot);
     if (token !== state.routeToken || location.pathname !== path) return;
     shell(content);
@@ -349,8 +550,45 @@
   function bindRouteActions() {
     root.querySelectorAll("[data-preset]").forEach(button => button.addEventListener("click", async () => { state.preset = button.dataset.preset; state.range = presetRange(state.preset); await renderRoute(); }));
     root.querySelector("[data-apply-range]")?.addEventListener("click", async () => { state.range = { start: root.querySelector("#pa-start").value, end: root.querySelector("#pa-end").value }; state.preset = "custom"; await renderRoute(); });
-    root.querySelector("#pa-promo-form")?.addEventListener("submit", async event => { event.preventDefault(); try { const data = Object.fromEntries(new FormData(event.currentTarget).entries()); data.newCustomersOnly = Boolean(event.currentTarget.newCustomersOnly.checked); await api("/api/platform-admin/promos", { method: "POST", body: JSON.stringify(data) }); showToast("บันทึก Promo และ Audit Log แล้ว"); await renderRoute(); } catch (error) { showToast(error.message); } });
-    root.querySelectorAll("[data-disable-promo]").forEach(button => button.addEventListener("click", async () => { if (!confirm("ปิดใช้งาน Promo นี้หรือไม่?")) return; try { await api(`/api/platform-admin/promos/${encodeURIComponent(button.dataset.disablePromo)}`, { method: "DELETE" }); showToast("ปิดใช้งาน Promo แล้ว"); await renderRoute(); } catch (error) { showToast(error.message); } }));
+    root.querySelector("[data-new-promo]")?.addEventListener("click", () => { state.promoEditingId = null; refreshPromoView(state.routeToken); root.querySelector("#pa-promo-form input[name=code]")?.focus(); });
+    root.querySelector("[data-cancel-promo-edit]")?.addEventListener("click", () => { state.promoEditingId = null; refreshPromoView(state.routeToken); });
+    root.querySelector("#pa-promo-form input[name=noExpiry]")?.addEventListener("change", event => { const expires = root.querySelector("#pa-promo-form input[name=expiresAt]"); if (expires) { expires.disabled = event.currentTarget.checked; if (event.currentTarget.checked) expires.value = ""; } });
+    const promoForm = root.querySelector("#pa-promo-form");
+    if (promoForm) {
+      applyPromoValueFieldType(promoForm);
+      promoForm.elements.type?.addEventListener("change", () => applyPromoValueFieldType(promoForm, true));
+      promoForm.elements.value?.addEventListener("input", () => applyPromoValueFieldType(promoForm));
+      promoForm.elements.value?.addEventListener("blur", () => applyPromoValueFieldType(promoForm, true));
+    }
+    root.querySelector("#pa-promo-form")?.addEventListener("submit", async event => {
+      event.preventDefault();
+      if (state.promoSaving) return;
+      const form = event.currentTarget;
+      applyPromoValueFieldType(form, true);
+      if (!form.checkValidity()) return;
+      const formData = new FormData(form);
+      const data = Object.fromEntries(formData.entries());
+      data.plans = formData.getAll("plans");
+      data.noExpiry = Boolean(form.noExpiry.checked);
+      data.newCustomersOnly = Boolean(form.newCustomersOnly.checked);
+      const promoId = String(form.dataset.promoId || "");
+      state.promoSaving = true;
+      refreshPromoView(state.routeToken);
+      try {
+        await api(promoId ? `/api/platform-admin/promos/${encodeURIComponent(promoId)}` : "/api/platform-admin/promos", { method: promoId ? "PUT" : "POST", body: JSON.stringify(data) });
+        cache.endpoints.delete("promos:0");
+        cache.endpoints.delete("promo-audit:0");
+        state.promoEditingId = null;
+        showToast(promoId ? "แก้ไข Promo และบันทึก Audit Log แล้ว" : "สร้าง Promo และบันทึก Audit Log แล้ว");
+      } catch (error) {
+        showToast(error.message);
+      } finally {
+        state.promoSaving = false;
+        if (location.pathname === "/platform-admin/promos") await renderRoute();
+      }
+    });
+    bindPromoListActions();
+    bindPromoAuditActions();
     root.querySelector("#pa-company-search")?.addEventListener("input", filterCompanies);
     root.querySelector("#pa-company-status")?.addEventListener("change", filterCompanies);
     root.querySelector("#pa-company-plan")?.addEventListener("change", filterCompanies);

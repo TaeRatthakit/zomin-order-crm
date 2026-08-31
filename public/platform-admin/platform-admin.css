@@ -133,6 +133,13 @@ button { cursor: pointer; }
 .pa-promo-form { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
 .pa-promo-form .span-2 { grid-column: span 2; }
 .pa-promo-form .pa-button { align-self: end; }
+.pa-promo-plans > span { display: flex; flex-wrap: wrap; gap: 8px 12px; min-height: 32px; align-items: center; }
+.pa-promo-plans > span label { display: inline-flex; align-items: center; gap: 5px; margin: 0; white-space: nowrap; }
+.pa-promo-form-actions, .pa-promo-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.pa-promo-form-actions { align-self: end; }
+.pa-promo-actions .pa-table-action { white-space: nowrap; }
+.pa-pagination { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; color: #72809a; font-size: 12px; }
+.pa-pagination .pa-button { min-height: 34px; padding: 0 12px; }
 .pa-switch { display: flex; align-items: center; gap: 8px; color: #62708d; font-size: 11px; }
 .pa-switch input { accent-color: var(--pa-blue); }
 .pa-loading { min-height: 240px; display: grid; place-items: center; color: var(--pa-muted); font-size: 12px; }

@@ -31677,3 +31677,22 @@ html[data-theme="light"] body:not(.login-view) .plan-status-badge.is-expired .pl
     color: #e7e8ed;
   }
 } /* Mobile Home notification empty state only. */
+
+/* Preview Promo input only; existing pricing cards/layout remain unchanged. */
+.authenticated-pricing-page .authenticated-pricing-promo {
+  display: grid;
+  gap: 8px;
+  max-width: 560px;
+  margin-block: 0 24px;
+}
+.authenticated-pricing-page .authenticated-pricing-promo input {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+.authenticated-pricing-page .authenticated-pricing-promo small {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.authenticated-pricing-page #checkoutPromoError { color: var(--danger, #dc2626); margin: 0; }
+.subscription-checkout-page .subscription-promo-benefit { overflow-wrap: anywhere; }
