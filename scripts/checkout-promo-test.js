@@ -98,5 +98,8 @@ global.fetch=async(url,options={})=>{
   assert.match(sql,/payment_id uuid not null unique/);
   assert.match(sql,/last_provider_status' is distinct from 'succeeded'/);
   assert(!/growup_apply_checkout_promo_entitlement|checkout_service_entitlements/.test(sql),"obsolete paid service bonus path removed");
+  const serverSource=fs.readFileSync(path.join(__dirname,"../server.js"),"utf8");
+  assert.match(serverSource,/CHECKOUT_PROMO_API_PATHS\.has\(requestPathname\)\s*&&\s*!getCurrentUser\(req\)\?\.id/,
+    "Promo API must deny unauthenticated requests before tenant-owned reads");
   console.log("Checkout Promo environment, server price, adapter idempotency contract, metadata, no-fallback and isolation tests passed.");
 })().catch(error=>{console.error(error.message);process.exitCode=1;});

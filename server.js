@@ -1162,8 +1162,14 @@ function safeStripeEventForStorage(event = {}) {
   };
 }
 
+const CHECKOUT_PROMO_API_PATHS = new Set([
+  "/api/billing/promo/quote",
+  "/api/billing/promo/redeem",
+  "/api/billing/promo/abandon"
+]);
+
 function isBillingApiPath(pathname = "") {
-  return (checkoutPromoEnabled() && ["/api/billing/promo/quote","/api/billing/promo/redeem","/api/billing/promo/abandon"].includes(pathname))
+  return (checkoutPromoEnabled() && CHECKOUT_PROMO_API_PATHS.has(pathname))
     || pathname === "/api/billing/subscription"
     || pathname === "/api/billing/checkout"
     || pathname === "/api/billing/upgrade"
@@ -4123,6 +4129,9 @@ async function handleLineWebhookPost(req, res, db, options = {}) {
 }
 
 async function handleBillingApi(req, res, url, db, currentUser) {
+  if (CHECKOUT_PROMO_API_PATHS.has(url.pathname) && !currentUser?.id) {
+    return json(res, 401, { ok: false, error: "Unauthorized" }, { "Set-Cookie": clearSessionCookie() });
+  }
   if (req.method === "POST" && ["/api/billing/promo/quote","/api/billing/promo/redeem"].includes(url.pathname)) {
     if (!checkoutPromoEnabled()) return json(res,404,{ok:false,error:"API not found"});
     if (currentUser.role!=="Owner") return json(res,403,{ok:false,error:"ต้องใช้สิทธิ์ Owner เพื่อใช้โปรโมชั่น"});
@@ -6938,8 +6947,14 @@ async function handleApi(req, res) {
 
 async function appHandler(req, res) {
   try {
-    if (await handlePlatformAdminRequest(req, res)) return;
     const requestPathname = new URL(req.url, `http://${req.headers.host || "localhost"}`).pathname;
+    // Promo endpoints are server-authenticated even before any tenant-owned read.
+    // This explicit fail-closed guard prevents an unauthenticated request from
+    // reaching Supabase without a tenant context when the Preview feature is on.
+    if (req.url.startsWith("/api/") && CHECKOUT_PROMO_API_PATHS.has(requestPathname) && !getCurrentUser(req)?.id) {
+      return json(res, 401, { ok: false, error: "Unauthorized" }, { "Set-Cookie": clearSessionCookie() });
+    }
+    if (await handlePlatformAdminRequest(req, res)) return;
     if (req.url.startsWith("/api/")) {
       const pathname = requestPathname;
       const sessionUser = getCurrentUser(req);
