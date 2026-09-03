@@ -49,6 +49,7 @@ function mount() {
   const button = node();
   const message = node();
   const total = node();
+  const selectedAmount = node();
   const method = node();
   const confirm = node();
   const result = node();
@@ -63,6 +64,7 @@ function mount() {
       if (selector === "[data-subscription-promo-form]") return html.includes("data-subscription-promo-form") ? form : null;
       if (selector === "[data-subscription-promo-form] button") return button;
       if (selector === "[data-subscription-final-amount]") return total;
+      if (selector === "[data-subscription-selected-amount]") return selectedAmount;
       if (selector === "[data-subscription-payment-method]") return method;
       if (selector === "[data-subscription-checkout-confirm]") return confirm;
       if (selector === ".subscription-promo-result") return result;
@@ -89,7 +91,7 @@ function mount() {
     }
   };
   vm.runInNewContext(`${functionSource(source, "subscriptionPaymentDisplayStatus")}\n${functionSource(source, "renderSettingsSubscription")}\nrenderSettingsSubscription();`, context);
-  return { app, content, input, form, requests, context };
+  return { app, content, input, form, requests, context, total, selectedAmount };
 }
 
 async function main() {
@@ -124,6 +126,8 @@ async function main() {
   remountedInput.handlers.input();
   assert.equal(page.app.checkoutPromoQuote, null, "Editing an applied code invalidates the old quote");
   assert.equal(page.app.billingCheckout, null);
+  assert.equal(page.total.textContent, "฿990.00", "Editing an applied code restores the summary total");
+  assert.equal(page.selectedAmount.textContent, "฿990", "Editing an applied code restores the selected-plan amount");
 
   assert.match(source, /data-subscription-checkout-confirm/);
   assert.match(source, /beginSubscriptionCheckoutForUi\([\s\S]*promotionCode: applied\?\.quote\?\.code \|\| ""/,

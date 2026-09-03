@@ -10399,7 +10399,7 @@ function renderSettingsSubscription() {
         <div><h1>ชำระเงินแพ็กเกจ</h1><p>ต่ออายุหรืออัปเกรดแพ็กเกจด้วย PromptPay</p></div>
       </header>
       ${hasPaymentPage ? `<div class="subscription-checkout-grid">
-        <div class="subscription-selected-plan-mobile"><span>${escapeHtml(selectedPlan)}</span><strong>${escapeHtml(amountDisplay.replace(".00", ""))}</strong><small>/ ${escapeHtml(intervalCopy)}</small></div>
+        <div class="subscription-selected-plan-mobile"><span>${escapeHtml(selectedPlan)}</span><strong data-subscription-selected-amount>${escapeHtml(amountDisplay.replace(".00", ""))}</strong><small>/ ${escapeHtml(intervalCopy)}</small></div>
         <div class="subscription-checkout-left">${paymentCard}</div>
         <aside class="subscription-summary-card">
           <div class="subscription-card-heading"><span class="subscription-card-icon">${iconSvg("clipboard")}</span><h2>สรุปรายการ</h2></div>
@@ -10447,6 +10447,8 @@ function renderSettingsSubscription() {
         promoMessage.hidden = true;
         const total = els.content.querySelector("[data-subscription-final-amount]");
         if (total) total.textContent = `฿${(originalAmountMinor / 100).toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        const selectedAmount = els.content.querySelector("[data-subscription-selected-amount]");
+        if (selectedAmount) selectedAmount.textContent = `฿${(originalAmountMinor / 100).toLocaleString("th-TH", { maximumFractionDigits: 0 })}`;
         els.content.querySelector(".subscription-promo-result")?.remove();
         const method = els.content.querySelector("[data-subscription-payment-method]");
         if (method) method.textContent = "PromptPay";
