@@ -1170,6 +1170,7 @@ const CHECKOUT_PROMO_API_PATHS = new Set([
 
 function isBillingApiPath(pathname = "") {
   return (checkoutPromoEnabled() && CHECKOUT_PROMO_API_PATHS.has(pathname))
+    || pathname === "/api/billing/quote"
     || pathname === "/api/billing/subscription"
     || pathname === "/api/billing/checkout"
     || pathname === "/api/billing/upgrade"
@@ -4131,6 +4132,41 @@ async function handleLineWebhookPost(req, res, db, options = {}) {
 async function handleBillingApi(req, res, url, db, currentUser) {
   if (CHECKOUT_PROMO_API_PATHS.has(url.pathname) && !currentUser?.id) {
     return json(res, 401, { ok: false, error: "Unauthorized" }, { "Set-Cookie": clearSessionCookie() });
+  }
+  if (req.method === "POST" && url.pathname === "/api/billing/quote") {
+    if (currentUser.role !== "Owner") {
+      return json(res, 403, { ok: false, error: "ต้องใช้สิทธิ์ Owner เพื่อดูยอดชำระเงิน" });
+    }
+    const body = await readBody(req);
+    const subscription = baseSubscription(db);
+    const targetPlan = normalizeSignupPlan(body.targetPlan || body.plan || subscription?.plan);
+    const billingInterval = normalizeSignupBilling(body.billingInterval || body.billing || subscription?.billingInterval || "monthly");
+    let intent = subscriptionCheckoutIntent(subscription, targetPlan, billingInterval);
+    if (subscription?.status === "pending_payment"
+      && targetPlan === subscription.plan
+      && billingInterval === subscription.billingInterval
+      && !subscription.currentPeriodStartedAt) {
+      intent = "subscription_activation";
+    }
+    const amountMinor = intent === "subscription_activation"
+      ? Number(subscription?.amountDueMinor || 0)
+      : Number(PRICE_CATALOG_MINOR[targetPlan]?.[billingInterval] || 0);
+    if (!subscription || !intent || !Number.isFinite(amountMinor) || amountMinor < 0) {
+      return json(res, 409, { ok: false, code: "SUBSCRIPTION_QUOTE_NOT_ALLOWED", error: "ไม่สามารถคำนวณยอดชำระเงินสำหรับแพ็กเกจนี้ได้" });
+    }
+    return json(res, 200, {
+      ok: true,
+      quote: {
+        plan: targetPlan,
+        billing: billingInterval,
+        intent,
+        mode: "payment",
+        currency: "THB",
+        base_amount_minor: amountMinor,
+        discount_amount_minor: 0,
+        amount_minor: amountMinor
+      }
+    });
   }
   if (req.method === "POST" && ["/api/billing/promo/quote","/api/billing/promo/redeem"].includes(url.pathname)) {
     if (!checkoutPromoEnabled()) return json(res,404,{ok:false,error:"API not found"});

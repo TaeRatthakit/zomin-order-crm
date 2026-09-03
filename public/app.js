@@ -186,6 +186,8 @@ const app = {
   checkoutPromotionCode: "",
   checkoutPromotionError: "",
   checkoutPromoQuote: null,
+  subscriptionCheckoutDraft: null,
+  subscriptionQuoteLoading: false,
   billingCheckout: null,
   pricingBillingInterval: "",
   subscriptionBlocked: false
@@ -1830,7 +1832,7 @@ async function loadState() {
       };
       applyUserTheme(app.currentUser);
       render();
-      if (app.view === "settingsSubscription") {
+      if (app.view === "settingsSubscription" && !app.subscriptionCheckoutDraft) {
         hydrateSubscriptionCheckout().catch(hydrationError => console.warn("[subscription-checkout]", hydrationError.message || hydrationError));
       }
       return;
@@ -1857,7 +1859,7 @@ async function loadState() {
   }
   render();
   /* pricing-scope: authenticated-upgrade-state:start */
-  if (app.view === "settingsSubscription") {
+  if (app.view === "settingsSubscription" && !app.subscriptionCheckoutDraft) {
     hydrateSubscriptionCheckout().catch(error => {
       console.warn("[subscription-checkout]", error.message || error);
     });
@@ -1881,6 +1883,7 @@ function subscriptionCheckoutTargetFromState() {
 }
 
 async function hydrateSubscriptionCheckout() {
+  if (app.subscriptionCheckoutDraft) return;
   const target = subscriptionCheckoutTargetFromState();
   if (!target) return;
   const currentPaymentId = String(app.billingCheckout?.payment?.id || "");
@@ -10255,6 +10258,8 @@ function subscriptionPaymentDisplayStatus(promptpay = {}, payment = {}) {
 function renderSettingsSubscription() {
   const billing = app.data?.billing || {};
   const subscription = billing.subscription || {};
+  const draft = app.subscriptionCheckoutDraft || null;
+  const draftQuote = app.checkoutPromoQuote?.quote || draft?.baseQuote || null;
   const checkout = app.billingCheckout || {};
   const promptpay = checkout.promptpay || {};
   const normalizedQr = checkout.qr || {};
@@ -10273,13 +10278,16 @@ function renderSettingsSubscription() {
     || normalizedQr.svgUrl
     || "";
   const latestPayment = checkout.payment || (billing.latestPayments || [])[0] || {};
-  const targetPlan = String(checkout.upgrade?.targetPlan || latestPayment.targetPlan || latestPayment.plan || "").toLowerCase();
+  const targetPlan = String(draft?.targetPlan || checkout.upgrade?.targetPlan || latestPayment.targetPlan || latestPayment.plan || "").toLowerCase();
   const currentPlan = String(checkout.upgrade?.currentPlan || latestPayment.currentPlan || subscription.plan || "starter").toLowerCase();
   const planNames = { starter: "Starter", business: "Business", enterprise: "Enterprise" };
   const selectedPlan = planNames[targetPlan] || planNames[currentPlan] || "Business";
-  const amountMinor = Number(promptpay.amountMinor ?? latestPayment.amountMinor ?? (targetPlan === "enterprise" ? 199000 : targetPlan === "business" ? 99000 : subscription.amountDueMinor || 0));
+  const amountMinor = Number(draft
+    ? (draftQuote?.amount_minor ?? draft?.baseQuote?.amount_minor ?? 0)
+    : (promptpay.amountMinor ?? latestPayment.amountMinor ?? (targetPlan === "enterprise" ? 199000 : targetPlan === "business" ? 99000 : subscription.amountDueMinor || 0)));
   const amount = `฿${(amountMinor / 100).toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  const billingInterval = String(latestPayment.billingInterval || checkout.upgrade?.billingInterval || subscription.billingInterval || "monthly").toLowerCase();
+  const amountDisplay = draft && !draft.baseQuote ? "—" : amount;
+  const billingInterval = String(draft?.billingInterval || latestPayment.billingInterval || checkout.upgrade?.billingInterval || subscription.billingInterval || "monthly").toLowerCase();
   const intervalCopy = billingInterval === "yearly" ? "ปี" : "เดือน";
   const status = subscriptionPaymentDisplayStatus(promptpay, latestPayment);
   const statusCopy = {
@@ -10293,7 +10301,8 @@ function renderSettingsSubscription() {
     cancelled: ["ยกเลิกรายการแล้ว", "รายการชำระเงินนี้ไม่สามารถดำเนินการต่อได้", "failed"],
     canceled: ["ยกเลิกรายการแล้ว", "รายการชำระเงินนี้ไม่สามารถดำเนินการต่อได้", "failed"]
   }[status] || ["รอการชำระเงิน", "กรุณาชำระภายในเวลาที่กำหนด เพื่อรักษารายการนี้ไว้", "pending"];
-  const hasCheckout = Boolean(targetPlan || checkout.promptpay || latestPayment.id);
+  const hasCheckout = Boolean(!draft && (targetPlan || checkout.promptpay || latestPayment.id));
+  const hasPaymentPage = Boolean(draft || hasCheckout);
   const isSuccess = statusCopy[2] === "success"
     && (!["subscription_activation", "subscription_renewal", "subscription_upgrade"].includes(String(latestPayment.operation || "").toLowerCase())
       || latestPayment.verifiedSuccess === true);
@@ -10337,7 +10346,16 @@ function renderSettingsSubscription() {
       <div><strong>${escapeHtml(statusCopy[0])}</strong><p>${escapeHtml(statusCopy[1])}</p></div>
     </div>
   `;
-  const paymentCard = isSuccess ? `
+  const paymentCard = draft ? `
+    <article class="subscription-checkout-card subscription-confirm-card">
+      <div class="subscription-card-heading"><span class="subscription-card-icon">${iconSvg("wallet")}</span><div><h2>ยืนยันก่อนสร้าง PromptPay QR</h2><p>ตรวจสอบแพ็กเกจ โค้ดส่วนลด และยอดชำระให้เรียบร้อย</p></div></div>
+      <div class="subscription-payment-status pending" role="status">
+        <span class="subscription-status-dot" aria-hidden="true"></span>
+        <div><strong>ยังไม่ได้สร้างรายการชำระเงิน</strong><p>ระบบจะสร้าง Stripe PaymentIntent หลังคุณกดยืนยันชำระเงินเท่านั้น</p></div>
+      </div>
+      <div class="subscription-security-note"><span>${iconSvg("shield")}</span><div><strong>ยอดเงินคำนวณจากเซิร์ฟเวอร์</strong><p>ระบบจะตรวจสอบราคาและสิทธิ์โปรโมชั่นซ้ำก่อนสร้างรายการชำระเงิน</p></div></div>
+    </article>
+  ` : isSuccess ? `
     <article class="subscription-checkout-card subscription-success-card">
       <div class="subscription-card-heading"><span class="subscription-card-icon success">${iconSvg("check")}</span><div><h2>ชำระเงินสำเร็จ</h2><p>ระบบยืนยันการชำระเงินของคุณเรียบร้อยแล้ว</p></div></div>
       ${statusMarkup}
@@ -10357,28 +10375,45 @@ function renderSettingsSubscription() {
           `<button class="button ghost" type="button" data-promo-abandon="${escapeHtml(latestPayment.id)}">ละทิ้งรายการชำระเงินนี้</button>`}</div>` : ""}
     </article>
   `;
-  const summaryAction = isSuccess
+  const summaryAction = draft
+    ? `<button class="button primary subscription-primary-action" type="button" data-subscription-checkout-confirm ${app.pricingUpgradeLoading || app.subscriptionQuoteLoading || !draft.baseQuote ? "disabled" : ""}>${app.pricingUpgradeLoading ? "กำลังสร้างรายการชำระเงิน..." : draftQuote?.mode === "free_service" ? "ยืนยันรับสิทธิ์ฟรี" : "ยืนยันชำระเงิน"}</button>`
+    : isSuccess
     ? `<button class="button primary subscription-primary-action" type="button" data-view-shortcut="dashboard">เริ่มใช้งาน</button>`
     : `<button class="button ghost subscription-back-action" type="button" data-view-shortcut="pricing">${iconSvg("arrow")} กลับไปเลือกแพ็กเกจ</button>`;
-  // Checkout promo is an isolated UI draft, never part of billing/payment payloads.
-  const promoKey = `${app.currentUser?.id || ""}:${qrPaymentId}`;
+  const promoKey = `${app.currentUser?.id || ""}:${draft ? `${draft.targetPlan}:${draft.billingInterval}` : qrPaymentId}`;
   if (app.subscriptionPromoUi?.checkoutKey !== promoKey) {
     app.subscriptionPromoUi = { checkoutKey: promoKey, code: "", message: "", empty: false, busy: false };
   }
   const promoUi = app.subscriptionPromoUi;
+  if (draft) promoUi.code = app.checkoutPromotionCode || "";
+  const originalAmountMinor = Number(draft?.baseQuote?.base_amount_minor ?? draft?.baseQuote?.amount_minor ?? amountMinor);
+  const originalAmount = moneyMinorText(originalAmountMinor);
+  const appliedPromo = draft && app.checkoutPromoQuote?.quote ? app.checkoutPromoQuote.quote : null;
+  const promoBenefit = appliedPromo?.mode === "free_service"
+    ? `ใช้งาน ${selectedPlan} ฟรี ${Number(appliedPromo.benefit_value)} ${appliedPromo.benefit_type === "service_days" ? "วัน" : "เดือน"}`
+    : appliedPromo ? `ส่วนลด ${moneyMinorText(appliedPromo.discount_amount_minor)}` : "";
   els.content.innerHTML = `
     <section class="subscription-checkout-page" aria-label="ชำระเงินแพ็กเกจ">
       <header class="subscription-checkout-header">
         <button class="subscription-checkout-back" type="button" data-view-shortcut="pricing" aria-label="กลับไปเลือกแพ็กเกจ">${iconSvg("arrow")}</button>
         <div><h1>ชำระเงินแพ็กเกจ</h1><p>ต่ออายุหรืออัปเกรดแพ็กเกจด้วย PromptPay</p></div>
       </header>
-      ${hasCheckout ? `<div class="subscription-checkout-grid">
-        <div class="subscription-selected-plan-mobile"><span>${escapeHtml(selectedPlan)}</span><strong>${escapeHtml(amount.replace(".00", ""))}</strong><small>/ ${escapeHtml(intervalCopy)}</small></div>
+      ${hasPaymentPage ? `<div class="subscription-checkout-grid">
+        <div class="subscription-selected-plan-mobile"><span>${escapeHtml(selectedPlan)}</span><strong>${escapeHtml(amountDisplay.replace(".00", ""))}</strong><small>/ ${escapeHtml(intervalCopy)}</small></div>
         <div class="subscription-checkout-left">${paymentCard}</div>
         <aside class="subscription-summary-card">
           <div class="subscription-card-heading"><span class="subscription-card-icon">${iconSvg("clipboard")}</span><h2>สรุปรายการ</h2></div>
-          <dl class="subscription-summary-list"><div><dt>แพ็กเกจ</dt><dd>${escapeHtml(selectedPlan)}</dd></div><div><dt>ค่าบริการ</dt><dd>${escapeHtml(amount)} / ${escapeHtml(intervalCopy)}</dd></div><div><dt>วิธีชำระเงิน</dt><dd>PromptPay</dd></div></dl>
-          ${!app.data?.billing?.checkoutPromoEnabled && !isSuccess ? `<form class="subscription-promo" data-subscription-promo-form novalidate>
+          <dl class="subscription-summary-list"><div><dt>แพ็กเกจ</dt><dd>${escapeHtml(selectedPlan)}</dd></div><div><dt>${draft ? "ราคาเดิม" : "ค่าบริการ"}</dt><dd>${escapeHtml(draft && !draft.baseQuote ? "—" : draft ? originalAmount : amount)} / ${escapeHtml(intervalCopy)}</dd></div><div><dt>วิธีชำระเงิน</dt><dd data-subscription-payment-method>${draftQuote?.mode === "free_service" ? "ไม่ต้องชำระผ่าน Stripe" : "PromptPay"}</dd></div></dl>
+          ${draft && app.data?.billing?.checkoutPromoEnabled && app.currentUser?.role === "Owner" ? `<form class="subscription-promo" data-subscription-promo-form novalidate>
+            <label for="subscriptionPromoCode">โค้ดส่วนลด</label>
+            <div class="subscription-promo-controls">
+              <input id="subscriptionPromoCode" type="text" placeholder="กรอกโค้ดโปรโมชั่น" maxlength="64" autocomplete="off" spellcheck="false" aria-describedby="subscriptionPromoMessage" aria-invalid="${Boolean(app.checkoutPromotionError)}" value="${escapeHtml(app.checkoutPromotionCode || "")}">
+              <button class="button secondary" type="submit"${app.subscriptionQuoteLoading ? " disabled" : ""}>${app.subscriptionQuoteLoading ? "กำลังตรวจสอบ..." : "ใช้โค้ด"}</button>
+            </div>
+            <p id="subscriptionPromoMessage" class="subscription-promo-message ${app.checkoutPromotionError ? "is-error" : ""}" role="status" aria-live="polite" aria-atomic="true"${app.checkoutPromotionError || promoBenefit ? "" : " hidden"}>${escapeHtml(app.checkoutPromotionError || promoBenefit)}</p>
+          </form>` : ""}
+          ${draft && appliedPromo ? `<dl class="subscription-summary-list subscription-promo-result"><div><dt>โค้ดโปรโมชั่น</dt><dd>${escapeHtml(appliedPromo.code)}</dd></div><div><dt>ส่วนลด / สิทธิ์</dt><dd>${escapeHtml(promoBenefit)}</dd></div></dl>` : ""}
+          ${!draft && !app.data?.billing?.checkoutPromoEnabled && !isSuccess ? `<form class="subscription-promo" data-subscription-promo-form novalidate>
             <label for="subscriptionPromoCode">โค้ดส่วนลด</label>
             <div class="subscription-promo-controls">
               <input id="subscriptionPromoCode" type="text" placeholder="กรอกโค้ดโปรโมชั่น" maxlength="64" autocomplete="off" spellcheck="false" aria-describedby="subscriptionPromoMessage" aria-invalid="${promoUi.empty}" value="${escapeHtml(promoUi.code)}">
@@ -10386,8 +10421,8 @@ function renderSettingsSubscription() {
             </div>
             <p id="subscriptionPromoMessage" class="subscription-promo-message" role="status" aria-live="polite" aria-atomic="true"${promoUi.message ? "" : " hidden"}>${escapeHtml(promoUi.message)}</p>
           </form>` : ""}
-          ${app.data?.billing?.checkoutPromoEnabled && latestPayment.promotion ? `<dl class="subscription-summary-list"><div><dt>โค้ดโปรโมชั่น</dt><dd>${escapeHtml(latestPayment.promotion.code)}</dd></div><div><dt>ราคาก่อนส่วนลด</dt><dd>${escapeHtml(moneyMinorText(latestPayment.promotion.baseAmountMinor))}</dd></div><div><dt>ส่วนลด</dt><dd>${escapeHtml(moneyMinorText(latestPayment.promotion.discountAmountMinor))}</dd></div></dl><p class="subscription-promo-benefit">${escapeHtml(latestPayment.promotion.benefitDescription)}</p>` : ""}
-          <div class="subscription-summary-total"><span>ยอดชำระทั้งหมด</span><strong>${escapeHtml(amount)}</strong></div>
+          ${!draft && app.data?.billing?.checkoutPromoEnabled && latestPayment.promotion ? `<dl class="subscription-summary-list"><div><dt>โค้ดโปรโมชั่น</dt><dd>${escapeHtml(latestPayment.promotion.code)}</dd></div><div><dt>ราคาก่อนส่วนลด</dt><dd>${escapeHtml(moneyMinorText(latestPayment.promotion.baseAmountMinor))}</dd></div><div><dt>ส่วนลด</dt><dd>${escapeHtml(moneyMinorText(latestPayment.promotion.discountAmountMinor))}</dd></div></dl><p class="subscription-promo-benefit">${escapeHtml(latestPayment.promotion.benefitDescription)}</p>` : ""}
+          <div class="subscription-summary-total"><span>ยอดชำระทั้งหมด</span><strong data-subscription-final-amount>${escapeHtml(amountDisplay)}</strong></div>
           <div class="subscription-summary-callout"><span>${iconSvg("briefcase")}</span><p>แพ็กเกจจะเริ่มใช้งานหลังจากระบบยืนยันการชำระเงินสำเร็จ</p></div>
           <div class="subscription-summary-secure"><span>${iconSvg("shield")}</span><p>การชำระเงินดำเนินการอย่างปลอดภัยผ่าน Stripe</p></div>
           <div class="subscription-summary-actions">${summaryAction}</div>
@@ -10403,6 +10438,22 @@ function renderSettingsSubscription() {
     const promoButton = promoForm.querySelector("button");
     const promoMessage = promoForm.querySelector("[role=status]");
     promoInput.addEventListener("input", () => {
+      if (draft) {
+        app.checkoutPromotionCode = promoInput.value;
+        app.checkoutPromotionError = "";
+        app.checkoutPromoQuote = null;
+        promoInput.setAttribute("aria-invalid", "false");
+        promoMessage.textContent = "";
+        promoMessage.hidden = true;
+        const total = els.content.querySelector("[data-subscription-final-amount]");
+        if (total) total.textContent = `฿${(originalAmountMinor / 100).toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        els.content.querySelector(".subscription-promo-result")?.remove();
+        const method = els.content.querySelector("[data-subscription-payment-method]");
+        if (method) method.textContent = "PromptPay";
+        const confirm = els.content.querySelector("[data-subscription-checkout-confirm]");
+        if (confirm) confirm.textContent = "ยืนยันชำระเงิน";
+        return;
+      }
       promoUi.code = promoInput.value;
       promoUi.message = "";
       promoUi.empty = false;
@@ -10415,9 +10466,45 @@ function renderSettingsSubscription() {
       event.preventDefault();
       promoForm.requestSubmit();
     });
-    promoForm.addEventListener("submit", event => {
+    promoForm.addEventListener("submit", async event => {
       event.preventDefault();
       event.stopPropagation();
+      if (draft) {
+        if (app.subscriptionQuoteLoading) return;
+        app.checkoutPromotionCode = promoInput.value.trim();
+        if (!app.checkoutPromotionCode) {
+          app.checkoutPromoQuote = null;
+          app.checkoutPromotionError = "";
+          render();
+          return;
+        }
+        app.subscriptionQuoteLoading = true;
+        app.checkoutPromotionError = "";
+        render();
+        try {
+          const result = await api("/api/billing/promo/quote", {
+            method: "POST",
+            body: JSON.stringify({
+              promotionCode: app.checkoutPromotionCode,
+              targetPlan: draft.targetPlan,
+              billingInterval: draft.billingInterval
+            })
+          });
+          if (app.subscriptionCheckoutDraft === draft) {
+            app.checkoutPromoQuote = result;
+            app.checkoutPromotionCode = result.quote?.code || app.checkoutPromotionCode;
+          }
+        } catch (error) {
+          if (app.subscriptionCheckoutDraft === draft) {
+            app.checkoutPromoQuote = null;
+            app.checkoutPromotionError = error.message || "ใช้โปรโมชั่นไม่สำเร็จ กรุณาตรวจสอบอีกครั้ง";
+          }
+        } finally {
+          app.subscriptionQuoteLoading = false;
+          if (app.subscriptionCheckoutDraft === draft) render();
+        }
+        return;
+      }
       if (promoUi.busy) return;
       promoUi.code = promoInput.value.trim();
       promoInput.value = promoUi.code;
@@ -10522,20 +10609,6 @@ function renderPricing() {
           <button type="button" data-pricing-billing="yearly" aria-pressed="${billingInterval === "yearly"}">รายปี</button>
         </div>
       </div>
-      ${app.data?.billing?.checkoutPromoEnabled && isBillingOwner ? `<div class="authenticated-pricing-promo">
-        <label for="checkoutPromotionCode">โค้ดโปรโมชั่น (ถ้ามี)</label>
-        <input id="checkoutPromotionCode" type="text" maxlength="64" autocomplete="off" spellcheck="false" placeholder="กรอกโค้ดก่อนเลือกต่ออายุหรืออัปเกรด" value="${escapeHtml(app.checkoutPromotionCode || "")}" aria-describedby="checkoutPromoHelp checkoutPromoError" ${app.pricingUpgradeLoading ? "disabled" : ""}>
-        <small id="checkoutPromoHelp">กรอกโค้ดแล้วเลือกแพ็กเกจเพื่อตรวจสอบสิทธิ์ก่อนยืนยัน สิทธิ์ฟรีวัน/เดือนไม่ต้องชำระผ่าน Stripe</small>
-        <p id="checkoutPromoError" role="alert" ${app.checkoutPromotionError ? "" : "hidden"}>${escapeHtml(app.checkoutPromotionError || "")}</p>
-        ${app.checkoutPromoQuote ? `<div class="authenticated-pricing-promo-confirmation" role="status">
-          <p>โค้ดโปรโมชั่น: <strong>${escapeHtml(app.checkoutPromoQuote.quote.code)}</strong></p>
-          <p>สิทธิ์ที่ได้รับ: ${escapeHtml(app.checkoutPromoQuote.quote.mode === "free_service"
-            ? `ใช้งาน ${{starter:"Starter",business:"Business",enterprise:"Enterprise"}[app.checkoutPromoQuote.quote.plan]} ฟรี ${Number(app.checkoutPromoQuote.quote.benefit_value)} ${app.checkoutPromoQuote.quote.benefit_type === "service_days" ? "วัน" : "เดือน"}`
-            : `ส่วนลด ${moneyMinorText(app.checkoutPromoQuote.quote.discount_amount_minor)}`)}</p>
-          <p>ยอดชำระวันนี้: <strong>${app.checkoutPromoQuote.quote.amount_minor === 0 ? "฿0" : escapeHtml(moneyMinorText(app.checkoutPromoQuote.quote.amount_minor))}</strong></p>
-          <button class="button primary" type="button" data-checkout-promo-continue ${app.pricingUpgradeLoading ? "disabled" : ""}>${app.pricingUpgradeLoading ? "กำลังดำเนินการ..." : app.checkoutPromoQuote.quote.mode === "free_service" ? "เริ่มใช้งานฟรี" : "ดำเนินการชำระเงิน"}</button>
-        </div>` : ""}
-      </div>` : ""}
       <div class="authenticated-pricing-cards">
         ${plans.map(plan => {
           const isCurrent = plan.id === currentPlan;
@@ -12799,9 +12872,6 @@ document.addEventListener("click", async event => {
   }
   const pricingBillingButton = event.target.closest("[data-pricing-billing]");
   if (pricingBillingButton && app.view === "pricing") {
-    app.checkoutPromotionCode = String(els.content.querySelector("#checkoutPromotionCode")?.value || app.checkoutPromotionCode || "");
-    app.checkoutPromotionError = "";
-    app.checkoutPromoQuote = null;
     const nextInterval = String(pricingBillingButton.dataset.pricingBilling || "").toLowerCase();
     if (["monthly", "yearly"].includes(nextInterval)) {
       app.pricingBillingInterval = nextInterval;
@@ -12884,32 +12954,48 @@ document.addEventListener("click", async event => {
     return;
   }
 
-  if (event.target.closest("[data-checkout-promo-continue]") && app.view === "pricing" && app.checkoutPromoQuote && !app.pricingUpgradeLoading) {
-    const selected=app.checkoutPromoQuote;
-    app.pricingUpgradeLoading=selected.quote.plan;
+  const subscriptionConfirmButton = event.target.closest("[data-subscription-checkout-confirm]");
+  if (subscriptionConfirmButton && app.view === "settingsSubscription" && app.subscriptionCheckoutDraft && !app.pricingUpgradeLoading) {
+    const draft = app.subscriptionCheckoutDraft;
+    if (!draft.baseQuote) return;
+    const applied = app.checkoutPromoQuote;
+    app.pricingUpgradeLoading = draft.targetPlan;
+    app.checkoutPromotionError = "";
     render();
     try {
-      if (selected.quote.mode === "free_service") {
-        await api("/api/billing/promo/redeem",{method:"POST",body:JSON.stringify({quoteToken:selected.quoteToken})});
-        app.checkoutPromoQuote=null;
-        app.checkoutPromotionCode="";
-        app.pricingUpgradeLoading="";
+      if (applied?.quote?.mode === "free_service") {
+        await api("/api/billing/promo/redeem", {
+          method: "POST",
+          body: JSON.stringify({ quoteToken: applied.quoteToken })
+        });
+        app.subscriptionCheckoutDraft = null;
+        app.checkoutPromoQuote = null;
+        app.checkoutPromotionCode = "";
+        app.pricingUpgradeLoading = "";
         await loadState();
         showToast("รับสิทธิ์บริการฟรีแล้ว");
         setView("dashboard");
-      } else {
-        const payload=await beginSubscriptionCheckoutForUi({targetPlan:selected.quote.plan,billingInterval:selected.quote.billing,
-          action:selected.action,promotionCode:selected.quote.code});
-        app.billingCheckout=payload;
-        if (payload.billing && app.data) app.data.billing=payload.billing;
-        app.checkoutPromoQuote=null;
-        app.checkoutPromotionCode="";
-        app.pricingUpgradeLoading="";
-        setView("settingsSubscription");
+        return;
       }
+      const payload = await beginSubscriptionCheckoutForUi({
+        targetPlan: draft.targetPlan,
+        billingInterval: draft.billingInterval,
+        action: draft.action,
+        promotionCode: applied?.quote?.code || ""
+      });
+      app.billingCheckout = payload;
+      if (payload.billing && app.data) app.data.billing = payload.billing;
+      app.subscriptionCheckoutDraft = null;
+      app.checkoutPromoQuote = null;
+      app.checkoutPromotionCode = "";
+      app.subscriptionQrLoadState = null;
+      showToast("สร้างรายการชำระเงินตามยอดที่ยืนยันแล้ว");
     } catch (error) {
-      app.checkoutPromotionError=error.message || "ใช้โปรโมชั่นไม่สำเร็จ กรุณาตรวจสอบอีกครั้ง";
-      app.pricingUpgradeLoading="";
+      if (error.payload?.billing && app.data) app.data.billing = error.payload.billing;
+      app.checkoutPromotionError = error.message || "สร้างรายการชำระเงินไม่สำเร็จ";
+      showToast(app.checkoutPromotionError, "error");
+    } finally {
+      app.pricingUpgradeLoading = "";
       render();
     }
     return;
@@ -12922,46 +13008,29 @@ document.addEventListener("click", async event => {
     const action = String(pricingCheckoutButton.dataset.pricingAction || "").toLowerCase();
     const billingInterval = String(pricingCheckoutButton.dataset.billingInterval || authenticatedBillingInterval()).toLowerCase();
     if (!targetPlan || !["activation", "renewal", "upgrade"].includes(action) || app.pricingUpgradeLoading) return;
-    const promotionCode = app.data?.billing?.checkoutPromoEnabled
-      ? String(els.content.querySelector("#checkoutPromotionCode")?.value || "").trim() : "";
-    app.checkoutPromotionCode = promotionCode;
+    const draft = { targetPlan, billingInterval, action, baseQuote: null };
+    app.subscriptionCheckoutDraft = draft;
+    app.checkoutPromotionCode = "";
     app.checkoutPromotionError = "";
-    app.pricingUpgradeLoading = targetPlan;
-    render();
+    app.checkoutPromoQuote = null;
+    app.billingCheckout = null;
+    app.subscriptionQuoteLoading = true;
+    setView("settingsSubscription");
     try {
-      if (promotionCode) {
-        const result=await api("/api/billing/promo/quote",{method:"POST",body:JSON.stringify({promotionCode,targetPlan,billingInterval})});
-        app.checkoutPromoQuote={...result,action};
-        app.pricingUpgradeLoading="";
-        render();
-        return;
+      const result = await api("/api/billing/quote", {
+        method: "POST",
+        body: JSON.stringify({ targetPlan, billingInterval })
+      });
+      if (app.subscriptionCheckoutDraft === draft) {
+        draft.baseQuote = result.quote;
+        draft.action = result.quote?.intent === "subscription_upgrade" ? "upgrade"
+          : result.quote?.intent === "subscription_renewal" ? "renewal" : "activation";
       }
-      const payload = await beginSubscriptionCheckoutForUi({ targetPlan, billingInterval, action, promotionCode });
-      app.checkoutPromotionCode = "";
-      app.billingCheckout = payload;
-      if (payload.billing && app.data) app.data.billing = payload.billing;
-      app.pricingUpgradeLoading = "";
-      showToast(action === "upgrade" ? "เริ่มรายการอัปเกรดแล้ว" : "เริ่มรายการต่ออายุแล้ว");
-      setView("settingsSubscription");
     } catch (error) {
-      app.pricingUpgradeLoading = "";
-      if (String(error.payload?.code || "").startsWith("PROMOTION_")) app.checkoutPromotionError = error.message;
-      if (error.payload?.billing && app.data) app.data.billing = error.payload.billing;
-      const pendingTarget = String(error.payload?.pendingPayment?.targetPlan || "").toLowerCase();
-      if (["UPGRADE_IN_PROGRESS", "SUBSCRIPTION_CHECKOUT_IN_PROGRESS"].includes(error.payload?.code) && pendingTarget) {
-        try {
-          const resumed = await beginSubscriptionCheckoutForUi({ targetPlan: pendingTarget, billingInterval, action: "upgrade" });
-          app.billingCheckout = resumed;
-          if (resumed.billing && app.data) app.data.billing = resumed.billing;
-          showToast("คุณมีรายการชำระเงินค้างอยู่ เปิดรายการเดิมให้แล้ว");
-          setView("settingsSubscription");
-          return;
-        } catch (resumeError) {
-          showToast(resumeError.message || "เปิดรายการชำระเงินเดิมไม่สำเร็จ", "error");
-        }
-      }
-      showToast(error.message || "เริ่มรายการอัปเกรดไม่สำเร็จ", "error");
-      render();
+      if (app.subscriptionCheckoutDraft === draft) app.checkoutPromotionError = error.message || "โหลดราคาชำระเงินไม่สำเร็จ";
+    } finally {
+      app.subscriptionQuoteLoading = false;
+      if (app.subscriptionCheckoutDraft === draft) render();
     }
     return;
   }
@@ -13790,20 +13859,6 @@ document.addEventListener("drop", event => {
 document.addEventListener("input", event => {
   if (event.target?.matches?.("[data-signup-promo-input]")) {
     clearSignupPromotionStatus(event.target.form);
-  }
-
-  if (event.target?.id === "checkoutPromotionCode") {
-    app.checkoutPromotionCode = event.target.value;
-    app.checkoutPromotionError = "";
-    // A displayed quote is immutable. Editing the code requires a fresh
-    // server-authoritative quote before Continue can be used again.
-    app.checkoutPromoQuote = null;
-    event.target.removeAttribute("aria-invalid");
-    const error = document.querySelector("#checkoutPromoError");
-    if (error) {
-      error.textContent = "";
-      error.hidden = true;
-    }
   }
 
   if (event.target?.name === "items" && event.target.form?.id === "orderForm") {

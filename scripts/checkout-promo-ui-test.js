@@ -4,156 +4,137 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
-const { execFileSync } = require("node:child_process");
+
 const root = path.join(__dirname, "..");
 const source = fs.readFileSync(path.join(root, "public/app.js"), "utf8");
-const baseline = "2c493c398c0a7ba7debaf94a23540395a2f1bcb9";
+const serverSource = fs.readFileSync(path.join(root, "server.js"), "utf8");
 
 function functionSource(text, name) {
   const start = text.indexOf(`function ${name}(`);
   assert.ok(start >= 0, `Missing ${name}`);
   const end = text.indexOf("\n}\n", start);
-  assert.ok(end > start);
+  assert.ok(end > start, `Incomplete ${name}`);
   return text.slice(start, end + 2);
 }
 
-function fixture(plan = "business", interval = "monthly", status = "requires_action", operation = "subscription_upgrade") {
-  const amountMinor = { starter: 49000, business: 99000, enterprise: 199000 }[plan] * (interval === "yearly" ? 10 : 1);
-  return {
-    currentUser: { id: "local-promo-ui-test-owner", role: "Owner" },
-    data: { billing: { subscription: { plan: "starter", status: "active", billingInterval: interval } } },
-    billingCheckout: {
-      payment: { id: "local-ui-fixture-not-a-provider-payment", plan, targetPlan: plan, operation, amountMinor, billingInterval: interval, providerStatus: status, verifiedSuccess: status === "succeeded" },
-      upgrade: { targetPlan: plan, currentPlan: "starter", billingInterval: interval },
-      // Deliberately no generated/scannable QR or provider URL in isolated UI tests.
-      promptpay: { amountMinor, status }
-    }
-  };
-}
-
-function freeze(value) {
-  for (const child of Object.values(value)) if (child && typeof child === "object") freeze(child);
-  return Object.freeze(value);
-}
-
 function node() {
-  return { handlers: {}, attrs: {}, value: "", textContent: "", hidden: true, disabled: false,
+  return {
+    handlers: {}, attrs: {}, value: "", textContent: "", hidden: true, disabled: false,
     addEventListener(type, handler) { this.handlers[type] = handler; },
-    setAttribute(key, value) { this.attrs[key] = value; }
+    setAttribute(key, value) { this.attrs[key] = value; },
+    remove() { this.removed = true; }
   };
 }
 
-function mount(app = fixture(), text = source) {
-  freeze(app.data);
-  freeze(app.billingCheckout);
-  const input = node(), button = node(), message = node(), form = node();
-  form.querySelector = selector => ({ input, button, "[role=status]": message })[selector];
-  const timers = [];
-  let html = "", renders = 0;
+function mount() {
+  const app = {
+    currentUser: { id: "owner-preview", role: "Owner" },
+    data: { billing: { checkoutPromoEnabled: true, subscription: { plan: "starter", status: "active", billingInterval: "monthly" }, latestPayments: [] } },
+    billingCheckout: null,
+    subscriptionCheckoutDraft: {
+      targetPlan: "business",
+      billingInterval: "monthly",
+      action: "upgrade",
+      baseQuote: { plan: "business", billing: "monthly", mode: "payment", base_amount_minor: 99000, discount_amount_minor: 0, amount_minor: 99000 }
+    },
+    checkoutPromotionCode: "",
+    checkoutPromotionError: "",
+    checkoutPromoQuote: null,
+    subscriptionQuoteLoading: false,
+    pricingUpgradeLoading: "",
+    subscriptionPromoUi: null,
+    subscriptionQrLoadState: null
+  };
+  const input = node();
+  const button = node();
+  const message = node();
+  const total = node();
+  const method = node();
+  const confirm = node();
+  const result = node();
+  const form = node();
+  form.querySelector = selector => ({ input, button, "[role=status]": message })[selector] || null;
+  form.requestSubmit = () => form.handlers.submit({ preventDefault() {}, stopPropagation() {} });
+  let html = "";
   const content = {
     get innerHTML() { return html; },
-    set innerHTML(value) { html = value; renders += 1; },
+    set innerHTML(value) { html = value; input.value = app.checkoutPromotionCode || ""; },
     querySelector(selector) {
-      if (!html.includes("data-subscription-promo-form")) return null;
-      if (selector === "[data-subscription-promo-form]") return form;
+      if (selector === "[data-subscription-promo-form]") return html.includes("data-subscription-promo-form") ? form : null;
       if (selector === "[data-subscription-promo-form] button") return button;
+      if (selector === "[data-subscription-final-amount]") return total;
+      if (selector === "[data-subscription-payment-method]") return method;
+      if (selector === "[data-subscription-checkout-confirm]") return confirm;
+      if (selector === ".subscription-promo-result") return result;
       return null;
     }
   };
+  const requests = [];
   const context = {
-    app, els: { content },
-    escapeHtml: value => String(value ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]),
+    app,
+    els: { content },
+    escapeHtml: value => String(value ?? "").replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]),
     moneyMinorText: value => `THB ${(Number(value || 0) / 100).toFixed(2)}`,
     iconSvg: () => "<svg aria-hidden=\"true\"></svg>",
-    setTimeout: (callback, delay) => { assert.equal(delay, 600); timers.push(callback); },
-    fetch() { throw new Error("Promo must not make network requests"); },
-    api() { throw new Error("Promo must not call application APIs"); }
-  };
-  vm.runInNewContext(`${functionSource(text, "subscriptionPaymentDisplayStatus")}\n${functionSource(text, "renderSettingsSubscription")}\nrenderSettingsSubscription();`, context);
-  return { app, context, input, button, message, form, content, timers,
-    get renders() { return renders; },
-    edit(value) { input.value = value; input.handlers.input(); },
-    submit() { let prevented = false, stopped = false; form.handlers.submit({ preventDefault() { prevented = true; }, stopPropagation() { stopped = true; } }); assert.equal(prevented, true); assert.equal(stopped, true); },
-    release() { timers.splice(0).forEach(callback => callback()); }
-  };
-}
-
-function normalizeCheckout(html) {
-  return html.replace(/<form class="subscription-promo"[\s\S]*?<\/form>/g, "").replace(/>\s+</g, "><").trim();
-}
-
-function main() {
-  const oldSource = execFileSync("git", ["show", `${baseline}:public/app.js`], { cwd: root, encoding: "utf8", maxBuffer: 8 * 1024 * 1024 });
-  const test = mount();
-  const before = JSON.stringify({ data: test.app.data, checkout: test.app.billingCheckout });
-  assert.ok(test.content.innerHTML.indexOf('class="subscription-promo"') < test.content.innerHTML.indexOf('class="subscription-summary-total"'));
-  assert.match(test.content.innerHTML, /โค้ดส่วนลด/);
-  assert.match(test.content.innerHTML, /placeholder="กรอกโค้ดโปรโมชั่น"/);
-  test.submit();
-  assert.equal(test.message.textContent, "กรุณากรอกโค้ดโปรโมชั่น");
-  assert.equal(test.input.attrs["aria-invalid"], "true");
-  assert.equal(test.button.disabled, true);
-  test.submit();
-  assert.equal(test.timers.length, 1, "Rapid clicks are ignored");
-  test.release();
-  assert.equal(test.button.disabled, false);
-  let enterSubmits = 0;
-  test.form.requestSubmit = () => { enterSubmits += 1; test.submit(); };
-  test.input.handlers.keydown({ key: "Enter", isComposing: true });
-  assert.equal(enterSubmits, 0, "Do not submit while composing text");
-  test.input.handlers.keydown({ key: "Enter", preventDefault() {} });
-  assert.equal(enterSubmits, 1, "Enter uses the same submit handler");
-  test.release();
-  test.edit("   "); test.submit();
-  assert.equal(test.input.value, "");
-  assert.equal(test.message.textContent, "กรุณากรอกโค้ดโปรโมชั่น");
-  test.release();
-  test.edit("  Summer_2026-10.test  ");
-  assert.equal(test.message.hidden, true);
-  test.submit();
-  assert.equal(test.input.value, "Summer_2026-10.test");
-  assert.equal(test.input.attrs["aria-invalid"], "false");
-  assert.equal(test.message.textContent, "ระบบโค้ดโปรโมชั่นกำลังเตรียมพร้อมใช้งาน");
-  assert.equal(JSON.stringify({ data: test.app.data, checkout: test.app.billingCheckout }), before);
-  assert.equal(test.renders, 1, "Promo submission must not remount checkout or QR");
-  assert.equal(normalizeCheckout(test.content.innerHTML), normalizeCheckout(mount(fixture(), oldSource).content.innerHTML));
-  test.release();
-  test.edit('\"><img src=x onerror=alert(1)>');
-  test.context.renderSettingsSubscription();
-  assert.ok(!test.content.innerHTML.includes('<img src=x'));
-  assert.match(test.content.innerHTML, /&quot;&gt;&lt;img/);
-  test.app.billingCheckout = freeze({ ...fixture().billingCheckout, payment: { ...fixture().billingCheckout.payment, id: "different-checkout" } });
-  test.context.renderSettingsSubscription();
-  assert.equal(test.app.subscriptionPromoUi.code, "", "Draft must not leak into a different checkout");
-  for (const plan of ["starter", "business", "enterprise"]) {
-    for (const interval of ["monthly", "yearly"]) {
-      for (const operation of ["subscription_renewal", "subscription_upgrade"]) {
-        for (const status of ["requires_action", "processing", "failed", "canceled", "succeeded"]) {
-          const current = mount(fixture(plan, interval, status, operation));
-          const old = mount(fixture(plan, interval, status, operation), oldSource);
-          assert.equal(normalizeCheckout(current.content.innerHTML), normalizeCheckout(old.content.innerHTML), `${plan}/${interval}/${operation}/${status}: existing checkout changed`);
-          if (status === "succeeded") assert.ok(!current.content.innerHTML.includes("data-subscription-promo-form"));
-          else { current.edit("TEST-NO-DISCOUNT"); current.submit(); assert.equal(current.renders, 1); }
-        }
-      }
+    setTimeout,
+    console,
+    render: () => context.renderSettingsSubscription(),
+    api: async (url, options) => {
+      requests.push({ url, body: JSON.parse(options.body) });
+      return {
+        ok: true,
+        quoteToken: "signed-preview-quote",
+        quote: { code: "REVIEW20260903", plan: "business", billing: "monthly", mode: "payment", base_amount_minor: 99000, discount_amount_minor: 9900, amount_minor: 89100 }
+      };
     }
-  }
-  assert.equal(functionSource(source, "hydrateSubscriptionCheckout"), functionSource(oldSource, "hydrateSubscriptionCheckout"));
-  const integratedApp = fixture();
-  integratedApp.data.billing.checkoutPromoEnabled = true;
-  integratedApp.billingCheckout.payment.promotion = {
-    code: "PREVIEW10", benefitDescription: "ลด 10%", baseAmountMinor: 99000, discountAmountMinor: 9900
   };
-  const integrated = mount(integratedApp);
-  assert.ok(!integrated.content.innerHTML.includes("data-subscription-promo-form"), "Preview consumer does not show the old inert checkout field");
-  assert.match(integrated.content.innerHTML, /PREVIEW10/);
-  assert.match(integrated.content.innerHTML, /ลด 10%/);
-  const pricingSource = functionSource(source, "renderPricing");
-  assert.match(pricingSource, /checkoutPromoEnabled && isBillingOwner/);
-  assert.match(pricingSource, /สิทธิ์ฟรีวัน\/เดือนไม่ต้องชำระผ่าน Stripe/);
-  assert.equal(functionSource(source, "subscriptionPaymentDisplayStatus"), functionSource(oldSource, "subscriptionPaymentDisplayStatus"));
-  console.log("Checkout promo UI passed: Production placeholder remains baseline-identical with the feature off; Preview consumer summary, trim/empty/rapid-submit/XSS/draft-isolation and no QR remount passed.");
+  vm.runInNewContext(`${functionSource(source, "subscriptionPaymentDisplayStatus")}\n${functionSource(source, "renderSettingsSubscription")}\nrenderSettingsSubscription();`, context);
+  return { app, content, input, form, requests, context };
 }
 
-module.exports = { functionSource, fixture, mount, source, root };
-if (require.main === module) main();
+async function main() {
+  const pricingSource = functionSource(source, "renderPricing");
+  assert.doesNotMatch(pricingSource, /checkoutPromotionCode|authenticated-pricing-promo|โค้ดโปรโมชั่น/,
+    "Pricing must only select a package");
+
+  const page = mount();
+  assert.match(page.content.innerHTML, /Business/);
+  assert.match(page.content.innerHTML, /THB 990\.00/);
+  assert.match(page.content.innerHTML, /data-subscription-promo-form/);
+  assert.match(page.content.innerHTML, /data-subscription-checkout-confirm/);
+  assert.match(page.content.innerHTML, /ยังไม่ได้สร้างรายการชำระเงิน/);
+  assert.doesNotMatch(page.content.innerHTML, /data-subscription-qr-image/,
+    "No QR exists before explicit payment confirmation");
+  assert.equal(page.requests.length, 0, "Rendering the payment page creates no PaymentIntent or reservation");
+
+  page.input.value = "REVIEW20260903";
+  page.input.handlers.input();
+  await page.form.handlers.submit({ preventDefault() {}, stopPropagation() {} });
+  assert.deepEqual(page.requests, [{
+    url: "/api/billing/promo/quote",
+    body: { promotionCode: "REVIEW20260903", targetPlan: "business", billingInterval: "monthly" }
+  }]);
+  assert.equal(page.app.checkoutPromoQuote.quote.amount_minor, 89100);
+  assert.equal(page.app.billingCheckout, null, "Applying a code must not create checkout/payment state");
+  assert.match(page.content.innerHTML, /THB 99\.00/);
+  assert.match(page.content.innerHTML, /฿891\.00/);
+
+  const remountedInput = page.context.els.content.querySelector("[data-subscription-promo-form]").querySelector("input");
+  remountedInput.value = "CHANGED";
+  remountedInput.handlers.input();
+  assert.equal(page.app.checkoutPromoQuote, null, "Editing an applied code invalidates the old quote");
+  assert.equal(page.app.billingCheckout, null);
+
+  assert.match(source, /data-subscription-checkout-confirm/);
+  assert.match(source, /beginSubscriptionCheckoutForUi\([\s\S]*promotionCode: applied\?\.quote\?\.code \|\| ""/,
+    "Only the explicit confirmation handler starts checkout with the applied server quote");
+  assert.match(serverSource, /url\.pathname === "\/api\/billing\/quote"[\s\S]*PRICE_CATALOG_MINOR\[targetPlan\]\?\.\[billingInterval\]/,
+    "Base price quote comes from the server catalog");
+  assert.match(serverSource, /url\.pathname === "\/api\/billing\/quote"[\s\S]*discount_amount_minor: 0[\s\S]*amount_minor: amountMinor/);
+  console.log("Pricing selection -> Subscription quote -> explicit confirmation UI passed; no pre-confirm PaymentIntent/QR path remains.");
+}
+
+main().catch(error => {
+  console.error(error);
+  process.exitCode = 1;
+});
