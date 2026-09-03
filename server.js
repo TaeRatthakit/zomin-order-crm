@@ -4363,10 +4363,15 @@ async function handleBillingApi(req, res, url, db, currentUser) {
           })
         : null;
       const pendingTarget = String(pendingView?.targetPlan || "").toLowerCase();
-      if (promotionCode && pendingView && publicCheckoutPromotion(pendingCandidate.payment)?.code !== promotionCode.toUpperCase()) {
+      // If Stripe already exists, inspect its authoritative state before
+      // treating the old checkout as a promo/target conflict. A terminal
+      // PromptPay attempt must be closed first so it cannot block a fresh
+      // checkout; genuinely active attempts remain protected below.
+      if (promotionCode && pendingView && !pendingView.providerPaymentReference
+        && publicCheckoutPromotion(pendingCandidate.payment)?.code !== promotionCode.toUpperCase()) {
         return json(res, 409, checkoutPromoError(new Error("PROMOTION_CHECKOUT_CONFLICT")));
       }
-      if (pendingView && pendingTarget && pendingTarget !== targetPlan) {
+      if (pendingView && !pendingView.providerPaymentReference && pendingTarget && pendingTarget !== targetPlan) {
         return json(res, 409, {
           ok: false,
           code: "UPGRADE_IN_PROGRESS",
@@ -4414,6 +4419,18 @@ async function handleBillingApi(req, res, url, db, currentUser) {
           currentUser
         );
         if (["pending", "processing"].includes(reconciledStatus)) {
+          if (promotionCode && publicCheckoutPromotion(pendingCandidate.payment)?.code !== promotionCode.toUpperCase()) {
+            return json(res, 409, checkoutPromoError(new Error("PROMOTION_CHECKOUT_CONFLICT")));
+          }
+          if (pendingTarget && pendingTarget !== targetPlan) {
+            return json(res, 409, {
+              ok: false,
+              code: "UPGRADE_IN_PROGRESS",
+              error: "คุณมีรายการชำระเงินที่ยังไม่เสร็จสิ้น กรุณาดำเนินการรายการเดิมให้เรียบร้อยก่อน",
+              pendingPayment: publicPayment(pendingView),
+              billing: subscriptionBillingPayload({ ...db, payments: [pendingView, ...(db.payments || [])] })
+            });
+          }
           console.log("Subscription upgrade resumed existing payment", JSON.stringify({
             tenantId: currentUser.tenantId,
             paymentId: pendingView.id,

@@ -135,6 +135,13 @@ async function main() {
   assert.match(serverSource, /url\.pathname === "\/api\/billing\/quote"[\s\S]*PRICE_CATALOG_MINOR\[targetPlan\]\?\.\[billingInterval\]/,
     "Base price quote comes from the server catalog");
   assert.match(serverSource, /url\.pathname === "\/api\/billing\/quote"[\s\S]*discount_amount_minor: 0[\s\S]*amount_minor: amountMinor/);
+  const upgradeStart = serverSource.indexOf('url.pathname === "/api/billing/upgrade"');
+  const upgradeEnd = serverSource.indexOf('url.pathname === "/api/billing/checkout"', upgradeStart);
+  const upgradeSource = serverSource.slice(upgradeStart, upgradeEnd > upgradeStart ? upgradeEnd : undefined);
+  const providerReconcile = upgradeSource.indexOf("const reconciledStatus = await reconcileResumablePayment");
+  const activePromoConflict = upgradeSource.indexOf('if (promotionCode && publicCheckoutPromotion(pendingCandidate.payment)?.code !== promotionCode.toUpperCase())');
+  assert.ok(providerReconcile >= 0 && activePromoConflict > providerReconcile,
+    "upgrade must reconcile authoritative Stripe state before applying promo conflict to a provider-backed checkout");
   console.log("Pricing selection -> Subscription quote -> explicit confirmation UI passed; no pre-confirm PaymentIntent/QR path remains.");
 }
 
