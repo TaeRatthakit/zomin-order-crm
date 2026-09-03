@@ -284,6 +284,7 @@ async function postWebhook(payload) {
   if (!appSource.includes('latestPayment.verifiedSuccess === true')) fail("subscription success UI is not gated by verified payment reconciliation");
   if (!appSource.includes('"/api/billing/upgrade/qr"') || !appSource.includes("data-subscription-qr-image")) fail("subscription QR delivery fallback is missing");
   if (!appSource.includes("data-subscription-qr-source") || !appSource.includes("qrFallbackAttempted")) fail("subscription QR image retry fallback is missing");
+  if (!appSource.includes('"/api/billing/reconcile"')) fail("pricing must reconcile a stale checkout before opening a new draft");
   const statusFunction = appSource.match(/function subscriptionPaymentDisplayStatus\(promptpay = \{\}, payment = \{\}\) \{[\s\S]*?\n\}/)?.[0];
   if (!statusFunction) fail("checkout payment status helper could not be loaded");
   const statusSandbox = {};
@@ -308,10 +309,17 @@ async function postWebhook(payload) {
   if (anonymous.status !== 401) fail(`anonymous upgrade should be rejected: ${anonymous.status}`);
   const starterCookie = await login("starter@example.com");
   const staffCookie = await login("staff@example.com");
+  const anonymousReconcile = await request("/api/billing/reconcile", { method: "POST", body: "{}" });
+  if (anonymousReconcile.status !== 401) fail(`anonymous reconciliation should be rejected: ${anonymousReconcile.status}`);
+  const staffReconcile = await request("/api/billing/reconcile", { method: "POST", headers: { cookie: staffCookie }, body: "{}" });
+  if (staffReconcile.status !== 403) fail(`staff reconciliation should be rejected: ${staffReconcile.status}`);
   const staff = await request("/api/billing/upgrade", { method: "POST", headers: { cookie: staffCookie }, body: JSON.stringify({ targetPlan: "business" }) });
   if (staff.status !== 403) fail(`staff upgrade should be rejected: ${staff.status}`);
   const first = await request("/api/billing/upgrade", { method: "POST", headers: { cookie: starterCookie }, body: JSON.stringify({ targetPlan: "business", tenantId: ids.business, amountMinor: 1 }) });
   if (first.status !== 200 || first.json().payment.amountMinor !== 99000 || first.json().payment.targetPlan !== "business") fail(`Starter -> Business wrong: ${first.status} ${first.text}`);
+  const activeReconciliation = await request("/api/billing/reconcile", { method: "POST", headers: { cookie: starterCookie }, body: "{}" });
+  if (activeReconciliation.status !== 200 || activeReconciliation.json().state !== "active") fail("active pending checkout was not protected during reconciliation");
+  if (db.payments.find(row => row.id === first.json().payment.id).status !== "pending") fail("active pending checkout was modified by reconciliation");
   const resumed = await request("/api/billing/upgrade", { method: "POST", headers: { cookie: starterCookie }, body: JSON.stringify({ targetPlan: "business" }) });
   if (resumed.status !== 200 || resumed.json().payment.id !== first.json().payment.id || resumed.json().promptpay.promptpay.imageUrlPng !== first.json().promptpay.promptpay.imageUrlPng) fail("same target did not resume the same payment and QR");
   if (db.payments.filter(row => row.tenant_id === ids.starter).length !== 1) fail("same-target resume created a duplicate payment");
@@ -377,6 +385,9 @@ async function postWebhook(payload) {
   stripeIntents.get("pi_legacy_pending").status = "succeeded";
   const legacySucceededResume = await request("/api/billing/upgrade", { method: "POST", headers: { cookie: legacyCookie }, body: JSON.stringify({ targetPlan: "business" }) });
   if (legacySucceededResume.status !== 200 || !legacySucceededResume.json().awaitingWebhook) fail("succeeded PaymentIntent resume did not wait for the verified webhook");
+  const succeededReconciliation = await request("/api/billing/reconcile", { method: "POST", headers: { cookie: legacyCookie }, body: "{}" });
+  if (succeededReconciliation.status !== 200 || succeededReconciliation.json().state !== "awaiting_webhook") fail("succeeded PaymentIntent was not preserved for webhook reconciliation");
+  if (legacyPayment.status !== "requires_action" || legacyAttempt.status !== "pending") fail("succeeded PaymentIntent was cleared or replaced before webhook reconciliation");
   if (subscriptionUpgradeSuccessRpcCalls !== legacySuccessRpcCount || db.subscriptions.find(row => row.id === "s_legacy").plan !== "starter") fail("checkout resume activated the subscription without a verified webhook");
   if (legacySecond.json().payment.id !== legacyFirst.json().payment.id || legacySecond.json().promptpay.paymentIntentId !== legacyFirst.json().promptpay.paymentIntentId) fail("legacy second resume changed the payment intent");
   if (db.payments.filter(row => row.tenant_id === ids.legacy).length !== legacyPaymentCount || stripeCreateRequests.length !== legacyCreateCount) fail("legacy pending resume created a duplicate payment or PaymentIntent");
@@ -399,22 +410,36 @@ async function postWebhook(payload) {
   const processingPayment = db.payments.find(row => row.id === enterprise.json().payment.id);
   const processing = await postWebhook(webhookPayload("payment_intent.processing", processingPayment, "processing"));
   if (processing.status !== 200 || db.subscriptions.find(row => row.id === "s_business").plan !== businessSubscriptionBefore) fail("processing payment activated Enterprise");
+  stripeIntents.get(processingPayment.provider_payment_reference).status = "canceled";
+  const cancelledReconciliation = await request("/api/billing/reconcile", { method: "POST", headers: { cookie: businessCookie }, body: "{}" });
+  const cancelledAttempt = db.subscription_upgrade_attempts.find(row => row.payment_id === processingPayment.id);
+  if (cancelledReconciliation.status !== 200 || cancelledReconciliation.json().state !== "terminal" || cancelledReconciliation.json().status !== "cancelled" || processingPayment.status !== "cancelled" || cancelledAttempt.status !== "cancelled" || db.subscriptions.find(row => row.id === "s_business").plan !== businessSubscriptionBefore) fail("cancelled terminal checkout was not reconciled safely");
   const failureCookie = await login("failure@example.com");
   const failedUpgrade = await request("/api/billing/upgrade", { method: "POST", headers: { cookie: failureCookie }, body: JSON.stringify({ targetPlan: "enterprise" }) });
   const failedPayment = db.payments.find(row => row.id === failedUpgrade.json().payment.id);
-  const failed = await postWebhook(webhookPayload("payment_intent.payment_failed", failedPayment, "requires_payment_method"));
-  if (failed.status !== 200 || db.subscriptions.find(row => row.id === "s_failure").plan !== "starter") fail("failed payment activated Enterprise");
-  // A legacy row can remain pending after its linked payment became terminal.
-  // The normal retry must close only that stale attempt, preserve its failed
-  // payment, and create one fresh PaymentIntent.
+  // PromptPay expiry becomes Stripe requires_payment_method with the
+  // payment_intent_payment_attempt_expired failure code; locally it is a
+  // terminal failed checkout, never a resumable pending checkout.
+  stripeIntents.get(failedPayment.provider_payment_reference).status = "requires_payment_method";
+  const statusEventCountBeforeReconcile = db.payment_provider_events.length;
+  const terminalReconciliation = await request("/api/billing/reconcile", { method: "POST", headers: { cookie: failureCookie }, body: "{}" });
+  if (terminalReconciliation.status !== 200 || terminalReconciliation.json().state !== "terminal" || terminalReconciliation.json().status !== "failed") fail(`terminal checkout was not reconciled: ${terminalReconciliation.status} ${terminalReconciliation.text}`);
   const failedAttempt = db.subscription_upgrade_attempts.find(row => row.payment_id === failedPayment.id);
-  failedAttempt.status = "pending";
+  if (failedPayment.status !== "failed" || failedAttempt.status !== "failed" || db.subscriptions.find(row => row.id === "s_failure").plan !== "starter") fail("terminal checkout reconciliation changed subscription or did not close local evidence");
+  if (failedPayment.checkout_metadata?.promotion || db.payment_provider_events.length !== statusEventCountBeforeReconcile + 1) fail("terminal non-promo checkout reconciliation created an unrelated promo effect or missing history");
+  const repeatedTerminalReconciliation = await request("/api/billing/reconcile", { method: "POST", headers: { cookie: failureCookie }, body: "{}" });
+  if (repeatedTerminalReconciliation.status !== 200 || repeatedTerminalReconciliation.json().state !== "none" || db.payment_provider_events.length !== statusEventCountBeforeReconcile + 1) fail("terminal checkout reconciliation is not idempotent");
+  // A terminal checkout may be retried only after reconciliation closes the
+  // old local attempt. This test's new mock PaymentIntent is separate.
   const failurePaymentCountBeforeRetry = db.payments.filter(row => row.tenant_id === ids.failure).length;
   const failureCreateCountBeforeRetry = stripeCreateRequests.length;
   const retryUpgrade = await request("/api/billing/upgrade", { method: "POST", headers: { cookie: failureCookie }, body: JSON.stringify({ targetPlan: "enterprise" }) });
   if (retryUpgrade.status !== 200 || retryUpgrade.json().payment.id === failedPayment.id || db.subscriptions.find(row => row.id === "s_failure").plan !== "starter") fail("terminal failed upgrade did not create a fresh pending retry");
-  if (failedPayment.status !== "failed" || failedAttempt.status !== "failed") fail("terminal retry changed the failed payment or did not close the stale attempt");
+  if (failedPayment.status !== "failed" || failedAttempt.status !== "failed") fail("terminal retry changed the failed payment or did not preserve the stale evidence");
   if (db.payments.filter(row => row.tenant_id === ids.failure).length !== failurePaymentCountBeforeRetry + 1 || stripeCreateRequests.length !== failureCreateCountBeforeRetry + 1) fail("terminal retry did not create exactly one new PaymentIntent");
+  const retryPayment = db.payments.find(row => row.id === retryUpgrade.json().payment.id);
+  const failed = await postWebhook(webhookPayload("payment_intent.payment_failed", retryPayment, "requires_payment_method"));
+  if (failed.status !== 200 || db.subscriptions.find(row => row.id === "s_failure").plan !== "starter") fail("failed payment activated Enterprise");
   const downgrade = await request("/api/billing/upgrade", { method: "POST", headers: { cookie: businessCookie }, body: JSON.stringify({ targetPlan: "starter" }) });
   if (downgrade.status !== 409 || downgrade.json().code !== "UPGRADE_NOT_ALLOWED") fail("downgrade was not rejected");
   console.log("Subscription upgrade checks passed.");

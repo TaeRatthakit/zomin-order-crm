@@ -1892,6 +1892,16 @@ async function hydrateSubscriptionCheckout() {
   if (app.billingCheckoutHydrationKey === hydrationKey) return;
   app.billingCheckoutHydrationKey = hydrationKey;
   try {
+    const reconciliation = await api("/api/billing/reconcile", {
+      method: "POST",
+      body: JSON.stringify({})
+    });
+    if (reconciliation.billing && app.data) app.data.billing = reconciliation.billing;
+    if (["none", "terminal", "awaiting_webhook"].includes(reconciliation.state)) {
+      app.billingCheckout = null;
+      render();
+      return;
+    }
     const payload = await api(target.operation === "subscription_upgrade" ? "/api/billing/upgrade" : "/api/billing/checkout", {
       method: "POST",
       body: JSON.stringify({ targetPlan: target.targetPlan, billingInterval: target.billingInterval })
@@ -13010,15 +13020,24 @@ document.addEventListener("click", async event => {
     const action = String(pricingCheckoutButton.dataset.pricingAction || "").toLowerCase();
     const billingInterval = String(pricingCheckoutButton.dataset.billingInterval || authenticatedBillingInterval()).toLowerCase();
     if (!targetPlan || !["activation", "renewal", "upgrade"].includes(action) || app.pricingUpgradeLoading) return;
-    const draft = { targetPlan, billingInterval, action, baseQuote: null };
-    app.subscriptionCheckoutDraft = draft;
-    app.checkoutPromotionCode = "";
-    app.checkoutPromotionError = "";
-    app.checkoutPromoQuote = null;
-    app.billingCheckout = null;
-    app.subscriptionQuoteLoading = true;
-    setView("settingsSubscription");
+    app.pricingUpgradeLoading = targetPlan;
+    render();
     try {
+      const reconciliation = await api("/api/billing/reconcile", {
+        method: "POST",
+        body: JSON.stringify({ targetPlan, billingInterval })
+      });
+      if (reconciliation.billing && app.data) app.data.billing = reconciliation.billing;
+      if (reconciliation.state === "active") throw new Error("คุณมีรายการชำระเงินที่กำลังดำเนินการอยู่ กรุณาดำเนินการรายการเดิมให้เรียบร้อยก่อน");
+      if (reconciliation.state === "awaiting_webhook") throw new Error("Stripe ยืนยันการชำระเงินแล้ว ระบบกำลังรอ webhook ที่ตรวจสอบแล้ว");
+      const draft = { targetPlan, billingInterval, action, baseQuote: null };
+      app.subscriptionCheckoutDraft = draft;
+      app.checkoutPromotionCode = "";
+      app.checkoutPromotionError = "";
+      app.checkoutPromoQuote = null;
+      app.billingCheckout = null;
+      app.subscriptionQuoteLoading = true;
+      setView("settingsSubscription");
       const result = await api("/api/billing/quote", {
         method: "POST",
         body: JSON.stringify({ targetPlan, billingInterval })
@@ -13029,10 +13048,13 @@ document.addEventListener("click", async event => {
           : result.quote?.intent === "subscription_renewal" ? "renewal" : "activation";
       }
     } catch (error) {
-      if (app.subscriptionCheckoutDraft === draft) app.checkoutPromotionError = error.message || "โหลดราคาชำระเงินไม่สำเร็จ";
+      if (error.payload?.billing && app.data) app.data.billing = error.payload.billing;
+      if (app.subscriptionCheckoutDraft) app.checkoutPromotionError = error.message || "โหลดราคาชำระเงินไม่สำเร็จ";
+      else showToast(error.message || "ตรวจสอบรายการชำระเงินเดิมไม่สำเร็จ", "error");
     } finally {
+      app.pricingUpgradeLoading = "";
       app.subscriptionQuoteLoading = false;
-      if (app.subscriptionCheckoutDraft === draft) render();
+      render();
     }
     return;
   }

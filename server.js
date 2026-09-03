@@ -794,6 +794,49 @@ function pendingSubscriptionCheckoutFor(db = {}, currentUser = {}, pendingUpgrad
   return candidates[0] || null;
 }
 
+function previewCheckoutReconciliationEnabled() {
+  return String(process.env.VERCEL_ENV || "").trim().toLowerCase() === "preview";
+}
+
+function billingPayloadWithReconciledPayment(db = {}, payment = {}, status = "") {
+  const paymentId = String(payment.id || "");
+  const nextPayments = (db.payments || []).map(row => (
+    String(row.id || "") === paymentId ? { ...row, status } : row
+  ));
+  return subscriptionBillingPayload({ ...db, payments: nextPayments });
+}
+
+async function reconcilePendingSubscriptionCheckout(db, currentUser) {
+  let pendingUpgrades = [];
+  if (typeof readPendingSubscriptionUpgrades === "function") {
+    pendingUpgrades = await readPendingSubscriptionUpgrades(currentUser.tenantId);
+  }
+  const candidate = pendingSubscriptionCheckoutFor(db, currentUser, pendingUpgrades);
+  if (!candidate?.payment) return { state: "none", candidate: null, pendingUpgrades };
+
+  const payment = candidate.payment;
+  const paymentReference = String(payment.providerPaymentReference || payment.provider_payment_reference || "").trim();
+  if (!paymentReference) return { state: "active", candidate, pendingUpgrades };
+
+  const promptpay = await retrievePaymentIntent(paymentReference);
+  const status = await reconcileResumablePayment(payment, candidate.attempt, promptpay, currentUser);
+  if (["failed", "cancelled", "expired"].includes(status) && candidate.attempt
+    && typeof closeTerminalSubscriptionUpgradeAttempt === "function") {
+    await closeTerminalSubscriptionUpgradeAttempt({
+      attemptId: candidate.attempt.id || candidate.attempt.upgradeId,
+      tenantId: currentUser.tenantId,
+      status
+    });
+  }
+  return {
+    state: status === "paid" ? "awaiting_webhook" : (["failed", "cancelled", "expired"].includes(status) ? "terminal" : "active"),
+    candidate,
+    pendingUpgrades,
+    promptpay,
+    status
+  };
+}
+
 const MAX_SUBSCRIPTION_QR_PROXY_BYTES = 1024 * 1024;
 
 function stripeQrImageSource(promptpay = {}) {
@@ -1170,6 +1213,7 @@ const CHECKOUT_PROMO_API_PATHS = new Set([
 
 function isBillingApiPath(pathname = "") {
   return (checkoutPromoEnabled() && CHECKOUT_PROMO_API_PATHS.has(pathname))
+    || pathname === "/api/billing/reconcile"
     || pathname === "/api/billing/quote"
     || pathname === "/api/billing/subscription"
     || pathname === "/api/billing/checkout"
@@ -4167,6 +4211,56 @@ async function handleBillingApi(req, res, url, db, currentUser) {
         amount_minor: amountMinor
       }
     });
+  }
+  if (req.method === "POST" && url.pathname === "/api/billing/reconcile") {
+    // Preview-only: retrieve the authoritative Stripe TEST state and close a
+    // locally stale terminal checkout. This never creates a payment or
+    // changes a subscription; succeeded payments remain awaiting webhook.
+    if (!previewCheckoutReconciliationEnabled()) return json(res, 404, { ok: false, error: "API not found" });
+    if (currentUser.role !== "Owner") {
+      return json(res, 403, { ok: false, error: "ต้องใช้สิทธิ์ Owner เพื่อตรวจสอบรายการชำระเงิน" });
+    }
+    try {
+      const reconciliation = await reconcilePendingSubscriptionCheckout(db, currentUser);
+      if (reconciliation.state === "none") {
+        return json(res, 200, { ok: true, state: "none", billing: subscriptionBillingPayload(db) });
+      }
+      const payment = reconciliation.candidate.payment;
+      const billing = reconciliation.status
+        ? billingPayloadWithReconciledPayment(db, payment, reconciliation.status)
+        : subscriptionBillingPayload(db);
+      if (reconciliation.state === "active") {
+        return json(res, 200, {
+          ok: true,
+          state: "active",
+          pendingPayment: publicPayment(payment),
+          billing
+        });
+      }
+      if (reconciliation.state === "awaiting_webhook") {
+        return json(res, 200, {
+          ok: true,
+          state: "awaiting_webhook",
+          pendingPayment: publicPayment(payment),
+          billing
+        });
+      }
+      return json(res, 200, {
+        ok: true,
+        state: "terminal",
+        status: reconciliation.status,
+        payment: publicPayment({ ...payment, status: reconciliation.status }),
+        billing
+      });
+    } catch (error) {
+      if (error.code === "STRIPE_TEST_SECRET_KEY_REQUIRED") {
+        return json(res, 503, { ok: false, code: error.code, error: "ยังไม่ได้ตั้งค่า Stripe TEST secret key" });
+      }
+      if (String(error.code || "").startsWith("STRIPE_")) {
+        return json(res, 502, { ok: false, code: error.code, error: "เชื่อมต่อ Stripe TEST เพื่อกระทบยอดไม่ได้" });
+      }
+      throw error;
+    }
   }
   if (req.method === "POST" && ["/api/billing/promo/quote","/api/billing/promo/redeem"].includes(url.pathname)) {
     if (!checkoutPromoEnabled()) return json(res,404,{ok:false,error:"API not found"});
