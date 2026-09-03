@@ -420,12 +420,16 @@ async function postWebhook(payload) {
   // PromptPay expiry becomes Stripe requires_payment_method with the
   // payment_intent_payment_attempt_expired failure code; locally it is a
   // terminal failed checkout, never a resumable pending checkout.
-  stripeIntents.get(failedPayment.provider_payment_reference).status = "requires_payment_method";
+  Object.assign(stripeIntents.get(failedPayment.provider_payment_reference), {
+    status: "requires_action",
+    last_payment_error: { code: "payment_intent_payment_attempt_expired" },
+    next_action: { promptpay_display_qr_code: { expires_at: Math.floor(Date.now() / 1000) - 60 } }
+  });
   const statusEventCountBeforeReconcile = db.payment_provider_events.length;
   const terminalReconciliation = await request("/api/billing/reconcile", { method: "POST", headers: { cookie: failureCookie }, body: "{}" });
-  if (terminalReconciliation.status !== 200 || terminalReconciliation.json().state !== "terminal" || terminalReconciliation.json().status !== "failed") fail(`terminal checkout was not reconciled: ${terminalReconciliation.status} ${terminalReconciliation.text}`);
+  if (terminalReconciliation.status !== 200 || terminalReconciliation.json().state !== "terminal" || terminalReconciliation.json().status !== "expired") fail(`expired checkout was not reconciled: ${terminalReconciliation.status} ${terminalReconciliation.text}`);
   const failedAttempt = db.subscription_upgrade_attempts.find(row => row.payment_id === failedPayment.id);
-  if (failedPayment.status !== "failed" || failedAttempt.status !== "failed" || db.subscriptions.find(row => row.id === "s_failure").plan !== "starter") fail("terminal checkout reconciliation changed subscription or did not close local evidence");
+  if (failedPayment.status !== "expired" || failedAttempt.status !== "expired" || db.subscriptions.find(row => row.id === "s_failure").plan !== "starter") fail("terminal checkout reconciliation changed subscription or did not close local evidence");
   if (failedPayment.checkout_metadata?.promotion || db.payment_provider_events.length !== statusEventCountBeforeReconcile + 1) fail("terminal non-promo checkout reconciliation created an unrelated promo effect or missing history");
   const repeatedTerminalReconciliation = await request("/api/billing/reconcile", { method: "POST", headers: { cookie: failureCookie }, body: "{}" });
   if (repeatedTerminalReconciliation.status !== 200 || repeatedTerminalReconciliation.json().state !== "none" || db.payment_provider_events.length !== statusEventCountBeforeReconcile + 1) fail("terminal checkout reconciliation is not idempotent");
@@ -435,7 +439,7 @@ async function postWebhook(payload) {
   const failureCreateCountBeforeRetry = stripeCreateRequests.length;
   const retryUpgrade = await request("/api/billing/upgrade", { method: "POST", headers: { cookie: failureCookie }, body: JSON.stringify({ targetPlan: "enterprise" }) });
   if (retryUpgrade.status !== 200 || retryUpgrade.json().payment.id === failedPayment.id || db.subscriptions.find(row => row.id === "s_failure").plan !== "starter") fail("terminal failed upgrade did not create a fresh pending retry");
-  if (failedPayment.status !== "failed" || failedAttempt.status !== "failed") fail("terminal retry changed the failed payment or did not preserve the stale evidence");
+  if (failedPayment.status !== "expired" || failedAttempt.status !== "expired") fail("terminal retry changed the expired payment or did not preserve the stale evidence");
   if (db.payments.filter(row => row.tenant_id === ids.failure).length !== failurePaymentCountBeforeRetry + 1 || stripeCreateRequests.length !== failureCreateCountBeforeRetry + 1) fail("terminal retry did not create exactly one new PaymentIntent");
   const retryPayment = db.payments.find(row => row.id === retryUpgrade.json().payment.id);
   const failed = await postWebhook(webhookPayload("payment_intent.payment_failed", retryPayment, "requires_payment_method"));

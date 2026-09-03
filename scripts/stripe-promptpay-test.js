@@ -16,7 +16,7 @@ const path = require("path");
 const crypto = require("crypto");
 const { Readable } = require("stream");
 const { hashPassword } = require("../lib/auth");
-const { stripePromptPayConfig, findPaymentIntentByPaymentId } = require("../lib/stripe-promptpay");
+const { stripePromptPayConfig, stripePaymentStatus, safePromptPayPayload, findPaymentIntentByPaymentId } = require("../lib/stripe-promptpay");
 
 const ROOT = path.join(__dirname, "..");
 const migration = fs.readFileSync(path.join(ROOT, "supabase", "migrations", "20260814030000_stripe_promptpay_payment.sql"), "utf8");
@@ -149,6 +149,27 @@ function assertStripeEnvironmentGuards() {
       fail(`Production accepted a test Stripe secret: ${JSON.stringify(config)}`);
     }
   });
+}
+
+function assertPromptPayExpiryMapping() {
+  const now = Math.floor(Date.now() / 1000);
+  const explicitExpiry = safePromptPayPayload({
+    id: "pi_expired_error",
+    status: "requires_action",
+    last_payment_error: { code: "payment_intent_payment_attempt_expired" },
+    amount: 99000,
+    currency: "thb"
+  });
+  if (explicitExpiry.localStatus !== "expired") fail("PromptPay expiry error was treated as active pending payment");
+  const qrExpiry = safePromptPayPayload({
+    id: "pi_expired_qr",
+    status: "requires_action",
+    amount: 99000,
+    currency: "thb",
+    next_action: { promptpay_display_qr_code: { expires_at: now - 1 } }
+  });
+  if (qrExpiry.localStatus !== "expired") fail("Expired PromptPay QR was treated as active pending payment");
+  if (stripePaymentStatus("requires_action", { next_action: { promptpay_display_qr_code: { expires_at: now + 60 } } }) !== "pending") fail("Unexpired PromptPay QR was not protected as pending");
 }
 
 function parseValue(raw = "") {
@@ -493,7 +514,8 @@ async function postStripeWebhook(event) {
 }
 
 (async () => {
-  assertStripeEnvironmentGuards();
+assertStripeEnvironmentGuards();
+assertPromptPayExpiryMapping();
 
   for (const token of [
     "growup_set_payment_provider_reference",
