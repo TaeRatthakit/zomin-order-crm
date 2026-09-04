@@ -2,7 +2,7 @@
   "use strict";
 
   const root = document.getElementById("platform-admin-app");
-  const state = { user: null, snapshot: null, range: null, preset: "month", promos: [], promoKpis: null, promoAudit: [], promoLoading: false, promoAuditLoading: false, promoLoadingMore: false, promoAuditLoadingMore: false, promoHasMore: false, promoAuditHasMore: false, promoError: "", promoAuditError: "", promoEditingId: null, promoSaving: false, paymentFilter: "all", settings: null, menuOpen: false, loading: false, routeToken: 0, routeController: null };
+  const state = { user: null, snapshot: null, range: null, preset: "month", promos: [], promoKpis: null, promoAudit: [], promoLoading: false, promoAuditLoading: false, promoLoadingMore: false, promoAuditLoadingMore: false, promoHasMore: false, promoAuditHasMore: false, promoError: "", promoAuditError: "", promoEditingId: null, promoSaving: false, promoWriteEnabled: false, promoStorage: "unavailable", paymentFilter: "all", settings: null, menuOpen: false, loading: false, routeToken: 0, routeController: null };
   const cache = { dashboard: new Map(), endpoints: new Map(), inFlight: new Map() };
   const CACHE_TTL_MS = 45_000;
   const icons = { home: "⌂", revenue: "↗", plans: "♛", payments: "▣", usage: "⌁", companies: "▤", health: "●", promos: "◇", actions: "!", settings: "⚙" };
@@ -319,7 +319,8 @@
     if (state.promoLoading && !state.promos.length) return `<div class="pa-empty">กำลังโหลด Promo…</div>`;
     if (state.promoError && !state.promos.length) return `<div class="pa-empty">${escapeHtml(state.promoError)}</div>`;
     if (!state.promos.length) return `<div class="pa-empty">ยังไม่มี Promo</div>`;
-    const table = `<div class="pa-table-wrap"><table class="pa-table"><thead><tr><th>Code</th><th>ส่วนลด</th><th>ประเภท</th><th>ใช้แล้ว / จำกัด</th><th>หมดอายุ</th><th>สถานะ</th><th>จัดการ</th></tr></thead><tbody>${state.promos.map(promo => `<tr><td><strong>${display(promo.code)}</strong><br><small class="pa-muted">${display(promo.description)}</small></td><td>${number(promo.value)}</td><td>${escapeHtml(promoTypeLabel(promo.type))}</td><td>${number(promo.usedCount)} / ${promo.usageLimit === null ? "ไม่จำกัด" : number(promo.usageLimit)}</td><td>${promo.noExpiry ? "ไม่หมดอายุ" : dateLabel(String(promo.expiresAt || "").slice(0, 10))}</td><td><span class="pa-status ${statusClass(promo.status)}">${display(promo.status)}</span></td><td><div class="pa-promo-actions"><button class="pa-table-action" type="button" data-edit-promo="${escapeHtml(promo.id)}">แก้ไข</button><button class="pa-table-action ${promo.active ? "danger" : ""}" type="button" data-promo-status="${escapeHtml(promo.id)}" data-active="${promo.active ? "false" : "true"}">${promo.active ? "ปิดใช้งาน" : "เปิดใช้งาน"}</button></div></td></tr>`).join("")}</tbody></table></div>`;
+    const actionHeader = state.promoWriteEnabled ? "<th>จัดการ</th>" : "";
+    const table = `<div class="pa-table-wrap"><table class="pa-table"><thead><tr><th>Code</th><th>ส่วนลด</th><th>ประเภท</th><th>ใช้แล้ว / จำกัด</th><th>หมดอายุ</th><th>สถานะ</th>${actionHeader}</tr></thead><tbody>${state.promos.map(promo => `<tr><td><strong>${display(promo.code)}</strong><br><small class="pa-muted">${display(promo.description)}</small></td><td>${number(promo.value)}</td><td>${escapeHtml(promoTypeLabel(promo.type))}</td><td>${number(promo.usedCount)} / ${promo.usageLimit === null ? "ไม่จำกัด" : number(promo.usageLimit)}</td><td>${promo.noExpiry ? "ไม่หมดอายุ" : dateLabel(String(promo.expiresAt || "").slice(0, 10))}</td><td><span class="pa-status ${statusClass(promo.status)}">${display(promo.status)}</span></td>${state.promoWriteEnabled ? `<td><div class="pa-promo-actions"><button class="pa-table-action" type="button" data-edit-promo="${escapeHtml(promo.id)}">แก้ไข</button><button class="pa-table-action ${promo.active ? "danger" : ""}" type="button" data-promo-status="${escapeHtml(promo.id)}" data-active="${promo.active ? "false" : "true"}">${promo.active ? "ปิดใช้งาน" : "เปิดใช้งาน"}</button></div></td>` : ""}</tr>`).join("")}</tbody></table></div>`;
     const more = state.promoHasMore ? `<div class="pa-pagination"><span>แสดง ${number(state.promos.length)} รายการ</span><button class="pa-button secondary" type="button" data-promo-load-more ${state.promoLoadingMore ? "disabled" : ""}>${state.promoLoadingMore ? "กำลังโหลด…" : "โหลดเพิ่ม"}</button></div>` : "";
     return `${table}${more}`;
   }
@@ -338,12 +339,14 @@
     const kpis = state.promoKpis || { active: null, used: null, total: null };
     const selected = value => form.type === value ? "selected" : "";
     const checked = value => form.plans.includes(value) ? "checked" : "";
-    const disabled = state.promoSaving ? "disabled" : "";
+    const disabled = state.promoSaving || !state.promoWriteEnabled ? "disabled" : "";
+    const environmentLabel = state.promoStorage === "production-supabase" ? "ข้อมูลจาก Production Supabase" : state.promoStorage === "preview-supabase" ? "ข้อมูลจาก Preview Supabase" : "แหล่งข้อมูล Promo ยังไม่พร้อม";
+    const readOnlyNotice = !state.promoWriteEnabled ? `<div class="pa-note">หน้านี้เป็นแบบอ่านอย่างเดียว — การสร้าง แก้ไข และเปิด/ปิดใช้งาน Promo ถูกปิดไว้ในสภาพแวดล้อมนี้</div>` : "";
     const listContent = promoListHtml();
     const valueField = promoValueFieldConfig(form.type) || promoValueFieldConfig("percentage");
-    return `${pageHead("โค้ดส่วนลด / Promo", "ข้อมูลจริงจาก Preview Supabase พร้อม Audit Log")}
-      <div class="pa-promo-heading"><div class="pa-stat-strip"><div><small>โค้ดที่ใช้งานอยู่</small><strong>${number(kpis.active)}</strong></div><div><small>ใช้ไปแล้ว</small><strong>${number(kpis.used)}</strong></div><div><small>โค้ดทั้งหมด</small><strong>${number(kpis.total)}</strong></div></div><button class="pa-button" type="button" data-new-promo>+ สร้างโค้ดใหม่</button></div>
-      <div class="pa-panel pa-promo-form-panel"><form id="pa-promo-form" class="pa-promo-form" data-promo-id="${escapeHtml(editing?.id || "")}">
+    return `${pageHead("โค้ดส่วนลด / Promo", environmentLabel + " พร้อม Audit Log")}
+      <div class="pa-promo-heading"><div class="pa-stat-strip"><div><small>โค้ดที่ใช้งานอยู่</small><strong>${number(kpis.active)}</strong></div><div><small>ใช้ไปแล้ว</small><strong>${number(kpis.used)}</strong></div><div><small>โค้ดทั้งหมด</small><strong>${number(kpis.total)}</strong></div></div>${state.promoWriteEnabled ? '<button class="pa-button" type="button" data-new-promo>+ สร้างโค้ดใหม่</button>' : ""}</div>
+      ${readOnlyNotice}<div class="pa-panel pa-promo-form-panel"><form id="pa-promo-form" class="pa-promo-form" data-promo-id="${escapeHtml(editing?.id || "")}">
         <div class="pa-field"><label>Code</label><input name="code" required maxlength="64" placeholder="WELCOME10" value="${escapeHtml(form.code)}" ${disabled}></div>
         <div class="pa-field"><label>ประเภท</label><select name="type" ${disabled}><option value="percentage" ${selected("percentage")}>เปอร์เซ็นต์</option><option value="fixed_thb" ${selected("fixed_thb")}>ลดเป็น THB</option><option value="free_days" ${selected("free_days")}>ฟรี X วัน</option><option value="free_months" ${selected("free_months")}>ฟรี X เดือน</option></select></div>
         <div class="pa-field"><label data-promo-value-label>${valueField.label}</label><input name="value" type="number" min="${valueField.min}" ${valueField.max ? `max="${valueField.max}"` : ""} step="${valueField.step}" inputmode="${valueField.inputmode}" placeholder="${valueField.placeholder}" required value="${escapeHtml(form.value)}" ${disabled}></div>
@@ -451,6 +454,8 @@
       state.promos = data.promos || [];
       state.promoKpis = data.kpis || null;
       state.promoHasMore = Boolean(data.pagination?.hasMore);
+      state.promoStorage = data.storage || "unavailable";
+      state.promoWriteEnabled = data.write?.enabled === true;
       state.promoLoading = false;
       refreshPromoView(token);
     }).catch(error => {

@@ -6,10 +6,11 @@ const { checkoutPromoEnabled, checkoutPromoError, publicCheckoutPromotion, signC
   verifyCheckoutQuote, effectivePromoSubscription } = require("../lib/checkout-promo");
 const enabled = { VERCEL_ENV:"preview",CHECKOUT_PROMO_ENABLED:"true",DATABASE_PROVIDER:"supabase",SUPABASE_URL:"https://enwabsfsmwwcwwirdwok.supabase.co" };
 assert.equal(checkoutPromoEnabled(enabled),true);
-for (const patch of [{VERCEL_ENV:"production"},{VERCEL_ENV:"development"},{CHECKOUT_PROMO_ENABLED:"false"},
+for (const patch of [{VERCEL_ENV:"development"},{CHECKOUT_PROMO_ENABLED:"false"},
   {SUPABASE_URL:"https://mjnpzdmrqweugdnvlqwq.supabase.co"},{SUPABASE_URL:"invalid"},{DATABASE_PROVIDER:"json"}]) {
   assert.equal(checkoutPromoEnabled({...enabled,...patch}),false,"fail-closed environment boundary");
 }
+assert.equal(checkoutPromoEnabled({...enabled,VERCEL_ENV:"production",SUPABASE_URL:"https://mjnpzdmrqweugdnvlqwq.supabase.co"}),true,"Production consumer gate must allow only the explicit Production flag and datasource");
 assert.match(checkoutPromoError(new Error("PROMOTION_CODE_EXHAUSTED")).error,/จอง/);
 assert.equal(checkoutPromoError(new Error("unrelated")),null);
 const snapshot = {code:"TEST10",benefit_type:"percent_discount",benefit_description:"ลด 10%",base_amount_minor:99000,discount_amount_minor:9900,reservation_id:"reservation-test",promotion_code_id:"promo-test",private_value:"not_public"};
@@ -86,6 +87,7 @@ global.fetch=async(url,options={})=>{
   assert.equal(requests.length,before+1,"missing Promo RPC never falls back");
   missingRpc=false;
   process.env.VERCEL_ENV="production";
+  process.env.CHECKOUT_PROMO_ENABLED="false";
   await assert.rejects(cancelPromoTestPaymentIntent(cancelPayment,"pi_cancel_test","abandoned"),/PROMOTION_CHECKOUT_NOT_ALLOWED/);
   await assert.rejects(db.beginSubscriptionCheckout(input),/PROMOTION_CHECKOUT_NOT_ALLOWED/);
   await db.beginSubscriptionCheckout({...input,promotionCode:""});
