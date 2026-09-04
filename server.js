@@ -4216,7 +4216,9 @@ async function handleBillingApi(req, res, url, db, currentUser) {
     // Preview-only: retrieve the authoritative Stripe TEST state and close a
     // locally stale terminal checkout. This never creates a payment or
     // changes a subscription; succeeded payments remain awaiting webhook.
-    if (!previewCheckoutReconciliationEnabled()) return json(res, 404, { ok: false, error: "API not found" });
+    if (!previewCheckoutReconciliationEnabled()) {
+      return json(res, 200, { ok: true, state: "none", billing: subscriptionBillingPayload(db) });
+    }
     if (currentUser.role !== "Owner") {
       return json(res, 403, { ok: false, error: "ต้องใช้สิทธิ์ Owner เพื่อตรวจสอบรายการชำระเงิน" });
     }
