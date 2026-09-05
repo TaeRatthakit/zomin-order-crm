@@ -22287,9 +22287,9 @@ html[data-theme="light"] body:not(.login-view) .subscription-promo-message {
   color: #71627e;
 }
 
-html[data-theme="light"] body:not(.login-view) .subscription-promo-message.is-success {
-  color: #16845a;
-}
+html[data-theme="light"] body:not(.login-view) .subscription-promo-message.is-error { color: #b4233c !important; }
+
+html[data-theme="light"] body:not(.login-view) .subscription-promo-message.is-success { color: #16845a !important; }
 
 html[data-theme="light"] body:not(.login-view) .subscription-promo button {
   border-color: #c1a1ed;

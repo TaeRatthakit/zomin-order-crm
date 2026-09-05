@@ -7,6 +7,7 @@ const { checkoutPromoError } = require("../lib/checkout-promo");
 
 const root = path.join(__dirname, "..");
 const appSource = fs.readFileSync(path.join(root, "public/app.js"), "utf8");
+const stylesSource = fs.readFileSync(path.join(root, "public/styles.css"), "utf8");
 const serverSource = fs.readFileSync(path.join(root, "server.js"), "utf8");
 const migrationSource = fs.readFileSync(path.join(root, "supabase/migrations/20260905000000_checkout_promo_validation_reasons.sql"), "utf8");
 
@@ -27,6 +28,8 @@ assert.match(appSource, /app\.checkoutPromotionError \|\| promoFeedback/);
 assert.match(appSource, /const promoFeedback = appliedPromo \? `ใช้โค้ดสำเร็จ \$\{promoBenefit\}`/);
 assert.match(appSource, /: appliedPromo \? `ลด ฿/);
 assert.doesNotMatch(appSource, /ระบบโค้ดโปรโมชั่นกำลังเตรียมพร้อมใช้งาน/);
+assert.match(stylesSource, /html\[data-theme="light"\] body:not\(\.login-view\) \.subscription-promo-message\.is-error\s*\{\s*color: #b4233c !important;/);
+assert.match(stylesSource, /html\[data-theme="light"\] body:not\(\.login-view\) \.subscription-promo-message\.is-success\s*\{\s*color: #16845a !important;/);
 assert.match(serverSource, /PROMOTION_VALIDATION_UNAVAILABLE/);
 assert.match(serverSource, /ไม่สามารถตรวจสอบโค้ดได้ กรุณาลองใหม่อีกครั้ง/);
 assert.match(migrationSource, /PROMOTION_CODE_NOT_FOUND/);
