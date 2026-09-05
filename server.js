@@ -22,6 +22,12 @@ const {
   importOrdersBatch,
   verifyCustomerSync,
   persistOrderMutation,
+  persistLineOrderMutation,
+  claimLineMessage,
+  persistLineMessageRecord,
+  verifyPersistedOrder,
+  lineMessageStorageId,
+  databaseProjectFingerprint,
   persistOrderProfitSnapshots,
   createContactLogFast,
   persistUserProfile,
@@ -3275,7 +3281,9 @@ function isDuplicateLineMessage(db, messageId = "") {
   if (orderMatch) return true;
   return (db.lineMessages || []).some(message => {
     const rawMessageId = lineMessageIdFromEventMessage(message.rawEvent?.message || message.rawEvent?.rawEvent?.message || {});
-    return rawMessageId === normalizedId;
+    if (rawMessageId !== normalizedId) return false;
+    const status = String(message.rawEvent?.__debug?.processing_status || "").trim().toLowerCase();
+    return !status || ["persisted", "replied"].includes(status);
   });
 }
 
@@ -3663,6 +3671,25 @@ function lineEventLogPayload(event = {}, text = "") {
   };
 }
 
+function deterministicLineOrderId(messageId = "") {
+  const value = String(messageId || "").trim();
+  return value ? `o_line_${crypto.createHash("sha256").update(value).digest("hex").slice(0, 24)}` : "";
+}
+
+function safeLineFailure(error = {}) {
+  const code = String(error.code || "").trim();
+  if (code === "PRODUCT_NOT_FOUND") return "product_not_found";
+  if (code === "ORDER_DUPLICATE") return "duplicate_order";
+  if (code === "LINE_ORDER_NOT_VERIFIED") return "order_not_verified";
+  if (code === "SUPABASE_PRODUCTION_PROJECT_MISMATCH") return "database_project_mismatch";
+  if (code === "TENANT_CONTEXT_REQUIRED") return "tenant_context_missing";
+  return "persistence_failed";
+}
+
+function safeLineErrorMessage(error = {}) {
+  return String(error.message || "LINE order persistence failed").replace(/[\r\n]+/g, " ").trim().slice(0, 240);
+}
+
 function safeDiagnosticErrorMessage(value = "") {
   return String(value || "")
     .replace(/0\d{8,9}/g, "[redacted-phone]")
@@ -3709,6 +3736,11 @@ function lineDebugFromMessage(message = {}) {
     text: message.text || message.raw_text || debug.text || httpDebug.text || "",
     parser_status: debug.parser_status || "not_run",
     supabase_insert_status: debug.supabase_insert_status || "not_run",
+    processing_status: debug.processing_status || "",
+    failure_category: debug.failure_category || "",
+    internal_order_id: debug.internal_order_id || "",
+    tenant_id: debug.tenant_id || "",
+    database_project: debug.database_project || "",
     error_message: debug.error_message || httpDebug.error_message || "",
     http_method: httpDebug.method || "",
     http_body_length: httpDebug.body_length ?? "",
@@ -3779,7 +3811,11 @@ function addHttpWebhookDebug(db, req, rawBody = "", status = {}) {
 
 function persistWebhookDebugAsync(db) {
   setImmediate(() => {
-    writeDb(db).catch(error => {
+    const latest = db.lineMessages?.at(-1);
+    const persist = dbProvider === "supabase" && typeof persistLineMessageRecord === "function" && latest
+      ? () => persistLineMessageRecord(latest)
+      : () => writeDb(db);
+    persist().catch(error => {
       console.error("LINE webhook debug write failed:", error);
     });
   });
@@ -3902,23 +3938,57 @@ async function handleLineWebhookEvents(db, settings, events, options = {}) {
   const parsedOrders = [];
   const replies = [];
   const persistedOrders = [];
+  const supabaseLinePersistence = dbProvider === "supabase"
+    && typeof claimLineMessage === "function"
+    && typeof persistLineMessageRecord === "function"
+    && typeof persistLineOrderMutation === "function";
+  const persistLifecycle = async (message, status, patch = {}) => {
+    Object.assign(message.rawEvent.__debug, { processing_status: status, ...patch });
+    if (supabaseLinePersistence) await persistLineMessageRecord(message);
+  };
+  const failLifecycle = async (message, error, patch = {}) => {
+    try {
+      await persistLifecycle(message, "failed", {
+        supabase_insert_status: "failed",
+        failure_category: safeLineFailure(error),
+        error_message: safeLineErrorMessage(error),
+        ...patch
+      });
+    } catch (persistError) {
+      console.error("LINE webhook failure lifecycle write failed", JSON.stringify({
+        failureCategory: safeLineFailure(persistError),
+        message: safeLineErrorMessage(persistError)
+      }));
+    }
+  };
   for (const event of events) {
     const { replyToken, source, text, messageId } = extractLineWebhookContext(event);
-    const eventLog = lineEventLogPayload(event, text);
-    console.log("LINE webhook event received", JSON.stringify(eventLog));
     const debug = {
       received_at: new Date().toISOString(),
       event_type: event.type || "",
       source_type: source.type || "",
       groupId: source.groupId || "",
       userId: source.userId || "",
+      tenant_id: options.tenant?.tenantId || "",
+      database_project: typeof databaseProjectFingerprint === "function" ? databaseProjectFingerprint() : "",
       text: String(text || "").slice(0, 1000),
       parser_status: "not_run",
+      processing_status: "received",
       supabase_insert_status: "not_run",
+      failure_category: "",
+      internal_order_id: "",
       error_message: ""
     };
     const rawText = text || "";
-    const storedEvent = { ...event, __debug: debug };
+    const storedMessage = {
+      id: typeof lineMessageStorageId === "function" ? lineMessageStorageId(messageId) : uid("line"),
+      receivedAt: debug.received_at,
+      rawEvent: { ...event, __debug: debug },
+      text: rawText,
+      raw_text: rawText,
+      lineMessageId: messageId || ""
+    };
+    console.log("LINE webhook event received", JSON.stringify(lineEventLogPayload(event, text)));
     console.log("LINE webhook event payload", JSON.stringify({
       eventType: event.type || "",
       sourceType: source.type || "",
@@ -3928,6 +3998,7 @@ async function handleLineWebhookEvents(db, settings, events, options = {}) {
     }));
     if (isDuplicateLineMessage(db, messageId)) {
       debug.parser_status = "duplicate_message";
+      debug.processing_status = "replied";
       debug.supabase_insert_status = "skipped_duplicate_message";
       console.log("LINE webhook duplicate delivery skipped", JSON.stringify({
         groupId: source.groupId || "",
@@ -3936,123 +4007,107 @@ async function handleLineWebhookEvents(db, settings, events, options = {}) {
       replies.push({ replyToken, messages: [{ type: "text", text: "ℹ️ ออเดอร์นี้มีอยู่แล้วใน Growup Pilot" }] });
       continue;
     }
-    db.lineMessages.push({
-      id: uid("line"),
-      receivedAt: debug.received_at,
-      rawEvent: storedEvent,
-      text: rawText,
-      raw_text: rawText
-    });
-    if (!isTargetGroup(source, settings)) {
-      debug.parser_status = "skipped_group_filter";
-      debug.error_message = source.type !== "group"
-        ? "Event source is not a group."
-        : `LINE_GROUP_ID mismatch. Received groupId: ${source.groupId || "(missing)"}`;
-      console.log("LINE webhook group skipped", JSON.stringify({
-        groupId: source.groupId || "",
-        configuredGroupId: settings.lineGroupId || "",
-        reason: source.type !== "group" ? "not_group" : "group_id_mismatch"
-      }));
-      continue;
+    if (supabaseLinePersistence && messageId) {
+      const claim = await claimLineMessage(storedMessage);
+      if (!claim.claimed) {
+        debug.parser_status = "duplicate_message_in_flight";
+        debug.processing_status = "replied";
+        debug.supabase_insert_status = "skipped_duplicate_message";
+        replies.push({ replyToken, messages: [{ type: "text", text: "ℹ️ ออเดอร์นี้กำลังถูกบันทึกหรือมีอยู่แล้วใน Growup Pilot" }] });
+        continue;
+      }
     }
-    if (!rawText) continue;
-    if (!looksLikeOrderMessage(rawText)) {
-      debug.parser_status = "skipped_not_order_format";
-      console.log("LINE webhook message skipped", JSON.stringify({ reason: "not_order_format", groupId: source.groupId || "" }));
-      continue;
-    }
-    console.log("LINE webhook parser starting", JSON.stringify({ groupId: source.groupId || "", hasOpenAI: Boolean(settings.openaiApiKey) }));
-    const parsed = await parseOrderWithAI(rawText, settings);
-    const normalized = normalizedOrderForStorage({ ...parsed, lineMessageId: messageId });
-    const missingFields = missingRequiredOrderFields(normalized);
-    if (missingFields.length) {
-      debug.parser_status = "missing_required_fields";
-      debug.error_message = `Missing fields: ${missingFields.join(", ")}`;
-      console.log("LINE webhook parser missing fields", JSON.stringify({ groupId: source.groupId || "", missingFields }));
-      replies.push({ replyToken, messages: [{ type: "text", text: formatMissingFieldsMessage(missingFields) }] });
-      continue;
-    }
+    db.lineMessages.push(storedMessage);
+    let normalized = null;
     try {
+      await persistLifecycle(storedMessage, "received");
+      if (!isTargetGroup(source, settings)) {
+        debug.parser_status = "skipped_group_filter";
+        debug.error_message = source.type !== "group"
+          ? "Event source is not a group."
+          : `LINE_GROUP_ID mismatch. Received groupId: ${source.groupId || "(missing)"}`;
+        await persistLifecycle(storedMessage, "failed", { failure_category: "group_filter" });
+        continue;
+      }
+      if (!rawText) {
+        debug.parser_status = "skipped_empty";
+        await persistLifecycle(storedMessage, "failed", { failure_category: "empty_message" });
+        continue;
+      }
+      if (!looksLikeOrderMessage(rawText)) {
+        debug.parser_status = "skipped_not_order_format";
+        await persistLifecycle(storedMessage, "failed", { failure_category: "not_order_format" });
+        continue;
+      }
+      console.log("LINE webhook parser starting", JSON.stringify({ groupId: source.groupId || "", hasOpenAI: Boolean(settings.openaiApiKey) }));
+      const parsed = await parseOrderWithAI(rawText, settings);
+      normalized = normalizedOrderForStorage({ ...parsed, lineMessageId: messageId });
+      const missingFields = missingRequiredOrderFields(normalized);
+      if (missingFields.length) {
+        debug.parser_status = "missing_required_fields";
+        debug.error_message = `Missing fields: ${missingFields.join(", ")}`;
+        await persistLifecycle(storedMessage, "failed", { failure_category: "missing_required_fields" });
+        replies.push({ replyToken, messages: [{ type: "text", text: formatMissingFieldsMessage(missingFields) }] });
+        continue;
+      }
+      await persistLifecycle(storedMessage, "parsed", { parser_status: "parsed" });
+      let order;
+      let replyText;
+      let mode = "created";
       const upsaleOrder = findLineUpsaleOrder(db, normalized);
       if (upsaleOrder) {
-        const { order, changes } = updateLineUpsaleOrder(db, upsaleOrder, normalized);
-        parsedOrders.push(order);
-        persistedOrders.push({
-          id: order.id,
-          lineMessageId: order.lineMessageId || "",
-          phone: order.phone || "",
-          amount: order.amount,
-          date: order.date,
-          mode: "upsale"
-        });
+        const result = updateLineUpsaleOrder(db, upsaleOrder, normalized);
+        order = result.order;
+        mode = "upsale";
+        replyText = formatUpsaleReply(order, result.changes);
         debug.parser_status = "upsale_updated";
-        debug.supabase_insert_status = "pending_write";
-        console.log("LINE webhook upsale order updated", JSON.stringify({
-          groupId: source.groupId || "",
-          lineMessageId: messageId || "",
-          orderNumber: normalized.orderNumber || "",
-          phone: normalized.phone || "",
-          amount: normalized.amount,
-          date: normalized.date,
-          changedFields: changes.map(change => change.key)
-        }));
-        const upsaleReplyText = formatUpsaleReply(order, changes);
-        debug.reply_text = upsaleReplyText;
-        replies.push({ replyToken, messages: [{ type: "text", text: upsaleReplyText }] });
       } else {
-        const order = addOrder(db, { ...normalized, allowProductContainsMatch: true });
+        const id = deterministicLineOrderId(messageId);
+        order = addOrder(db, { ...normalized, id, allowProductContainsMatch: true });
         adjustInventoryForOrderChange(db, null, order);
-        parsedOrders.push(order);
-        persistedOrders.push({
-          id: order.id,
-          lineMessageId: order.lineMessageId || "",
-          phone: order.phone || "",
-          amount: order.amount,
-          date: order.date,
-          mode: "created"
-        });
-        debug.parser_status = "parsed";
-        debug.supabase_insert_status = "pending_write";
-        console.log("LINE webhook order parsed", JSON.stringify({
-          groupId: source.groupId || "",
-          lineMessageId: messageId || "",
-          orderNumber: normalized.orderNumber || "",
-          phone: normalized.phone || "",
-          amount: normalized.amount,
-          date: normalized.date
-        }));
         const similarOrderToday = findSimilarOrderCreatedToday(db, normalized, order);
-        if (similarOrderToday) {
-          console.log("LINE webhook similar order warning appended", JSON.stringify({
-            groupId: source.groupId || "",
-            lineMessageId: messageId || "",
-            orderNumber: normalized.orderNumber || "",
-            phone: normalized.phone || "",
-            amount: normalized.amount,
-            date: normalized.date,
-            matchedOrderId: similarOrderToday.id || "",
-            matchedOrderNumber: similarOrderToday.orderNumber || similarOrderToday.order_number || ""
-          }));
-        }
         const successReplyText = "✅ นำเข้าออเดอร์เรียบร้อยแล้ว\nGrowup Pilot บันทึกข้อมูลเรียบร้อย";
-        const replyText = similarOrderToday
+        replyText = similarOrderToday
           ? `${successReplyText}\n\n⚠️ พบออเดอร์ที่คล้ายกันภายในวันนี้\nกรุณาตรวจสอบว่าเป็นออเดอร์ใหม่ของลูกค้า หรือเป็นข้อความที่ส่งซ้ำ`
           : successReplyText;
-        debug.reply_text = replyText;
-        replies.push({ replyToken, messages: [{ type: "text", text: replyText }] });
+        debug.parser_status = "parsed";
       }
+      debug.supabase_insert_status = "pending_write";
+      debug.reply_text = replyText;
+      debug.internal_order_id = order.id;
+      await persistLifecycle(storedMessage, "persisting");
+      const mutation = orderMutationPayload(db, { orderId: order.id, selectedDate: normalized.date || toDateOnly() });
+      if (supabaseLinePersistence) {
+        const persisted = await persistLineOrderMutation(mutation, db.settings);
+        if (!persisted?.verification?.ok) {
+          const error = new Error("LINE order persistence could not be verified.");
+          error.code = "LINE_ORDER_NOT_VERIFIED";
+          throw error;
+        }
+      } else {
+        await writeDb(db);
+      }
+      const verification = supabaseLinePersistence && typeof verifyPersistedOrder === "function"
+        ? await verifyPersistedOrder(order)
+        : { ok: true, orderId: order.id };
+      if (!verification.ok) {
+        const error = new Error("LINE order read-back verification failed.");
+        error.code = "LINE_ORDER_NOT_VERIFIED";
+        throw error;
+      }
+      await persistLifecycle(storedMessage, "persisted", {
+        supabase_insert_status: "verified",
+        internal_order_id: order.id,
+        verification: "row_confirmed"
+      });
+      parsedOrders.push(order);
+      persistedOrders.push({ id: order.id, lineMessageId: order.lineMessageId || "", amount: order.amount, date: order.date, mode });
+      replies.push({ replyToken, messages: [{ type: "text", text: replyText }], storedMessage });
     } catch (error) {
       if (error.code === "ORDER_DUPLICATE") {
         debug.parser_status = "duplicate";
         debug.supabase_insert_status = "skipped_duplicate";
-        console.log("LINE webhook duplicate order skipped", JSON.stringify({
-          groupId: source.groupId || "",
-          lineMessageId: messageId || "",
-          orderNumber: normalized.orderNumber || "",
-          phone: normalized.phone || "",
-          amount: normalized.amount,
-          date: normalized.date
-        }));
+        await persistLifecycle(storedMessage, "failed", { failure_category: "duplicate_order" });
         const duplicateReplyText = normalized.lineMessageId
           && normalizeImportText(error.order?.lineMessageId || error.order?.line_message_id || "") === normalized.lineMessageId
           ? "ℹ️ ออเดอร์นี้มีอยู่แล้วใน Growup Pilot"
@@ -4064,48 +4119,41 @@ async function handleLineWebhookEvents(db, settings, events, options = {}) {
         debug.parser_status = "product_not_found";
         debug.supabase_insert_status = "skipped_product_not_found";
         debug.error_message = PRODUCT_RESOLUTION_ERROR;
-        console.log("LINE webhook product not found skipped", JSON.stringify({
-          groupId: source.groupId || "",
-          lineMessageId: messageId || "",
-          orderNumber: normalized.orderNumber || "",
-          product: normalized.items || ""
-        }));
+        await persistLifecycle(storedMessage, "failed", { failure_category: "product_not_found" });
         replies.push({ replyToken, messages: [{ type: "text", text: PRODUCT_RESOLUTION_ERROR }] });
         continue;
       }
-      debug.parser_status = "error";
-      debug.error_message = error.message || String(error);
+      await failLifecycle(storedMessage, error, { internal_order_id: debug.internal_order_id });
+      console.error("LINE webhook persistence failed", JSON.stringify({
+        stage: "writeDb",
+        tenantId: options.tenant?.tenantId || "",
+        parsedOrders: parsedOrders.length,
+        persistedOrders: safePersistedOrderDiagnostics(persistedOrders),
+        error: safeDatabaseErrorDetails(error)
+      }));
+      console.error("LINE webhook order processing failed", JSON.stringify({
+        lineMessageId: messageId || "",
+        tenantId: options.tenant?.tenantId || "",
+        orderId: debug.internal_order_id || "",
+        orderNumber: normalized?.orderNumber || "",
+        project: debug.database_project,
+        failureCategory: safeLineFailure(error),
+        error: safeLineErrorMessage(error)
+      }));
       throw error;
     }
   }
-  for (const message of db.lineMessages || []) {
-    if (message.rawEvent?.__debug?.supabase_insert_status === "pending_write") {
-      message.rawEvent.__debug.supabase_insert_status = "inserted";
-    }
-  }
-  try {
-    await writeDb(db);
-  } catch (error) {
-    console.error("LINE webhook persistence failed", JSON.stringify({
-      stage: "writeDb",
-      tenantId: options.tenant?.tenantId || "",
-      parsedOrders: parsedOrders.length,
-      persistedOrders: safePersistedOrderDiagnostics(persistedOrders),
-      error: safeDatabaseErrorDetails(error)
-    }));
-    throw error;
-  }
-  console.log("LINE webhook database write completed", JSON.stringify({
-    parsedOrders: parsedOrders.length,
-    persistedOrders
-  }));
+  if (!supabaseLinePersistence) await writeDb(db);
   for (const reply of replies) {
     try {
       await replyLineMessages(settings, reply.replyToken, reply.messages);
-    } catch {
-      // Ignore reply failures so webhook delivery still succeeds.
+      if (reply.storedMessage) await persistLifecycle(reply.storedMessage, "replied", { supabase_insert_status: "verified" });
+    } catch (error) {
+      if (reply.storedMessage) await failLifecycle(reply.storedMessage, error, { failure_category: "line_reply_failed" });
+      console.error("LINE webhook reply failed", JSON.stringify({ failureCategory: "line_reply_failed", error: safeLineErrorMessage(error) }));
     }
   }
+  console.log("LINE webhook database write completed", JSON.stringify({ parsedOrders: parsedOrders.length, persistedOrders }));
   return parsedOrders;
 }
 
@@ -4148,6 +4196,9 @@ async function handleLineWebhookPost(req, res, db, options = {}) {
     return json(res, 200, { ok: true, received: 0, verification: true });
   }
   httpDebug.signature_validation = "pass";
+  if (dbProvider === "supabase" && typeof persistLineMessageRecord === "function") {
+    await persistLineMessageRecord(db.lineMessages.at(-1));
+  }
   const events = Array.isArray(body.events) ? body.events : [{ message: { text: body.text || body.content || "" } }];
   if (!Array.isArray(body.events)) {
     console.log("LINE webhook no events array", JSON.stringify({
@@ -7181,3 +7232,8 @@ if (require.main === module) {
 
 module.exports = appHandler;
 module.exports.server = server;
+module.exports.parseOrderWithAI = parseOrderWithAI;
+module.exports.normalizedOrderForStorage = normalizedOrderForStorage;
+module.exports.addOrder = addOrder;
+module.exports.adjustInventoryForOrderChange = adjustInventoryForOrderChange;
+module.exports.orderMutationPayload = orderMutationPayload;
