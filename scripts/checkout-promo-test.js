@@ -11,7 +11,7 @@ for (const patch of [{VERCEL_ENV:"development"},{CHECKOUT_PROMO_ENABLED:"false"}
   assert.equal(checkoutPromoEnabled({...enabled,...patch}),false,"fail-closed environment boundary");
 }
 assert.equal(checkoutPromoEnabled({...enabled,VERCEL_ENV:"production",SUPABASE_URL:"https://mjnpzdmrqweugdnvlqwq.supabase.co"}),true,"Production consumer gate must allow only the explicit Production flag and datasource");
-assert.match(checkoutPromoError(new Error("PROMOTION_CODE_EXHAUSTED")).error,/จอง/);
+assert.equal(checkoutPromoError(new Error("PROMOTION_CODE_EXHAUSTED")).error,"โค้ดนี้ถูกใช้ครบจำนวนแล้ว");
 assert.equal(checkoutPromoError(new Error("unrelated")),null);
 const snapshot = {code:"TEST10",benefit_type:"percent_discount",benefit_description:"ลด 10%",base_amount_minor:99000,discount_amount_minor:9900,reservation_id:"reservation-test",promotion_code_id:"promo-test",private_value:"not_public"};
 assert.deepEqual(publicCheckoutPromotion({checkoutMetadata:{promotion:snapshot}}),{

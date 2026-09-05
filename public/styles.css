@@ -22263,6 +22263,10 @@ body:not(.login-view) .subscription-promo-message.is-error {
   color: #ff6b7a;
 }
 
+body:not(.login-view) .subscription-promo-message.is-success {
+  color: #43c98b;
+}
+
 body:not(.login-view) .subscription-promo-result {
   padding-top: 14px;
   border-top: 1px solid rgba(132, 105, 190, .2);
@@ -22281,6 +22285,10 @@ html[data-theme="light"] body:not(.login-view) .subscription-promo input {
 html[data-theme="light"] body:not(.login-view) .subscription-promo input::placeholder,
 html[data-theme="light"] body:not(.login-view) .subscription-promo-message {
   color: #71627e;
+}
+
+html[data-theme="light"] body:not(.login-view) .subscription-promo-message.is-success {
+  color: #16845a;
 }
 
 html[data-theme="light"] body:not(.login-view) .subscription-promo button {

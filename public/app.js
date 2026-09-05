@@ -10390,18 +10390,14 @@ function renderSettingsSubscription() {
     : isSuccess
     ? `<button class="button primary subscription-primary-action" type="button" data-view-shortcut="dashboard">เริ่มใช้งาน</button>`
     : `<button class="button ghost subscription-back-action" type="button" data-view-shortcut="pricing">${iconSvg("arrow")} กลับไปเลือกแพ็กเกจ</button>`;
-  const promoKey = `${app.currentUser?.id || ""}:${draft ? `${draft.targetPlan}:${draft.billingInterval}` : qrPaymentId}`;
-  if (app.subscriptionPromoUi?.checkoutKey !== promoKey) {
-    app.subscriptionPromoUi = { checkoutKey: promoKey, code: "", message: "", empty: false, busy: false };
-  }
-  const promoUi = app.subscriptionPromoUi;
-  if (draft) promoUi.code = app.checkoutPromotionCode || "";
   const originalAmountMinor = Number(draft?.baseQuote?.base_amount_minor ?? draft?.baseQuote?.amount_minor ?? amountMinor);
   const originalAmount = moneyMinorText(originalAmountMinor);
   const appliedPromo = draft && app.checkoutPromoQuote?.quote ? app.checkoutPromoQuote.quote : null;
   const promoBenefit = appliedPromo?.mode === "free_service"
     ? `ใช้งาน ${selectedPlan} ฟรี ${Number(appliedPromo.benefit_value)} ${appliedPromo.benefit_type === "service_days" ? "วัน" : "เดือน"}`
-    : appliedPromo ? `ส่วนลด ${moneyMinorText(appliedPromo.discount_amount_minor)}` : "";
+    : appliedPromo ? `ลด ฿${(Number(appliedPromo.discount_amount_minor || 0) / 100).toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "";
+  const promoFeedback = appliedPromo ? `ใช้โค้ดสำเร็จ ${promoBenefit}` : "";
+  const promoFeedbackClass = app.checkoutPromotionError ? "is-error" : appliedPromo ? "is-success" : "";
   els.content.innerHTML = `
     <section class="subscription-checkout-page" aria-label="ชำระเงินแพ็กเกจ">
       <header class="subscription-checkout-header">
@@ -10413,24 +10409,16 @@ function renderSettingsSubscription() {
         <div class="subscription-checkout-left">${paymentCard}</div>
         <aside class="subscription-summary-card">
           <div class="subscription-card-heading"><span class="subscription-card-icon">${iconSvg("clipboard")}</span><h2>สรุปรายการ</h2></div>
-          <dl class="subscription-summary-list"><div><dt>แพ็กเกจ</dt><dd>${escapeHtml(selectedPlan)}</dd></div><div><dt>${draft ? "ราคาเดิม" : "ค่าบริการ"}</dt><dd>${escapeHtml(draft && !draft.baseQuote ? "—" : draft ? originalAmount : amount)} / ${escapeHtml(intervalCopy)}</dd></div><div><dt>วิธีชำระเงิน</dt><dd data-subscription-payment-method>${draftQuote?.mode === "free_service" ? "ไม่ต้องชำระผ่าน Stripe" : "PromptPay"}</dd></div></dl>
+          <dl class="subscription-summary-list"><div><dt>แพ็กเกจ</dt><dd>${escapeHtml(selectedPlan)}</dd></div><div><dt>${draft ? "ราคาปกติ" : "ค่าบริการ"}</dt><dd>${escapeHtml(draft && !draft.baseQuote ? "—" : draft ? originalAmount : amount)} / ${escapeHtml(intervalCopy)}</dd></div>${draft && appliedPromo ? `<div><dt>ส่วนลด</dt><dd>-${escapeHtml(moneyMinorText(appliedPromo.discount_amount_minor).replace(/^THB\\s*/, "฿"))}</dd></div>` : ""}<div><dt>วิธีชำระเงิน</dt><dd data-subscription-payment-method>${draftQuote?.mode === "free_service" ? "ไม่ต้องชำระผ่าน Stripe" : "PromptPay"}</dd></div></dl>
           ${draft && app.data?.billing?.checkoutPromoEnabled && app.currentUser?.role === "Owner" ? `<form class="subscription-promo" data-subscription-promo-form novalidate>
             <label for="subscriptionPromoCode">โค้ดส่วนลด</label>
             <div class="subscription-promo-controls">
               <input id="subscriptionPromoCode" type="text" placeholder="กรอกโค้ดโปรโมชั่น" maxlength="64" autocomplete="off" spellcheck="false" aria-describedby="subscriptionPromoMessage" aria-invalid="${Boolean(app.checkoutPromotionError)}" value="${escapeHtml(app.checkoutPromotionCode || "")}">
               <button class="button secondary" type="submit"${app.subscriptionQuoteLoading ? " disabled" : ""}>${app.subscriptionQuoteLoading ? "กำลังตรวจสอบ..." : "ใช้โค้ด"}</button>
             </div>
-            <p id="subscriptionPromoMessage" class="subscription-promo-message ${app.checkoutPromotionError ? "is-error" : ""}" role="status" aria-live="polite" aria-atomic="true"${app.checkoutPromotionError || promoBenefit ? "" : " hidden"}>${escapeHtml(app.checkoutPromotionError || promoBenefit)}</p>
+            <p id="subscriptionPromoMessage" class="subscription-promo-message ${promoFeedbackClass}" role="status" aria-live="polite" aria-atomic="true"${app.checkoutPromotionError || promoFeedback ? "" : " hidden"}>${escapeHtml(app.checkoutPromotionError || promoFeedback)}</p>
           </form>` : ""}
           ${draft && appliedPromo ? `<dl class="subscription-summary-list subscription-promo-result"><div><dt>โค้ดโปรโมชั่น</dt><dd>${escapeHtml(appliedPromo.code)}</dd></div><div><dt>ส่วนลด / สิทธิ์</dt><dd>${escapeHtml(promoBenefit)}</dd></div></dl>` : ""}
-          ${!draft && !app.data?.billing?.checkoutPromoEnabled && !isSuccess ? `<form class="subscription-promo" data-subscription-promo-form novalidate>
-            <label for="subscriptionPromoCode">โค้ดส่วนลด</label>
-            <div class="subscription-promo-controls">
-              <input id="subscriptionPromoCode" type="text" placeholder="กรอกโค้ดโปรโมชั่น" maxlength="64" autocomplete="off" spellcheck="false" aria-describedby="subscriptionPromoMessage" aria-invalid="${promoUi.empty}" value="${escapeHtml(promoUi.code)}">
-              <button class="button secondary" type="submit"${promoUi.busy ? " disabled" : ""}>ใช้โค้ด</button>
-            </div>
-            <p id="subscriptionPromoMessage" class="subscription-promo-message" role="status" aria-live="polite" aria-atomic="true"${promoUi.message ? "" : " hidden"}>${escapeHtml(promoUi.message)}</p>
-          </form>` : ""}
           ${!draft && app.data?.billing?.checkoutPromoEnabled && latestPayment.promotion ? `<dl class="subscription-summary-list"><div><dt>โค้ดโปรโมชั่น</dt><dd>${escapeHtml(latestPayment.promotion.code)}</dd></div><div><dt>ราคาก่อนส่วนลด</dt><dd>${escapeHtml(moneyMinorText(latestPayment.promotion.baseAmountMinor))}</dd></div><div><dt>ส่วนลด</dt><dd>${escapeHtml(moneyMinorText(latestPayment.promotion.discountAmountMinor))}</dd></div></dl><p class="subscription-promo-benefit">${escapeHtml(latestPayment.promotion.benefitDescription)}</p>` : ""}
           <div class="subscription-summary-total"><span>ยอดชำระทั้งหมด</span><strong data-subscription-final-amount>${escapeHtml(amountDisplay)}</strong></div>
           <div class="subscription-summary-callout"><span>${iconSvg("briefcase")}</span><p>แพ็กเกจจะเริ่มใช้งานหลังจากระบบยืนยันการชำระเงินสำเร็จ</p></div>
@@ -10445,33 +10433,23 @@ function renderSettingsSubscription() {
   const promoForm = els.content.querySelector("[data-subscription-promo-form]");
   if (promoForm) {
     const promoInput = promoForm.querySelector("input");
-    const promoButton = promoForm.querySelector("button");
     const promoMessage = promoForm.querySelector("[role=status]");
     promoInput.addEventListener("input", () => {
-      if (draft) {
-        app.checkoutPromotionCode = promoInput.value;
-        app.checkoutPromotionError = "";
-        app.checkoutPromoQuote = null;
-        promoInput.setAttribute("aria-invalid", "false");
-        promoMessage.textContent = "";
-        promoMessage.hidden = true;
-        const total = els.content.querySelector("[data-subscription-final-amount]");
-        if (total) total.textContent = `฿${(originalAmountMinor / 100).toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-        const selectedAmount = els.content.querySelector("[data-subscription-selected-amount]");
-        if (selectedAmount) selectedAmount.textContent = `฿${(originalAmountMinor / 100).toLocaleString("th-TH", { maximumFractionDigits: 0 })}`;
-        els.content.querySelector(".subscription-promo-result")?.remove();
-        const method = els.content.querySelector("[data-subscription-payment-method]");
-        if (method) method.textContent = "PromptPay";
-        const confirm = els.content.querySelector("[data-subscription-checkout-confirm]");
-        if (confirm) confirm.textContent = "ยืนยันชำระเงิน";
-        return;
-      }
-      promoUi.code = promoInput.value;
-      promoUi.message = "";
-      promoUi.empty = false;
+      app.checkoutPromotionCode = promoInput.value;
+      app.checkoutPromotionError = "";
+      app.checkoutPromoQuote = null;
       promoInput.setAttribute("aria-invalid", "false");
       promoMessage.textContent = "";
       promoMessage.hidden = true;
+      const total = els.content.querySelector("[data-subscription-final-amount]");
+      if (total) total.textContent = `฿${(originalAmountMinor / 100).toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      const selectedAmount = els.content.querySelector("[data-subscription-selected-amount]");
+      if (selectedAmount) selectedAmount.textContent = `฿${(originalAmountMinor / 100).toLocaleString("th-TH", { maximumFractionDigits: 0 })}`;
+      els.content.querySelector(".subscription-promo-result")?.remove();
+      const method = els.content.querySelector("[data-subscription-payment-method]");
+      if (method) method.textContent = "PromptPay";
+      const confirm = els.content.querySelector("[data-subscription-checkout-confirm]");
+      if (confirm) confirm.textContent = "ยืนยันชำระเงิน";
     });
     promoInput.addEventListener("keydown", event => {
       if (event.key !== "Enter" || event.isComposing) return;
@@ -10481,65 +10459,39 @@ function renderSettingsSubscription() {
     promoForm.addEventListener("submit", async event => {
       event.preventDefault();
       event.stopPropagation();
-      if (draft) {
-        if (app.subscriptionQuoteLoading) return;
-        app.checkoutPromotionCode = promoInput.value.trim();
-        if (!app.checkoutPromotionCode) {
-          app.checkoutPromoQuote = null;
-          app.checkoutPromotionError = "";
-          render();
-          return;
-        }
-        app.subscriptionQuoteLoading = true;
-        app.checkoutPromotionError = "";
+      if (!draft || app.subscriptionQuoteLoading) return;
+      app.checkoutPromotionCode = promoInput.value.trim();
+      if (!app.checkoutPromotionCode) {
+        app.checkoutPromoQuote = null;
+        app.checkoutPromotionError = "กรุณากรอกโค้ดโปรโมชั่น";
         render();
-        try {
-          const result = await api("/api/billing/promo/quote", {
-            method: "POST",
-            body: JSON.stringify({
-              promotionCode: app.checkoutPromotionCode,
-              targetPlan: draft.targetPlan,
-              billingInterval: draft.billingInterval
-            })
-          });
-          if (app.subscriptionCheckoutDraft === draft) {
-            app.checkoutPromoQuote = result;
-            app.checkoutPromotionCode = result.quote?.code || app.checkoutPromotionCode;
-          }
-        } catch (error) {
-          if (app.subscriptionCheckoutDraft === draft) {
-            app.checkoutPromoQuote = null;
-            app.checkoutPromotionError = error.message || "ใช้โปรโมชั่นไม่สำเร็จ กรุณาตรวจสอบอีกครั้ง";
-          }
-        } finally {
-          app.subscriptionQuoteLoading = false;
-          if (app.subscriptionCheckoutDraft === draft) render();
-        }
         return;
       }
-      if (promoUi.busy) return;
-      promoUi.code = promoInput.value.trim();
-      promoInput.value = promoUi.code;
-      promoUi.empty = !promoUi.code;
-      // Future integration point: an explicitly approved server validator can
-      // supply valid/invalid/expired/usage-limit, benefits, plan/interval scope
-      // and authoritative totals. Do not infer any of those rules locally.
-      // This placeholder performs no request, redemption, or checkout refresh.
-      promoUi.message = promoUi.empty
-        ? "กรุณากรอกโค้ดโปรโมชั่น"
-        : "ระบบโค้ดโปรโมชั่นกำลังเตรียมพร้อมใช้งาน";
-      promoInput.setAttribute("aria-invalid", String(promoUi.empty));
-      promoMessage.textContent = promoUi.message;
-      promoMessage.hidden = false;
-      promoUi.busy = true;
-      promoButton.disabled = true;
-      setTimeout(() => {
-        promoUi.busy = false;
-        if (app.subscriptionPromoUi === promoUi) {
-          const activeButton = els.content.querySelector("[data-subscription-promo-form] button");
-          if (activeButton) activeButton.disabled = false;
+      app.subscriptionQuoteLoading = true;
+      app.checkoutPromotionError = "";
+      render();
+      try {
+        const result = await api("/api/billing/promo/quote", {
+          method: "POST",
+          body: JSON.stringify({
+            promotionCode: app.checkoutPromotionCode,
+            targetPlan: draft.targetPlan,
+            billingInterval: draft.billingInterval
+          })
+        });
+        if (app.subscriptionCheckoutDraft === draft) {
+          app.checkoutPromoQuote = result;
+          app.checkoutPromotionCode = result.quote?.code || app.checkoutPromotionCode;
         }
-      }, 600);
+      } catch (error) {
+        if (app.subscriptionCheckoutDraft === draft) {
+          app.checkoutPromoQuote = null;
+          app.checkoutPromotionError = error.message || "ไม่สามารถตรวจสอบโค้ดได้ กรุณาลองใหม่อีกครั้ง";
+        }
+      } finally {
+        app.subscriptionQuoteLoading = false;
+        if (app.subscriptionCheckoutDraft === draft) render();
+      }
     });
   }
   const qrImageElement = els.content.querySelector("[data-subscription-qr-image]");

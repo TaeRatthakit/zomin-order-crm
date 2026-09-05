@@ -18,6 +18,7 @@
     "test:subscription-upgrade": "node scripts/subscription-upgrade-test.js",
     "test:stripe-promptpay": "node scripts/stripe-promptpay-test.js",
     "test:platform-admin": "node scripts/platform-admin-test.js",
+    "test:promo-ux": "node scripts/promo-validation-ux-test.js",
     "test:rpc-security": "node scripts/rpc-security-grants-test.js",
     "test:landing": "node scripts/landing-page-route-test.js",
     "test:line-webhook": "node scripts/line-webhook-duplicate-test.js",

@@ -4329,7 +4329,12 @@ async function handleBillingApi(req, res, url, db, currentUser) {
       if (quote.mode!=="free_service") throw new Error("PROMOTION_CHECKOUT_NOT_ALLOWED");
       const result=await redeemZeroPaymentPromo({...quote,tenantId:currentUser.tenantId,userId:currentUser.id});
       return json(res,200,{ok:true,...result,requiresPayment:false});
-    } catch (error) { return json(res,409,checkoutPromoError(error)||{ok:false,error:"ยังไม่สามารถใช้โปรโมชั่นนี้ได้ กรุณาตรวจสอบใหม่"}); }
+    } catch (error) {
+      const promoError = checkoutPromoError(error);
+      if (promoError) return json(res, 409, promoError);
+      console.error("Checkout promo validation failed", JSON.stringify({ code: error.code || "", status: error.status || 0 }));
+      return json(res, 503, { ok: false, code: "PROMOTION_VALIDATION_UNAVAILABLE", error: "ไม่สามารถตรวจสอบโค้ดได้ กรุณาลองใหม่อีกครั้ง" });
+    }
   }
   if (req.method === "POST" && url.pathname === "/api/billing/promo/abandon") {
     if (!checkoutPromoEnabled()) return json(res, 404, { ok: false, error: "API not found" });
