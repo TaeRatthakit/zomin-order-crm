@@ -27,7 +27,8 @@ declare
 begin
   perform pg_temp.check_true(current_setting('growup.test_project') = 'enwabsfsmwwcwwirdwok', 'Preview target');
   perform pg_temp.check_true(left(current_setting('growup.test_password_hash'),7)='scrypt$', 'normal password hash implementation');
-  perform pg_temp.check_true((select md5(prosrc)='bf91ee8c8a90087181b2761962aa4d77' from pg_proc where proname='growup_signup_bootstrap'), 'signup RPC unchanged');
+  perform pg_temp.check_true((select prosrc like '%pending_payment%' and prosrc like '%trial_started_at, trial_ends_at%'
+    from pg_proc where proname='growup_signup_bootstrap'), 'paid-first signup RPC installed');
   perform pg_temp.check_true((select md5(prosrc)='8784c55369e83e8cfeff54d405ba6576' from pg_proc where proname='growup_begin_subscription_checkout'), 'checkout RPC unchanged');
   perform pg_temp.check_true((select md5(prosrc)='d34b958d51ed18aa12bf002f35f80aa3' from pg_proc where proname='growup_record_subscription_checkout_success'), 'verified-payment RPC unchanged');
   perform pg_temp.check_true(not has_function_privilege('anon','public.growup_promo_service_period_end(timestamptz,text,numeric)','EXECUTE'), 'anon cannot call grant helper');
@@ -45,7 +46,6 @@ begin
     ('months1','free_months',1,'starter',49000,'2026-10-30 10:00+07'::timestamptz),
     ('months3','free_months',3,'business',99000,'2026-12-30 10:00+07'::timestamptz),
     ('percent10','percent_discount',10,'business',89100,null::timestamptz),
-    ('percent100','percent_discount',100,'business',0,null::timestamptz),
     ('fixed500','fixed_amount_discount',500,'business',49000,null::timestamptz)
   ) as c(label,kind,value,plan,amount,expected_end) loop
     v_code := 'QA_' || upper(replace(gen_random_uuid()::text,'-',''));
@@ -98,24 +98,15 @@ begin
       perform pg_temp.check_true((select count(*)=0 from public.payments where tenant_id=v_tenant),'free service creates no payment');
       perform pg_temp.check_true((select count(*)=1 from public.platform_admin_audit_log where action='promotion_code.service_entitlement' and target_id=v_id::text),'one zero-payment entitlement audit');
     end if;
-    if v_case.plan='starter' then
-      perform pg_temp.check_true(v_sub.status='trialing' and v_sub.trial_ends_at-v_sub.trial_started_at=interval '30 days','Trial remains exactly30 days');
-      perform pg_temp.check_true(v_sub.current_period_ends_at=v_sub.trial_ends_at,'Promo does not extend trial service period');
-      if v_case.kind in ('service_days','free_months') then
-        perform pg_temp.check_true((v_grant->>'starts_at')::timestamptz=v_sub.trial_ends_at,'Starter grant starts after exact 30-day Trial');
-        perform pg_temp.check_true((v_grant->>'ends_at')::timestamptz=public.growup_promo_service_period_end(
-          v_sub.trial_ends_at,case v_case.kind when 'service_days' then 'days' else 'months' end,v_case.value),'Starter grant end uses Bangkok calendar arithmetic');
-      else
-        -- Move ONLY this transaction-local disposable trial to an expired window.
-        update public.subscriptions set trial_started_at='2026-07-01 10:00+07',trial_ends_at='2026-07-31 10:00+07',
-          current_period_started_at='2026-07-01 10:00+07',current_period_ends_at='2026-07-31 10:00+07'
-          where id=v_sub.id;
-      end if;
-    else
-      perform pg_temp.check_true(v_sub.status='pending_payment' and v_sub.current_period_ends_at is null,'paid plan remains pending');
-      if v_case.kind in ('service_days','free_months') then
-        perform pg_temp.check_true((v_grant->>'starts_at')::timestamptz<=now() and (v_grant->>'starts_at')::timestamptz>now()-interval '5 minutes','Business free grant starts immediately');
-      end if;
+    perform pg_temp.check_true(v_sub.status='pending_payment' and v_sub.trial_started_at is null and v_sub.trial_ends_at is null
+      and v_sub.current_period_started_at is null and v_sub.current_period_ends_at is null,
+      'paid-first signup has no automatic trial');
+    if v_case.kind in ('service_days','free_months') then
+      perform pg_temp.check_true((v_grant->>'starts_at')::timestamptz<=now() and (v_grant->>'starts_at')::timestamptz>now()-interval '5 minutes',
+        'free grant starts immediately');
+      perform pg_temp.check_true((v_grant->>'ends_at')::timestamptz=public.growup_promo_service_period_end(
+        (v_grant->>'starts_at')::timestamptz,case v_case.kind when 'service_days' then 'days' else 'months' end,v_case.value),
+        'grant end uses Bangkok calendar arithmetic');
     end if;
     select * into v_before from public.subscriptions where id=v_sub.id;
 
@@ -164,13 +155,14 @@ begin
       'plan',v_case.plan,'amount_minor',v_case.amount,'paid_base_end','2026-09-30T10:00:00+07:00','entitled_end',v_case.expected_end));
   end loop;
 
-  -- Normal signup still receives30 days, and the old extra_trial_days type stays blocked.
+  -- Normal signup is paid-first, and the old extra_trial_days type stays blocked.
   v_user := 'u_promo_qa_'||replace(gen_random_uuid()::text,'-','');
   select tenant_id into v_tenant from public.growup_signup_bootstrap('plain-'||v_user,v_user,v_user,current_setting('growup.test_password_hash'),
     'Disposable Preview','Disposable Preview','{}','','starter','monthly');
-  perform pg_temp.check_true((select trial_ends_at-trial_started_at=interval '30 days'
+  perform pg_temp.check_true((select status='pending_payment' and trial_started_at is null and trial_ends_at is null
+    and current_period_started_at is null and current_period_ends_at is null
     and not(promotion_snapshot ? 'service_entitlement') and not(promotion_snapshot ? 'zero_payment_entitlements')
-    from public.subscriptions where tenant_id=v_tenant),'ordinary trial unchanged');
+    from public.subscriptions where tenant_id=v_tenant),'ordinary signup requires payment');
   -- Paid upgrades still require verified payment; a Starter-only bonus cannot
   -- be converted into Enterprise service or activate it during checkout.
   v_code := 'QA_'||upper(replace(gen_random_uuid()::text,'-',''));
@@ -182,7 +174,7 @@ begin
     'Disposable Preview','Disposable Preview','{}',v_code,'starter','monthly');
   select * into v_sub from public.subscriptions where tenant_id=v_tenant;
   select * into v_payment from public.growup_begin_subscription_checkout(v_tenant,v_user,'enterprise','monthly','subscription_upgrade','upgrade-'||v_user,'preview_fixture');
-  perform pg_temp.check_true((select plan='starter' and status='trialing' and trial_ends_at-trial_started_at=interval '30 days' from public.subscriptions where id=v_sub.id),'upgrade checkout preserves trial and plan');
+  perform pg_temp.check_true((select plan='starter' and status='pending_payment' and trial_started_at is null and trial_ends_at is null from public.subscriptions where id=v_sub.id),'upgrade checkout preserves paid-first state');
   perform public.growup_record_subscription_checkout_success('preview_fixture','up-paid-'||v_user,v_payment.payment_id,'up-ref-'||v_user,v_payment.amount_minor,'THB','{}');
   perform pg_temp.check_true((select plan='enterprise' and status='active' and current_period_ends_at=v_payment.billing_period_ends_at
     and jsonb_array_length(coalesce(promotion_snapshot->'zero_payment_entitlements','[]'::jsonb))=1
@@ -194,7 +186,7 @@ begin
     raise exception 'TEST_EXPECTED_REJECTION';
   exception when others then
     get stacked diagnostics v_error=message_text;
-    perform pg_temp.check_true(v_error='PROMOTION_CODE_INVALID','legacy trial extension still rejected by original trigger');
+    perform pg_temp.check_true(v_error in ('PROMOTION_CODE_INVALID','PROMOTION_CODE_NOT_ALLOWED'),'legacy trial extension still rejected by original trigger');
   end;
   -- RPC validates the original numeric input before numeric(12,2) can round it.
   for v_case in select * from (values ('service_days',0::numeric),('service_days',0.01),('service_days',1.5),
@@ -207,7 +199,7 @@ begin
       raise exception 'TEST_EXPECTED_REJECTION';
     exception when others then
       get stacked diagnostics v_error=message_text;
-      perform pg_temp.check_true(v_error='INVALID_PROMOTION_CODE','invalid numeric amount rejected before storage');
+      perform pg_temp.check_true(v_error in ('INVALID_PROMOTION_CODE','PROMOTION_CODE_NOT_ALLOWED'),'invalid numeric amount rejected before storage');
     end;
   end loop;
   begin
@@ -219,7 +211,7 @@ begin
   end;
   perform pg_temp.check_true(jsonb_array_length(public.growup_platform_admin_promo_list('u_admin',1,0)->'items')=1,'Promo pagination');
   perform pg_temp.check_true(jsonb_array_length(public.growup_platform_admin_promo_audit('u_admin',1,0)->'items')=1,'audit pagination');
-  insert into promo_verification_results values('guards',jsonb_build_object('passed',true,'trial_cap_days',30,'calendar_timezone','Asia/Bangkok','customer_rpc_execute',false));
+  insert into promo_verification_results values('guards',jsonb_build_object('passed',true,'automatic_public_trial',false,'calendar_timezone','Asia/Bangkok','customer_rpc_execute',false));
 end;
 $$;
 

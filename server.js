@@ -37,6 +37,7 @@ const {
   readNotificationReadIds,
   persistNotificationReadIds,
   validatePromotionCode,
+  quoteSignupPromotion,
   beginSubscriptionPayment,
   beginSubscriptionCheckout,
   beginSubscriptionUpgrade,
@@ -629,6 +630,10 @@ function normalizePromotionCodeInput(value = "") {
 function safePromotionError(code = "") {
   if (code === "PROMOTION_CODE_EXPIRED") return "โค้ดโปรโมชั่นนี้หมดอายุแล้ว";
   if (code === "PROMOTION_CODE_EXHAUSTED") return "โค้ดโปรโมชั่นนี้ถูกใช้ครบจำนวนแล้ว";
+  if (code === "PROMOTION_CODE_PAYMENT_REQUIRED") return "โค้ดส่วนลดนี้ยังต้องชำระเงินตามยอดหลังหักส่วนลด";
+  if (code === "PROMOTION_CODE_NOT_ALLOWED") return "โค้ดโปรโมชั่นประเภทนี้ไม่รองรับในระบบสมัครใช้งานปัจจุบัน";
+  if (code === "PROMOTION_CODE_NEW_CUSTOMERS_ONLY") return "โค้ดโปรโมชั่นนี้ใช้ได้เฉพาะลูกค้าใหม่";
+  if (code === "PROMOTION_CODE_EXISTING_CUSTOMERS_ONLY") return "โค้ดโปรโมชั่นนี้ใช้ได้เฉพาะลูกค้าเดิม";
   return "โค้ดโปรโมชั่นไม่ถูกต้องหรือไม่สามารถใช้กับแพ็กเกจนี้ได้";
 }
 
@@ -5272,9 +5277,12 @@ async function handleApi(req, res) {
         return json(res, 400, {
           ok: false,
           code: "PROMOTION_CODE_INVALID",
-          error: "โค้ดนี้ไม่สามารถขยายช่วงทดลองใช้ฟรี 30 วันได้"
+          error: "โค้ดประเภทนี้ไม่รองรับในระบบสมัครใช้งานปัจจุบัน"
         });
       }
+      const quote = typeof quoteSignupPromotion === "function"
+        ? await quoteSignupPromotion({ promotionCode, selectedPlan, selectedBilling })
+        : null;
       return json(res, 200, {
         ok: true,
         promotion: {
@@ -5283,12 +5291,22 @@ async function handleApi(req, res) {
           selectedPlan: result.selectedPlan,
           selectedBilling: result.selectedBilling,
           benefitType: result.benefitType,
-          benefitDescription: result.benefitDescription
+          benefitDescription: result.benefitDescription,
+          ...(quote ? {
+            mode: String(quote.mode || "payment"),
+            baseAmountMinor: Number(quote.base_amount_minor || 0),
+            discountAmountMinor: Number(quote.discount_amount_minor || 0),
+            amountDueMinor: Number(quote.amount_minor || 0),
+            definitionVersion: String(quote.definition_version || "")
+          } : {})
         }
       });
     } catch (error) {
       if (error.code === "SIGNUP_PROVIDER_UNSUPPORTED") {
         return json(res, 503, { ok: false, error: "ระบบโปรโมชั่นยังไม่พร้อมใช้งาน" });
+      }
+      if (["PROMOTION_CODE_INVALID", "PROMOTION_CODE_NOT_ALLOWED", "PROMOTION_CODE_EXPIRED", "PROMOTION_CODE_EXHAUSTED", "PROMOTION_CODE_PAYMENT_REQUIRED"].includes(String(error.code || ""))) {
+        return json(res, 400, { ok: false, code: error.code, error: safePromotionError(error.code) });
       }
       console.error("Promotion validation failed", error);
       return json(res, 500, { ok: false, error: "ตรวจสอบโค้ดโปรโมชั่นไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" });

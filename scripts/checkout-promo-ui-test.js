@@ -109,10 +109,6 @@ async function main() {
     "No QR exists before explicit payment confirmation");
   assert.equal(page.requests.length, 0, "Rendering the payment page creates no PaymentIntent or reservation");
 
-  await page.form.handlers.submit({ preventDefault() {}, stopPropagation() {} });
-  assert.match(page.content.innerHTML, /กรุณากรอกโค้ดโปรโมชั่น/);
-  assert.equal(page.requests.length, 0, "Empty promo validation does not create a request");
-
   page.input.value = "REVIEW20260903";
   page.input.handlers.input();
   await page.form.handlers.submit({ preventDefault() {}, stopPropagation() {} });

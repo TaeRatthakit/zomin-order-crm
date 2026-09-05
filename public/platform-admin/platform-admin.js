@@ -277,15 +277,27 @@
   function healthPage(snapshot) { const services = [[homeCardIcons.health, "LINE", snapshot.home.health.line], [homeCardIcons.payments, "Stripe", snapshot.home.health.stripe], [homeCardIcons.health, "Supabase", snapshot.home.health.supabase], [homeCardIcons.companies, "Production", "ควรตรวจสอบ"]]; return `${pageHead("สถานะระบบ", "ตรวจสอบแบบอ่านอย่างเดียว · ไม่ส่ง event ไม่สร้างธุรกรรม") }<div class="pa-panel pa-health-panel"><ul class="pa-health-list">${services.map(([icon, name, status]) => `<li><span class="pa-health-icon">${icon}</span><span class="pa-health-name"><strong>${name}</strong><small>last successful check</small></span><span class="pa-status ${statusClass(status)}">${status}</span><span class="pa-muted">ไม่มีข้อมูลเวลา</span></li>`).join("")}</ul><div class="pa-note">ไม่แสดง secret/token ใด ๆ และไม่ทำ active probe ที่อาจกระทบ Payment หรือ LINE</div></div>`; }
 
   function promoTypeLabel(type) {
-    return ({ percentage: "เปอร์เซ็นต์", fixed_thb: "ลดเป็น THB", free_days: "ฟรี X วัน", free_months: "ฟรี X เดือน" })[type] || type || "—";
+    return ({ percentage: "เปอร์เซ็นต์", fixed_thb: "ลดเป็น THB", free_days: "สิทธิ์ใช้งานฟรี X วัน", free_months: "สิทธิ์ใช้งานฟรี X เดือน" })[type] || type || "—";
+  }
+
+  function promoBillingLabel(values) {
+    const billing = Array.isArray(values) ? values : [];
+    if (billing.includes("monthly") && billing.includes("yearly")) return "รายเดือน + รายปี";
+    if (billing.includes("monthly")) return "รายเดือน";
+    if (billing.includes("yearly")) return "รายปี";
+    return "—";
+  }
+
+  function promoCustomerScopeLabel(value) {
+    return ({ new: "ลูกค้าใหม่", existing: "ลูกค้าเดิม", both: "ลูกค้าใหม่ + ลูกค้าเดิม" })[String(value || "").toLowerCase()] || "ลูกค้าใหม่ + ลูกค้าเดิม";
   }
 
   function promoValueFieldConfig(type) {
     return ({
       percentage: { label: "ส่วนลด (%)", placeholder: "เช่น 10", min: "0.01", max: "100", step: "0.01", inputmode: "decimal", message: "กรุณาระบุส่วนลดมากกว่า 0 และไม่เกิน 100%" },
       fixed_thb: { label: "ส่วนลด (บาท)", placeholder: "เช่น 500", min: "0.01", max: "", step: "0.01", inputmode: "decimal", message: "กรุณาระบุจำนวนเงินมากกว่า 0 บาท" },
-      free_days: { label: "จำนวนวัน", placeholder: "เช่น 7", min: "1", max: "", step: "1", inputmode: "numeric", message: "กรุณาระบุจำนวนวันเป็นจำนวนเต็มอย่างน้อย 1 วัน" },
-      free_months: { label: "จำนวนเดือน", placeholder: "เช่น 1", min: "1", max: "", step: "1", inputmode: "numeric", message: "กรุณาระบุจำนวนเดือนเป็นจำนวนเต็มอย่างน้อย 1 เดือน" }
+      free_days: { label: "จำนวนวันใช้งานฟรี", placeholder: "เช่น 7", min: "1", max: "", step: "1", inputmode: "numeric", message: "กรุณาระบุจำนวนวันเป็นจำนวนเต็มอย่างน้อย 1 วัน" },
+      free_months: { label: "จำนวนเดือนใช้งานฟรี", placeholder: "เช่น 1", min: "1", max: "", step: "1", inputmode: "numeric", message: "กรุณาระบุจำนวนเดือนเป็นจำนวนเต็มอย่างน้อย 1 เดือน" }
     })[type] || null;
   }
 
@@ -320,7 +332,7 @@
     if (state.promoError && !state.promos.length) return `<div class="pa-empty">${escapeHtml(state.promoError)}</div>`;
     if (!state.promos.length) return `<div class="pa-empty">ยังไม่มี Promo</div>`;
     const actionHeader = state.promoWriteEnabled ? "<th>จัดการ</th>" : "";
-    const table = `<div class="pa-table-wrap"><table class="pa-table"><thead><tr><th>Code</th><th>ส่วนลด</th><th>ประเภท</th><th>ใช้แล้ว / จำกัด</th><th>หมดอายุ</th><th>สถานะ</th>${actionHeader}</tr></thead><tbody>${state.promos.map(promo => `<tr><td><strong>${display(promo.code)}</strong><br><small class="pa-muted">${display(promo.description)}</small></td><td>${number(promo.value)}</td><td>${escapeHtml(promoTypeLabel(promo.type))}</td><td>${number(promo.usedCount)} / ${promo.usageLimit === null ? "ไม่จำกัด" : number(promo.usageLimit)}</td><td>${promo.noExpiry ? "ไม่หมดอายุ" : dateLabel(String(promo.expiresAt || "").slice(0, 10))}</td><td><span class="pa-status ${statusClass(promo.status)}">${display(promo.status)}</span></td>${state.promoWriteEnabled ? `<td><div class="pa-promo-actions"><button class="pa-table-action" type="button" data-edit-promo="${escapeHtml(promo.id)}">แก้ไข</button><button class="pa-table-action ${promo.active ? "danger" : ""}" type="button" data-promo-status="${escapeHtml(promo.id)}" data-active="${promo.active ? "false" : "true"}">${promo.active ? "ปิดใช้งาน" : "เปิดใช้งาน"}</button></div></td>` : ""}</tr>`).join("")}</tbody></table></div>`;
+    const table = `<div class="pa-table-wrap"><table class="pa-table"><thead><tr><th>Code</th><th>ส่วนลด</th><th>ประเภท</th><th>รอบบิล</th><th>กลุ่มลูกค้า</th><th>Source / Campaign</th><th>ใช้แล้ว / จำกัด</th><th>หมดอายุ</th><th>สถานะ</th>${actionHeader}</tr></thead><tbody>${state.promos.map(promo => `<tr><td><strong>${display(promo.code)}</strong><br><small class="pa-muted">${display(promo.description)}</small></td><td>${number(promo.value)}</td><td>${escapeHtml(promoTypeLabel(promo.type))}</td><td>${escapeHtml(promoBillingLabel(promo.applicableBilling))}</td><td>${escapeHtml(promoCustomerScopeLabel(promo.customerScope))}</td><td>${display(promo.sourceCampaign)}</td><td>${number(promo.usedCount)} / ${promo.usageLimit === null ? "ไม่จำกัด" : number(promo.usageLimit)}</td><td>${promo.noExpiry ? "ไม่หมดอายุ" : dateLabel(String(promo.expiresAt || "").slice(0, 10))}</td><td><span class="pa-status ${statusClass(promo.status)}">${display(promo.status)}</span></td>${state.promoWriteEnabled ? `<td><div class="pa-promo-actions"><button class="pa-table-action" type="button" data-edit-promo="${escapeHtml(promo.id)}">แก้ไข</button><button class="pa-table-action ${promo.active ? "danger" : ""}" type="button" data-promo-status="${escapeHtml(promo.id)}" data-active="${promo.active ? "false" : "true"}">${promo.active ? "ปิดใช้งาน" : "เปิดใช้งาน"}</button></div></td>` : ""}</tr>`).join("")}</tbody></table></div>`;
     const more = state.promoHasMore ? `<div class="pa-pagination"><span>แสดง ${number(state.promos.length)} รายการ</span><button class="pa-button secondary" type="button" data-promo-load-more ${state.promoLoadingMore ? "disabled" : ""}>${state.promoLoadingMore ? "กำลังโหลด…" : "โหลดเพิ่ม"}</button></div>` : "";
     return `${table}${more}`;
   }
@@ -335,10 +347,11 @@
 
   function promoPage() {
     const editing = state.promos.find(item => item.id === state.promoEditingId) || null;
-    const form = editing || { code: "", type: "percentage", value: "", usageLimit: null, usagePerCompany: 1, description: "", startsAt: "", expiresAt: "", noExpiry: true, newCustomersOnly: false, plans: ["starter", "business", "enterprise"] };
+    const form = editing || { code: "", type: "percentage", value: "", usageLimit: null, usagePerCompany: 1, description: "", startsAt: "", expiresAt: "", noExpiry: true, customerScope: "both", plans: ["starter", "business", "enterprise"], applicableBilling: ["monthly", "yearly"], sourceCampaign: "" };
     const kpis = state.promoKpis || { active: null, used: null, total: null };
     const selected = value => form.type === value ? "selected" : "";
     const checked = value => form.plans.includes(value) ? "checked" : "";
+    const billingChecked = value => (Array.isArray(form.applicableBilling) ? form.applicableBilling : ["monthly", "yearly"]).includes(value) ? "checked" : "";
     const disabled = state.promoSaving || !state.promoWriteEnabled ? "disabled" : "";
     const environmentLabel = state.promoStorage === "production-supabase" ? "ข้อมูลจาก Production Supabase" : state.promoStorage === "preview-supabase" ? "ข้อมูลจาก Preview Supabase" : "แหล่งข้อมูล Promo ยังไม่พร้อม";
     const readOnlyNotice = !state.promoWriteEnabled ? `<div class="pa-note">หน้านี้เป็นแบบอ่านอย่างเดียว — การสร้าง แก้ไข และเปิด/ปิดใช้งาน Promo ถูกปิดไว้ในสภาพแวดล้อมนี้</div>` : "";
@@ -356,8 +369,10 @@
         <div class="pa-field"><label>หมดอายุ</label><input name="expiresAt" type="date" value="${escapeHtml(String(form.expiresAt || "").slice(0, 10))}" ${form.noExpiry ? "disabled" : disabled}></div>
         <div class="pa-field"><label>จำนวนครั้งที่ใช้ได้ต่อบริษัท</label><input name="usagePerCompany" inputmode="numeric" placeholder="ไม่จำกัด" value="${form.usagePerCompany === null ? "" : escapeHtml(form.usagePerCompany)}" ${disabled}></div>
         <div class="pa-field pa-promo-plans"><label>แพ็กเกจ</label><span><label><input type="checkbox" name="plans" value="starter" ${checked("starter")} ${disabled}> Starter</label><label><input type="checkbox" name="plans" value="business" ${checked("business")} ${disabled}> Business</label><label><input type="checkbox" name="plans" value="enterprise" ${checked("enterprise")} ${disabled}> Enterprise</label></span></div>
+        <div class="pa-field pa-promo-billing"><label>รอบบิลที่ใช้ได้</label><span><label><input type="checkbox" name="billing" value="monthly" ${billingChecked("monthly")} ${disabled}> รายเดือน</label><label><input type="checkbox" name="billing" value="yearly" ${billingChecked("yearly")} ${disabled}> รายปี</label></span></div>
+        <div class="pa-field"><label>Source / Campaign</label><input name="sourceCampaign" maxlength="200" placeholder="เช่น OWNER_PRODUCTION_REVIEW" value="${escapeHtml(form.sourceCampaign)}" ${disabled}></div>
         <label class="pa-switch"><input name="noExpiry" type="checkbox" ${form.noExpiry ? "checked" : ""} ${disabled}> ไม่หมดอายุ</label>
-        <label class="pa-switch"><input name="newCustomersOnly" type="checkbox" ${form.newCustomersOnly ? "checked" : ""} ${disabled}> ลูกค้าใหม่เท่านั้น</label>
+        <div class="pa-field"><label>กลุ่มลูกค้าที่ใช้ได้</label><select name="customerScope" ${disabled}><option value="new" ${form.customerScope === "new" ? "selected" : ""}>ลูกค้าใหม่เท่านั้น</option><option value="existing" ${form.customerScope === "existing" ? "selected" : ""}>ลูกค้าเดิมเท่านั้น</option><option value="both" ${form.customerScope === "both" ? "selected" : ""}>ลูกค้าใหม่และลูกค้าเดิม</option></select></div>
         <div class="pa-promo-form-actions"><button class="pa-button" type="submit" ${disabled}>${state.promoSaving ? "กำลังบันทึก…" : editing ? "บันทึกการแก้ไข" : "บันทึก Promo"}</button>${editing ? `<button class="pa-button secondary" type="button" data-cancel-promo-edit>ยกเลิก</button>` : ""}</div>
       </form></div>
       <div class="pa-panel pa-promo-table-panel"><div class="pa-section-head"><div><h2>รายการ Promo</h2><p class="pa-panel-subtitle">การปิดใช้งานไม่ลบ redemption เดิม</p></div></div><div data-promo-list>${listContent}</div></div>
@@ -574,8 +589,10 @@
       const formData = new FormData(form);
       const data = Object.fromEntries(formData.entries());
       data.plans = formData.getAll("plans");
+      data.applicableBilling = formData.getAll("billing");
+      if (!data.applicableBilling.length) { showToast("กรุณาเลือกอย่างน้อย 1 รอบบิล"); return; }
       data.noExpiry = Boolean(form.noExpiry.checked);
-      data.newCustomersOnly = Boolean(form.newCustomersOnly.checked);
+      data.customerScope = String(form.customerScope?.value || "both");
       const promoId = String(form.dataset.promoId || "");
       state.promoSaving = true;
       refreshPromoView(state.routeToken);

@@ -126,8 +126,9 @@ function promotionBenefitDescription(promo) {
   const value = Number(promo?.benefit_value || 0);
   if (promo?.benefit_type === "percent_discount") return `ลด ${value}%`;
   if (promo?.benefit_type === "fixed_amount_discount") return `ลด ฿${value}`;
-  if (promo?.benefit_type === "extra_trial_days") return `เพิ่มระยะทดลองใช้ฟรี ${value} วัน`;
-  if (promo?.benefit_type === "free_months") return `ใช้ฟรีเพิ่ม ${value} เดือน`;
+  if (promo?.benefit_type === "extra_trial_days") return "โค้ดประเภทนี้ไม่รองรับในระบบสมัครใช้งานปัจจุบัน";
+  if (promo?.benefit_type === "service_days") return `สิทธิ์ใช้งานฟรี ${value} วัน`;
+  if (promo?.benefit_type === "free_months") return `สิทธิ์ใช้งานฟรี ${value} เดือน`;
   return "";
 }
 
@@ -151,6 +152,11 @@ function validatePromotionRule(payload = {}) {
   }
   const promo = db.promotion_codes.find(row => normalizePromotionCode(row.code) === code);
   if (!promo || !promo.active) return invalid("PROMOTION_CODE_INVALID");
+  const customerScope = ["new", "existing", "both"].includes(String(promo.customer_scope || "").toLowerCase())
+    ? String(promo.customer_scope).toLowerCase()
+    : (promo.new_customer_only ? "new" : "both");
+  if (!tenantId && customerScope === "existing") return invalid("PROMOTION_CODE_EXISTING_CUSTOMERS_ONLY");
+  if (tenantId && customerScope === "new") return invalid("PROMOTION_CODE_NEW_CUSTOMERS_ONLY");
   const now = new Date("2026-08-11T00:00:00.000Z").getTime();
   if ((promo.starts_at && new Date(promo.starts_at).getTime() > now) || (promo.ends_at && new Date(promo.ends_at).getTime() < now)) {
     return invalid("PROMOTION_CODE_EXPIRED");
@@ -174,6 +180,31 @@ function validatePromotionRule(payload = {}) {
     benefit_description: promotionBenefitDescription(promo),
     reason: null
   }];
+}
+
+function quoteSignupPromotion(payload = {}) {
+  const result = validatePromotionRule(payload)[0];
+  if (!result.valid) return rpcError(result.reason);
+  const prices = {
+    starter: { monthly: 49000, yearly: 490000 },
+    business: { monthly: 99000, yearly: 990000 },
+    enterprise: { monthly: 199000, yearly: 1990000 }
+  };
+  const base = prices[result.selected_plan]?.[result.selected_billing];
+  const promo = db.promotion_codes.find(row => normalizePromotionCode(row.code) === result.code);
+  const discount = promo.benefit_type === "percent_discount"
+    ? Math.min(base, Math.round(base * Number(promo.benefit_value) / 100))
+    : promo.benefit_type === "fixed_amount_discount"
+      ? Math.min(base, Math.round(Number(promo.benefit_value) * 100))
+      : 0;
+  const service = ["service_days", "free_months"].includes(promo.benefit_type);
+  return new Response(JSON.stringify({
+    mode: service ? "free_service" : "payment",
+    base_amount_minor: base,
+    discount_amount_minor: service ? 0 : discount,
+    amount_minor: service ? 0 : base - discount,
+    definition_version: "test-definition"
+  }), { status: 200 });
 }
 
 function signupCounts() {
@@ -274,6 +305,9 @@ global.fetch = async function mockFetch(input, options = {}) {
   }
   if (parts.at(-2) === "rpc" && parts.at(-1) === "growup_validate_promotion_code") {
     return new Response(JSON.stringify(validatePromotionRule(JSON.parse(options.body || "{}"))), { status: 200 });
+  }
+  if (parts.at(-2) === "rpc" && parts.at(-1) === "growup_quote_signup_promotion") {
+    return quoteSignupPromotion(JSON.parse(options.body || "{}"));
   }
   const table = parts.at(-1);
   if (!Object.prototype.hasOwnProperty.call(db, table)) {
@@ -446,7 +480,7 @@ async function login(username, password = "pass12345") {
 
     for (const [promotionCode, selectedPlan, selectedBilling, expectedDescription] of [
       ["fixed300", "business", "monthly", "ลด ฿300"],
-      ["month1", "enterprise", "yearly", "ใช้ฟรีเพิ่ม 1 เดือน"]
+      ["month1", "enterprise", "yearly", "สิทธิ์ใช้งานฟรี 1 เดือน"]
     ]) {
       const benefitTypePromo = await request("/api/signup/promotion-code", {
         method: "POST",

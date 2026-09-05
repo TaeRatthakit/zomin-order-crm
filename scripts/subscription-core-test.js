@@ -191,7 +191,6 @@ function signupBootstrap(payload = {}) {
     if (promo?.benefit_type === "extra_trial_days") throw new Error("PROMOTION_CODE_INVALID");
     if (promo?.benefit_type === "free_months") freeMonths = Math.max(0, Math.floor(Number(promo.benefit_value)));
     const now = new Date();
-    const trialEnds = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
     db.subscriptions.push({
       id: crypto.randomUUID(),
       tenant_id: tenantId,
@@ -199,7 +198,7 @@ function signupBootstrap(payload = {}) {
       is_initial: true,
       plan: selectedPlan,
       billing_interval: selectedBilling,
-      status: selectedPlan === "starter" ? "trialing" : "pending_payment",
+      status: "pending_payment",
       currency: "THB",
       base_amount_minor: base,
       discount_amount_minor: discount,
@@ -213,12 +212,12 @@ function signupBootstrap(payload = {}) {
       promotion_applicable_billing: promo?.applicable_billing || null,
       extra_trial_days: extraTrialDays,
       free_months: freeMonths,
-      trial_started_at: selectedPlan === "starter" ? now.toISOString() : null,
-      trial_ends_at: selectedPlan === "starter" ? trialEnds.toISOString() : null,
-      current_period_started_at: selectedPlan === "starter" ? now.toISOString() : null,
-      current_period_ends_at: selectedPlan === "starter" ? trialEnds.toISOString() : null,
-      next_renewal_at: selectedPlan === "starter" ? trialEnds.toISOString() : null,
-      payment_due_at: selectedPlan === "starter" ? trialEnds.toISOString() : now.toISOString(),
+      trial_started_at: null,
+      trial_ends_at: null,
+      current_period_started_at: null,
+      current_period_ends_at: null,
+      next_renewal_at: null,
+      payment_due_at: now.toISOString(),
       promotion_snapshot: promo ? { base_amount_minor: base, discount_amount_minor: discount, amount_due_minor: base - discount, extra_trial_days: extraTrialDays, free_months: freeMonths } : {}
     });
     db.signup_bootstraps.push({ idempotency_key: key, username, user_id: userId, tenant_id: tenantId, status: "completed" });
@@ -331,8 +330,8 @@ function assertSubscription(row, expected) {
   ]) assert(migration.includes(token), `subscription migration missing ${token}`);
 
   const cases = [
-    ["starter_m", "starter", "monthly", "trialing", 49000],
-    ["starter_y", "starter", "yearly", "trialing", 490000],
+    ["starter_m", "starter", "monthly", "pending_payment", 49000],
+    ["starter_y", "starter", "yearly", "pending_payment", 490000],
     ["business_m", "business", "monthly", "pending_payment", 99000],
     ["business_y", "business", "yearly", "pending_payment", 990000],
     ["enterprise_m", "enterprise", "monthly", "pending_payment", 199000],
@@ -343,17 +342,12 @@ function assertSubscription(row, expected) {
     assert(res.status === 200, `${name} signup failed: ${res.status} ${res.text}`);
     const sub = subscriptionForTenant(res.json().user.tenantId);
     assertSubscription(sub, { plan, billing_interval: billing, status, base_amount_minor: base, discount_amount_minor: 0, amount_due_minor: base });
-    if (plan === "starter") {
-      const trialDays = Math.round((new Date(sub.trial_ends_at) - new Date(sub.trial_started_at)) / (24 * 60 * 60 * 1000));
-      assert(trialDays === 30, `${name} starter trial expected 30 days, got ${trialDays}`);
-    } else {
-      assert(!sub.trial_started_at && !sub.trial_ends_at, `${name} paid plan must not start Starter trial`);
-    }
+    assert(!sub.trial_started_at && !sub.trial_ends_at, `${name} signup must not start a public trial`);
   }
 
   const defaultPlan = await signup({ username: "default@example.com", plan: "", billing: "", signupRequestId: "sub-default" });
   assert(defaultPlan.status === 200, `default signup failed: ${defaultPlan.text}`);
-  assertSubscription(subscriptionForTenant(defaultPlan.json().user.tenantId), { plan: "starter", billing_interval: "monthly", status: "trialing", base_amount_minor: 49000, discount_amount_minor: 0, amount_due_minor: 49000 });
+  assertSubscription(subscriptionForTenant(defaultPlan.json().user.tenantId), { plan: "starter", billing_interval: "monthly", status: "pending_payment", base_amount_minor: 49000, discount_amount_minor: 0, amount_due_minor: 49000 });
 
   for (const [label, extra] of [
     ["bad plan", { landingSelectedPlan: "pro", landingSelectedBilling: "monthly" }],

@@ -49,12 +49,10 @@ begin
       g:=sub.promotion_snapshot->'zero_payment_entitlements'->0;
       perform pg_temp.assert_true(g->>'source'='promotion_zero_payment','Signup same entitlement model');
       perform pg_temp.assert_true(sub.extra_trial_days=0 and not(sub.promotion_snapshot ? 'service_entitlement'),'no legacy paid-bonus/extra Trial');
-      if plan='starter' then
-        perform pg_temp.assert_true(sub.status='trialing' and sub.trial_ends_at-sub.trial_started_at=interval '30 days','Signup Trial still 30 days');
-        perform pg_temp.assert_true((g->>'starts_at')::timestamptz=sub.trial_ends_at,'free service follows capped Trial separately');
-      else
-        perform pg_temp.assert_true(sub.status='pending_payment' and (g->>'starts_at')::timestamptz=now(),'base pending, free access immediate');
-      end if;
+      perform pg_temp.assert_true(sub.status='pending_payment' and sub.trial_started_at is null and sub.trial_ends_at is null,
+        'signup is paid-first with no automatic trial');
+      perform pg_temp.assert_true((g->>'starts_at')::timestamptz<=now() and (g->>'starts_at')::timestamptz>now()-interval '5 minutes',
+        'free access starts immediately');
       perform pg_temp.assert_true((select count(*)=0 from public.payments where tenant_id=signup_tenant),'Signup no fake payment');
       insert into zero_promo_results values('signup/'||c.kind||'/'||plan,jsonb_build_object('passed',true,'start',g->>'starts_at','end',g->>'ends_at','payments',0));
     end loop;

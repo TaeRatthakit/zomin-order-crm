@@ -41,7 +41,7 @@ const PAGE_PATTERNS = {
     /จัดการลูกค้า/i, /จัดการออเดอร์/i, /ติดตามโอกาสเพิ่มยอดขาย/i,
     /รายงานธุรกิจ/i, /จัดการต้นทุนและกำไร/i, /สิทธิ์ Owner \/ Admin \/ Staff/i,
     /แผนเริ่มต้นสำหรับเจ้าของธุรกิจที่ต้องการจัดการงานขายอย่างเป็นระบบ/i,
-    /ทดลองใช้ฟรี 30 วัน/i, /ทดลองใช้งานฟรี 30 วัน/i,
+    /ทดลองใช้ฟรี 30 วัน/i, /ทดลองใช้งานฟรี 30 วัน/i, /ทดลองฟรี 30 วัน/i, /เริ่มใช้ฟรี 30 วัน/i,
     /รายงานยอดขายและกำไร/i, /จัดการต้นทุนและค่าใช้จ่าย/i,
     /สิทธิ์การใช้งาน Owner, Admin, Staff/i,
     /ทุกอย่างใน Starter พร้อม/i, /ทุกอย่างใน Business พร้อม/i,
@@ -247,6 +247,7 @@ function authenticatedPricingRangesFor(file, revision) {
           "authenticatedCurrentPlan",
           "authenticatedRecommendedPlan",
           "subscriptionExpirationText",
+          "renderSubscriptionExpiryWarning",
           "renderPricing"
         ]),
         ...markerRanges(contents, "pricing-scope: authenticated-upgrade-state:start", "pricing-scope: authenticated-upgrade-state:end"),
