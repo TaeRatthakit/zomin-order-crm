@@ -1,10 +1,12 @@
 "use strict";
 
 const { execFileSync } = require("child_process");
+const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
 
 const MANIFEST_PATH = process.env.UI_BASELINE_MANIFEST || "ui-baselines/current/manifest.json";
+const APPROVED_CHANGE_MANIFEST_PATH = process.env.UI_APPROVED_CHANGE_MANIFEST || "ui-baselines/approved-change-manifest.json";
 const SOURCE_COMPARE_REF = process.env.UI_SOURCE_COMPARE_REF || "";
 const INVALID_SOURCE_REFS = new Set(["ui-baseline-current", "ui-baseline-invalid-9297873"]);
 const VISUAL_BASELINE_REF = /^ui-visual-baseline-/;
@@ -103,8 +105,120 @@ function runGit(args, allowEmpty = false) {
 }
 
 function sha256(file) {
-  const crypto = require("crypto");
   return crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex");
+}
+
+function loadApprovedChangeManifest() {
+  if (!fs.existsSync(APPROVED_CHANGE_MANIFEST_PATH)) return null;
+  try {
+    return JSON.parse(fs.readFileSync(APPROVED_CHANGE_MANIFEST_PATH, "utf8"));
+  } catch (error) {
+    return { invalid: `cannot parse ${APPROVED_CHANGE_MANIFEST_PATH}: ${error.message}` };
+  }
+}
+
+function textSha256(value) {
+  return crypto.createHash("sha256").update(value).digest("hex");
+}
+
+function parseDiffRecords(diff) {
+  const records = [];
+  let file = "";
+  let oldLine = 0;
+  let newLine = 0;
+  for (const line of diff.split("\n")) {
+    const fileMatch = line.match(/^diff --git a\/(.+?) b\/(.+)$/);
+    if (fileMatch) {
+      file = fileMatch[2];
+      continue;
+    }
+    const hunkMatch = line.match(/^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
+    if (hunkMatch) {
+      oldLine = Number(hunkMatch[1]);
+      newLine = Number(hunkMatch[2]);
+      continue;
+    }
+    if (!/^[+-](?![+-])/.test(line)) {
+      if (!line.startsWith("\\") && line && oldLine && newLine) {
+        oldLine += 1;
+        newLine += 1;
+      }
+      continue;
+    }
+    const sign = line[0];
+    const record = { file, sign, line: sign === "+" ? newLine : oldLine, text: line.slice(1) };
+    records.push(record);
+    if (sign === "+") newLine += 1;
+    if (sign === "-") oldLine += 1;
+  }
+  return records;
+}
+
+function diffRecordKey(record) {
+  return JSON.stringify([record.file, record.sign, record.line, record.text]);
+}
+
+function verifyApprovedChangeManifest(files, diff) {
+  const manifest = loadApprovedChangeManifest();
+  if (!manifest) return { configured: false };
+  if (manifest.invalid) return { configured: true, ok: false, reason: manifest.invalid };
+
+  const actualBase = SOURCE_COMPARE_REF || runGit(["rev-parse", "HEAD"]);
+  if (manifest.base?.sourceCommit !== actualBase) {
+    return {
+      configured: true,
+      ok: false,
+      reason: `base commit mismatch: expected ${manifest.base?.sourceCommit || "unset"}, got ${actualBase}`
+    };
+  }
+
+  const allowedFiles = [...new Set(manifest.allowedFiles || [])].sort();
+  const actualFiles = [...new Set(files)].sort();
+  if (JSON.stringify(actualFiles) !== JSON.stringify(allowedFiles)) {
+    return {
+      configured: true,
+      ok: false,
+      reason: `changed UI files do not exactly match the approved manifest: expected ${allowedFiles.join(", ") || "none"}, got ${actualFiles.join(", ") || "none"}`
+    };
+  }
+
+  const actualDiffHash = textSha256(diff);
+  if (actualDiffHash !== manifest.expectedDiffSha256) {
+    return {
+      configured: true,
+      ok: false,
+      reason: `exact approved diff hash mismatch: expected ${manifest.expectedDiffSha256 || "unset"}, got ${actualDiffHash}`
+    };
+  }
+
+  const expectedTextChanges = Array.isArray(manifest.expectedTextChanges) ? manifest.expectedTextChanges : [];
+  if (!expectedTextChanges.length) {
+    return { configured: true, ok: false, reason: "approved manifest has no expected text changes" };
+  }
+  for (const change of expectedTextChanges) {
+    if (!change.route || !change.component || !change.from || !change.to) {
+      return { configured: true, ok: false, reason: "approved manifest contains an incomplete text-change assertion" };
+    }
+    const records = parseDiffRecords(diff);
+    const removedCount = records.filter(record => record.sign === "-" && record.text.includes(change.from)).length;
+    const addedCount = records.filter(record => record.sign === "+" && record.text.includes(change.to)).length;
+    if (removedCount < Number(change.minimumRemoved || 1) || addedCount < Number(change.minimumAdded || 1)) {
+      return { configured: true, ok: false, reason: `approved text change is absent or incomplete for ${change.component}` };
+    }
+  }
+
+  const expectedRecords = Array.isArray(manifest.expectedDiffLines) ? manifest.expectedDiffLines : [];
+  const actualRecords = parseDiffRecords(diff);
+  if (JSON.stringify(actualRecords) !== JSON.stringify(expectedRecords)) {
+    return { configured: true, ok: false, reason: "exact approved diff records do not match the manifest" };
+  }
+
+  return {
+    configured: true,
+    ok: true,
+    manifest,
+    approvedRecordKeys: new Set(expectedRecords.map(diffRecordKey))
+  };
 }
 
 function loadBaselineAssets() {
@@ -300,7 +414,7 @@ function pathMatchesScope(file) {
     || (SCOPE.includes("global") && lineMatchesScope(file, "global"));
 }
 
-function classifyOutOfScope(diff) {
+function classifyOutOfScope(diff, approvedRecordKeys = new Set()) {
   let activeBlockIsInScope = false;
   let activeBlockDepth = 0;
   const outOfScope = [];
@@ -328,11 +442,13 @@ function classifyOutOfScope(diff) {
     }
     const sign = line[0];
     const lineNumber = sign === "+" ? newLine : oldLine;
+    const approvedByManifest = approvedRecordKeys.has(diffRecordKey({ file, sign, line: lineNumber, text: line.slice(1) }));
     if (sign === "+") newLine += 1;
     if (sign === "-") oldLine += 1;
     if (!line.slice(1).trim()) continue;
     const lineIsInScope = SCOPE.some(scope => lineMatchesScope(line, scope))
       || (SCOPE.includes("global") && lineMatchesScope(line, "global"))
+      || approvedByManifest
       || lineIsInsideAuthenticatedPricing(file, sign, lineNumber)
       || lineIsInsideSettingsSubscription(file, sign, lineNumber);
     if (line.includes("{")) {
@@ -391,7 +507,12 @@ function main() {
 
   const textUiFiles = uiFiles.filter(file => TEXT_UI_RE.test(file));
   const diff = diffFor(textUiFiles);
-  const outOfScope = classifyOutOfScope(diff);
+  const approvedManifest = verifyApprovedChangeManifest(uiFiles, diff);
+  if (approvedManifest.configured && !approvedManifest.ok) {
+    console.error(`UI regression guard failed: ${approvedManifest.reason}`);
+    process.exit(1);
+  }
+  const outOfScope = classifyOutOfScope(diff, approvedManifest.approvedRecordKeys);
   if (outOfScope.length) {
     console.error(`UI regression guard failed: ${outOfScope.length} changed UI line(s) did not match scope ${SCOPE.join(", ")}.`);
     console.error(outOfScope.slice(0, 80).join("\n"));
@@ -399,7 +520,11 @@ function main() {
     process.exit(1);
   }
 
-  console.log(`UI regression guard passed for scope ${SCOPE.join(", ")}.`);
+  if (approvedManifest.configured) {
+    console.log(`Approved intentional UI diff passed: ${approvedManifest.manifest.id}`);
+  } else {
+    console.log(`UI regression guard passed for scope ${SCOPE.join(", ")}.`);
+  }
   console.log(uiFiles.map(file => `- ${file}`).join("\n"));
 }
 

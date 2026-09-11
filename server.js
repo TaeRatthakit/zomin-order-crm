@@ -495,12 +495,16 @@ function booleanEnv(value, fallback = false) {
   return ["1", "true", "yes", "on"].includes(String(value).toLowerCase());
 }
 
-function effectiveSettings(settings = {}) {
+function effectiveSettings(settings = {}, { tenantScoped = false } = {}) {
   return {
     ...settings,
     lineChannelId: process.env.LINE_CHANNEL_ID || settings.lineChannelId || "",
-    lineChannelSecret: process.env.LINE_CHANNEL_SECRET || settings.lineChannelSecret || "",
-    lineChannelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN || settings.lineChannelAccessToken || "",
+    lineChannelSecret: tenantScoped
+      ? settings.lineChannelSecret || process.env.LINE_CHANNEL_SECRET || ""
+      : process.env.LINE_CHANNEL_SECRET || settings.lineChannelSecret || "",
+    lineChannelAccessToken: tenantScoped
+      ? settings.lineChannelAccessToken || process.env.LINE_CHANNEL_ACCESS_TOKEN || ""
+      : process.env.LINE_CHANNEL_ACCESS_TOKEN || settings.lineChannelAccessToken || "",
     lineGroupId: process.env.LINE_GROUP_ID || settings.lineGroupId || "",
     openaiApiKey: process.env.OPENAI_API_KEY || settings.openaiApiKey || "",
     openaiModel: process.env.OPENAI_MODEL || settings.openaiModel || "gpt-4.1-mini",
@@ -4179,7 +4183,7 @@ function verifyLineSignature(rawBody, channelSecret, signature) {
 async function handleLineWebhookPost(req, res, db, options = {}) {
   const body = req._parsedBody || await readBody(req);
   const signature = req.headers["x-line-signature"];
-  const settings = effectiveSettings(db.settings);
+  const settings = effectiveSettings(db.settings, { tenantScoped: Boolean(options.tenant?.tenantId) });
   const httpDebug = addHttpWebhookDebug(db, req, body._rawBody || "", { signatureValidation: "pending" });
   console.log("LINE webhook raw body", JSON.stringify({
     receivedAt: httpDebug.received_at,
@@ -6650,12 +6654,8 @@ async function handleApi(req, res) {
       lineChannelId: process.env.LINE_CHANNEL_ID
         ? existingSettings.lineChannelId || ""
         : String(body.lineChannelId ?? existingSettings.lineChannelId ?? ""),
-      lineChannelSecret: process.env.LINE_CHANNEL_SECRET
-        ? existingSettings.lineChannelSecret || ""
-        : secretInputValue(body.lineChannelSecret, existingSettings.lineChannelSecret),
-      lineChannelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN
-        ? existingSettings.lineChannelAccessToken || ""
-        : secretInputValue(body.lineChannelAccessToken, existingSettings.lineChannelAccessToken),
+      lineChannelSecret: secretInputValue(body.lineChannelSecret, existingSettings.lineChannelSecret),
+      lineChannelAccessToken: secretInputValue(body.lineChannelAccessToken, existingSettings.lineChannelAccessToken),
       lineGroupId: process.env.LINE_GROUP_ID
         ? existingSettings.lineGroupId || ""
         : String(body.lineGroupId ?? existingSettings.lineGroupId ?? ""),

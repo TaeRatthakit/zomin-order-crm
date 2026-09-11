@@ -1,0 +1,419 @@
+{
+  "schemaVersion": 1,
+  "id": "growup-pilot-approved-ui-release",
+  "approval": {
+    "context": "User-approved final LINE OA settings UI, public homepage CTA copy, and existing package-selection-to-signup flow",
+    "approvedOn": "2026-09-11",
+    "explicitScope": [
+      "/settings/line",
+      "Public Homepage Header CTA",
+      "Public Homepage Hero CTA",
+      "Homepage -> existing Pricing -> existing Signup"
+    ]
+  },
+  "base": {
+    "sourceCommit": "029464c77fd8f1299e9a91f45326afc83a909e2e",
+    "productionArtifact": "dpl_6EgQpB16GLn8km71m3bKp7fNrQF5",
+    "publicAssetAttestation": {
+      "indexHtml": "b0652ac6ee5f99f42153b7aa2ebc37ff0a4d4245cbedddffbf0a6f02caffeede",
+      "appJs": "be99da542efd023e285754100dcd1e0288a30201e67b66165e7c79ca137ded94",
+      "stylesCss": "080a0bcf90b2dc39d880319a5d9915549fa95c6b8325baffd4385dbd2e52c38c",
+      "serviceWorker": "296407e9d726e758665dff0ec43a6e4cbb65c352f45e435f35d48f38612ea75c",
+      "manifest": "03dd25557d931ac4cf592d905505bf2541329e1799462ecaddbb8ef30701b4d7"
+    }
+  },
+  "candidateSource": {
+    "state": "isolated-worktree-diff-from-base",
+    "suspendedAuthIncluded": false,
+    "exactPatchAttestedBy": "expectedDiffSha256"
+  },
+  "allowedFiles": [
+    "public/app.js",
+    "public/landing.html"
+  ],
+  "approvedChanges": [
+    {
+      "route": "/settings/line",
+      "component": "lineSecretInput + renderSettingsLineHub",
+      "regions": [
+        "Channel Secret",
+        "Long-lived Channel Access Token",
+        "connection information",
+        "right-side 7-step guide"
+      ],
+      "selectors": [
+        ".line-credential-field",
+        "#lineTextGuide",
+        "[data-line-secret-field]"
+      ],
+      "behavior": [
+        "password-style masked entry",
+        "configured state without raw value",
+        "blank preserves existing credential",
+        "tenant-scoped replacement"
+      ],
+      "protectedRegionsExcluded": [
+        "top LINE OA area",
+        "connected status",
+        "Channel ID",
+        "Webhook URL",
+        "LINE Group ID",
+        "toggles",
+        "action buttons",
+        "footer"
+      ]
+    },
+    {
+      "route": "Public Homepage",
+      "component": "renderLanding + static landing shell",
+      "regions": [
+        "header CTA",
+        "hero CTA"
+      ],
+      "selectors": [
+        ".landing-actions",
+        ".landing-hero-actions",
+        ".landing-mobile-cta"
+      ],
+      "expectedNavigation": [
+        "/signup?plan=starter&billing=monthly",
+        "existing pricing package selectors remain unchanged"
+      ]
+    }
+  ],
+  "expectedTextChanges": [
+    {
+      "route": "/settings/line",
+      "component": "configured credential copy",
+      "from": "ตั้งค่าไว้ในระบบฝั่งเซิร์ฟเวอร์แล้ว",
+      "to": "ตั้งค่าไว้แล้ว — กรอกค่าใหม่เมื่อต้องการเปลี่ยน",
+      "minimumRemoved": 1,
+      "minimumAdded": 1
+    },
+    {
+      "route": "/settings/line",
+      "component": "7-step guide",
+      "from": "ไปที่ LINE Developers Console สร้าง Provider และ Channel (Messaging API)",
+      "to": "สร้าง LINE Official Account จากนั้นเปิดใช้งาน Messaging API เพื่อเชื่อมต่อกับ Growup Pilot",
+      "minimumRemoved": 1,
+      "minimumAdded": 1
+    },
+    {
+      "route": "Public Homepage",
+      "component": "header and hero CTA",
+      "from": "สมัครใช้งาน Starter",
+      "to": "เริ่มต้นใช้งาน",
+      "minimumRemoved": 1,
+      "minimumAdded": 1
+    }
+  ],
+  "expectedDiffSha256": "40a6e8a009a70002e9e522e3c14234f8ee7f83bbdd1967f7434b0961cab8055a",
+  "expectedDiffLines": [
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 3983,
+      "text": "          <a class=\"landing-button landing-button-primary\" href=\"${landingSignupPlanUrl(\"starter\")}\">สมัครใช้งาน Starter</a>"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 3983,
+      "text": "          <a class=\"landing-button landing-button-primary\" href=\"${landingSignupPlanUrl(\"starter\")}\">เริ่มต้นใช้งาน</a>"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 3989,
+      "text": "            <a class=\"landing-mobile-cta\" href=\"${landingSignupPlanUrl(\"starter\")}\">สมัครใช้งาน Starter</a>"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 3989,
+      "text": "            <a class=\"landing-mobile-cta\" href=\"${landingSignupPlanUrl(\"starter\")}\">เริ่มต้นใช้งาน</a>"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 4001,
+      "text": "              <a class=\"landing-button landing-button-primary\" href=\"${landingSignupPlanUrl(\"starter\")}\">สมัครใช้งาน Starter</a>"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 4001,
+      "text": "              <a class=\"landing-button landing-button-primary\" href=\"${landingSignupPlanUrl(\"starter\")}\">เริ่มต้นใช้งาน</a>"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 9915,
+      "text": "        <input name=\"${escapeHtml(name)}\" type=\"${visible ? \"text\" : \"password\"}\" autocomplete=\"new-password\" value=\"${escapeHtml(value)}\" placeholder=\"${escapeHtml(placeholder)}\" ${fromEnv ? \"readonly\" : \"\"} data-line-secret-field=\"${escapeHtml(name)}\" data-line-secret-configured=\"${configured ? \"true\" : \"false\"}\">"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 9915,
+      "text": "        <input name=\"${escapeHtml(name)}\" type=\"${visible ? \"text\" : \"password\"}\" autocomplete=\"new-password\" value=\"${escapeHtml(value)}\" placeholder=\"${escapeHtml(placeholder)}\" data-line-secret-field=\"${escapeHtml(name)}\" data-line-secret-configured=\"${configured ? \"true\" : \"false\"}\">"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 9919,
+      "text": "      <small>${fromEnv ? \"ตั้งค่าไว้ในระบบฝั่งเซิร์ฟเวอร์แล้ว\" : configured ? \"มีค่าเดิมอยู่แล้ว เว้นว่างไว้เพื่อคงค่าเดิม\" : \"ยังไม่ได้ตั้งค่า\"}</small>"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 9919,
+      "text": "      <small>${configured ? \"ตั้งค่าไว้แล้ว — กรอกค่าใหม่เมื่อต้องการเปลี่ยน\" : \"ยังไม่ได้ตั้งค่า\"}</small>"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 9927,
+      "text": "    ? settings.lineChannelSecretFromEnv ? \"ตั้งค่าไว้ในระบบฝั่งเซิร์ฟเวอร์แล้ว\" : \"มีค่าเดิมอยู่แล้ว เว้นว่างไว้เพื่อคงค่าเดิม\""
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 9928,
+      "text": "    : \"ยังไม่ได้ตั้งค่า\";"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 9927,
+      "text": "    ? \"ตั้งค่าไว้แล้ว — กรอกค่าใหม่เมื่อต้องการเปลี่ยน\""
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 9928,
+      "text": "    : \"กรอก Channel Secret\";"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 9930,
+      "text": "    ? settings.lineChannelAccessTokenFromEnv ? \"ตั้งค่าไว้ในระบบฝั่งเซิร์ฟเวอร์แล้ว\" : \"มีค่าเดิมอยู่แล้ว เว้นว่างไว้เพื่อคงค่าเดิม\""
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 9931,
+      "text": "    : \"ยังไม่ได้ตั้งค่า\";"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 9930,
+      "text": "    ? \"ตั้งค่าไว้แล้ว — กรอกค่าใหม่เมื่อต้องการเปลี่ยน\""
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 9931,
+      "text": "    : \"กรอก Long-lived Channel Access Token\";"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 9939,
+      "text": "        <article class=\"line-tutorial-card\">"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 9940,
+      "text": "          <div class=\"line-video-thumb\" aria-hidden=\"true\">"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 9941,
+      "text": "            <span class=\"integration-logo line\">LINE</span>"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 9942,
+      "text": "            <i>${iconSvg(\"play\")}</i>"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 9943,
+      "text": "          </div>"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 9944,
+      "text": "          <div>"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 9945,
+      "text": "            <h3>คู่มือเชื่อมต่อ LINE OA</h3>"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 9946,
+      "text": "            <p>ดูวิดีโอหรืออ่านคู่มือแบบย่อก่อนกรอก Channel ID, Channel Secret และ Long-lived Channel Access Token</p>"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 9947,
+      "text": "          </div>"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 9948,
+      "text": "          <div class=\"line-tutorial-actions\">"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 9949,
+      "text": "            <button class=\"button primary\" type=\"button\" data-open-line-video>${iconSvg(\"play\")} ดูวิดีโอ</button>"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 9950,
+      "text": "            <button class=\"button ghost\" type=\"button\" data-scroll-line-guide>อ่านคู่มือ</button>"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 9951,
+      "text": "          </div>"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 9952,
+      "text": "        </article>"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 10019,
+      "text": "              <li><span>1</span><p>ไปที่ LINE Developers Console สร้าง Provider และ Channel (Messaging API)</p></li>"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 10020,
+      "text": "              <li><span>2</span><p>คัดลอก Channel ID และ Channel Secret จากหน้า Channel Settings</p></li>"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 10021,
+      "text": "              <li><span>3</span><p>วางข้อมูลในช่องด้านซ้าย แล้วกดปุ่ม “บันทึกการตั้งค่า”</p></li>"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 10022,
+      "text": "              <li><span>4</span><p>เปิด Webhook และอนุญาตการเข้าถึงบัญชี LINE OA</p></li>"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10005,
+      "text": "              <li><span>1</span><p>สร้าง LINE Official Account จากนั้นเปิดใช้งาน Messaging API เพื่อเชื่อมต่อกับ Growup Pilot</p></li>"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10006,
+      "text": "              <li><span>2</span><p>คัดลอก Channel ID, Channel Secret และ Channel Access Token แล้วนำมากรอกใน Growup Pilot</p></li>"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10007,
+      "text": "              <li><span>3</span><p>คัดลอก Webhook URL จาก Growup Pilot ไปวางใน LINE Developers &gt; Messaging API</p></li>"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10008,
+      "text": "              <li><span>4</span><p>กด Verify ให้ผ่าน แล้วเปิด Use webhook เพื่อให้ LINE ส่งข้อความเข้าระบบ Growup Pilot</p></li>"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10009,
+      "text": "              <li><span>5</span><p>เปิด Allow bot to join group chats เพื่อให้ LINE OA สามารถเข้ากลุ่มที่ใช้รับออเดอร์ได้</p></li>"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10010,
+      "text": "              <li><span>6</span><p>เพิ่ม LINE OA บัญชีนี้เข้าไปในกลุ่ม LINE ที่ร้านใช้รับออเดอร์</p></li>"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10011,
+      "text": "              <li><span>7</span><p>กลับมาที่ Growup Pilot กด บันทึกการตั้งค่า และ ทดสอบการเชื่อมต่อ จากนั้นส่งออเดอร์ทดสอบในกลุ่ม LINE เพื่อตรวจว่าออเดอร์เข้าระบบสำเร็จ</p></li>"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 10024,
+      "text": "            <a href=\"https://developers.line.biz/console/\" target=\"_blank\" rel=\"noreferrer\">ดูคู่มือการเชื่อมต่อ ${iconSvg(\"external\")}</a>"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10013,
+      "text": "            <a href=\"https://developers.line.biz/console/\" target=\"_blank\" rel=\"noreferrer\">ไปที่ LINE Developers เพื่อตั้งค่า ↗</a>"
+    },
+    {
+      "file": "public/landing.html",
+      "sign": "-",
+      "line": 86,
+      "text": "                <a class=\"landing-button landing-button-primary\" href=\"/signup?plan=starter&amp;billing=monthly\">สมัครใช้งาน Starter</a>"
+    },
+    {
+      "file": "public/landing.html",
+      "sign": "+",
+      "line": 86,
+      "text": "                <a class=\"landing-button landing-button-primary\" href=\"/signup?plan=starter&amp;billing=monthly\">เริ่มต้นใช้งาน</a>"
+    },
+    {
+      "file": "public/landing.html",
+      "sign": "-",
+      "line": 92,
+      "text": "                  <a class=\"landing-mobile-cta\" href=\"/signup?plan=starter&amp;billing=monthly\">สมัครใช้งาน Starter</a>"
+    },
+    {
+      "file": "public/landing.html",
+      "sign": "+",
+      "line": 92,
+      "text": "                  <a class=\"landing-mobile-cta\" href=\"/signup?plan=starter&amp;billing=monthly\">เริ่มต้นใช้งาน</a>"
+    },
+    {
+      "file": "public/landing.html",
+      "sign": "-",
+      "line": 104,
+      "text": "                    <a class=\"landing-button landing-button-primary\" href=\"/signup?plan=starter&amp;billing=monthly\">สมัครใช้งาน Starter</a>"
+    },
+    {
+      "file": "public/landing.html",
+      "sign": "+",
+      "line": 104,
+      "text": "                    <a class=\"landing-button landing-button-primary\" href=\"/signup?plan=starter&amp;billing=monthly\">เริ่มต้นใช้งาน</a>"
+    }
+  ]
+}

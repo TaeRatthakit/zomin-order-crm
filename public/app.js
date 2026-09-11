@@ -3980,13 +3980,13 @@ function renderLanding() {
         </nav>
         <div class="landing-actions">
           <a class="landing-button landing-button-secondary" href="/login">เข้าสู่ระบบ</a>
-          <a class="landing-button landing-button-primary" href="${landingSignupPlanUrl("starter")}">สมัครใช้งาน Starter</a>
+          <a class="landing-button landing-button-primary" href="${landingSignupPlanUrl("starter")}">เริ่มต้นใช้งาน</a>
         </div>
         <details class="landing-menu">
           <summary aria-label="เปิดเมนู">☰</summary>
           <div>
             <a href="/login">เข้าสู่ระบบ</a>
-            <a class="landing-mobile-cta" href="${landingSignupPlanUrl("starter")}">สมัครใช้งาน Starter</a>
+            <a class="landing-mobile-cta" href="${landingSignupPlanUrl("starter")}">เริ่มต้นใช้งาน</a>
           </div>
         </details>
       </header>
@@ -3998,7 +3998,7 @@ function renderLanding() {
             <h1 id="landingHeroTitle">จัดการธุรกิจ ให้เติบโต ไปกับ Growup Pilot</h1>
             <p class="landing-lead">จัดการลูกค้า ออเดอร์ การติดตาม โอกาสขาย รายงาน ต้นทุน และกำไรในที่เดียว ช่วยให้เห็นยอดขาย ต้นทุน และกำไรชัดขึ้น และบริหารธุรกิจได้ง่ายขึ้น</p>
             <div class="landing-hero-actions">
-              <a class="landing-button landing-button-primary" href="${landingSignupPlanUrl("starter")}">สมัครใช้งาน Starter</a>
+              <a class="landing-button landing-button-primary" href="${landingSignupPlanUrl("starter")}">เริ่มต้นใช้งาน</a>
             </div>
             <ul class="landing-trust-list" aria-label="รายละเอียดเริ่มต้น">
               <li>เริ่มใช้งานง่าย</li>
@@ -9912,11 +9912,11 @@ function lineSecretInput(name, label, configured, fromEnv, visible, placeholder)
   return `
     <label class="line-credential-field">${escapeHtml(label)}
       <span class="line-input-action">
-        <input name="${escapeHtml(name)}" type="${visible ? "text" : "password"}" autocomplete="new-password" value="${escapeHtml(value)}" placeholder="${escapeHtml(placeholder)}" ${fromEnv ? "readonly" : ""} data-line-secret-field="${escapeHtml(name)}" data-line-secret-configured="${configured ? "true" : "false"}">
+        <input name="${escapeHtml(name)}" type="${visible ? "text" : "password"}" autocomplete="new-password" value="${escapeHtml(value)}" placeholder="${escapeHtml(placeholder)}" data-line-secret-field="${escapeHtml(name)}" data-line-secret-configured="${configured ? "true" : "false"}">
         <button class="icon-button line-secret-toggle" type="button" data-toggle-line-secret="${escapeHtml(name)}" aria-label="${visible ? "ซ่อน" : "แสดง"} ${escapeHtml(label)}">${iconSvg("eye")}</button>
         <button class="button ghost compact-action" type="button" data-copy-line-field="${escapeHtml(name)}" ${configured ? "" : "disabled"}>${iconSvg("copy")} คัดลอก</button>
       </span>
-      <small>${fromEnv ? "ตั้งค่าไว้ในระบบฝั่งเซิร์ฟเวอร์แล้ว" : configured ? "มีค่าเดิมอยู่แล้ว เว้นว่างไว้เพื่อคงค่าเดิม" : "ยังไม่ได้ตั้งค่า"}</small>
+      <small>${configured ? "ตั้งค่าไว้แล้ว — กรอกค่าใหม่เมื่อต้องการเปลี่ยน" : "ยังไม่ได้ตั้งค่า"}</small>
     </label>
   `;
 }
@@ -9924,11 +9924,11 @@ function lineSecretInput(name, label, configured, fromEnv, visible, placeholder)
 function renderSettingsLineHub() {
   const settings = app.data.settings;
   const lineSecretHelp = settings.lineChannelSecretConfigured
-    ? settings.lineChannelSecretFromEnv ? "ตั้งค่าไว้ในระบบฝั่งเซิร์ฟเวอร์แล้ว" : "มีค่าเดิมอยู่แล้ว เว้นว่างไว้เพื่อคงค่าเดิม"
-    : "ยังไม่ได้ตั้งค่า";
+    ? "ตั้งค่าไว้แล้ว — กรอกค่าใหม่เมื่อต้องการเปลี่ยน"
+    : "กรอก Channel Secret";
   const lineTokenHelp = settings.lineChannelAccessTokenConfigured
-    ? settings.lineChannelAccessTokenFromEnv ? "ตั้งค่าไว้ในระบบฝั่งเซิร์ฟเวอร์แล้ว" : "มีค่าเดิมอยู่แล้ว เว้นว่างไว้เพื่อคงค่าเดิม"
-    : "ยังไม่ได้ตั้งค่า";
+    ? "ตั้งค่าไว้แล้ว — กรอกค่าใหม่เมื่อต้องการเปลี่ยน"
+    : "กรอก Long-lived Channel Access Token";
   const connected = integrationConnected("line");
   els.content.innerHTML = settingsSubpageShell(
     "LINE OA",
@@ -9936,20 +9936,6 @@ function renderSettingsLineHub() {
     "เชื่อมต่อบัญชี LINE Official Account เพื่อรับข้อความและออเดอร์อัตโนมัติ",
     `
       <div class="line-oa-page">
-        <article class="line-tutorial-card">
-          <div class="line-video-thumb" aria-hidden="true">
-            <span class="integration-logo line">LINE</span>
-            <i>${iconSvg("play")}</i>
-          </div>
-          <div>
-            <h3>คู่มือเชื่อมต่อ LINE OA</h3>
-            <p>ดูวิดีโอหรืออ่านคู่มือแบบย่อก่อนกรอก Channel ID, Channel Secret และ Long-lived Channel Access Token</p>
-          </div>
-          <div class="line-tutorial-actions">
-            <button class="button primary" type="button" data-open-line-video>${iconSvg("play")} ดูวิดีโอ</button>
-            <button class="button ghost" type="button" data-scroll-line-guide>อ่านคู่มือ</button>
-          </div>
-        </article>
         <section class="line-oa-shell">
           <form class="panel stack panel-premium settings-subpage-form line-oa-form" id="settingsForm">
             <div class="line-status-row">
@@ -10016,12 +10002,15 @@ function renderSettingsLineHub() {
           <aside class="line-guide-card" id="lineTextGuide">
             <h3>วิธีเชื่อมต่อ LINE OA</h3>
             <ol>
-              <li><span>1</span><p>ไปที่ LINE Developers Console สร้าง Provider และ Channel (Messaging API)</p></li>
-              <li><span>2</span><p>คัดลอก Channel ID และ Channel Secret จากหน้า Channel Settings</p></li>
-              <li><span>3</span><p>วางข้อมูลในช่องด้านซ้าย แล้วกดปุ่ม “บันทึกการตั้งค่า”</p></li>
-              <li><span>4</span><p>เปิด Webhook และอนุญาตการเข้าถึงบัญชี LINE OA</p></li>
+              <li><span>1</span><p>สร้าง LINE Official Account จากนั้นเปิดใช้งาน Messaging API เพื่อเชื่อมต่อกับ Growup Pilot</p></li>
+              <li><span>2</span><p>คัดลอก Channel ID, Channel Secret และ Channel Access Token แล้วนำมากรอกใน Growup Pilot</p></li>
+              <li><span>3</span><p>คัดลอก Webhook URL จาก Growup Pilot ไปวางใน LINE Developers &gt; Messaging API</p></li>
+              <li><span>4</span><p>กด Verify ให้ผ่าน แล้วเปิด Use webhook เพื่อให้ LINE ส่งข้อความเข้าระบบ Growup Pilot</p></li>
+              <li><span>5</span><p>เปิด Allow bot to join group chats เพื่อให้ LINE OA สามารถเข้ากลุ่มที่ใช้รับออเดอร์ได้</p></li>
+              <li><span>6</span><p>เพิ่ม LINE OA บัญชีนี้เข้าไปในกลุ่ม LINE ที่ร้านใช้รับออเดอร์</p></li>
+              <li><span>7</span><p>กลับมาที่ Growup Pilot กด บันทึกการตั้งค่า และ ทดสอบการเชื่อมต่อ จากนั้นส่งออเดอร์ทดสอบในกลุ่ม LINE เพื่อตรวจว่าออเดอร์เข้าระบบสำเร็จ</p></li>
             </ol>
-            <a href="https://developers.line.biz/console/" target="_blank" rel="noreferrer">ดูคู่มือการเชื่อมต่อ ${iconSvg("external")}</a>
+            <a href="https://developers.line.biz/console/" target="_blank" rel="noreferrer">ไปที่ LINE Developers เพื่อตั้งค่า ↗</a>
           </aside>
         </section>
         <article class="line-capability-card">
