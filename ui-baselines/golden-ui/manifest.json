@@ -1,0 +1,84 @@
+{
+  "name": "GROWUP PILOT — GOLDEN UI",
+  "capturedAt": "2026-09-11",
+  "baseUrl": "https://www.growuppilot.com",
+  "deploymentId": "dpl_6ZZK5fLiJkn6dehz9DpAFPnKB41y",
+  "sourceCommit": "cfb7c8e8b999b559d031d2a5558baa537a934b67",
+  "environmentScope": "PRODUCTION",
+  "productionDbProject": "mjnpzdmrqweugdnvlqwq",
+  "approval": {
+    "status": "USER_APPROVED",
+    "label": "GROWUP PILOT — GOLDEN UI",
+    "homepageFlow": "Homepage -> Package Selection -> Signup",
+    "settingsLineUi": "USER_APPROVED"
+  },
+  "routes": [
+    { "key": "homepage", "route": "/" },
+    { "key": "pricing-package-selection", "route": "/#pricing" },
+    { "key": "signup", "route": "/signup?plan=starter&billing=monthly" },
+    { "key": "login", "route": "/login" },
+    { "key": "dashboard", "route": "/dashboard" },
+    { "key": "reports", "route": "/reports" },
+    { "key": "orders", "route": "/orders" },
+    { "key": "opportunities", "route": "/opportunities" },
+    { "key": "customers", "route": "/customers" },
+    { "key": "products", "route": "/products" },
+    { "key": "settings", "route": "/settings" },
+    { "key": "settings-line", "route": "/settings/line" }
+  ],
+  "viewports": {
+    "desktop": { "width": 1440, "height": 1100 },
+    "mobile375": { "width": 375, "height": 844 },
+    "mobile400": { "width": 400, "height": 844 }
+  },
+  "themes": ["light", "dark"],
+  "visualEvidence": {
+    "previewMatrix": "PASS",
+    "liveProductionSpotChecks": "PASS",
+    "protectedRoutes": "PASS",
+    "screenshots": {
+      "livePublicDesktopLight": [
+        "screenshots/homepage-desktop-light.png",
+        "screenshots/pricing-signup-desktop-light.png",
+        "screenshots/login-desktop-light.png"
+      ],
+      "approvedProtectedBaseline": "../current/screenshots/",
+      "note": "Protected-route screenshot references retain the approved baseline; live Production route rendering and the approved /settings/line and homepage visuals were spot-checked in the authenticated browser session."
+    }
+  },
+  "liveVerification": {
+    "homepage": { "http": 200, "ui": "PASS", "ctaText": "เริ่มต้นใช้งาน", "ctaTarget": "#pricing" },
+    "packageSelection": { "ui": "PASS", "plans": ["starter", "business", "enterprise"], "billing": ["monthly", "yearly"] },
+    "signupHandoff": { "ui": "PASS", "parametersPreserved": true },
+    "login": { "http": 200, "ui": "PASS" },
+    "dashboard": { "ui": "PASS", "authorizedSession": "PASS" },
+    "reports": { "ui": "PASS" },
+    "orders": { "ui": "PASS" },
+    "opportunities": { "ui": "PASS" },
+    "customers": { "ui": "PASS" },
+    "products": { "ui": "PASS" },
+    "settings": { "ui": "PASS" },
+    "settingsLine": { "ui": "PASS", "configuredState": "PASS", "rawCredentialsExposed": false, "guideSteps": 7 },
+    "webhookHealth": { "http": 200 }
+  },
+  "dataSafety": {
+    "tenantSuffix": "2081c8",
+    "orders": 1081,
+    "customers": 932,
+    "products": 3,
+    "correctTenant": true,
+    "crossTenantLeakage": "NONE",
+    "dataChanged": false
+  },
+  "protectedSystems": {
+    "paymentStripeSubscription": "UNCHANGED",
+    "lineOrders": "UNCHANGED",
+    "customerOrderData": "PRESERVED",
+    "multiTenant": "PASS",
+    "authentication": "PASS",
+    "schema": "UNCHANGED",
+    "suspendedAuthWork": "NOT_INCLUDED"
+  },
+  "goldenUiGuard": "PASS",
+  "rule": "APPROVED GOLDEN UI IS IMMUTABLE UNLESS THE USER EXPLICITLY REQUESTS A UI CHANGE."
+}
