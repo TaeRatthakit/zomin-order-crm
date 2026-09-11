@@ -3980,13 +3980,13 @@ function renderLanding() {
         </nav>
         <div class="landing-actions">
           <a class="landing-button landing-button-secondary" href="/login">เข้าสู่ระบบ</a>
-          <a class="landing-button landing-button-primary" href="${landingSignupPlanUrl("starter")}">เริ่มต้นใช้งาน</a>
+          <a class="landing-button landing-button-primary" href="#pricing">เริ่มต้นใช้งาน</a>
         </div>
         <details class="landing-menu">
           <summary aria-label="เปิดเมนู">☰</summary>
           <div>
             <a href="/login">เข้าสู่ระบบ</a>
-            <a class="landing-mobile-cta" href="${landingSignupPlanUrl("starter")}">เริ่มต้นใช้งาน</a>
+            <a class="landing-mobile-cta" href="#pricing">เริ่มต้นใช้งาน</a>
           </div>
         </details>
       </header>
@@ -3998,7 +3998,7 @@ function renderLanding() {
             <h1 id="landingHeroTitle">จัดการธุรกิจ ให้เติบโต ไปกับ Growup Pilot</h1>
             <p class="landing-lead">จัดการลูกค้า ออเดอร์ การติดตาม โอกาสขาย รายงาน ต้นทุน และกำไรในที่เดียว ช่วยให้เห็นยอดขาย ต้นทุน และกำไรชัดขึ้น และบริหารธุรกิจได้ง่ายขึ้น</p>
             <div class="landing-hero-actions">
-              <a class="landing-button landing-button-primary" href="${landingSignupPlanUrl("starter")}">เริ่มต้นใช้งาน</a>
+              <a class="landing-button landing-button-primary" href="#pricing">เริ่มต้นใช้งาน</a>
             </div>
             <ul class="landing-trust-list" aria-label="รายละเอียดเริ่มต้น">
               <li>เริ่มใช้งานง่าย</li>

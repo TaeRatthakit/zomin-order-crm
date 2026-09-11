@@ -132,7 +132,7 @@
       "minimumAdded": 1
     }
   ],
-  "expectedDiffSha256": "aba180dc137541b6344070a2a4b427963aed33999ff5f2de07f03fd6c0ae8367",
+  "expectedDiffSha256": "b328c5af0e1f855b3d083420354b392fa66f33c43f001f9579dfd0f5b781ff15",
   "expectedDiffLines": [
     {
       "file": "public/app.js",
@@ -144,7 +144,7 @@
       "file": "public/app.js",
       "sign": "+",
       "line": 3983,
-      "text": "          <a class=\"landing-button landing-button-primary\" href=\"${landingSignupPlanUrl(\"starter\")}\">เริ่มต้นใช้งาน</a>"
+      "text": "          <a class=\"landing-button landing-button-primary\" href=\"#pricing\">เริ่มต้นใช้งาน</a>"
     },
     {
       "file": "public/app.js",
@@ -156,7 +156,7 @@
       "file": "public/app.js",
       "sign": "+",
       "line": 3989,
-      "text": "            <a class=\"landing-mobile-cta\" href=\"${landingSignupPlanUrl(\"starter\")}\">เริ่มต้นใช้งาน</a>"
+      "text": "            <a class=\"landing-mobile-cta\" href=\"#pricing\">เริ่มต้นใช้งาน</a>"
     },
     {
       "file": "public/app.js",
@@ -168,7 +168,7 @@
       "file": "public/app.js",
       "sign": "+",
       "line": 4001,
-      "text": "              <a class=\"landing-button landing-button-primary\" href=\"${landingSignupPlanUrl(\"starter\")}\">เริ่มต้นใช้งาน</a>"
+      "text": "              <a class=\"landing-button landing-button-primary\" href=\"#pricing\">เริ่มต้นใช้งาน</a>"
     },
     {
       "file": "public/app.js",
@@ -414,7 +414,7 @@
       "file": "public/landing.html",
       "sign": "+",
       "line": 86,
-      "text": "                <a class=\"landing-button landing-button-primary\" href=\"/signup?plan=starter&amp;billing=monthly\">เริ่มต้นใช้งาน</a>"
+      "text": "                <a class=\"landing-button landing-button-primary\" href=\"#pricing\">เริ่มต้นใช้งาน</a>"
     },
     {
       "file": "public/landing.html",
@@ -426,7 +426,7 @@
       "file": "public/landing.html",
       "sign": "+",
       "line": 92,
-      "text": "                  <a class=\"landing-mobile-cta\" href=\"/signup?plan=starter&amp;billing=monthly\">เริ่มต้นใช้งาน</a>"
+      "text": "                  <a class=\"landing-mobile-cta\" href=\"#pricing\">เริ่มต้นใช้งาน</a>"
     },
     {
       "file": "public/landing.html",
@@ -438,7 +438,7 @@
       "file": "public/landing.html",
       "sign": "+",
       "line": 104,
-      "text": "                    <a class=\"landing-button landing-button-primary\" href=\"/signup?plan=starter&amp;billing=monthly\">เริ่มต้นใช้งาน</a>"
+      "text": "                    <a class=\"landing-button landing-button-primary\" href=\"#pricing\">เริ่มต้นใช้งาน</a>"
     },
     {
       "file": "public/styles.css",
