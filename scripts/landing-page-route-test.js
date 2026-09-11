@@ -60,6 +60,7 @@ assert(landingHeroActionsBlock.includes('href="#pricing"') && landingHeroActions
 assert(!landingHeroActionsBlock.includes('href="${landingSignupPlanUrl("starter")}"'), "hero CTA must not bypass package selection");
 assert(!landingHeroActionsBlock.includes('href="/login"') && !landingHeroActionsBlock.includes("เข้าสู่ระบบ"), "hero secondary login CTA must be removed");
 assert(landingBlock.includes('class="landing-mobile-cta" href="#pricing"'), "mobile CTA must open package selection first");
+assert(appJs.includes('const landingPricingLink = event.target.closest(\'a[href="#pricing"]\')') && appJs.includes('landingPricingLink && document.body.classList.contains("landing-view")'), "landing package CTA must scroll within the public landing page");
 assert(landingBlock.includes('data-landing-plan="starter"') && landingBlock.includes('data-landing-plan="business"') && landingBlock.includes('data-landing-plan="enterprise"'), "pricing CTA plan markers missing");
 assert(landingBlock.includes('href="${landingSignupPlanUrl("business")}"') && landingBlock.includes("เลือก Business"), "Business CTA must hand off selected plan");
 assert(landingBlock.includes('href="${landingSignupPlanUrl("enterprise")}"') && landingBlock.includes("เลือก Enterprise"), "Enterprise CTA must hand off selected plan");

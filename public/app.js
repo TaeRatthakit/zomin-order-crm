@@ -12428,6 +12428,13 @@ els.productDialog?.addEventListener("close", () => {
 });
 
 document.addEventListener("click", async event => {
+  const landingPricingLink = event.target.closest('a[href="#pricing"]');
+  if (landingPricingLink && document.body.classList.contains("landing-view")) {
+    event.preventDefault();
+    document.querySelector("#pricing")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+
   const signupPromotionButton = event.target.closest("[data-signup-validate-promotion-code]");
   if (signupPromotionButton) {
     event.preventDefault();

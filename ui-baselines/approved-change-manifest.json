@@ -132,7 +132,7 @@
       "minimumAdded": 1
     }
   ],
-  "expectedDiffSha256": "b328c5af0e1f855b3d083420354b392fa66f33c43f001f9579dfd0f5b781ff15",
+  "expectedDiffSha256": "f580ba5dffb8a76415678fe2fd025c8d99b917bfc58ab19012385b9de878e5c9",
   "expectedDiffLines": [
     {
       "file": "public/app.js",
@@ -403,6 +403,48 @@
       "sign": "+",
       "line": 10013,
       "text": "            <a href=\"https://developers.line.biz/console/\" target=\"_blank\" rel=\"noreferrer\">ไปที่ LINE Developers เพื่อตั้งค่า ↗</a>"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12431,
+      "text": "  const landingPricingLink = event.target.closest('a[href=\"#pricing\"]');"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12432,
+      "text": "  if (landingPricingLink && document.body.classList.contains(\"landing-view\")) {"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12433,
+      "text": "    event.preventDefault();"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12434,
+      "text": "    document.querySelector(\"#pricing\")?.scrollIntoView({ behavior: \"smooth\", block: \"start\" });"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12435,
+      "text": "    return;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12436,
+      "text": "  }"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12437,
+      "text": ""
     },
     {
       "file": "public/landing.html",
