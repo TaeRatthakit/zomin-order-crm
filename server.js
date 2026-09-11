@@ -3394,11 +3394,11 @@ function formatUpsaleReply(order = {}, changes = []) {
 
 function missingRequiredOrderFields(order = {}) {
   const required = [
-    ["Customer Name", order.name || order.customerName],
-    ["Shipping Address", order.address],
-    ["Phone Number", order.phone],
-    ["Quantity", order.jars ?? order.quantity],
-    ["Total Amount", order.amount]
+    ["เบอร์โทร", order.phone],
+    ["ที่อยู่จัดส่ง", order.address],
+    ["จำนวน", order.jars ?? order.quantity],
+    ["ชื่อลูกค้า", order.name || order.customerName],
+    ["ยอดซื้อ", order.amount]
   ];
   return required.filter(([, value]) => !normalizeImportText(value) && value !== 0).map(([label]) => label);
 }
@@ -3517,21 +3517,25 @@ function parsePrimaryLineOrderForm(rawText) {
     labelMap.set(matchedField.key, valueLines.join("\n").trim());
   }
   if (!labelMap.size) return null;
-  const requiredKeys = ["date", "name", "phone", "address", "jars", "amount"];
-  const hasPrimaryShape = requiredKeys.every(key => labelMap.has(key));
+  const primaryShapeKeys = ["items", "orderNumber", "date", "sourceChannel", "name", "phone", "address", "jars", "amount"];
+  const primaryShapeCount = primaryShapeKeys.filter(key => labelMap.has(key)).length;
+  const hasOrderMarker = ["items", "orderNumber", "date", "jars", "amount"].some(key => labelMap.has(key));
+  const hasCustomerMarker = ["name", "phone", "address"].some(key => labelMap.has(key));
+  const hasPrimaryShape = primaryShapeCount >= 4 && hasOrderMarker && (hasCustomerMarker || primaryShapeCount >= 5);
   if (!hasPrimaryShape) return null;
   const get = key => String(labelMap.get(key) || "").trim();
   const phone = normalizePhone(get("phone"));
-  if (!phone) return null;
   return {
     items: normalizeProductNameForMatching(get("items")),
     orderNumber: normalizeImportText(get("orderNumber")),
-    name: normalizeImportText(get("name") || `ลูกค้า ${phone}`),
+    name: normalizeImportText(get("name")),
     phone,
     alternatePhone: normalizePhone(get("alternatePhone")),
     address: normalizeImportText(get("address")),
     date: normalizeImportDate(get("date")) || toDateOnly(),
-    jars: Number(get("jars").replace(/[^\d.]/g, "")) || parseQuantity(get("jars")) || 1,
+    jars: get("jars")
+      ? Number(get("jars").replace(/[^\d.]/g, "")) || parseQuantity(get("jars")) || 0
+      : null,
     amount: get("amount")
       ? parseCurrency(get("amount")) ?? Number(get("amount").replace(/,/g, "").replace(/[^\d.]/g, ""))
       : null,
@@ -3665,7 +3669,11 @@ function isTargetGroup(eventSource = {}, settings = {}) {
 }
 
 function formatMissingFieldsMessage(fields) {
-  return fields.join("\n");
+  return [
+    "❌ ไม่สามารถบันทึกออเดอร์ได้",
+    `ข้อมูลไม่ครบ: ${fields.join(", ")}`,
+    "กรุณาเพิ่มข้อมูลที่ขาดแล้วส่งออเดอร์ใหม่อีกครั้ง"
+  ].join("\n");
 }
 
 function lineEventLogPayload(event = {}, text = "") {
@@ -3872,13 +3880,20 @@ async function replyLineMessages(settings, replyToken, messages) {
 }
 
 function normalizedOrderForStorage(parsed = {}) {
+  const hasValue = value => value !== undefined && value !== null && normalizeImportText(value) !== "";
+  const parsedAmount = hasValue(parsed.amount) ? Number(parsed.amount) : null;
+  const parsedJars = hasValue(parsed.jars)
+    ? Number(parsed.jars)
+    : hasValue(parsed.quantity)
+      ? Number(parsed.quantity)
+      : null;
   return {
     ...parsed,
     items: normalizeProductNameForMatching(parsed.items || parsed.product || parsed.productName || ""),
     name: parsed.name || parsed.customerName || "",
     phone: normalizePhone(parsed.phone || ""),
-    amount: Number(parsed.amount || 0),
-    jars: Number(parsed.jars || parsed.quantity || 0) || 1,
+    amount: Number.isFinite(parsedAmount) ? parsedAmount : null,
+    jars: Number.isFinite(parsedJars) ? parsedJars : null,
     date: toDateOnly(parsed.date || new Date()),
     orderNumber: normalizeImportText(parsed.orderNumber || parsed.order_number || ""),
     lineMessageId: normalizeImportText(parsed.lineMessageId || parsed.line_message_id || ""),
@@ -4056,7 +4071,7 @@ async function handleLineWebhookEvents(db, settings, events, options = {}) {
         debug.parser_status = "missing_required_fields";
         debug.error_message = `Missing fields: ${missingFields.join(", ")}`;
         await persistLifecycle(storedMessage, "failed", { failure_category: "missing_required_fields" });
-        replies.push({ replyToken, messages: [{ type: "text", text: formatMissingFieldsMessage(missingFields) }] });
+        replies.push({ replyToken, messages: [{ type: "text", text: formatMissingFieldsMessage(missingFields) }], storedMessage });
         continue;
       }
       await persistLifecycle(storedMessage, "parsed", { parser_status: "parsed" });

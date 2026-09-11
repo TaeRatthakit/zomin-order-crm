@@ -9,9 +9,14 @@ process.env.LINE_WEBHOOK_ENABLED = "true";
 process.env.JSON_DB_PATH = path.join(os.tmpdir(), `zomin-line-webhook-${process.pid}.json`);
 
 const lineReplies = [];
+let lineReplyFailuresRemaining = 0;
 global.fetch = async (url, options = {}) => {
   if (String(url).includes("api.line.me/v2/bot/message/reply")) {
     lineReplies.push(JSON.parse(options.body || "{}"));
+    if (lineReplyFailuresRemaining > 0) {
+      lineReplyFailuresRemaining -= 1;
+      return { ok: false, status: 500, json: async () => ({ error: "forced reply failure" }), text: async () => "forced reply failure" };
+    }
     return { ok: true, status: 204, json: async () => null, text: async () => "" };
   }
   throw new Error(`Unexpected fetch in LINE webhook test: ${url}`);
@@ -164,9 +169,10 @@ function lineOrderText({
   phone = "0831111132",
   address = "31/1 Bangkok",
   quantity = 1,
-  amount = 280
+  amount = 280,
+  includeOptionalFields = true
 } = {}) {
-  return [
+  const lines = [
     "สินค้า: Zomin",
     `เลขออเดอร์: ${orderNumber}`,
     `วันที่ซื้อ: ${date}`,
@@ -174,16 +180,16 @@ function lineOrderText({
     "Facebook / LINE ลูกค้า: line-test",
     `ชื่อลูกค้า: ${name}`,
     `เบอร์โทร: ${phone}`,
-    "เบอร์โทรสำรอง:",
+    ...(includeOptionalFields ? ["เบอร์โทรสำรอง:"] : []),
     `ที่อยู่จัดส่ง: ${address}`,
     `จำนวน: ${quantity}`,
     `ยอดซื้อ: ${amount}`,
     "ช่องทางการขาย: LINE",
-    "ของแถมที่ลูกค้าได้:",
-    "สถานะบัตร VIP: ยังไม่ได้ส่งบัตร",
-    "อาการลูกค้า:",
-    "หมายเหตุ:"
-  ].join("\n");
+    ...(includeOptionalFields
+      ? ["ของแถมที่ลูกค้าได้:", "สถานะบัตร VIP: ยังไม่ได้ส่งบัตร", "อาการลูกค้า:", "หมายเหตุ:"]
+      : [])
+  ];
+  return lines.join("\n");
 }
 
 async function postLineMessage(messageId, text) {
@@ -293,6 +299,50 @@ async function testSameLineMessageDeliveredTwiceWritesOnce() {
   if ((db.orders || []).length !== 1) fail("same LINE message id wrote more than one order");
 }
 
+async function testMissingPhoneDoesNotSaveAndReplies() {
+  writeFixture({ customers: [], orders: [] });
+  const result = await postLineMessage("line-missing-phone", lineOrderText({ phone: "" }));
+  if (result.parsedOrders !== 0) fail("missing phone was reported as a saved order");
+  const db = readFixture();
+  if ((db.orders || []).length !== 0 || (db.customers || []).length !== 0) fail("missing phone created CRM data");
+  if (Number(db.settings?.products?.[0]?.stockQuantity) !== 1000) fail("missing phone changed inventory");
+  if (lastReplyText(result) !== [
+    "❌ ไม่สามารถบันทึกออเดอร์ได้",
+    "ข้อมูลไม่ครบ: เบอร์โทร",
+    "กรุณาเพิ่มข้อมูลที่ขาดแล้วส่งออเดอร์ใหม่อีกครั้ง"
+  ].join("\n")) fail("missing phone reply was not explicit");
+}
+
+async function testMultipleMissingRequiredFieldsAreListed() {
+  writeFixture({ customers: [], orders: [] });
+  const result = await postLineMessage("line-missing-multiple", lineOrderText({ phone: "", address: "", quantity: "" }));
+  if (result.parsedOrders !== 0) fail("multiple missing fields were reported as a saved order");
+  const db = readFixture();
+  if ((db.orders || []).length !== 0 || (db.customers || []).length !== 0) fail("multiple missing fields created CRM data");
+  if (Number(db.settings?.products?.[0]?.stockQuantity) !== 1000) fail("multiple missing fields changed inventory");
+  if (lastReplyText(result) !== [
+    "❌ ไม่สามารถบันทึกออเดอร์ได้",
+    "ข้อมูลไม่ครบ: เบอร์โทร, ที่อยู่จัดส่ง, จำนวน",
+    "กรุณาเพิ่มข้อมูลที่ขาดแล้วส่งออเดอร์ใหม่อีกครั้ง"
+  ].join("\n")) fail("multiple missing fields were not all listed");
+}
+
+async function testOptionalFieldsCanBeEmpty() {
+  writeFixture({ customers: [], orders: [] });
+  const result = await postLineMessage("line-optional-empty", lineOrderText({ includeOptionalFields: false }));
+  if (result.parsedOrders !== 1 || lastReplyText(result) !== SUCCESS_REPLY) fail("optional fields changed valid order processing");
+  if ((readFixture().orders || []).length !== 1) fail("optional-field order was not saved");
+}
+
+async function testReplyFailureDoesNotCreateDuplicateOnRetry() {
+  writeFixture({ customers: [], orders: [] });
+  lineReplyFailuresRemaining = 1;
+  const first = await postLineMessage("line-reply-failure", lineOrderText({ orderNumber: "reply/1" }));
+  if (first.parsedOrders !== 1 || (readFixture().orders || []).length !== 1) fail("reply failure did not leave one saved order");
+  const retry = await postLineMessage("line-reply-failure", lineOrderText({ orderNumber: "reply/1" }));
+  if (retry.parsedOrders !== 0 || (readFixture().orders || []).length !== 1) fail("LINE reply retry created a duplicate order");
+}
+
 async function testSameCustomerProductAfter24HoursCreatesNewOrder() {
   writeFixture({
     customers: [customer()],
@@ -332,6 +382,10 @@ async function main() {
   await testSimilarOrderDifferentCreatedDayCreatesNewOrderWithoutWarning();
   await testGenuineUpsaleWithin24HoursUpdatesExistingCycle();
   await testSameLineMessageDeliveredTwiceWritesOnce();
+  await testMissingPhoneDoesNotSaveAndReplies();
+  await testMultipleMissingRequiredFieldsAreListed();
+  await testOptionalFieldsCanBeEmpty();
+  await testReplyFailureDoesNotCreateDuplicateOnRetry();
   await testSameCustomerProductAfter24HoursCreatesNewOrder();
   await testBuddhistYearThailandTimezoneBoundary();
   console.log("LINE webhook duplicate regression tests passed");
