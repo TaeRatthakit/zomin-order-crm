@@ -31696,3 +31696,25 @@ html[data-theme="light"] body:not(.login-view) .plan-status-badge.is-expired .pl
 } /* Mobile Home notification empty state only. */
 
 .subscription-checkout-page .subscription-promo-benefit { overflow-wrap: anywhere; }
+
+/* LINE settings light contrast: override the legacy dark LINE selectors only on this route. */
+html[data-theme="light"] body:not(.login-view) .settings-shared-page .line-oa-form label,
+html[data-theme="light"] body:not(.login-view) .settings-shared-page .line-oa-form h3,
+html[data-theme="light"] body:not(.login-view) .settings-shared-page .line-automation-section .settings-switch strong,
+html[data-theme="light"] body:not(.login-view) .settings-shared-page .line-status-row strong:not(.connected) {
+  color: var(--light-text-strong) !important;
+  opacity: 1 !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .settings-shared-page .line-status-row strong.connected {
+  color: #047857 !important;
+  opacity: 1 !important;
+}
+
+html[data-theme="light"] body:not(.login-view) .settings-shared-page .line-status-row > div > span,
+html[data-theme="light"] body:not(.login-view) .settings-shared-page .line-oa-form p,
+html[data-theme="light"] body:not(.login-view) .settings-shared-page .line-oa-form small,
+html[data-theme="light"] body:not(.login-view) .settings-shared-page .line-automation-section .settings-switch small {
+  color: var(--light-text-muted) !important;
+  opacity: 1 !important;
+}

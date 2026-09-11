@@ -29,7 +29,8 @@
   },
   "allowedFiles": [
     "public/app.js",
-    "public/landing.html"
+    "public/landing.html",
+    "public/styles.css"
   ],
   "approvedChanges": [
     {
@@ -61,6 +62,30 @@
         "toggles",
         "action buttons",
         "footer"
+      ]
+    },
+    {
+      "route": "/settings/line",
+      "component": "scoped Light-theme contrast override",
+      "regions": [
+        "connection information",
+        "settings/toggles helper text",
+        "missing-field and status labels"
+      ],
+      "selectors": [
+        "html[data-theme=\"light\"] .settings-shared-page .line-oa-form",
+        "html[data-theme=\"light\"] .settings-shared-page .line-status-row",
+        "html[data-theme=\"light\"] .settings-shared-page .line-automation-section"
+      ],
+      "behavior": [
+        "restore readable Light-theme text contrast",
+        "preserve existing layout and control behavior",
+        "scope override to LINE settings only"
+      ],
+      "protectedRegionsExcluded": [
+        "all routes outside /settings/line",
+        "Dark theme",
+        "backend and persistence"
       ]
     },
     {
@@ -107,7 +132,7 @@
       "minimumAdded": 1
     }
   ],
-  "expectedDiffSha256": "40a6e8a009a70002e9e522e3c14234f8ee7f83bbdd1967f7434b0961cab8055a",
+  "expectedDiffSha256": "aba180dc137541b6344070a2a4b427963aed33999ff5f2de07f03fd6c0ae8367",
   "expectedDiffLines": [
     {
       "file": "public/app.js",
@@ -414,6 +439,138 @@
       "sign": "+",
       "line": 104,
       "text": "                    <a class=\"landing-button landing-button-primary\" href=\"/signup?plan=starter&amp;billing=monthly\">เริ่มต้นใช้งาน</a>"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 31699,
+      "text": ""
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 31700,
+      "text": "/* LINE settings light contrast: override the legacy dark LINE selectors only on this route. */"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 31701,
+      "text": "html[data-theme=\"light\"] body:not(.login-view) .settings-shared-page .line-oa-form label,"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 31702,
+      "text": "html[data-theme=\"light\"] body:not(.login-view) .settings-shared-page .line-oa-form h3,"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 31703,
+      "text": "html[data-theme=\"light\"] body:not(.login-view) .settings-shared-page .line-automation-section .settings-switch strong,"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 31704,
+      "text": "html[data-theme=\"light\"] body:not(.login-view) .settings-shared-page .line-status-row strong:not(.connected) {"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 31705,
+      "text": "  color: var(--light-text-strong) !important;"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 31706,
+      "text": "  opacity: 1 !important;"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 31707,
+      "text": "}"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 31708,
+      "text": ""
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 31709,
+      "text": "html[data-theme=\"light\"] body:not(.login-view) .settings-shared-page .line-status-row strong.connected {"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 31710,
+      "text": "  color: #047857 !important;"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 31711,
+      "text": "  opacity: 1 !important;"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 31712,
+      "text": "}"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 31713,
+      "text": ""
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 31714,
+      "text": "html[data-theme=\"light\"] body:not(.login-view) .settings-shared-page .line-status-row > div > span,"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 31715,
+      "text": "html[data-theme=\"light\"] body:not(.login-view) .settings-shared-page .line-oa-form p,"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 31716,
+      "text": "html[data-theme=\"light\"] body:not(.login-view) .settings-shared-page .line-oa-form small,"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 31717,
+      "text": "html[data-theme=\"light\"] body:not(.login-view) .settings-shared-page .line-automation-section .settings-switch small {"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 31718,
+      "text": "  color: var(--light-text-muted) !important;"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 31719,
+      "text": "  opacity: 1 !important;"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 31720,
+      "text": "}"
     }
   ]
 }
