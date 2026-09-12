@@ -2695,7 +2695,17 @@ async function handleImportJobsApi(req, res, url) {
     const db = await readDb();
     if (!await requirePermission(req, res, db, "system.danger", "ไม่มีสิทธิ์ล้างข้อมูลงานนำเข้า")) return true;
     try {
-      const result = await cleanupImportJob(jobId);
+      const result = await cleanupImportJob(jobId, {
+        actorUserId: currentUser.id,
+        actorRole: currentUser.role,
+        tenantId: currentUser.tenantId,
+        requestMetadata: {
+          route: url.pathname,
+          method: req.method,
+          request_id: String(req.headers["x-request-id"] || "").slice(0, 160),
+          user_agent: String(req.headers["user-agent"] || "").slice(0, 240)
+        }
+      });
       if (!result) return json(res, 404, { ok: false, error: "ไม่พบงานนำเข้า" });
       return json(res, 200, {
         ok: true,
@@ -2749,7 +2759,7 @@ async function handleImportJobsApi(req, res, url) {
 
     job.status = "running";
     try {
-      const result = await importOrdersBatch(rows);
+      const result = await importOrdersBatch(rows, { jobId });
       job.processed += rows.length;
       job.imported += result.imported;
       job.skipped += result.skipped;
@@ -6177,7 +6187,18 @@ async function handleApi(req, res) {
     if (db.orders.some(order => order.customerId === id)) {
       return json(res, 409, { ok: false, error: "ไม่สามารถลบลูกค้าที่ยังมีออเดอร์ได้" });
     }
-    await deleteCustomer(id);
+    await deleteCustomer(id, {
+      actorUserId: currentUser.id,
+      actorRole: currentUser.role,
+      tenantId: currentUser.tenantId,
+      requestMetadata: {
+        route: url.pathname,
+        method: req.method,
+        source: "customers_api",
+        request_id: String(req.headers["x-request-id"] || "").slice(0, 160),
+        user_agent: String(req.headers["user-agent"] || "").slice(0, 240)
+      }
+    });
     return json(res, 200, { ok: true, deletedCustomerId: id });
   }
 
@@ -6383,6 +6404,9 @@ async function handleApi(req, res) {
       previousCustomerIds: deletedOrder?.customerId ? [deletedOrder.customerId] : [],
       selectedDate: url.searchParams.get("date") || toDateOnly()
     });
+    // Deleting an order must not implicitly delete its now-orphaned customer.
+    // Customer deletion is a separate explicit, audited operation.
+    mutation.deletedCustomerIds = [];
     const deletionAudit = {
       actorUserId: String(currentUser.id || "").trim(),
       actorRole: String(currentUser.role || "").trim(),

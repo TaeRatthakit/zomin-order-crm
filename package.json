@@ -44,6 +44,7 @@
     "test:tenant-role-permissions-key": "node scripts/tenant-role-permissions-key-test.js",
     "test:signup-upsert-arbiters": "node scripts/signup-upsert-arbiters-test.js",
     "test:legacy-global-uniques": "node scripts/legacy-global-uniques-test.js",
+    "test:destructive-paths": "node scripts/destructive-path-hardening-test.js",
     "predeploy": "npm run test:ui-regression",
     "deploy": "node scripts/deploy-production.js",
     "seed": "node scripts/seed.js",
