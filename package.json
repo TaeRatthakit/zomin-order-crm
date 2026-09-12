@@ -37,6 +37,7 @@
     "test:permission-ui": "node scripts/permission-ui-test.js",
     "test:tenant-write": "node scripts/tenant-write-path-test.js",
     "test:ui-regression": "node scripts/ui-regression-guard.js",
+    "test:golden-ui": "node scripts/golden-ui-safety-gate.js",
     "test:large-import": "node scripts/test-large-import.js",
     "test:xlsx-import-disabled": "node scripts/xlsx-import-disabled-test.js",
     "test:signup-bootstrap-table": "node scripts/signup-bootstrap-table-test.js",

@@ -6371,7 +6371,8 @@ async function handleApi(req, res) {
   }
 
   if (req.method === "DELETE" && url.pathname.startsWith("/api/orders/")) {
-    if (!await requirePermission(req, res, db, "orders.delete", "ไม่มีสิทธิ์ลบออเดอร์")) return;
+    const currentUser = await requirePermission(req, res, db, "orders.delete", "ไม่มีสิทธิ์ลบออเดอร์");
+    if (!currentUser) return;
     const id = url.pathname.split("/").pop();
     const orderIndex = db.orders.findIndex(item => item.id === id);
     if (orderIndex === -1) return json(res, 404, { ok: false, error: "ไม่พบออเดอร์" });
@@ -6382,8 +6383,44 @@ async function handleApi(req, res) {
       previousCustomerIds: deletedOrder?.customerId ? [deletedOrder.customerId] : [],
       selectedDate: url.searchParams.get("date") || toDateOnly()
     });
-    if (typeof persistOrderMutation === "function") await persistOrderMutation(mutation, db.settings);
-    else await writeDb(db);
+    const deletionAudit = {
+      actorUserId: String(currentUser.id || "").trim(),
+      actorRole: String(currentUser.role || "").trim(),
+      tenantId: String(currentUser.tenantId || currentUser.tenant_id || "").trim(),
+      requestMetadata: {
+        route: url.pathname,
+        method: req.method,
+        source: "orders_api",
+        request_id: String(req.headers["x-request-id"] || "").slice(0, 160),
+        user_agent: String(req.headers["user-agent"] || "").slice(0, 240)
+      }
+    };
+    try {
+      if (typeof persistOrderMutation === "function") {
+        await persistOrderMutation({ ...mutation, deletionAudit }, db.settings);
+      } else {
+        const deletionAudits = Array.isArray(db.orderDeletionAudits) ? db.orderDeletionAudits : [];
+        deletionAudits.push({
+          id: uid("order_delete_audit"),
+          orderId: id,
+          tenantId: deletionAudit.tenantId,
+          actorUserId: deletionAudit.actorUserId,
+          actorRole: deletionAudit.actorRole,
+          action: "order_delete",
+          deletedAt: new Date().toISOString(),
+          orderSnapshot: JSON.parse(JSON.stringify(deletedOrder)),
+          requestMetadata: deletionAudit.requestMetadata,
+          createdAt: new Date().toISOString()
+        });
+        db.orderDeletionAudits = deletionAudits;
+        await writeDb(db);
+      }
+    } catch (error) {
+      if (error.code === "ORDER_DELETE_NOT_FOUND") {
+        return json(res, 404, { ok: false, error: "ไม่พบออเดอร์" });
+      }
+      throw error;
+    }
     return json(res, 200, { ok: true, mutation });
   }
 
