@@ -42,7 +42,8 @@ function baseDb(overrides = {}) {
           archived: false,
           salesPackages: []
         }
-      ]
+      ],
+      productCosts: [{ id: "p_zomin", name: "Zomin", costPerJar: 100, enabled: true }]
     },
     users: [],
     customers: [],
@@ -334,6 +335,89 @@ async function testOptionalFieldsCanBeEmpty() {
   if ((readFixture().orders || []).length !== 1) fail("optional-field order was not saved");
 }
 
+async function testZeroAmountOrderSavesNormally() {
+  writeFixture({ customers: [], orders: [] });
+  const result = await postLineMessage("line-zero-amount", lineOrderText({
+    orderNumber: "FREE/0",
+    phone: "0832222242",
+    address: "77 Bangkok",
+    quantity: 6,
+    amount: 0
+  }));
+  if (result.parsedOrders !== 1) fail("zero-amount order was not parsed as valid");
+  if (lastReplyText(result) !== SUCCESS_REPLY) fail("zero-amount order did not keep the success reply");
+  const db = readFixture();
+  const orders = db.orders || [];
+  if (orders.length !== 1) fail(`zero-amount order saved ${orders.length} times instead of once`);
+  const order = orders[0];
+  if (Number(order.amount) !== 0 || Number(order.jars) !== 6) fail("zero-amount order lost amount or quantity");
+  if (Number(db.settings?.products?.[0]?.stockQuantity) !== 994) fail("zero-amount order did not adjust inventory exactly once");
+  const linkedCustomer = (db.customers || []).find(item => item.id === order.customerId);
+  if (!linkedCustomer || Number(linkedCustomer.purchaseCount) !== 1 || Number(linkedCustomer.totalSpent) !== 0) {
+    fail("zero-amount order did not update customer aggregates normally");
+  }
+  const financialValues = [
+    order.revenueSnapshot,
+    order.productCostSnapshot,
+    order.packageExpenseSnapshot,
+    order.globalExpenseSnapshot,
+    order.profitBeforeAdsSnapshot,
+    order.profitAfterAdsSnapshot
+  ];
+  if (financialValues.some(value => !Number.isFinite(Number(value)))) fail("zero-amount order produced NaN/Infinity");
+  if (Number(order.revenueSnapshot) !== 0 || Number(order.productCostSnapshot) !== 600 || Number(order.profitBeforeAdsSnapshot) !== -600) {
+    fail("zero-amount financial snapshots were not calculated from zero revenue and real cost");
+  }
+}
+
+async function testZeroDecimalAmountSavesNormally() {
+  writeFixture({ customers: [], orders: [] });
+  const result = await postLineMessage("line-zero-decimal", lineOrderText({
+    orderNumber: "FREE/0.00",
+    phone: "0832222252",
+    amount: "0.00"
+  }));
+  if (result.parsedOrders !== 1 || lastReplyText(result) !== SUCCESS_REPLY) fail("0.00 amount was not accepted");
+  const orders = readFixture().orders || [];
+  if (orders.length !== 1 || Number(orders[0].amount) !== 0) fail("0.00 amount was not persisted exactly once as zero");
+}
+
+async function testEmptyAmountStillRepliesWithoutWrites() {
+  writeFixture({ customers: [], orders: [] });
+  const result = await postLineMessage("line-empty-amount", lineOrderText({ amount: "" }));
+  if (result.parsedOrders !== 0) fail("empty amount was reported as a saved order");
+  const db = readFixture();
+  if ((db.orders || []).length !== 0 || (db.customers || []).length !== 0) fail("empty amount created CRM data");
+  if (Number(db.settings?.products?.[0]?.stockQuantity) !== 1000) fail("empty amount changed inventory");
+  if (lastReplyText(result) !== [
+    "❌ ไม่สามารถบันทึกออเดอร์ได้",
+    "ข้อมูลไม่ครบ: ยอดซื้อ",
+    "กรุณาเพิ่มข้อมูลที่ขาดแล้วส่งออเดอร์ใหม่อีกครั้ง"
+  ].join("\n")) fail("empty amount reply did not list ยอดซื้อ");
+}
+
+async function testNegativeAmountIsRejectedWithoutWrites() {
+  writeFixture({ customers: [], orders: [] });
+  const result = await postLineMessage("line-negative-amount", lineOrderText({ amount: -1 }));
+  if (result.parsedOrders !== 0) fail("negative amount was reported as a saved order");
+  const db = readFixture();
+  if ((db.orders || []).length !== 0 || (db.customers || []).length !== 0) fail("negative amount created CRM data");
+  if (Number(db.settings?.products?.[0]?.stockQuantity) !== 1000) fail("negative amount changed inventory");
+  if (!lastReplyText(result).includes("ข้อมูลไม่ครบ: ยอดซื้อ")) fail("negative amount was not explicitly rejected");
+}
+
+async function testDuplicateZeroAmountMessageWritesOnce() {
+  writeFixture({ customers: [], orders: [] });
+  const text = lineOrderText({ orderNumber: "FREE/DUP", phone: "0832222262", amount: 0 });
+  const first = await postLineMessage("line-zero-repeat", text);
+  const second = await postLineMessage("line-zero-repeat", text);
+  if (first.parsedOrders !== 1 || second.parsedOrders !== 0) fail("zero-amount duplicate prevention changed");
+  const db = readFixture();
+  if ((db.orders || []).length !== 1 || Number(db.settings?.products?.[0]?.stockQuantity) !== 999) {
+    fail("duplicate zero-amount message caused duplicate order or inventory side effects");
+  }
+}
+
 async function testReplyFailureDoesNotCreateDuplicateOnRetry() {
   writeFixture({ customers: [], orders: [] });
   lineReplyFailuresRemaining = 1;
@@ -385,6 +469,11 @@ async function main() {
   await testMissingPhoneDoesNotSaveAndReplies();
   await testMultipleMissingRequiredFieldsAreListed();
   await testOptionalFieldsCanBeEmpty();
+  await testZeroAmountOrderSavesNormally();
+  await testZeroDecimalAmountSavesNormally();
+  await testEmptyAmountStillRepliesWithoutWrites();
+  await testNegativeAmountIsRejectedWithoutWrites();
+  await testDuplicateZeroAmountMessageWritesOnce();
   await testReplyFailureDoesNotCreateDuplicateOnRetry();
   await testSameCustomerProductAfter24HoursCreatesNewOrder();
   await testBuddhistYearThailandTimezoneBoundary();

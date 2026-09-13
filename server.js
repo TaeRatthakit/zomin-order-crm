@@ -3109,6 +3109,12 @@ function findOrCreateCustomer(db, payload) {
 }
 
 function addOrder(db, payload) {
+  const amountValidation = validateRequiredOrderAmount(payload.amount);
+  if (!amountValidation.valid) {
+    const error = new Error("ยอดซื้อต้องเป็นตัวเลขตั้งแต่ 0 ขึ้นไป");
+    error.code = "ORDER_AMOUNT_INVALID";
+    throw error;
+  }
   const resolvedPayload = applyResolvedProductToPayload(db.settings || {}, payload, {
     allowContainsMatch: Boolean(payload.allowProductContainsMatch)
   });
@@ -3120,9 +3126,7 @@ function addOrder(db, payload) {
   if (!customer) throw new Error("ไม่พบลูกค้า");
 
   const jars = Number(payload.jars || 1);
-  const amount = payload.amount !== undefined && payload.amount !== ""
-    ? Number(payload.amount)
-    : jars * Number(db.settings.defaultJarPrice || 750);
+  const amount = amountValidation.amount;
   const phone = normalizePhone(payload.phone || customer.phone || "");
   const previousVipCardSent = (db.orders || []).some(order =>
     order.customerId === customer.id && order.vipCardStatus === "ส่งบัตรแล้ว"
@@ -3407,21 +3411,40 @@ function missingRequiredOrderFields(order = {}) {
     ["เบอร์โทร", order.phone],
     ["ที่อยู่จัดส่ง", order.address],
     ["จำนวน", order.jars ?? order.quantity],
-    ["ชื่อลูกค้า", order.name || order.customerName],
-    ["ยอดซื้อ", order.amount]
+    ["ชื่อลูกค้า", order.name || order.customerName]
   ];
-  return required.filter(([, value]) => !normalizeImportText(value) && value !== 0).map(([label]) => label);
+  const missing = required.filter(([, value]) => !normalizeImportText(value) && value !== 0).map(([label]) => label);
+  if (!validateRequiredOrderAmount(order.amount).valid) missing.push("ยอดซื้อ");
+  return missing;
 }
 
 function parseCurrency(textValue) {
   const value = String(textValue || "");
-  if (/ของฟรี|ฟรี/.test(value) && !/[0-9][0-9,]*\s*(?:บาท|฿|THB)/i.test(value)) return 0;
-  const labelled = value.match(/(?:ยอด|ราคา|รวม|amount|price)\s*[:：-]?\s*([0-9][0-9,]*)/i);
-  const cod = value.match(/(?:เก็บเงินปลายทาง|cod)\s*([0-9][0-9,]*)/i);
-  const money = value.match(/([0-9][0-9,]*)\s*(?:บาท|฿|THB)/i);
+  if (/ของฟรี|ฟรี/.test(value) && !/-?[0-9][0-9,]*(?:\.[0-9]+)?\s*(?:บาท|฿|THB)/i.test(value)) return 0;
+  const labelled = value.match(/(?:ยอด|ราคา|รวม|amount|price)\s*[:：-]?\s*(-?[0-9][0-9,]*(?:\.[0-9]+)?)/i);
+  const cod = value.match(/(?:เก็บเงินปลายทาง|cod)\s*(-?[0-9][0-9,]*(?:\.[0-9]+)?)/i);
+  const money = value.match(/(-?[0-9][0-9,]*(?:\.[0-9]+)?)\s*(?:บาท|฿|THB)/i);
   const match = labelled || cod || money;
   if (!match) return null;
   return Number(match[1].replace(/,/g, ""));
+}
+
+function parseOrderAmountValue(value) {
+  if (value === undefined || value === null) return null;
+  if (typeof value === "number") return value;
+  const textValue = String(value).trim();
+  if (textValue === "") return null;
+  const parsedCurrency = parseCurrency(textValue);
+  if (parsedCurrency !== null) return parsedCurrency;
+  return Number(textValue.replace(/,/g, "").replace(/(?:THB|บาท|฿)/gi, "").trim());
+}
+
+function validateRequiredOrderAmount(value) {
+  const amount = parseOrderAmountValue(value);
+  return {
+    valid: amount !== null && Number.isFinite(amount) && amount >= 0,
+    amount
+  };
 }
 
 function parseQuantity(textValue) {
@@ -3546,9 +3569,7 @@ function parsePrimaryLineOrderForm(rawText) {
     jars: get("jars")
       ? Number(get("jars").replace(/[^\d.]/g, "")) || parseQuantity(get("jars")) || 0
       : null,
-    amount: get("amount")
-      ? parseCurrency(get("amount")) ?? Number(get("amount").replace(/,/g, "").replace(/[^\d.]/g, ""))
-      : null,
+    amount: parseOrderAmountValue(get("amount")),
     source: "LINE",
     sourceChannel: normalizeImportText(get("sourceChannel") || "LINE"),
     originSource: normalizeImportText(get("originSource")),
@@ -3606,11 +3627,10 @@ function parseLineOrder(rawText, defaultJarPrice = 750) {
   if (shouldSkipLineImport(textValue)) return null;
   const primary = parsePrimaryLineOrderForm(textValue);
   if (primary) {
+    const amountValidation = validateRequiredOrderAmount(primary.amount);
     return {
       ...primary,
-      amount: Number.isFinite(Number(primary.amount)) && primary.amount !== ""
-        ? Number(primary.amount)
-        : Number(primary.jars || 1) * Number(defaultJarPrice || 750)
+      amount: amountValidation.valid ? amountValidation.amount : null
     };
   }
   const lines = textValue.split(/\n+/).map(line => line.trim()).filter(Boolean);
@@ -3891,7 +3911,8 @@ async function replyLineMessages(settings, replyToken, messages) {
 
 function normalizedOrderForStorage(parsed = {}) {
   const hasValue = value => value !== undefined && value !== null && normalizeImportText(value) !== "";
-  const parsedAmount = hasValue(parsed.amount) ? Number(parsed.amount) : null;
+  const hasAmountValue = parsed.amount !== undefined && parsed.amount !== null && String(parsed.amount).trim() !== "";
+  const parsedAmount = hasAmountValue ? Number(parsed.amount) : null;
   const parsedJars = hasValue(parsed.jars)
     ? Number(parsed.jars)
     : hasValue(parsed.quantity)
@@ -3943,6 +3964,9 @@ async function parseOrderWithAI(textValue, settings = {}) {
     const raw = payload.output_text || payload.output?.flatMap(item => item.content || []).map(chunk => chunk.text || "").join("") || "";
     if (!raw.trim()) return fallback;
     const parsed = JSON.parse(raw);
+    const parsedTotalAmountProvided = parsed.totalAmount !== undefined
+      && parsed.totalAmount !== null
+      && String(parsed.totalAmount).trim() !== "";
     return {
       items: normalizeProductNameForMatching(parsed.productName || fallback?.items || ""),
       date: normalizeImportDate(parsed.orderDate) || fallback?.date || toDateOnly(),
@@ -3956,7 +3980,9 @@ async function parseOrderWithAI(textValue, settings = {}) {
       phone: normalizePhone(parsed.phoneNumber || fallback?.phone || ""),
       alternatePhone: normalizePhone(parsed.alternatePhone || fallback?.alternatePhone || ""),
       jars: Number(parsed.quantity || fallback?.jars || 0) || 1,
-      amount: Number(parsed.totalAmount || fallback?.amount || 0),
+      amount: parsedTotalAmountProvided
+        ? parseOrderAmountValue(parsed.totalAmount)
+        : fallback?.amount ?? null,
       freeGift: normalizeImportText(parsed.freeGift || fallback?.freeGift || ""),
       vipCardStatus: normalizeImportText(parsed.vipStatus || fallback?.vipCardStatus || "ยังไม่ได้ส่งบัตร") || "ยังไม่ได้ส่งบัตร",
       note: normalizeImportText(parsed.note || fallback?.note || ""),
@@ -6238,6 +6264,11 @@ async function handleApi(req, res) {
     const bodyStartedAt = Date.now();
     const body = await readBody(req);
     timings.bodyMs = Date.now() - bodyStartedAt;
+    const amountValidation = validateRequiredOrderAmount(body.amount);
+    if (!amountValidation.valid) {
+      return json(res, 400, { ok: false, error: "ยอดซื้อต้องเป็นตัวเลขตั้งแต่ 0 ขึ้นไป" });
+    }
+    body.amount = amountValidation.amount;
     let order;
     try {
       const addStartedAt = Date.now();
@@ -6261,6 +6292,9 @@ async function handleApi(req, res) {
       }
       if (error.code === "PRODUCT_NOT_FOUND") {
         return json(res, 409, { ok: false, error: PRODUCT_RESOLUTION_ERROR });
+      }
+      if (error.code === "ORDER_AMOUNT_INVALID") {
+        return json(res, 400, { ok: false, error: error.message });
       }
       throw error;
     }
@@ -6310,6 +6344,13 @@ async function handleApi(req, res) {
     const authStartedAt = Date.now();
     if (!await requirePermission(req, res, db, orderPermission, "ไม่มีสิทธิ์แก้ไขออเดอร์")) return;
     timings.authMs = Date.now() - authStartedAt;
+    if (body.amount !== undefined) {
+      const amountValidation = validateRequiredOrderAmount(body.amount);
+      if (!amountValidation.valid) {
+        return json(res, 400, { ok: false, error: "ยอดซื้อต้องเป็นตัวเลขตั้งแต่ 0 ขึ้นไป" });
+      }
+      body.amount = amountValidation.amount;
+    }
     const order = db.orders.find(item => item.id === id);
     if (!order) return json(res, 404, { ok: false, error: "ไม่พบออเดอร์" });
     const previousOrder = { ...order };

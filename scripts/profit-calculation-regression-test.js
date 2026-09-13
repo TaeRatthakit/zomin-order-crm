@@ -314,6 +314,96 @@ function loadClientProfitHelpers() {
   const reloginKnown = reloginState.orders.find(row => row.id === order.id);
   almostEqual(reloginKnown.profitBeforeAdsSnapshot, 680.4, "logout/login kept stored profit");
 
+  const freeBefore = JSON.parse((await request("/api/state?date=2026-07-22", { headers: { cookie } })).text);
+  const freeBeforeOrderCount = freeBefore.orders.length;
+  const freeBeforeCustomerCount = freeBefore.customers.length;
+  const freeBeforeStock = Number(freeBefore.settings.products.find(item => item.id === product.id)?.stockQuantity);
+  const freeCreate = await request("/api/orders", {
+    method: "POST",
+    headers: { cookie, "content-type": "application/json" },
+    body: JSON.stringify({
+      productId: product.id,
+      items: product.name,
+      name: "Free Order Test",
+      phone: "0800000004",
+      address: "Bangkok",
+      date: "2026-07-22",
+      time: "09:00",
+      jars: 6,
+      amount: 0,
+      sourceChannel: "LINE"
+    })
+  });
+  if (freeCreate.status !== 200) fail(`zero-amount API create returned ${freeCreate.status}: ${freeCreate.text}`);
+  const freeState = JSON.parse((await request("/api/state?date=2026-07-22", { headers: { cookie } })).text);
+  const freeOrder = freeState.orders.find(row => row.customerName === "Free Order Test");
+  if (!freeOrder || Number(freeOrder.amount) !== 0 || Number(freeOrder.jars) !== 6) fail("zero-amount API order was not saved normally");
+  if (freeState.orders.length !== freeBeforeOrderCount + 1) fail("zero-amount API order count did not increment once");
+  if (freeState.customers.length !== freeBeforeCustomerCount + 1) fail("zero-amount API customer linkage did not run normally");
+  const freeCustomer = freeState.customers.find(item => item.id === freeOrder.customerId);
+  if (!freeCustomer || Number(freeCustomer.purchaseCount) !== 1 || Number(freeCustomer.totalSpent) !== 0) {
+    fail("zero-amount API customer aggregates were incorrect");
+  }
+  const freeAfterStock = Number(freeState.settings.products.find(item => item.id === product.id)?.stockQuantity);
+  almostEqual(freeAfterStock, freeBeforeStock - 6, "zero-amount API inventory adjustment");
+  almostEqual(freeOrder.revenueSnapshot, 0, "zero-amount API revenue");
+  almostEqual(freeOrder.productCostSnapshot, 282, "zero-amount API product cost");
+  almostEqual(freeOrder.packageExpenseSnapshot, 0, "zero-amount API package cost");
+  almostEqual(freeOrder.globalExpenseSnapshot, 0, "zero-amount API percentage expense");
+  almostEqual(freeOrder.profitBeforeAdsSnapshot, -282, "zero-amount API negative profit");
+  if ([
+    freeOrder.revenueSnapshot,
+    freeOrder.productCostSnapshot,
+    freeOrder.packageExpenseSnapshot,
+    freeOrder.globalExpenseSnapshot,
+    freeOrder.profitBeforeAdsSnapshot,
+    freeOrder.profitAfterAdsSnapshot
+  ].some(value => !Number.isFinite(Number(value)))) fail("zero-amount API order produced NaN/Infinity");
+
+  const zeroEdit = await request(`/api/orders/${encodeURIComponent(order.id)}`, {
+    method: "PUT",
+    headers: { cookie, "content-type": "application/json" },
+    body: JSON.stringify({ amount: "0.00" })
+  });
+  if (zeroEdit.status !== 200) fail(`zero-amount API edit returned ${zeroEdit.status}: ${zeroEdit.text}`);
+  const zeroEditedState = JSON.parse((await request("/api/state?date=2026-07-20", { headers: { cookie } })).text);
+  const zeroEditedOrder = zeroEditedState.orders.find(row => row.id === order.id);
+  if (!zeroEditedOrder || Number(zeroEditedOrder.amount) !== 0) fail("zero-amount API edit did not persist zero");
+
+  const negativeEdit = await request(`/api/orders/${encodeURIComponent(order.id)}`, {
+    method: "PUT",
+    headers: { cookie, "content-type": "application/json" },
+    body: JSON.stringify({ amount: -1 })
+  });
+  if (negativeEdit.status !== 400) fail(`negative API edit returned ${negativeEdit.status} instead of 400`);
+  const afterNegativeEdit = JSON.parse((await request("/api/state?date=2026-07-20", { headers: { cookie } })).text)
+    .orders.find(row => row.id === order.id);
+  if (Number(afterNegativeEdit?.amount) !== 0) fail("rejected negative edit mutated the order");
+
+  for (const [label, amount] of [["empty", ""], ["invalid", "not-a-number"], ["negative", -1]]) {
+    const beforeRejected = JSON.parse((await request("/api/state?date=2026-07-23", { headers: { cookie } })).text);
+    const rejected = await request("/api/orders", {
+      method: "POST",
+      headers: { cookie, "content-type": "application/json" },
+      body: JSON.stringify({
+        productId: product.id,
+        items: product.name,
+        name: `Rejected ${label}`,
+        phone: `08000001${label.length}`,
+        address: "Bangkok",
+        date: "2026-07-23",
+        jars: 1,
+        amount,
+        sourceChannel: "LINE"
+      })
+    });
+    if (rejected.status !== 400) fail(`${label} API amount returned ${rejected.status} instead of 400`);
+    const afterRejected = JSON.parse((await request("/api/state?date=2026-07-23", { headers: { cookie } })).text);
+    if (afterRejected.orders.length !== beforeRejected.orders.length || afterRejected.customers.length !== beforeRejected.customers.length) {
+      fail(`${label} API amount created order/customer data`);
+    }
+  }
+
   console.log("Profit calculation regression passed");
 })().catch(error => {
   console.error(error);
