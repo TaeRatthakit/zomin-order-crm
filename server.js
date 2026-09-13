@@ -5885,6 +5885,33 @@ async function handleApi(req, res) {
     });
   }
 
+  if (req.method === "POST" && url.pathname === "/api/internal/line-order-recovery") {
+    const enabledEnvironment = String(process.env.LINE_RECOVERY_RUNNER_ENV || "").trim();
+    const expectedProjectRef = String(process.env.LINE_RECOVERY_EXPECTED_PROJECT_REF || "").trim();
+    const configuredToken = String(process.env.LINE_RECOVERY_RUNNER_TOKEN || "");
+    const providedToken = String(req.headers["x-line-recovery-token"] || "");
+    const tokenMatches = configuredToken && providedToken
+      && configuredToken.length === providedToken.length
+      && crypto.timingSafeEqual(Buffer.from(configuredToken), Buffer.from(providedToken));
+    if (!enabledEnvironment || process.env.VERCEL_ENV !== enabledEnvironment || !expectedProjectRef || !tokenMatches) {
+      return json(res, 404, { ok: false, error: "API not found" });
+    }
+    const body = await readBody(req);
+    const { runRecovery } = require("./scripts/recover-historical-line-orders");
+    const eventIds = Array.isArray(body.eventIds)
+      ? [...new Set(body.eventIds.map(value => String(value || "").trim()).filter(Boolean))]
+      : [];
+    if (!eventIds.length || eventIds.length > 100) {
+      return json(res, 400, { ok: false, error: "Explicit recovery event allowlist is required." });
+    }
+    const result = await runRecovery({
+      apply: body.apply === true,
+      allowedEventIds: new Set(eventIds),
+      expectedProjectRef
+    });
+    return json(res, 200, { ok: true, apply: result.apply, projectRef: result.projectRef, count: result.count, results: result.results });
+  }
+
   const dbReadStartedAt = Date.now();
   const db = await readDb();
   const dbReadMs = Date.now() - dbReadStartedAt;

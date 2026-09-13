@@ -25,6 +25,7 @@
     "test:line-webhook": "node scripts/line-webhook-duplicate-test.js",
     "test:line-persistence": "node scripts/line-webhook-persistence-regression-test.js",
     "reconcile:line": "node scripts/reconcile-line-webhooks.js",
+    "recover:line": "node scripts/recover-historical-line-orders.js",
     "test:production-preflight": "node scripts/production-preflight-test.js",
     "test:production-schema-contract": "node scripts/production-schema-contract-test.js",
     "test:production-routing-gate": "node scripts/production-routing-gate-test.js",
