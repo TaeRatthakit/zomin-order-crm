@@ -5938,6 +5938,51 @@ async function handleApi(req, res) {
     return json(res, 200, { ok: true, apply: result.apply, projectRef: result.projectRef, count: result.count, results: result.results });
   }
 
+  if (["GET", "POST"].includes(req.method) && url.pathname === "/api/internal/line-order-reconciliation") {
+    const {
+      previousBangkokBusinessDate,
+      reconciliationRequestAuthorized,
+      runLineOrderReconciliation
+    } = require("./lib/line-order-reconciliation");
+    if (dbProvider !== "supabase" || !reconciliationRequestAuthorized(req)) {
+      return json(res, 404, { ok: false, error: "API not found" });
+    }
+    const body = req.method === "POST" ? await readBody(req) : {};
+    const environment = String(process.env.VERCEL_ENV || "").trim().toLowerCase();
+    const expectedProjectRef = environment === "production"
+      ? KNOWN_PRODUCTION_SUPABASE_REF
+      : String(process.env.LINE_RECONCILIATION_EXPECTED_PROJECT_REF || "").trim();
+    if (!expectedProjectRef) return json(res, 503, { ok: false, error: "Reconciliation project scope is not configured." });
+    const requestedApply = req.method === "GET"
+      ? String(process.env.LINE_RECONCILIATION_AUTO_RECOVERY_ENABLED || "").toLowerCase() === "true"
+      : body.applyRecovery === true;
+    if (environment === "production" && requestedApply
+      && String(process.env.LINE_RECONCILIATION_AUTO_RECOVERY_ENABLED || "").toLowerCase() !== "true") {
+      return json(res, 409, { ok: false, error: "Production auto-recovery is not enabled." });
+    }
+    const tenantIds = req.method === "POST" && Array.isArray(body.tenantIds)
+      ? [...new Set(body.tenantIds.map(value => String(value || "").trim()).filter(Boolean))]
+      : [];
+    if (tenantIds.length > 100) return json(res, 400, { ok: false, error: "Too many tenant filters." });
+    const result = await runLineOrderReconciliation({
+      businessDate: req.method === "POST" && body.businessDate
+        ? String(body.businessDate)
+        : previousBangkokBusinessDate(),
+      applyRecovery: requestedApply,
+      trigger: req.method === "GET" ? "scheduled" : (body.trigger === "backfill" ? "backfill" : (body.trigger === "preview_e2e" ? "preview_e2e" : "manual")),
+      tenantIds,
+      expectedProjectRef
+    });
+    console.log("LINE_ORDER_RECONCILIATION_COMPLETED", JSON.stringify({
+      businessDate: result.businessDate,
+      mode: result.mode,
+      tenantRunCount: result.tenantRunCount,
+      summary: result.summary,
+      attentionRequired: result.attentionRequired
+    }));
+    return json(res, result.attentionRequired ? 409 : 200, result);
+  }
+
   const dbReadStartedAt = Date.now();
   const db = await readDb();
   const dbReadMs = Date.now() - dbReadStartedAt;
