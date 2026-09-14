@@ -273,6 +273,7 @@ function testAuthorizationAndDedupAcrossTenants() {
 function testMigrationAndFrontendContracts() {
   const migration = fs.readFileSync(path.join(__dirname, "..", "supabase", "migrations", "20260913091328_line_order_daily_reconciliation.sql"), "utf8");
   assert(migration.includes("create table if not exists public.line_order_reconciliation_jobs"));
+  assert(migration.includes("line_messages_reconciliation_created_tenant_idx"));
   assert(migration.includes("create table if not exists public.line_order_reconciliation_runs"));
   assert(migration.includes("create table if not exists public.line_order_reconciliation_items"));
   assert(migration.includes("enable row level security"));

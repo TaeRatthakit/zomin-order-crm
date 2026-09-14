@@ -1,6 +1,9 @@
 -- Additive, server-only audit ledger for daily LINE/order reconciliation.
 -- No existing business rows are updated or deleted by this migration.
 
+create index if not exists line_messages_reconciliation_created_tenant_idx
+  on public.line_messages (created_at, tenant_id);
+
 create table if not exists public.line_order_reconciliation_jobs (
   id uuid primary key,
   business_date date not null,
