@@ -5,6 +5,7 @@ const path = require("path");
 const { COMPOSITE_CONFLICTS } = require("../lib/db/supabase-adapter");
 const {
   SCHEMA_METADATA_SQL,
+  REVIEWED_PARTIAL_INDEXES,
   evaluateSchemaContract,
   readOnlySchemaMetadata
 } = require("./production-schema-contract");
@@ -52,6 +53,33 @@ result = evaluateSchemaContract({ indexes: fixtureIndexes({ customer_tags: { is_
 assert(!result.ok, "partial customer_tags arbiter should fail");
 assert(result.unresolved.some(row => row.table === "customer_tags" && row.status === "PARTIAL/INCOMPATIBLE"), "partial result should identify customer_tags");
 
+result = evaluateSchemaContract({ indexes: fixtureIndexes({
+  subscriptions: {
+    index_name: REVIEWED_PARTIAL_INDEXES.subscriptions.indexName,
+    is_partial: true,
+    predicate: REVIEWED_PARTIAL_INDEXES.subscriptions.predicate
+  }
+}) });
+assert(result.ok, "exact reviewed initial-subscription partial index should pass");
+
+result = evaluateSchemaContract({ indexes: fixtureIndexes({
+  subscriptions: {
+    index_name: REVIEWED_PARTIAL_INDEXES.subscriptions.indexName,
+    is_partial: true,
+    predicate: "(status = 'active')"
+  }
+}) });
+assert(!result.ok, "wrong subscriptions partial predicate should fail");
+
+result = evaluateSchemaContract({ indexes: fixtureIndexes({
+  subscriptions: {
+    index_name: "unreviewed_subscriptions_index",
+    is_partial: true,
+    predicate: REVIEWED_PARTIAL_INDEXES.subscriptions.predicate
+  }
+}) });
+assert(!result.ok, "unreviewed subscriptions partial index name should fail");
+
 result = evaluateSchemaContract({ indexes: fixtureIndexes({ customer_tags: { columns: ["tenant_id", "customer_id"] } }) });
 assert(!result.ok, "wrong conflict columns should fail");
 assert(result.unresolved.some(row => row.table === "customer_tags" && row.status === "MISSING ARBITER"), "missing result should identify customer_tags");
@@ -70,6 +98,6 @@ const inspected = readOnlySchemaMetadata({
   }
 });
 assert(calls === 1 && Array.isArray(inspected), "schema guard should perform one metadata read");
-assert(SCHEMA_METADATA_SQL.includes("pg_index") && SCHEMA_METADATA_SQL.includes("indpred"), "schema guard must inspect actual PostgreSQL indexes and partial predicates");
+assert(SCHEMA_METADATA_SQL.includes("pg_index") && SCHEMA_METADATA_SQL.includes("indpred") && SCHEMA_METADATA_SQL.includes("pg_get_expr"), "schema guard must inspect actual PostgreSQL indexes and partial predicates");
 
 console.log("Production schema contract tests passed.");

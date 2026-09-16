@@ -3,6 +3,13 @@
 const { execFileSync } = require("child_process");
 const { COMPOSITE_CONFLICTS } = require("../lib/db/supabase-adapter");
 
+const REVIEWED_PARTIAL_INDEXES = {
+  subscriptions: {
+    indexName: "uniq_subscriptions_initial_tenant",
+    predicate: "(is_initial = true)"
+  }
+};
+
 const SCHEMA_METADATA_SQL = `
 select coalesce(json_agg(json_build_object(
   'table_name', table_name,
@@ -11,6 +18,7 @@ select coalesce(json_agg(json_build_object(
   'is_unique', is_unique,
   'is_exclusion', is_exclusion,
   'is_partial', is_partial,
+  'predicate', predicate,
   'columns', columns
 ) order by table_name, index_name), '[]'::json)::text
 from (
@@ -22,6 +30,7 @@ from (
     ix.indisunique as is_unique,
     ix.indisexclusion as is_exclusion,
     ix.indpred is not null as is_partial,
+    pg_get_expr(ix.indpred, ix.indrelid) as predicate,
     array(
       select a.attname
       from unnest(ix.indkey) with ordinality as key(attnum, ord)
@@ -44,6 +53,10 @@ function normalizeColumns(value) {
   return Array.isArray(value) ? value.map(item => String(item || "").trim()) : [];
 }
 
+function normalizePredicate(value) {
+  return String(value || "").trim().replace(/\s+/g, " ").toLowerCase();
+}
+
 function expectedTargets(metadata = COMPOSITE_CONFLICTS) {
   return Object.entries(metadata || {}).map(([table, target]) => ({
     table,
@@ -56,10 +69,17 @@ function evaluateSchemaContract({ indexes = [], conflicts = COMPOSITE_CONFLICTS 
   const results = expectedTargets(conflicts).map(({ table, columns }) => {
     const tableIndexes = rows.filter(row => String(row.table_name || "") === table);
     const matching = tableIndexes.filter(row => JSON.stringify(normalizeColumns(row.columns)) === JSON.stringify(columns));
-    const valid = matching.find(row => (
-      (row.is_unique === true || row.is_exclusion === true)
-      && row.is_partial !== true
-    ));
+    const reviewedPartial = REVIEWED_PARTIAL_INDEXES[table];
+    const valid = matching.find(row => {
+      if (row.is_unique !== true && row.is_exclusion !== true) return false;
+      if (row.is_partial !== true) return true;
+      return Boolean(
+        reviewedPartial
+        && row.is_unique === true
+        && String(row.index_name || "") === reviewedPartial.indexName
+        && normalizePredicate(row.predicate) === normalizePredicate(reviewedPartial.predicate)
+      );
+    });
     if (valid) {
       return {
         table,
@@ -128,8 +148,10 @@ if (require.main === module) main();
 
 module.exports = {
   SCHEMA_METADATA_SQL,
+  REVIEWED_PARTIAL_INDEXES,
   evaluateSchemaContract,
   expectedTargets,
   normalizeColumns,
+  normalizePredicate,
   readOnlySchemaMetadata
 };
