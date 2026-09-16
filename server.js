@@ -3856,9 +3856,9 @@ function addHttpWebhookDebug(db, req, rawBody = "", status = {}) {
   return debug;
 }
 
-function persistWebhookDebugAsync(db) {
+function persistWebhookDebugAsync(db, message = null) {
   setImmediate(() => {
-    const latest = db.lineMessages?.at(-1);
+    const latest = message || db.lineMessages?.at(-1);
     const persist = dbProvider === "supabase" && typeof persistLineMessageRecord === "function" && latest
       ? () => persistLineMessageRecord(latest)
       : () => writeDb(db);
@@ -4080,7 +4080,6 @@ async function handleLineWebhookEvents(db, settings, events, options = {}) {
     db.lineMessages.push(storedMessage);
     let normalized = null;
     try {
-      await persistLifecycle(storedMessage, "received");
       if (!isTargetGroup(source, settings)) {
         debug.parser_status = "skipped_group_filter";
         debug.error_message = source.type !== "group"
@@ -4110,7 +4109,6 @@ async function handleLineWebhookEvents(db, settings, events, options = {}) {
         replies.push({ replyToken, messages: [{ type: "text", text: formatMissingFieldsMessage(missingFields) }], storedMessage });
         continue;
       }
-      await persistLifecycle(storedMessage, "parsed", { parser_status: "parsed" });
       let order;
       let replyText;
       let mode = "created";
@@ -4135,10 +4133,10 @@ async function handleLineWebhookEvents(db, settings, events, options = {}) {
       debug.supabase_insert_status = "pending_write";
       debug.reply_text = replyText;
       debug.internal_order_id = order.id;
-      await persistLifecycle(storedMessage, "persisting");
       const mutation = orderMutationPayload(db, { orderId: order.id, selectedDate: normalized.date || toDateOnly() });
+      let persisted = null;
       if (supabaseLinePersistence) {
-        const persisted = await persistLineOrderMutation(mutation, db.settings);
+        persisted = await persistLineOrderMutation(mutation, db.settings);
         if (!persisted?.verification?.ok) {
           const error = new Error("LINE order persistence could not be verified.");
           error.code = "LINE_ORDER_NOT_VERIFIED";
@@ -4147,19 +4145,14 @@ async function handleLineWebhookEvents(db, settings, events, options = {}) {
       } else {
         await writeDb(db);
       }
-      const verification = supabaseLinePersistence && typeof verifyPersistedOrder === "function"
-        ? await verifyPersistedOrder(order)
+      const verification = supabaseLinePersistence
+        ? (persisted?.verification || await verifyPersistedOrder(order))
         : { ok: true, orderId: order.id };
       if (!verification.ok) {
         const error = new Error("LINE order read-back verification failed.");
         error.code = "LINE_ORDER_NOT_VERIFIED";
         throw error;
       }
-      await persistLifecycle(storedMessage, "persisted", {
-        supabase_insert_status: "verified",
-        internal_order_id: order.id,
-        verification: "row_confirmed"
-      });
       parsedOrders.push(order);
       persistedOrders.push({ id: order.id, lineMessageId: order.lineMessageId || "", amount: order.amount, date: order.date, mode });
       replies.push({ replyToken, messages: [{ type: "text", text: replyText }], storedMessage });
@@ -4256,8 +4249,9 @@ async function handleLineWebhookPost(req, res, db, options = {}) {
     return json(res, 200, { ok: true, received: 0, verification: true });
   }
   httpDebug.signature_validation = "pass";
-  if (dbProvider === "supabase" && typeof persistLineMessageRecord === "function") {
-    await persistLineMessageRecord(db.lineMessages.at(-1));
+  const httpDebugMessage = db.lineMessages?.at(-1);
+  if (dbProvider === "supabase" && typeof persistLineMessageRecord === "function" && httpDebugMessage) {
+    persistWebhookDebugAsync(db, httpDebugMessage);
   }
   const events = Array.isArray(body.events) ? body.events : [{ message: { text: body.text || body.content || "" } }];
   if (!Array.isArray(body.events)) {
