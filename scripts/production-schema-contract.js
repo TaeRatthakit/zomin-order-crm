@@ -1,6 +1,9 @@
 "use strict";
 
 const { execFileSync } = require("child_process");
+const fs = require("fs");
+const os = require("os");
+const path = require("path");
 const { COMPOSITE_CONFLICTS } = require("../lib/db/supabase-adapter");
 
 const REVIEWED_PARTIAL_INDEXES = {
@@ -103,27 +106,75 @@ function evaluateSchemaContract({ indexes = [], conflicts = COMPOSITE_CONFLICTS 
   };
 }
 
+function isPostgresUrl(value) {
+  try {
+    const parsed = new URL(String(value || "").trim());
+    return parsed.protocol === "postgres:" || parsed.protocol === "postgresql:";
+  } catch {
+    return false;
+  }
+}
+
+function parseSupabaseCliMetadata(output) {
+  const payload = JSON.parse(String(output || "").trim());
+  if (!payload || !Array.isArray(payload.rows) || payload.rows.length !== 1) {
+    throw new Error("Supabase CLI schema inspection returned invalid rows.");
+  }
+  const indexes = JSON.parse(String(payload.rows[0]?.coalesce || ""));
+  if (!Array.isArray(indexes)) {
+    throw new Error("Supabase CLI schema inspection returned invalid metadata.");
+  }
+  return indexes;
+}
+
 function readOnlySchemaMetadata({ env = process.env, exec = execFileSync } = {}) {
   const databaseUrl = String(
     env.SUPABASE_DB_URL || env.DATABASE_URL || env.POSTGRES_URL || ""
   ).trim();
-  if (!databaseUrl) {
-    throw new Error("Production read-only schema inspection requires SUPABASE_DB_URL, DATABASE_URL, or POSTGRES_URL.");
+  if (isPostgresUrl(databaseUrl)) {
+    const psql = String(env.PSQL_BIN || "psql").trim();
+    const output = exec(psql, [
+      "--no-psqlrc",
+      "--no-align",
+      "--tuples-only",
+      "--set=ON_ERROR_STOP=1",
+      `--dbname=${databaseUrl}`,
+      "--command",
+      SCHEMA_METADATA_SQL
+    ], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"]
+    });
+    return JSON.parse(String(output || "[]").trim() || "[]");
   }
-  const psql = String(env.PSQL_BIN || "psql").trim();
-  const output = exec(psql, [
-    "--no-psqlrc",
-    "--no-align",
-    "--tuples-only",
-    "--set=ON_ERROR_STOP=1",
-    `--dbname=${databaseUrl}`,
-    "--command",
-    SCHEMA_METADATA_SQL
-  ], {
-    encoding: "utf8",
-    stdio: ["ignore", "pipe", "pipe"]
-  });
-  return JSON.parse(String(output || "[]").trim() || "[]");
+  const projectRef = String(env.SUPABASE_PROJECT_REF || "").trim();
+  if (!/^[a-z]{20}$/.test(projectRef)) {
+    throw new Error("Production read-only schema inspection requires a valid database URL or linked Supabase project ref.");
+  }
+  const supabase = String(env.SUPABASE_CLI_BIN || "supabase").trim();
+  const cliWorkdir = fs.mkdtempSync(path.join(os.tmpdir(), "growup-supabase-schema-"));
+  try {
+    const output = exec(supabase, [
+      "--workdir",
+      cliWorkdir,
+      "db",
+      "query",
+      "--linked",
+      "--project-ref",
+      projectRef,
+      "--output-format",
+      "json",
+      SCHEMA_METADATA_SQL
+    ], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+      timeout: 60_000,
+      maxBuffer: 4 * 1024 * 1024
+    });
+    return parseSupabaseCliMetadata(output);
+  } finally {
+    fs.rmSync(cliWorkdir, { recursive: true, force: true });
+  }
 }
 
 function main() {
@@ -132,7 +183,7 @@ function main() {
     indexes = readOnlySchemaMetadata();
   } catch (error) {
     console.error("BLOCKED / PRODUCTION SCHEMA CONTRACT NOT SATISFIED");
-    console.error("- Read-only PostgreSQL schema inspection unavailable.");
+    console.error("- Read-only Production schema inspection unavailable.");
     process.exitCode = 1;
     return;
   }
@@ -151,7 +202,9 @@ module.exports = {
   REVIEWED_PARTIAL_INDEXES,
   evaluateSchemaContract,
   expectedTargets,
+  isPostgresUrl,
   normalizeColumns,
   normalizePredicate,
+  parseSupabaseCliMetadata,
   readOnlySchemaMetadata
 };
