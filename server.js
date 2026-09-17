@@ -3885,6 +3885,7 @@ function looksLikeOrderMessage(textValue = "") {
 }
 
 async function lineApiRequest(pathname, { method = "POST", body } = {}, accessToken) {
+  const requestStartedAt = Date.now();
   const res = await fetch(`https://api.line.me${pathname}`, {
     method,
     headers: {
@@ -3893,18 +3894,43 @@ async function lineApiRequest(pathname, { method = "POST", body } = {}, accessTo
     },
     body: body ? JSON.stringify(body) : undefined
   });
+  const responseReceivedAt = Date.now();
   if (!res.ok) {
     const detail = await res.text();
-    throw new Error(`LINE API request failed: ${res.status} ${detail}`);
+    const responseHandledAt = Date.now();
+    const error = new Error(`LINE API request failed: ${res.status} ${detail}`);
+    error.lineApiTiming = {
+      httpStatus: res.status,
+      requestStartedAt,
+      responseReceivedAt,
+      responseHandledAt,
+      requestMs: responseReceivedAt - requestStartedAt,
+      responseHandlingMs: responseHandledAt - responseReceivedAt,
+      totalMs: responseHandledAt - requestStartedAt
+    };
+    throw error;
   }
-  return res.status === 204 ? null : res.json();
+  const data = res.status === 204 ? null : await res.json();
+  const responseHandledAt = Date.now();
+  return {
+    data,
+    timing: {
+      httpStatus: res.status,
+      requestStartedAt,
+      responseReceivedAt,
+      responseHandledAt,
+      requestMs: responseReceivedAt - requestStartedAt,
+      responseHandlingMs: responseHandledAt - responseReceivedAt,
+      totalMs: responseHandledAt - requestStartedAt
+    }
+  };
 }
 
 async function replyLineMessages(settings, replyToken, messages) {
   if (!replyToken) return;
   const accessToken = settings.lineChannelAccessToken;
   if (!accessToken) return;
-  await lineApiRequest("/v2/bot/message/reply", {
+  return lineApiRequest("/v2/bot/message/reply", {
     body: { replyToken, messages }
   }, accessToken);
 }
@@ -4198,10 +4224,62 @@ async function handleLineWebhookEvents(db, settings, events, options = {}) {
   }
   if (!supabaseLinePersistence) await writeDb(db);
   for (const reply of replies) {
+    const correlationId = reply.storedMessage?.lineMessageId || reply.storedMessage?.id || "";
+    const orderId = reply.storedMessage?.rawEvent?.__debug?.internal_order_id || "";
+    const replySideStartedAt = Date.now();
     try {
-      await replyLineMessages(settings, reply.replyToken, reply.messages);
+      const lineApiResult = await replyLineMessages(settings, reply.replyToken, reply.messages);
+      const lifecycleStartedAt = Date.now();
       if (reply.storedMessage) await persistLifecycle(reply.storedMessage, "replied", { supabase_insert_status: "verified" });
+      const lifecycleCompletedAt = Date.now();
+      console.info("LINE reply timing", JSON.stringify({
+        correlationId,
+        orderId,
+        replySideStartedAt: new Date(replySideStartedAt).toISOString(),
+        lineApiRequestStartedAt: lineApiResult?.timing?.requestStartedAt
+          ? new Date(lineApiResult.timing.requestStartedAt).toISOString()
+          : "",
+        lineApiResponseReceivedAt: lineApiResult?.timing?.responseReceivedAt
+          ? new Date(lineApiResult.timing.responseReceivedAt).toISOString()
+          : "",
+        lineApiResponseHandledAt: lineApiResult?.timing?.responseHandledAt
+          ? new Date(lineApiResult.timing.responseHandledAt).toISOString()
+          : "",
+        lifecycleStartedAt: new Date(lifecycleStartedAt).toISOString(),
+        lifecycleCompletedAt: new Date(lifecycleCompletedAt).toISOString(),
+        httpStatus: lineApiResult?.timing?.httpStatus ?? null,
+        lineApiRequestMs: lineApiResult?.timing?.requestMs ?? 0,
+        lineApiResponseHandlingMs: lineApiResult?.timing?.responseHandlingMs ?? 0,
+        lineApiTotalMs: lineApiResult?.timing?.totalMs ?? 0,
+        lifecyclePersistenceMs: lifecycleCompletedAt - lifecycleStartedAt,
+        totalReplySideMs: lifecycleCompletedAt - replySideStartedAt,
+        status: "completed"
+      }));
     } catch (error) {
+      const failedAt = Date.now();
+      console.info("LINE reply timing", JSON.stringify({
+        correlationId,
+        orderId,
+        replySideStartedAt: new Date(replySideStartedAt).toISOString(),
+        lineApiRequestStartedAt: error.lineApiTiming?.requestStartedAt
+          ? new Date(error.lineApiTiming.requestStartedAt).toISOString()
+          : "",
+        lineApiResponseReceivedAt: error.lineApiTiming?.responseReceivedAt
+          ? new Date(error.lineApiTiming.responseReceivedAt).toISOString()
+          : "",
+        lineApiResponseHandledAt: error.lineApiTiming?.responseHandledAt
+          ? new Date(error.lineApiTiming.responseHandledAt).toISOString()
+          : "",
+        lifecycleStartedAt: "",
+        lifecycleCompletedAt: "",
+        httpStatus: error.lineApiTiming?.httpStatus ?? null,
+        lineApiRequestMs: error.lineApiTiming?.requestMs ?? 0,
+        lineApiResponseHandlingMs: error.lineApiTiming?.responseHandlingMs ?? 0,
+        lineApiTotalMs: error.lineApiTiming?.totalMs ?? failedAt - replySideStartedAt,
+        lifecyclePersistenceMs: 0,
+        totalReplySideMs: failedAt - replySideStartedAt,
+        status: "failed"
+      }));
       if (reply.storedMessage) await failLifecycle(reply.storedMessage, error, { failure_category: "line_reply_failed" });
       console.error("LINE webhook reply failed", JSON.stringify({ failureCategory: "line_reply_failed", error: safeLineErrorMessage(error) }));
     }

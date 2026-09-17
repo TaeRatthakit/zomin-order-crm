@@ -15,6 +15,13 @@ const store = Object.fromEntries([
 ].map(key => [key, []]));
 const failures = { orders: false, ignoreOrders: false };
 const replies = [];
+const replyTimingLogs = [];
+let replyObservedAfterDurableSave = false;
+const originalConsoleInfo = console.info;
+console.info = (...args) => {
+  if (args[0] === "LINE reply timing") replyTimingLogs.push(JSON.parse(args[1]));
+  originalConsoleInfo(...args);
+};
 
 function resetStore() {
   Object.keys(store).forEach(key => { store[key] = []; });
@@ -26,6 +33,8 @@ function resetStore() {
   failures.orders = false;
   failures.ignoreOrders = false;
   replies.length = 0;
+  replyTimingLogs.length = 0;
+  replyObservedAfterDurableSave = false;
 }
 
 function response(body, status = 200) {
@@ -49,7 +58,11 @@ function selectedRows(table, url) {
 
 global.fetch = async (input, options = {}) => {
   const url = new URL(String(input));
-  if (url.hostname === "api.line.me") { replies.push(JSON.parse(options.body || "{}")); return response(null, 204); }
+  if (url.hostname === "api.line.me") {
+    replyObservedAfterDurableSave = store.orders.length > 0;
+    replies.push(JSON.parse(options.body || "{}"));
+    return response(null, 204);
+  }
   const table = url.pathname.split("/").pop();
   if (!Object.hasOwn(store, table)) return response({ error: `unknown table ${table}` }, 404);
   const method = String(options.method || "GET").toUpperCase();
@@ -95,6 +108,13 @@ async function testNormal() {
   resetStore(); const result = await request(lineEvent("normal-001"));
   if (result.status !== 200 || store.orders.length !== 1 || replies.length !== 1) fail("normal order did not persist and reply exactly once");
   if (latest("normal-001")?.raw_event?.__debug?.processing_status !== "replied") fail("normal event did not reach replied state");
+  if (!replyObservedAfterDurableSave) fail("reply started before the durable order write");
+  const timing = replyTimingLogs[0];
+  if (!timing || timing.correlationId !== "normal-001" || timing.httpStatus !== 204 || timing.status !== "completed") fail("reply timing status or correlation is missing");
+  if (![timing.lineApiRequestMs, timing.lineApiResponseHandlingMs, timing.lifecyclePersistenceMs, timing.totalReplySideMs].every(value => Number.isFinite(value) && value >= 0)) fail("reply timing durations are invalid");
+  if (!timing.lineApiResponseReceivedAt || !timing.lineApiResponseHandledAt || !timing.lifecycleStartedAt || !timing.lifecycleCompletedAt) fail("reply timing stage timestamps are incomplete");
+  const serializedTiming = JSON.stringify(timing);
+  if (serializedTiming.includes("test-line-token") || serializedTiming.includes("0812345678") || serializedTiming.includes("ลูกค้าทดสอบ")) fail("reply timing leaked a secret or customer PII");
 }
 async function testWriteFailure() {
   resetStore(); failures.orders = true; const result = await request(lineEvent("failure-001", "2/9"));
