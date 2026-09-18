@@ -78,11 +78,17 @@ global.fetch = async (input, options = {}) => {
       if (index >= 0 && prefer.includes("resolution=ignore-duplicates")) continue;
       if (index >= 0) store[table][index] = { ...store[table][index], ...row };
       else if (!(table === "orders" && failures.ignoreOrders)) store[table].push({ ...row });
-      inserted.push(row);
+      else continue;
+      inserted.push(store[table].find(existing => conflict.every(key => String(existing[key] ?? "") === String(row[key] ?? ""))) || row);
     }
     return response(prefer.includes("return=minimal") ? null : inserted);
   }
-  if (method === "PATCH") { const patch = JSON.parse(options.body || "{}"); selectedRows(table, url).forEach(row => Object.assign(row, patch)); return response(null, 204); }
+  if (method === "PATCH") {
+    const patch = JSON.parse(options.body || "{}");
+    const selected = selectedRows(table, url);
+    selected.forEach(row => Object.assign(row, patch));
+    return String(options.headers?.Prefer || "").includes("return=representation") ? response(selected) : response(null, 204);
+  }
   if (method === "DELETE") { const selected = new Set(selectedRows(table, url)); store[table] = store[table].filter(row => !selected.has(row)); return response(null, 204); }
   return response({ error: "unsupported" }, 405);
 };
@@ -107,6 +113,9 @@ function latest(id) { return store.line_messages.find(row => row.id === adapter.
 async function testNormal() {
   resetStore(); const result = await request(lineEvent("normal-001"));
   if (result.status !== 200 || store.orders.length !== 1 || replies.length !== 1) fail("normal order did not persist and reply exactly once");
+  if (store.customers.length !== 1 || store.orders[0].customer_id !== store.customers[0].id) fail("normal order customer linkage was not persisted exactly once");
+  if (store.settings.find(row => row.key === "products")?.value?.[0]?.stockQuantity !== 999) fail("normal order inventory was not decremented exactly once");
+  if (![store.orders[0], store.customers[0], store.settings.find(row => row.key === "products")].every(row => row?.tenant_id === "tenant_a")) fail("normal order persistence escaped its tenant");
   if (latest("normal-001")?.raw_event?.__debug?.processing_status !== "replied") fail("normal event did not reach replied state");
   if (!replyObservedAfterDurableSave) fail("reply started before the durable order write");
   const timing = replyTimingLogs[0];

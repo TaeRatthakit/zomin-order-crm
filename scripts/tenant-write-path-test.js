@@ -130,7 +130,9 @@ global.fetch = async function mockFetch(input, options = {}) {
     const patch = JSON.parse(options.body || "{}");
     const rows = applyFilters(db[table], url.searchParams);
     for (const row of rows) Object.assign(row, patch);
-    return new Response(null, { status: 204 });
+    return String(options.headers?.Prefer || "").includes("return=representation")
+      ? new Response(JSON.stringify(rows), { status: 200 })
+      : new Response(null, { status: 204 });
   }
   if (method === "DELETE") {
     const rows = new Set(applyFilters(db[table], url.searchParams));
