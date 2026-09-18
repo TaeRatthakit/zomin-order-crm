@@ -16,10 +16,13 @@ const store = Object.fromEntries([
 const failures = { orders: false, ignoreOrders: false };
 const replies = [];
 const replyTimingLogs = [];
+const lifecycleTimingLogs = [];
+const databaseReads = [];
 let replyObservedAfterDurableSave = false;
 const originalConsoleInfo = console.info;
 console.info = (...args) => {
   if (args[0] === "LINE reply timing") replyTimingLogs.push(JSON.parse(args[1]));
+  if (args[0] === "LINE order lifecycle timing") lifecycleTimingLogs.push(JSON.parse(args[1]));
   originalConsoleInfo(...args);
 };
 
@@ -34,6 +37,8 @@ function resetStore() {
   failures.ignoreOrders = false;
   replies.length = 0;
   replyTimingLogs.length = 0;
+  lifecycleTimingLogs.length = 0;
+  databaseReads.length = 0;
   replyObservedAfterDurableSave = false;
 }
 
@@ -66,7 +71,10 @@ global.fetch = async (input, options = {}) => {
   const table = url.pathname.split("/").pop();
   if (!Object.hasOwn(store, table)) return response({ error: `unknown table ${table}` }, 404);
   const method = String(options.method || "GET").toUpperCase();
-  if (method === "GET") return response(selectedRows(table, url));
+  if (method === "GET") {
+    databaseReads.push({ table, query: url.search });
+    return response(selectedRows(table, url));
+  }
   if (method === "POST") {
     if (table === "orders" && failures.orders) return response({ error: "forced order write failure" }, 503);
     const rows = JSON.parse(options.body || "[]");
@@ -124,6 +132,14 @@ async function testNormal() {
   if (!timing.lineApiResponseReceivedAt || !timing.lineApiResponseHandledAt || !timing.lifecycleStartedAt || !timing.lifecycleCompletedAt) fail("reply timing stage timestamps are incomplete");
   const serializedTiming = JSON.stringify(timing);
   if (serializedTiming.includes("test-line-token") || serializedTiming.includes("0812345678") || serializedTiming.includes("ลูกค้าทดสอบ")) fail("reply timing leaked a secret or customer PII");
+  const lifecycleTiming = lifecycleTimingLogs[0];
+  if (!lifecycleTiming || lifecycleTiming.correlationId !== "normal-001" || lifecycleTiming.status !== "completed") fail("full lifecycle timing is missing");
+  if (!["payloadParsingMs", "tenantResolutionMs", "initialDatabaseReadMs", "duplicateClaimMs", "orderParsingMs", "relatedOrderStateReadMs", "persistenceAndVerificationMs", "lineApiTotalMs", "repliedLifecyclePersistenceMs", "totalThroughLifecycleMs"].every(key => Number.isFinite(lifecycleTiming[key]) && lifecycleTiming[key] >= 0)) fail("full lifecycle stage durations are invalid");
+  const serializedLifecycle = JSON.stringify(lifecycleTiming);
+  if (serializedLifecycle.includes("test-line-token") || serializedLifecycle.includes("0812345678") || serializedLifecycle.includes("ลูกค้าทดสอบ")) fail("full lifecycle timing leaked a secret or customer PII");
+  if (databaseReads.some(read => read.table === "customers" && !read.query.includes("phone=eq."))) fail("LINE path performed an unbounded customer read");
+  if (databaseReads.some(read => read.table === "orders" && !read.query.includes("id=in.") && !read.query.includes("phone=eq.") && !read.query.includes("customer_id=in."))) fail("LINE path performed an unbounded order read");
+  if (databaseReads.some(read => read.table === "settings" && !read.query.includes("key=in."))) fail("LINE path performed an unbounded settings read");
 }
 async function testWriteFailure() {
   resetStore(); failures.orders = true; const result = await request(lineEvent("failure-001", "2/9"));

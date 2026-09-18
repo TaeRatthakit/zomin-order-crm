@@ -6,6 +6,8 @@ require("./lib/env").loadEnv();
 const {
   provider: dbProvider,
   readDb,
+  readLineWebhookDb,
+  readLineOrderState,
   findUserForLogin,
   readUserById,
   createSignupTenantAccount,
@@ -79,6 +81,14 @@ const {
   clearSessionCookie
 } = require("./lib/auth");
 const { synchronizeCustomers } = require("./lib/customer-sync");
+
+function monotonicMs() {
+  return Number(process.hrtime.bigint()) / 1e6;
+}
+
+function elapsedMs(startedAt) {
+  return Math.round((monotonicMs() - startedAt) * 1000) / 1000;
+}
 const {
   normalizeAdPlatforms,
   normalizeAdCostRecords,
@@ -1885,10 +1895,13 @@ function findInventoryProductIndex(products = [], order = {}) {
   return products.findIndex(product => normalizedProductNameKey(product.name) === orderNameKey);
 }
 
-function adjustInventoryForOrderChange(db, previousOrder = null, nextOrder = null) {
+function adjustInventoryForOrderChange(db, previousOrder = null, nextOrder = null, timing = null) {
+  const normalizeStartedAt = monotonicMs();
   const products = normalizeProductRecords(db.settings?.products);
+  if (timing) timing.inventoryNormalizeMs = elapsedMs(normalizeStartedAt);
   if (!products.length) return null;
 
+  const lookupStartedAt = monotonicMs();
   const adjustments = new Map();
   const addAdjustment = (order, direction) => {
     if (!order) return;
@@ -1901,8 +1914,10 @@ function adjustInventoryForOrderChange(db, previousOrder = null, nextOrder = nul
 
   addAdjustment(previousOrder, 1);
   addAdjustment(nextOrder, -1);
+  if (timing) timing.inventoryLookupMs = elapsedMs(lookupStartedAt);
   if (!adjustments.size) return null;
 
+  const mutationStartedAt = monotonicMs();
   for (const [index, delta] of adjustments.entries()) {
     const product = products[index];
     const currentStock = Number(product.stockQuantity || 0);
@@ -1928,6 +1943,7 @@ function adjustInventoryForOrderChange(db, previousOrder = null, nextOrder = nul
     };
   }
   db.settings = { ...(db.settings || {}), products };
+  if (timing) timing.inventoryMutationPreparationMs = elapsedMs(mutationStartedAt);
   return products;
 }
 
@@ -3108,20 +3124,26 @@ function findOrCreateCustomer(db, payload) {
   return customer;
 }
 
-function addOrder(db, payload) {
+function addOrder(db, payload, timing = null) {
+  const validationStartedAt = monotonicMs();
   const amountValidation = validateRequiredOrderAmount(payload.amount);
   if (!amountValidation.valid) {
     const error = new Error("ยอดซื้อต้องเป็นตัวเลขตั้งแต่ 0 ขึ้นไป");
     error.code = "ORDER_AMOUNT_INVALID";
     throw error;
   }
+  if (timing) timing.orderValidationMs = elapsedMs(validationStartedAt);
+  const productStartedAt = monotonicMs();
   const resolvedPayload = applyResolvedProductToPayload(db.settings || {}, payload, {
     allowContainsMatch: Boolean(payload.allowProductContainsMatch)
   });
+  if (timing) timing.productLookupNormalizationMs = elapsedMs(productStartedAt);
+  const customerStartedAt = monotonicMs();
   const existingCustomer = payload.customerId
     ? db.customers.find(item => item.id === payload.customerId)
     : null;
   const customer = existingCustomer || findOrCreateCustomer(db, payload);
+  if (timing) timing.customerLookupCreateMs = elapsedMs(customerStartedAt);
 
   if (!customer) throw new Error("ไม่พบลูกค้า");
 
@@ -3143,6 +3165,7 @@ function addOrder(db, payload) {
     ? "ลูกค้ามีบัตร VIP และสั่งผ่านไลน์บริษัท: รองรับส่วนลด VIP กระปุกละ 10 บาท"
     : "";
   const note = [String(payload.note || "").trim(), vipDiscountFlag].filter(Boolean).join(" | ");
+  const orderBuildStartedAt = monotonicMs();
   const nowIso = new Date().toISOString();
   const order = {
     id: payload.id || uid("o"),
@@ -3181,6 +3204,7 @@ function addOrder(db, payload) {
 
   applyOrderProfitSnapshot(order, db.settings || {}, "created");
   db.orders.push(order);
+  if (timing) timing.orderBuildMs = elapsedMs(orderBuildStartedAt);
   return order;
 }
 
@@ -3712,9 +3736,9 @@ function lineEventLogPayload(event = {}, text = "") {
     eventType: event.type || "",
     messageType: event.message?.type || "",
     sourceType: source.type || "",
-    groupId: source.groupId || "",
-    userId: source.userId || "",
-    text: String(text || "").slice(0, 500)
+    hasGroupId: Boolean(source.groupId),
+    hasUserId: Boolean(source.userId),
+    textLength: Buffer.byteLength(String(text || ""), "utf8")
   };
 }
 
@@ -4048,6 +4072,12 @@ async function handleLineWebhookEvents(db, settings, events, options = {}) {
     }
   };
   for (const event of events) {
+    const eventStartedAt = monotonicMs();
+    const eventTiming = {
+      ...(options.timing?.stages || {}),
+      requestStartMonotonicMs: options.timing?.requestStartedAtMonotonic || eventStartedAt,
+      atomicDatabaseTransaction: false
+    };
     const { replyToken, source, text, messageId } = extractLineWebhookContext(event);
     const debug = {
       received_at: new Date().toISOString(),
@@ -4082,19 +4112,23 @@ async function handleLineWebhookEvents(db, settings, events, options = {}) {
       hasPostback: Boolean(event.postback),
       hasFollow: Boolean(event.follow)
     }));
-    if (isDuplicateLineMessage(db, messageId)) {
+    const memoryDuplicateStartedAt = monotonicMs();
+    const duplicateInSnapshot = isDuplicateLineMessage(db, messageId);
+    eventTiming.duplicateSnapshotCheckMs = elapsedMs(memoryDuplicateStartedAt);
+    if (duplicateInSnapshot) {
       debug.parser_status = "duplicate_message";
       debug.processing_status = "replied";
       debug.supabase_insert_status = "skipped_duplicate_message";
       console.log("LINE webhook duplicate delivery skipped", JSON.stringify({
-        groupId: source.groupId || "",
         lineMessageId: messageId || ""
       }));
       replies.push({ replyToken, messages: [{ type: "text", text: "ℹ️ ออเดอร์นี้มีอยู่แล้วใน Growup Pilot" }] });
       continue;
     }
     if (supabaseLinePersistence && messageId) {
+      const claimStartedAt = monotonicMs();
       const claim = await claimLineMessage(storedMessage);
+      eventTiming.duplicateClaimMs = elapsedMs(claimStartedAt);
       if (!claim.claimed) {
         debug.parser_status = "duplicate_message_in_flight";
         debug.processing_status = "replied";
@@ -4103,6 +4137,7 @@ async function handleLineWebhookEvents(db, settings, events, options = {}) {
         continue;
       }
     }
+    if (eventTiming.duplicateClaimMs === undefined) eventTiming.duplicateClaimMs = 0;
     db.lineMessages.push(storedMessage);
     let normalized = null;
     try {
@@ -4124,32 +4159,55 @@ async function handleLineWebhookEvents(db, settings, events, options = {}) {
         await persistLifecycle(storedMessage, "failed", { failure_category: "not_order_format" });
         continue;
       }
-      console.log("LINE webhook parser starting", JSON.stringify({ groupId: source.groupId || "", hasOpenAI: Boolean(settings.openaiApiKey) }));
+      console.log("LINE webhook parser starting", JSON.stringify({ hasGroupId: Boolean(source.groupId), hasOpenAI: Boolean(settings.openaiApiKey) }));
+      const parserStartedAt = monotonicMs();
       const parsed = await parseOrderWithAI(rawText, settings);
+      eventTiming.orderParsingMs = elapsedMs(parserStartedAt);
+      const normalizationStartedAt = monotonicMs();
       normalized = normalizedOrderForStorage({ ...parsed, lineMessageId: messageId });
+      eventTiming.orderNormalizationMs = elapsedMs(normalizationStartedAt);
+      const requiredValidationStartedAt = monotonicMs();
       const missingFields = missingRequiredOrderFields(normalized);
+      eventTiming.requiredFieldValidationMs = elapsedMs(requiredValidationStartedAt);
       if (missingFields.length) {
         debug.parser_status = "missing_required_fields";
         debug.error_message = `Missing fields: ${missingFields.join(", ")}`;
         await persistLifecycle(storedMessage, "failed", { failure_category: "missing_required_fields" });
-        replies.push({ replyToken, messages: [{ type: "text", text: formatMissingFieldsMessage(missingFields) }], storedMessage });
+        replies.push({ replyToken, messages: [{ type: "text", text: formatMissingFieldsMessage(missingFields) }], storedMessage, timing: eventTiming });
         continue;
+      }
+      if (supabaseLinePersistence && typeof readLineOrderState === "function") {
+        const stateReadStartedAt = monotonicMs();
+        db = await readLineOrderState({
+          ...normalized,
+          orderId: deterministicLineOrderId(messageId)
+        }, db);
+        eventTiming.relatedOrderStateReadMs = elapsedMs(stateReadStartedAt);
+        eventTiming.relatedOrderStateRead = readLineOrderState.lastTimings || null;
+      } else {
+        eventTiming.relatedOrderStateReadMs = 0;
       }
       let order;
       let replyText;
       let mode = "created";
+      const relatedOrderStartedAt = monotonicMs();
       const upsaleOrder = findLineUpsaleOrder(db, normalized);
+      eventTiming.relatedOrderLookupMs = elapsedMs(relatedOrderStartedAt);
       if (upsaleOrder) {
+        const orderBuildStartedAt = monotonicMs();
         const result = updateLineUpsaleOrder(db, upsaleOrder, normalized);
+        eventTiming.orderBuildMs = elapsedMs(orderBuildStartedAt);
         order = result.order;
         mode = "upsale";
         replyText = formatUpsaleReply(order, result.changes);
         debug.parser_status = "upsale_updated";
       } else {
         const id = deterministicLineOrderId(messageId);
-        order = addOrder(db, { ...normalized, id, allowProductContainsMatch: true });
-        adjustInventoryForOrderChange(db, null, order);
+        order = addOrder(db, { ...normalized, id, allowProductContainsMatch: true }, eventTiming);
+        adjustInventoryForOrderChange(db, null, order, eventTiming);
+        const similarOrderStartedAt = monotonicMs();
         const similarOrderToday = findSimilarOrderCreatedToday(db, normalized, order);
+        eventTiming.similarOrderLookupMs = elapsedMs(similarOrderStartedAt);
         const successReplyText = "✅ นำเข้าออเดอร์เรียบร้อยแล้ว\nGrowup Pilot บันทึกข้อมูลเรียบร้อย";
         replyText = similarOrderToday
           ? `${successReplyText}\n\n⚠️ พบออเดอร์ที่คล้ายกันภายในวันนี้\nกรุณาตรวจสอบว่าเป็นออเดอร์ใหม่ของลูกค้า หรือเป็นข้อความที่ส่งซ้ำ`
@@ -4159,10 +4217,16 @@ async function handleLineWebhookEvents(db, settings, events, options = {}) {
       debug.supabase_insert_status = "pending_write";
       debug.reply_text = replyText;
       debug.internal_order_id = order.id;
+      const mutationBuildStartedAt = monotonicMs();
       const mutation = orderMutationPayload(db, { orderId: order.id, selectedDate: normalized.date || toDateOnly() });
+      eventTiming.mutationBuildMs = elapsedMs(mutationBuildStartedAt);
       let persisted = null;
       if (supabaseLinePersistence) {
+        eventTiming.databaseMutationStartOffsetMs = elapsedMs(eventTiming.requestStartMonotonicMs);
+        const persistenceStartedAt = monotonicMs();
         persisted = await persistLineOrderMutation(mutation, db.settings);
+        eventTiming.persistenceAndVerificationMs = elapsedMs(persistenceStartedAt);
+        eventTiming.persistence = persisted?.timings || null;
         if (!persisted?.verification?.ok) {
           const error = new Error("LINE order persistence could not be verified.");
           error.code = "LINE_ORDER_NOT_VERIFIED";
@@ -4181,7 +4245,12 @@ async function handleLineWebhookEvents(db, settings, events, options = {}) {
       }
       parsedOrders.push(order);
       persistedOrders.push({ id: order.id, lineMessageId: order.lineMessageId || "", amount: order.amount, date: order.date, mode });
-      replies.push({ replyToken, messages: [{ type: "text", text: replyText }], storedMessage });
+      const replyPreparationStartedAt = monotonicMs();
+      const preparedReply = { replyToken, messages: [{ type: "text", text: replyText }], storedMessage, timing: eventTiming };
+      eventTiming.replyPreparationMs = elapsedMs(replyPreparationStartedAt);
+      eventTiming.preReplyTotalMs = elapsedMs(eventTiming.requestStartMonotonicMs);
+      eventTiming.eventProcessingMs = elapsedMs(eventStartedAt);
+      replies.push(preparedReply);
     } catch (error) {
       if (error.code === "ORDER_DUPLICATE") {
         debug.parser_status = "duplicate";
@@ -4227,11 +4296,15 @@ async function handleLineWebhookEvents(db, settings, events, options = {}) {
     const correlationId = reply.storedMessage?.lineMessageId || reply.storedMessage?.id || "";
     const orderId = reply.storedMessage?.rawEvent?.__debug?.internal_order_id || "";
     const replySideStartedAt = Date.now();
+    const replySideStartedAtMonotonic = monotonicMs();
     try {
       const lineApiResult = await replyLineMessages(settings, reply.replyToken, reply.messages);
+      const lineApiCompletedAtMonotonic = monotonicMs();
       const lifecycleStartedAt = Date.now();
+      const lifecycleStartedAtMonotonic = monotonicMs();
       if (reply.storedMessage) await persistLifecycle(reply.storedMessage, "replied", { supabase_insert_status: "verified" });
       const lifecycleCompletedAt = Date.now();
+      const lifecycleCompletedAtMonotonic = monotonicMs();
       console.info("LINE reply timing", JSON.stringify({
         correlationId,
         orderId,
@@ -4253,6 +4326,21 @@ async function handleLineWebhookEvents(db, settings, events, options = {}) {
         lineApiTotalMs: lineApiResult?.timing?.totalMs ?? 0,
         lifecyclePersistenceMs: lifecycleCompletedAt - lifecycleStartedAt,
         totalReplySideMs: lifecycleCompletedAt - replySideStartedAt,
+        status: "completed"
+      }));
+      console.info("LINE order lifecycle timing", JSON.stringify({
+        correlationId,
+        orderId,
+        tenantId: options.tenant?.tenantId || "",
+        databaseProject: typeof databaseProjectFingerprint === "function" ? databaseProjectFingerprint() : "",
+        ...reply.timing,
+        lineApiRequestMs: lineApiResult?.timing?.requestMs ?? elapsedMs(replySideStartedAtMonotonic),
+        lineApiResponseHandlingMs: lineApiResult?.timing?.responseHandlingMs ?? 0,
+        lineApiTotalMs: lineApiResult?.timing?.totalMs ?? elapsedMs(replySideStartedAtMonotonic),
+        lineApiCompletedOffsetMs: Math.round((lineApiCompletedAtMonotonic - (reply.timing?.requestStartMonotonicMs || replySideStartedAtMonotonic)) * 1000) / 1000,
+        repliedLifecyclePersistenceMs: Math.round((lifecycleCompletedAtMonotonic - lifecycleStartedAtMonotonic) * 1000) / 1000,
+        replySideTotalMs: Math.round((lifecycleCompletedAtMonotonic - replySideStartedAtMonotonic) * 1000) / 1000,
+        totalThroughLifecycleMs: Math.round((lifecycleCompletedAtMonotonic - (reply.timing?.requestStartMonotonicMs || replySideStartedAtMonotonic)) * 1000) / 1000,
         status: "completed"
       }));
     } catch (error) {
@@ -4303,16 +4391,21 @@ function verifyLineSignature(rawBody, channelSecret, signature) {
 }
 
 async function handleLineWebhookPost(req, res, db, options = {}) {
+  const handlerStartedAt = monotonicMs();
+  const stages = options.timing?.stages || {};
+  const bodyStartedAt = monotonicMs();
   const body = req._parsedBody || await readBody(req);
+  if (stages.payloadParsingMs === undefined) stages.payloadParsingMs = elapsedMs(bodyStartedAt);
   const signature = req.headers["x-line-signature"];
+  const settingsStartedAt = monotonicMs();
   const settings = effectiveSettings(db.settings, { tenantScoped: Boolean(options.tenant?.tenantId) });
+  stages.settingsPreparationMs = elapsedMs(settingsStartedAt);
   const httpDebug = addHttpWebhookDebug(db, req, body._rawBody || "", { signatureValidation: "pending" });
   console.log("LINE webhook raw body", JSON.stringify({
     receivedAt: httpDebug.received_at,
     hasEvents: Array.isArray(body.events),
     eventCount: Array.isArray(body.events) ? body.events.length : -1,
-    bodyLength: Buffer.byteLength(body._rawBody || "", "utf8"),
-    bodyPreview: String(body._rawBody || "").slice(0, 1200)
+    bodyLength: Buffer.byteLength(body._rawBody || "", "utf8")
   }));
   if (!settings.lineWebhookEnabled) {
     httpDebug.signature_validation = "not_checked";
@@ -4320,7 +4413,10 @@ async function handleLineWebhookPost(req, res, db, options = {}) {
     persistWebhookDebugAsync(db);
     return json(res, 200, { ok: true, received: 0, verification: true });
   }
-  if (!verifyLineSignature(body._rawBody, settings.lineChannelSecret, signature)) {
+  const signatureStartedAt = monotonicMs();
+  const signatureValid = verifyLineSignature(body._rawBody, settings.lineChannelSecret, signature);
+  stages.signatureValidationMs = elapsedMs(signatureStartedAt);
+  if (!signatureValid) {
     httpDebug.signature_validation = "fail";
     httpDebug.error_message = "LINE signature validation failed.";
     persistWebhookDebugAsync(db);
@@ -4331,7 +4427,9 @@ async function handleLineWebhookPost(req, res, db, options = {}) {
   if (dbProvider === "supabase" && typeof persistLineMessageRecord === "function" && httpDebugMessage) {
     persistWebhookDebugAsync(db, httpDebugMessage);
   }
+  const eventPreparationStartedAt = monotonicMs();
   const events = Array.isArray(body.events) ? body.events : [{ message: { text: body.text || body.content || "" } }];
+  stages.eventPreparationMs = elapsedMs(eventPreparationStartedAt);
   if (!Array.isArray(body.events)) {
     console.log("LINE webhook no events array", JSON.stringify({
       receivedAt: httpDebug.received_at,
@@ -4353,7 +4451,18 @@ async function handleLineWebhookPost(req, res, db, options = {}) {
     return json(res, 200, { ok: true, received: 0, verification: true });
   }
   const parsedOrders = await handleLineWebhookEvents(db, settings, events, options);
-  return json(res, 200, { ok: true, received: events.length, parsedOrders: parsedOrders.length });
+  stages.handlerBeforeResponseMs = elapsedMs(handlerStartedAt);
+  const response = json(res, 200, { ok: true, received: events.length, parsedOrders: parsedOrders.length });
+  console.info("LINE webhook response timing", JSON.stringify({
+    tenantId: options.tenant?.tenantId || "",
+    databaseProject: typeof databaseProjectFingerprint === "function" ? databaseProjectFingerprint() : "",
+    webhookResponseTotalMs: options.timing?.requestStartedAtMonotonic
+      ? elapsedMs(options.timing.requestStartedAtMonotonic)
+      : stages.handlerBeforeResponseMs,
+    parsedOrders: parsedOrders.length,
+    eventCount: events.length
+  }));
+  return response;
 }
 
 async function handleBillingApi(req, res, url, db, currentUser) {
@@ -5329,13 +5438,18 @@ async function handleApi(req, res) {
   const url = new URL(req.url, `http://${req.headers.host}`);
   const isLineWebhook = url.pathname === "/api/line/webhook";
   const requestStartedAt = Date.now();
+  const lineTiming = isLineWebhook && req.method === "POST"
+    ? { requestStartedAtMonotonic: monotonicMs(), requestReceivedAt: new Date().toISOString(), stages: {} }
+    : null;
 
   if (url.pathname === "/api/stripe/webhook" || url.pathname === "/api/payments/stripe/webhook") {
     return handleStripeWebhookApi(req, res);
   }
 
   if (isLineWebhook && req.method === "POST") {
+    const payloadStartedAt = monotonicMs();
     const body = await readBody(req);
+    lineTiming.stages.payloadParsingMs = elapsedMs(payloadStartedAt);
     if (isLineVerifyRequest(body)) {
       console.log("LINE webhook verify request", JSON.stringify({
         method: req.method,
@@ -5951,7 +6065,10 @@ async function handleApi(req, res) {
     if (typeof withTenantContext !== "function" || typeof resolveTenantForLineWebhook !== "function") {
       return json(res, 503, { ok: false, error: "LINE webhook tenant resolver is not configured." });
     }
+    const tenantResolutionStartedAt = monotonicMs();
     const tenant = await resolveTenantForLineWebhook(body);
+    lineTiming.stages.tenantResolutionMs = elapsedMs(tenantResolutionStartedAt);
+    lineTiming.stages.tenantResolution = resolveTenantForLineWebhook.lastTimings || null;
     if (!tenant) {
       const sourceDiagnostic = Array.isArray(body.events)
         ? {
@@ -5978,8 +6095,15 @@ async function handleApi(req, res) {
       return json(res, 403, { ok: false, error: "LINE webhook tenant mapping is not configured." });
     }
     return withTenantContext(tenant, async () => {
-      const db = await readDb();
-      return handleLineWebhookPost(req, res, db, { tenant });
+      const dbReadStartedAt = monotonicMs();
+      const targetedRead = typeof readLineWebhookDb === "function";
+      const db = targetedRead ? await readLineWebhookDb(body) : await readDb();
+      lineTiming.stages.initialDatabaseReadMs = elapsedMs(dbReadStartedAt);
+      lineTiming.stages.initialDatabaseRead = targetedRead
+        ? (readLineWebhookDb.lastTimings || null)
+        : (readDb.lastTimings || null);
+      lineTiming.stages.targetedInitialRead = targetedRead;
+      return handleLineWebhookPost(req, res, db, { tenant, timing: lineTiming });
     });
   }
 
