@@ -18,6 +18,7 @@ const replies = [];
 const replyTimingLogs = [];
 const lifecycleTimingLogs = [];
 const databaseReads = [];
+const databaseWrites = [];
 let replyObservedAfterDurableSave = false;
 const originalConsoleInfo = console.info;
 console.info = (...args) => {
@@ -33,12 +34,18 @@ function resetStore() {
     { id: "tenant_a:products", key: "products", value: [{ id: "p_zomin", name: "Zomin", costPerItem: 100, stockQuantity: 1000, archived: false, salesPackages: [] }], tenant_id: "tenant_a" },
     { id: "tenant_a:lineGroupId", key: "lineGroupId", value: "group-a", tenant_id: "tenant_a" }
   );
+  store.tags.push(...Array.from({ length: 25 }, (_, index) => ({
+    id: `tenant_a:existing-tag-${index}`,
+    name: `existing-tag-${index}`,
+    tenant_id: "tenant_a"
+  })));
   failures.orders = false;
   failures.ignoreOrders = false;
   replies.length = 0;
   replyTimingLogs.length = 0;
   lifecycleTimingLogs.length = 0;
   databaseReads.length = 0;
+  databaseWrites.length = 0;
   replyObservedAfterDurableSave = false;
 }
 
@@ -78,6 +85,7 @@ global.fetch = async (input, options = {}) => {
   if (method === "POST") {
     if (table === "orders" && failures.orders) return response({ error: "forced order write failure" }, 503);
     const rows = JSON.parse(options.body || "[]");
+    databaseWrites.push({ table, rowCount: rows.length });
     const prefer = String(options.headers?.Prefer || "");
     const conflict = (url.searchParams.get("on_conflict") || "id").split(",");
     const inserted = [];
@@ -114,8 +122,10 @@ function makeResponse(resolve) {
   return { statusCode: 200, headers: {}, writeHead(status, headers = {}) { this.statusCode = status; this.headers = { ...this.headers, ...headers }; }, setHeader(k, v) { this.headers[k] = v; }, write(c) { if (c) chunks.push(Buffer.from(String(c))); }, end(c) { if (c) chunks.push(Buffer.from(String(c))); resolve({ status: this.statusCode, body: Buffer.concat(chunks).toString() }); } };
 }
 function request(body) { return new Promise((resolve, reject) => Promise.resolve(appHandler(makeRequest(body), makeResponse(resolve))).catch(reject)); }
-function lineEvent(id, orderNumber = "1/9") {
-  return { events: [{ type: "message", replyToken: `reply-${id}`, source: { type: "group", groupId: "group-a", userId: "line-user" }, message: { type: "text", id, text: ["สินค้า: Zomin", `เลขออเดอร์: ${orderNumber}`, "วันที่ซื้อ: 5/9/69", "ช่องทางการสั่งซื้อ: LINE", "Facebook / LINE ลูกค้า: line-test", "ชื่อลูกค้า: ลูกค้าทดสอบ", "เบอร์โทร: 0812345678", "ที่อยู่จัดส่ง: 1 Bangkok", "จำนวนกระปุก: 1", "ยอดซื้อ: 280", "ช่องทางการขาย: LINE", "สถานะบัตร VIP: ยังไม่ได้ส่งบัตร"].join("\n") } }] };
+function lineEvent(id, orderNumber = "1/9", tags = "") {
+  const lines = ["สินค้า: Zomin", `เลขออเดอร์: ${orderNumber}`, "วันที่ซื้อ: 5/9/69", "ช่องทางการสั่งซื้อ: LINE", "Facebook / LINE ลูกค้า: line-test", "ชื่อลูกค้า: ลูกค้าทดสอบ", "เบอร์โทร: 0812345678", "ที่อยู่จัดส่ง: 1 Bangkok", "จำนวนกระปุก: 1", "ยอดซื้อ: 280", "ช่องทางการขาย: LINE", "สถานะบัตร VIP: ยังไม่ได้ส่งบัตร"];
+  if (tags) lines.push(`อาการลูกค้า: ${tags}`);
+  return { events: [{ type: "message", replyToken: `reply-${id}`, source: { type: "group", groupId: "group-a", userId: "line-user" }, message: { type: "text", id, text: lines.join("\n") } }] };
 }
 function latest(id) { return store.line_messages.find(row => row.id === adapter.lineMessageStorageId(id)); }
 async function testNormal() {
@@ -140,6 +150,21 @@ async function testNormal() {
   if (databaseReads.some(read => read.table === "customers" && !read.query.includes("phone=eq."))) fail("LINE path performed an unbounded customer read");
   if (databaseReads.some(read => read.table === "orders" && !read.query.includes("id=in.") && !read.query.includes("phone=eq.") && !read.query.includes("customer_id=in."))) fail("LINE path performed an unbounded order read");
   if (databaseReads.some(read => read.table === "settings" && !read.query.includes("key=in."))) fail("LINE path performed an unbounded settings read");
+  if (databaseWrites.some(write => write.table === "tags")) fail("tag-free LINE order rewrote unrelated tenant tags");
+  if (lifecycleTiming.persistence?.tagsSourceCount !== 25 || lifecycleTiming.persistence?.tagsRequiredCount !== 0 || lifecycleTiming.persistence?.tagsRequestedCount !== 0) fail("tag persistence diagnostics did not prove the unrelated tenant tags were skipped");
+}
+async function testTaggedOrder() {
+  resetStore(); const result = await request(lineEvent("tagged-001", "7/9", "new-line-tag"));
+  if (result.status !== 200 || store.orders.length !== 1 || replies.length !== 1) fail("tagged order did not persist and reply exactly once");
+  const roundTrip = await adapter.withTenantContext({ tenantId: "tenant_a" }, () => adapter.readLineOrderState({ phone: "0812345678" }));
+  const customer = roundTrip.customers.find(row => row.phone === "0812345678");
+  if (!customer || !Array.isArray(customer.tags) || !customer.tags.includes("new-line-tag")) fail("tagged order did not preserve customer tags");
+  if (store.tags.filter(row => row.tenant_id === "tenant_a" && row.name === "new-line-tag").length !== 1) fail("required LINE customer tag was not persisted exactly once");
+  if (store.customer_tags.filter(row => row.tenant_id === "tenant_a" && row.customer_id === customer.id && row.tag_name === "new-line-tag").length !== 1) fail("customer tag relationship was not persisted exactly once");
+  const tagWrites = databaseWrites.filter(write => write.table === "tags");
+  if (tagWrites.length !== 1 || tagWrites[0].rowCount !== 1) fail("tagged order did not limit the tag upsert to the required tag");
+  const timing = lifecycleTimingLogs.find(row => row.correlationId === "tagged-001");
+  if (timing?.persistence?.tagsSourceCount !== 26 || timing.persistence.tagsRequiredCount !== 1 || timing.persistence.tagsRequestedCount !== 1) fail("tagged order persistence diagnostics are incorrect");
 }
 async function testWriteFailure() {
   resetStore(); failures.orders = true; const result = await request(lineEvent("failure-001", "2/9"));
@@ -161,4 +186,4 @@ function testGuard() {
   try { adapter.assertProductionDatabaseTarget(); fail("Production guard accepted the wrong project"); } catch (error) { if (error.code !== "SUPABASE_PRODUCTION_PROJECT_MISMATCH") throw error; }
   Object.assign(process.env, { NODE_ENV: original.node, VERCEL_ENV: original.vercel, SUPABASE_URL: original.url });
 }
-(async () => { await testNormal(); await testWriteFailure(); await testUnconfirmedWrite(); await testConcurrency(); testGuard(); console.log("LINE webhook persistence regression tests passed"); })().catch(error => { console.error(error); process.exit(1); });
+(async () => { await testNormal(); await testTaggedOrder(); await testWriteFailure(); await testUnconfirmedWrite(); await testConcurrency(); testGuard(); console.log("LINE webhook persistence regression tests passed"); })().catch(error => { console.error(error); process.exit(1); });
