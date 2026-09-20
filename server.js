@@ -6164,6 +6164,7 @@ async function handleApi(req, res) {
       businessDate: req.method === "POST" && body.businessDate
         ? String(body.businessDate)
         : previousBangkokBusinessDate(),
+      windowDays: 30,
       applyRecovery: requestedApply,
       trigger: req.method === "GET" ? "scheduled" : (body.trigger === "backfill" ? "backfill" : (body.trigger === "preview_e2e" ? "preview_e2e" : "manual")),
       tenantIds,
@@ -6171,6 +6172,8 @@ async function handleApi(req, res) {
     });
     console.log("LINE_ORDER_RECONCILIATION_COMPLETED", JSON.stringify({
       businessDate: result.businessDate,
+      startBusinessDate: result.startBusinessDate,
+      windowDays: result.windowDays,
       mode: result.mode,
       tenantRunCount: result.tenantRunCount,
       summary: result.summary,

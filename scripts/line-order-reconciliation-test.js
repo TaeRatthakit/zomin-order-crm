@@ -7,6 +7,7 @@ const {
   SUCCESS_REPLY_PREFIX,
   authoritativeOrderFromMessage,
   bangkokBusinessDateBounds,
+  bangkokBusinessWindowBounds,
   deduplicateAcks,
   messageBusinessDate,
   previousBangkokBusinessDate,
@@ -244,6 +245,69 @@ async function testBangkokBoundaryAndDifferentPurchaseDate() {
   assert.strictEqual(previousBangkokBusinessDate(new Date("2026-09-13T18:00:00.000Z")), "2026-09-13");
 }
 
+async function testRollingWindowDetectsDelayedDisappearance() {
+  const delayed = ack(60, {
+    safe: true,
+    createdAt: "2026-09-11T06:00:00.000Z",
+    timestamp: Date.parse("2026-09-11T06:00:00.000Z")
+  });
+  const store = new FakeStore({ messages: [delayed] });
+  const recovered = await run(store, {
+    businessDate: "2026-09-13",
+    windowDays: 3,
+    applyRecovery: true
+  });
+  assert.strictEqual(recovered.startBusinessDate, "2026-09-11");
+  assert.strictEqual(recovered.windowDays, 3);
+  assert.strictEqual(recovered.summary.recoveredCount, 1);
+  assert.strictEqual(store.orders.length, 1);
+
+  const replay = await run(store, {
+    businessDate: "2026-09-13",
+    windowDays: 3,
+    applyRecovery: true
+  });
+  assert.strictEqual(replay.summary.exactMatchCount, 1);
+  assert.strictEqual(replay.summary.recoveredCount, 0);
+  assert.strictEqual(store.orders.length, 1);
+  assert.strictEqual(store.recoveryCalls.length, 1);
+
+  const audited = ack(61, {
+    safe: true,
+    createdAt: "2026-09-11T07:00:00.000Z",
+    timestamp: Date.parse("2026-09-11T07:00:00.000Z")
+  });
+  const auditedStore = new FakeStore({
+    messages: [audited],
+    deletions: [{
+      id: "delete-audit-61",
+      tenant_id: TENANT_A,
+      order_id: authoritativeOrderFromMessage(audited).internalOrderId,
+      action: "order_delete",
+      deleted_at: "2026-09-12T07:00:00.000Z"
+    }]
+  });
+  const intentional = await run(auditedStore, {
+    businessDate: "2026-09-13",
+    windowDays: 3,
+    applyRecovery: true
+  });
+  assert.strictEqual(intentional.summary.intentionalDeleteCount, 1);
+  assert.strictEqual(intentional.summary.recoveredCount, 0);
+  assert.strictEqual(auditedStore.orders.length, 0);
+  assert.strictEqual(auditedStore.recoveryCalls.length, 0);
+  assert.strictEqual(auditedStore.items[0].business_date, "2026-09-11");
+
+  assert.deepStrictEqual(bangkokBusinessWindowBounds("2026-09-13", 3), {
+    businessDate: "2026-09-13",
+    startBusinessDate: "2026-09-11",
+    endBusinessDate: "2026-09-13",
+    windowDays: 3,
+    start: "2026-09-10T17:00:00.000Z",
+    end: "2026-09-13T17:00:00.000Z"
+  });
+}
+
 async function testZeroActivityAuditAndProjectGuard() {
   const store = new FakeStore();
   const result = await run(store);
@@ -288,6 +352,7 @@ function testMigrationAndFrontendContracts() {
   assert(route.indexOf("reconciliationRequestAuthorized(req)") < route.indexOf("readBody(req)"), "authorization must happen before reading the manual request body");
   assert(route.includes("LINE_RECONCILIATION_AUTO_RECOVERY_ENABLED"), "Production recovery must remain explicitly gated");
   assert(route.includes("KNOWN_PRODUCTION_SUPABASE_REF"), "Production endpoint must enforce the known Production database ref");
+  assert(route.includes("windowDays: 30"), "scheduled reconciliation must scan a rolling 30-day window");
   const changed = require("child_process").execFileSync("git", ["diff", "--name-only", "HEAD"], { cwd: path.join(__dirname, ".."), encoding: "utf8" });
   assert(!changed.split(/\r?\n/).some(file => /^(?:public\/|ui-baselines\/)/.test(file)), "frontend or Golden UI files changed");
 }
@@ -298,6 +363,7 @@ function testMigrationAndFrontendContracts() {
   await testUnresolvedAndRecoveryFailureAreNonMutating();
   await testDeletionDuplicateWrongTenantSyntheticAndIsolation();
   await testBangkokBoundaryAndDifferentPurchaseDate();
+  await testRollingWindowDetectsDelayedDisappearance();
   await testZeroActivityAuditAndProjectGuard();
   testAuthorizationAndDedupAcrossTenants();
   testMigrationAndFrontendContracts();
