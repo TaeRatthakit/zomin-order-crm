@@ -381,7 +381,11 @@ function assertSafeDiagnosticLog(label, messages) {
       staff: "Owner A"
     });
     if (cross.ok !== false || cross.status !== 404) fail("cross-tenant contact log did not fail closed");
-    await adapter.deleteOrder("o_b");
+    await expectRejectCode(
+      "tenant A direct order delete",
+      "ORDER_DELETE_EXPLICIT_USER_INTENT_REQUIRED",
+      () => adapter.deleteOrder("o_b")
+    );
   });
 
   const customerA = db.customers.find(row => row.id === "c_a");
@@ -421,7 +425,11 @@ function assertSafeDiagnosticLog(label, messages) {
   if (!db.orders.find(row => row.id === "o_b")) fail("tenant A deleted tenant B order by direct ID");
 
   await adapter.withTenantContext(tenantB, async () => {
-    await adapter.deleteOrder("o_a");
+    await expectRejectCode(
+      "tenant B direct order delete",
+      "ORDER_DELETE_EXPLICIT_USER_INTENT_REQUIRED",
+      () => adapter.deleteOrder("o_a")
+    );
   });
   if (!db.orders.find(row => row.id === "o_a")) fail("tenant B deleted tenant A order by direct ID");
 

@@ -66,19 +66,21 @@ assert(!afterProjection.customers.some(customer => customer.id === "customer-orp
 assert.strictEqual(afterProjection.customerDeletionAudits.at(-1).customerId, "customer-orphan");
 
 writeFixture(fixture());
-const cleanup = adapter.cleanupImportJob("job-test-1", {
-  tenantId: "tenant-preview-a",
-  actorUserId: "user-preview-a",
-  actorRole: "Owner",
-  requestMetadata: { route: "/api/import-jobs/job-test-1/cleanup", method: "POST" }
-});
-assert.strictEqual(cleanup.deletedOrders, 1);
+assert.throws(
+  () => adapter.cleanupImportJob("job-test-1", {
+    tenantId: "tenant-preview-a",
+    actorUserId: "user-preview-a",
+    actorRole: "Owner",
+    requestMetadata: { route: "/api/import-jobs/job-test-1/cleanup", method: "POST" }
+  }),
+  error => error.code === "IMPORT_CLEANUP_ORDER_DELETE_FORBIDDEN"
+);
 const afterCleanup = adapter.readDb();
-assert(!afterCleanup.orders.some(order => order.id === "order-imported"), "exact imported order should be removed");
+assert(afterCleanup.orders.some(order => order.id === "order-imported"), "import cleanup must not delete an order");
 assert(afterCleanup.orders.some(order => order.id === "order-pre-existing"), "pre-existing order must survive cleanup");
 assert(afterCleanup.customers.some(customer => customer.id === "customer-pre-existing"), "pre-existing customer must survive cleanup");
 assert(afterCleanup.customers.some(customer => customer.id === "customer-imported"), "import cleanup must not auto-delete customers");
-assert.strictEqual(afterCleanup.orderDeletionAudits.at(-1).orderId, "order-imported");
+assert.strictEqual(afterCleanup.orderDeletionAudits.length, 0);
 
 writeFixture(fixture());
 const mismatched = adapter.readDb();
@@ -91,7 +93,7 @@ assert.throws(
     actorUserId: "user-preview-a",
     actorRole: "Owner"
   }),
-  error => error.code === "IMPORT_CLEANUP_ORDER_PROVENANCE_MISMATCH"
+  error => error.code === "IMPORT_CLEANUP_ORDER_DELETE_FORBIDDEN"
 );
 assert.deepStrictEqual(JSON.parse(fs.readFileSync(dataFile, "utf8")), beforeFailedCleanup, "provenance failure must not persist a mutation");
 

@@ -442,7 +442,7 @@ async function login(username, password = "pass12345") {
     if ((spoofedBody.orders || []).some(order => order.id === "o_b")) fail("tenant spoofing exposed tenant B order");
 
     const crossDelete = await request("/api/orders/o_b", { method: "DELETE", headers: { cookie: owner.cookie } });
-    if (crossDelete.status !== 404) fail(`cross-tenant delete returned ${crossDelete.status}: ${crossDelete.text}`);
+    if (crossDelete.status !== 403) fail(`direct delete without explicit user intent returned ${crossDelete.status}: ${crossDelete.text}`);
     const ownerB = await login("owner-b@example.com");
     const tenantBState = (await request("/api/state", { headers: { cookie: ownerB.cookie } })).json();
     if (!(tenantBState.orders || []).some(order => order.id === "o_b")) fail("tenant A direct-ID attempt deleted tenant B order");

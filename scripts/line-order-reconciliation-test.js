@@ -213,6 +213,8 @@ async function testDeletionDuplicateWrongTenantSyntheticAndIsolation() {
       tenant_id: TENANT_A,
       order_id: authoritativeOrderFromMessage(deleted).internalOrderId,
       action: "order_delete",
+      delete_intent_id: "00000000-0000-0000-0000-000000000030",
+      deletion_proof: "EXPLICIT_USER_CONFIRMED_DELETE",
       deleted_at: "2026-09-13T07:00:00.000Z"
     }]
   });
@@ -284,6 +286,8 @@ async function testRollingWindowDetectsDelayedDisappearance() {
       tenant_id: TENANT_A,
       order_id: authoritativeOrderFromMessage(audited).internalOrderId,
       action: "order_delete",
+      delete_intent_id: "00000000-0000-0000-0000-000000000061",
+      deletion_proof: "EXPLICIT_USER_CONFIRMED_DELETE",
       deleted_at: "2026-09-12T07:00:00.000Z"
     }]
   });
@@ -297,6 +301,28 @@ async function testRollingWindowDetectsDelayedDisappearance() {
   assert.strictEqual(auditedStore.orders.length, 0);
   assert.strictEqual(auditedStore.recoveryCalls.length, 0);
   assert.strictEqual(auditedStore.items[0].business_date, "2026-09-11");
+
+  const legacyAudit = ack(62, {
+    safe: true,
+    createdAt: "2026-09-11T08:00:00.000Z",
+    timestamp: Date.parse("2026-09-11T08:00:00.000Z")
+  });
+  const legacyStore = new FakeStore({
+    messages: [legacyAudit],
+    deletions: [{
+      id: "legacy-delete-audit-62",
+      tenant_id: TENANT_A,
+      order_id: authoritativeOrderFromMessage(legacyAudit).internalOrderId,
+      action: "order_delete",
+      deleted_at: "2026-09-12T08:00:00.000Z"
+    }]
+  });
+  const unexpected = await run(legacyStore, { businessDate: "2026-09-13", windowDays: 3, applyRecovery: true });
+  assert.strictEqual(unexpected.summary.intentionalDeleteCount, 0);
+  assert.strictEqual(unexpected.summary.unresolvedCount, 1);
+  assert.strictEqual(unexpected.results[0].items[0].classification, "UNEXPECTED_MISSING");
+  assert.strictEqual(unexpected.results[0].items[0].reason, "legacy_audit_without_explicit_user_intent");
+  assert.strictEqual(legacyStore.recoveryCalls.length, 0);
 
   assert.deepStrictEqual(bangkokBusinessWindowBounds("2026-09-13", 3), {
     businessDate: "2026-09-13",
@@ -354,7 +380,14 @@ function testMigrationAndFrontendContracts() {
   assert(route.includes("KNOWN_PRODUCTION_SUPABASE_REF"), "Production endpoint must enforce the known Production database ref");
   assert(route.includes("windowDays: 30"), "scheduled reconciliation must scan a rolling 30-day window");
   const changed = require("child_process").execFileSync("git", ["diff", "--name-only", "HEAD"], { cwd: path.join(__dirname, ".."), encoding: "utf8" });
-  assert(!changed.split(/\r?\n/).some(file => /^(?:public\/|ui-baselines\/)/.test(file)), "frontend or Golden UI files changed");
+  const changedFiles = changed.split(/\r?\n/).filter(Boolean);
+  assert.deepStrictEqual(
+    changedFiles.filter(file => file.startsWith("public/")),
+    ["public/app.js"],
+    "only the non-visual explicit-delete handshake may change under public/"
+  );
+  assert(!changedFiles.some(file => /^(?:ui-baselines\/|public\/styles\.css$|public\/index\.html$|public\/.*\.(?:png|jpe?g|webp|svg)$)/i.test(file)),
+    "Golden UI layout, styles, baseline, or assets changed");
 }
 
 (async () => {

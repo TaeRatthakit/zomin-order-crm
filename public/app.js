@@ -1696,6 +1696,11 @@ function showToast(message, status = "") {
   showToast.timer = window.setTimeout(hideToast, tone === "loading" ? 4000 : 3200);
 }
 
+async function orderDeleteApi(orderPath, orderOptions = {}, orderIntent = "") {
+  const orderHeaders = { "X-Requested-With": "GrowupPilot", "X-Growup-User-Action": "order-delete-confirmed", ...(orderIntent ? { "X-Order-Delete-Intent": orderIntent } : {}) };
+  return api(orderPath, { ...orderOptions, headers: { ...orderHeaders, ...(orderOptions.headers || {}) } });
+}
+
 async function api(path, options = {}) {
   const startedAt = performance.now();
   const res = await fetch(path, {
@@ -14380,10 +14385,12 @@ document.addEventListener("submit", async event => {
         showToast("ไม่มีสิทธิ์ลบออเดอร์", "error");
         return;
       }
+      const confirmedOrderId = app.deletingOrderId;
+      const orderDeleteIntentPayload = await orderDeleteApi(`/api/orders/${encodeURIComponent(confirmedOrderId)}/delete-intent`, { method: "POST" });
       const snapshot = cloneUiState();
-      const deletingOrder = app.data.orders.find(order => order.id === app.deletingOrderId);
+      const deletingOrder = app.data.orders.find(order => order.id === confirmedOrderId);
       const optimisticMutation = {
-        deletedOrderId: app.deletingOrderId,
+        deletedOrderId: confirmedOrderId,
         affectedCustomerIds: deletingOrder?.customerId ? [deletingOrder.customerId] : []
       };
       applyOrderMutation(optimisticMutation);
@@ -14392,9 +14399,9 @@ document.addEventListener("submit", async event => {
       els.deleteOrderDialog.close();
       showToast("ลบออเดอร์แล้ว");
       try {
-        const payload = await api(`/api/orders/${encodeURIComponent(optimisticMutation.deletedOrderId)}?date=${encodeURIComponent(app.data.summary?.selectedDate || els.workDate.value || todayISO())}`, {
+        const payload = await orderDeleteApi(`/api/orders/${encodeURIComponent(optimisticMutation.deletedOrderId)}?date=${encodeURIComponent(app.data.summary?.selectedDate || els.workDate.value || todayISO())}`, {
           method: "DELETE"
-        });
+        }, orderDeleteIntentPayload.deleteIntent);
         applyOrderMutation(payload.mutation);
         patchOrdersView(payload.mutation);
         refreshVisibleCustomerPanels(payload.mutation);

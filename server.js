@@ -14,6 +14,8 @@ const {
   writeDb,
   deleteUser,
   deleteOrder,
+  createOrderDeleteIntent,
+  persistOrderDeletion,
   deleteCustomer,
   getImportJob,
   getActiveImportJob,
@@ -1947,6 +1949,25 @@ function adjustInventoryForOrderChange(db, previousOrder = null, nextOrder = nul
   return products;
 }
 
+function orderDeletionInventoryEffect(productsBefore = [], productsAfter = [], order = {}) {
+  const beforeIndex = findInventoryProductIndex(productsBefore, order);
+  if (beforeIndex < 0) return { applied: false };
+  const before = productsBefore[beforeIndex];
+  const afterIndex = productsAfter.findIndex(product =>
+    (before.id && String(product.id || "") === String(before.id))
+    || (!before.id && normalizedProductNameKey(product.name) === normalizedProductNameKey(before.name))
+  );
+  if (afterIndex < 0) return { applied: false };
+  return {
+    applied: true,
+    product_id: String(before.id || ""),
+    product_name: String(before.name || ""),
+    quantity: orderInventoryQuantity(order),
+    stock_before: Number(before.stockQuantity || 0),
+    stock_after: Number(productsAfter[afterIndex].stockQuantity || 0)
+  };
+}
+
 function newProductId(products = []) {
   const existingIds = new Set(products.map(product => String(product?.id || "")));
   let id = uid("product");
@@ -2430,6 +2451,34 @@ function ensurePasswordHash(user, password) {
 
 function getCurrentUser(req) {
   return getSession(req)?.user || null;
+}
+
+function orderDeleteSessionFingerprint(req) {
+  const token = String(getSession(req)?.token || "");
+  return token ? crypto.createHash("sha256").update(token).digest("hex") : "";
+}
+
+function isExplicitOrderDeleteBrowserRequest(req) {
+  const origin = String(req.headers.origin || "").replace(/\/$/, "");
+  const expectedOrigin = String(requestOrigin(req) || "").replace(/\/$/, "");
+  const fetchSite = String(req.headers["sec-fetch-site"] || "").toLowerCase();
+  return Boolean(
+    origin
+    && expectedOrigin
+    && origin === expectedOrigin
+    && String(req.headers["x-requested-with"] || "") === "GrowupPilot"
+    && String(req.headers["x-growup-user-action"] || "") === "order-delete-confirmed"
+    && (!fetchSite || fetchSite === "same-origin")
+  );
+}
+
+function orderDeleteIntentParts(value = "") {
+  const match = String(value || "").trim().match(/^([0-9a-f-]{36})\.([A-Za-z0-9_-]{32,})$/i);
+  if (!match) return null;
+  return {
+    intentId: match[1],
+    intentHash: crypto.createHash("sha256").update(match[2]).digest("hex")
+  };
 }
 
 function requireUser(req, res) {
@@ -6703,12 +6752,64 @@ async function handleApi(req, res) {
     }));
   }
 
+  if (req.method === "POST" && /^\/api\/orders\/[^/]+\/delete-intent$/.test(url.pathname)) {
+    const currentUser = await requirePermission(req, res, db, "orders.delete", "ไม่มีสิทธิ์ลบออเดอร์");
+    if (!currentUser) return;
+    if (!isExplicitOrderDeleteBrowserRequest(req)) {
+      return json(res, 403, { ok: false, error: "คำขอลบออเดอร์ไม่ได้มาจากขั้นตอนยืนยันของผู้ใช้" });
+    }
+    if (typeof createOrderDeleteIntent !== "function") {
+      return json(res, 503, { ok: false, error: "ระบบยืนยันการลบออเดอร์ยังไม่พร้อมใช้งาน" });
+    }
+    const id = decodeURIComponent(url.pathname.split("/").at(-2) || "");
+    const secret = crypto.randomBytes(32).toString("base64url");
+    const sessionFingerprint = orderDeleteSessionFingerprint(req);
+    try {
+      const intent = await createOrderDeleteIntent({
+        orderId: id,
+        tenantId: String(currentUser.tenantId || currentUser.tenant_id || "").trim(),
+        actorUserId: String(currentUser.id || "").trim(),
+        actorRole: String(currentUser.role || "").trim(),
+        sessionFingerprint,
+        intentHash: crypto.createHash("sha256").update(secret).digest("hex"),
+        requestMetadata: {
+          route: url.pathname,
+          method: req.method,
+          request_id: String(req.headers["x-request-id"] || "").slice(0, 160),
+          user_agent: String(req.headers["user-agent"] || "").slice(0, 240)
+        }
+      });
+      return json(res, 200, {
+        ok: true,
+        deleteIntent: `${intent.intentId}.${secret}`,
+        expiresAt: intent.expiresAt
+      });
+    } catch (error) {
+      if (error.code === "ORDER_DELETE_NOT_FOUND") {
+        return json(res, 404, { ok: false, error: "ไม่พบออเดอร์" });
+      }
+      if (String(error.code || "").startsWith("ORDER_DELETE_INTENT_")) {
+        return json(res, 409, { ok: false, error: "ไม่สามารถสร้างคำยืนยันการลบออเดอร์ได้" });
+      }
+      throw error;
+    }
+  }
+
   if (req.method === "DELETE" && url.pathname.startsWith("/api/orders/")) {
     const currentUser = await requirePermission(req, res, db, "orders.delete", "ไม่มีสิทธิ์ลบออเดอร์");
     if (!currentUser) return;
-    const id = url.pathname.split("/").pop();
+    if (!isExplicitOrderDeleteBrowserRequest(req)) {
+      return json(res, 403, { ok: false, error: "ต้องยืนยันการลบออเดอร์ผ่านหน้าจอ Growup Pilot" });
+    }
+    const intentParts = orderDeleteIntentParts(req.headers["x-order-delete-intent"]);
+    if (!intentParts) {
+      return json(res, 409, { ok: false, error: "คำยืนยันการลบออเดอร์ไม่ถูกต้องหรือหมดอายุ" });
+    }
+    const id = decodeURIComponent(url.pathname.split("/").pop() || "");
     const orderIndex = db.orders.findIndex(item => item.id === id);
     if (orderIndex === -1) return json(res, 404, { ok: false, error: "ไม่พบออเดอร์" });
+    const productsBefore = normalizeProductRecords(db.settings?.products).map(product => ({ ...product }));
+    const customerBefore = db.customers.find(customer => customer.id === db.orders[orderIndex]?.customerId) || null;
     const [deletedOrder] = db.orders.splice(orderIndex, 1);
     adjustInventoryForOrderChange(db, deletedOrder, null);
     const mutation = orderMutationPayload(db, {
@@ -6719,41 +6820,52 @@ async function handleApi(req, res) {
     // Deleting an order must not implicitly delete its now-orphaned customer.
     // Customer deletion is a separate explicit, audited operation.
     mutation.deletedCustomerIds = [];
+    if (customerBefore && !mutation.customers.some(customer => customer.id === customerBefore.id)) {
+      mutation.customers.push({
+        ...customerBefore,
+        firstPurchaseDate: "",
+        lastPurchaseDate: "",
+        purchaseCount: 0,
+        totalJars: 0,
+        totalSpent: 0,
+        followUpDate: "",
+        status: "NORMAL",
+        vipLevel: "NORMAL",
+        customerScore: 0,
+        orders: []
+      });
+    }
+    const productsAfter = normalizeProductRecords(db.settings?.products).map(product => ({ ...product }));
+    const inventoryEffect = orderDeletionInventoryEffect(productsBefore, productsAfter, deletedOrder);
     const deletionAudit = {
       actorUserId: String(currentUser.id || "").trim(),
       actorRole: String(currentUser.role || "").trim(),
       tenantId: String(currentUser.tenantId || currentUser.tenant_id || "").trim(),
+      sessionFingerprint: orderDeleteSessionFingerprint(req),
+      intentId: intentParts.intentId,
+      intentHash: intentParts.intentHash,
+      customerAfter: mutation.customers.find(customer => customer.id === deletedOrder.customerId),
+      productsAfter: inventoryEffect.applied ? productsAfter : null,
+      inventoryEffect,
       requestMetadata: {
         route: url.pathname,
         method: req.method,
-        source: "orders_api",
+        source: "explicit_user_confirmed_delete",
         request_id: String(req.headers["x-request-id"] || "").slice(0, 160),
         user_agent: String(req.headers["user-agent"] || "").slice(0, 240)
       }
     };
     try {
-      if (typeof persistOrderMutation === "function") {
-        await persistOrderMutation({ ...mutation, deletionAudit }, db.settings);
-      } else {
-        const deletionAudits = Array.isArray(db.orderDeletionAudits) ? db.orderDeletionAudits : [];
-        deletionAudits.push({
-          id: uid("order_delete_audit"),
-          orderId: id,
-          tenantId: deletionAudit.tenantId,
-          actorUserId: deletionAudit.actorUserId,
-          actorRole: deletionAudit.actorRole,
-          action: "order_delete",
-          deletedAt: new Date().toISOString(),
-          orderSnapshot: JSON.parse(JSON.stringify(deletedOrder)),
-          requestMetadata: deletionAudit.requestMetadata,
-          createdAt: new Date().toISOString()
-        });
-        db.orderDeletionAudits = deletionAudits;
-        await writeDb(db);
+      if (typeof persistOrderDeletion !== "function") {
+        return json(res, 503, { ok: false, error: "ระบบยืนยันการลบออเดอร์ยังไม่พร้อมใช้งาน" });
       }
+      await persistOrderDeletion(id, deletionAudit);
     } catch (error) {
       if (error.code === "ORDER_DELETE_NOT_FOUND") {
         return json(res, 404, { ok: false, error: "ไม่พบออเดอร์" });
+      }
+      if (String(error.code || "").startsWith("ORDER_DELETE_")) {
+        return json(res, 409, { ok: false, error: "คำยืนยันการลบออเดอร์ไม่ถูกต้อง หมดอายุ หรือถูกใช้แล้ว" });
       }
       throw error;
     }
