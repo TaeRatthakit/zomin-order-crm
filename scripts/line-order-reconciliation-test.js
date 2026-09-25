@@ -381,11 +381,11 @@ function testMigrationAndFrontendContracts() {
   assert(route.includes("windowDays: 30"), "scheduled reconciliation must scan a rolling 30-day window");
   const changed = require("child_process").execFileSync("git", ["diff", "--name-only", "HEAD"], { cwd: path.join(__dirname, ".."), encoding: "utf8" });
   const changedFiles = changed.split(/\r?\n/).filter(Boolean);
-  assert.deepStrictEqual(
-    changedFiles.filter(file => file.startsWith("public/")),
-    ["public/app.js"],
-    "only the non-visual explicit-delete handshake may change under public/"
-  );
+  const publicChanges = changedFiles.filter(file => file.startsWith("public/"));
+  assert(publicChanges.every(file => file === "public/app.js"), "only the non-visual explicit-delete handshake may change under public/");
+  const publicApp = fs.readFileSync(path.join(__dirname, "..", "public", "app.js"), "utf8");
+  assert(publicApp.includes("orderDeleteApi"), "the explicit-delete handshake must remain present after the candidate is committed");
+  assert(publicApp.includes("/delete-intent"), "the UI-confirmed delete path must request a one-time delete intent");
   assert(!changedFiles.some(file => /^(?:ui-baselines\/|public\/styles\.css$|public\/index\.html$|public\/.*\.(?:png|jpe?g|webp|svg)$)/i.test(file)),
     "Golden UI layout, styles, baseline, or assets changed");
 }

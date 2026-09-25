@@ -32,7 +32,10 @@ assert(migration.indexOf("update public.order_delete_intents") < migration.index
 const changed = childProcess.execFileSync("git", ["diff", "--name-only", "HEAD"], { cwd: root, encoding: "utf8" })
   .split(/\r?\n/).filter(Boolean);
 const publicChanges = changed.filter(file => file.startsWith("public/"));
-assert.deepStrictEqual(publicChanges, ["public/app.js"], "only the non-visual delete handshake may change under public/");
+assert(publicChanges.every(file => file === "public/app.js"), "only the non-visual delete handshake may change under public/");
+const publicApp = fs.readFileSync(path.join(root, "public", "app.js"), "utf8");
+assert(publicApp.includes("orderDeleteApi"), "the explicit-delete handshake must remain present after the candidate is committed");
+assert(publicApp.includes("/delete-intent"), "the UI-confirmed delete path must request a one-time delete intent");
 assert(!changed.some(file => /^(?:ui-baselines\/|public\/styles\.css$|public\/index\.html$|public\/.*\.(?:png|jpe?g|webp|svg)$)/i.test(file)),
   "Golden UI layout, styles, baseline, or assets changed");
 
