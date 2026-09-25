@@ -141,6 +141,11 @@ async function testExplicitDeleteFlow() {
   const ownerBCookie = cookieFor(createSession, ownerB);
   const staffCookie = cookieFor(createSession, staffA);
   try {
+    const anonymousIntent = await request(port, { path: "/api/orders/order-a-1/delete-intent", method: "POST" });
+    assert.strictEqual(anonymousIntent.status, 401);
+    const anonymousDelete = await request(port, { path: "/api/orders/order-a-1", method: "DELETE" });
+    assert.strictEqual(anonymousDelete.status, 401);
+
     const directOwner = await request(port, { path: "/api/orders/order-a-1", method: "DELETE", cookie: ownerACookie });
     assert.strictEqual(directOwner.status, 403);
     assert(JSON.parse(fs.readFileSync(dbFile)).orders.some(order => order.id === "order-a-1"));

@@ -2481,6 +2481,11 @@ function orderDeleteIntentParts(value = "") {
   };
 }
 
+function isOrderDeleteApiRequest(method = "", pathname = "") {
+  return (method === "POST" && /^\/api\/orders\/[^/]+\/delete-intent$/.test(pathname))
+    || (method === "DELETE" && /^\/api\/orders\/[^/]+$/.test(pathname));
+}
+
 function requireUser(req, res) {
   const user = getCurrentUser(req);
   if (!user) {
@@ -7681,6 +7686,12 @@ async function appHandler(req, res) {
     if (req.url.startsWith("/api/")) {
       const pathname = requestPathname;
       const sessionUser = getCurrentUser(req);
+      // Reject anonymous order-deletion requests before any tenant-scoped read.
+      // Supabase deliberately fails closed without tenant context, but that
+      // must remain an authentication response rather than surface as a 500.
+      if (!sessionUser?.id && isOrderDeleteApiRequest(req.method, pathname)) {
+        return json(res, 401, { ok: false, error: "Unauthorized" }, { "Set-Cookie": clearSessionCookie() });
+      }
       if (!sessionUser?.id && (pathname === "/api/state" || isBillingApiPath(pathname))) {
         return json(res, 401, { ok: false, error: "Unauthorized" }, { "Set-Cookie": clearSessionCookie() });
       }
