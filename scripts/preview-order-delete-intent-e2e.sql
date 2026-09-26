@@ -412,13 +412,78 @@ begin
 end;
 $$;
 
+-- A legacy July order must not be rejected because the application-side
+-- customer projection is stale or normalized differently from the database.
+insert into public.orders (
+  id, tenant_id, customer_id, order_number, customer_name, phone, address,
+  items, quantity, amount, order_date, source, source_channel, raw_text, created_by
+) values (
+  'preview-delete-order-july-legacy',
+  'ca000000-0000-4000-8000-000000000002',
+  'preview-delete-customer-b',
+  'legacy/07-31',
+  'TEST Customer B',
+  '0999990923',
+  'TEST ADDRESS',
+  'TEST Product',
+  1,
+  100,
+  '2026-07-31',
+  'Import',
+  'Legacy Import',
+  'preview-delete-intent-20260923',
+  'preview-delete-user-b'
+);
+
+do $$
+declare
+  v_result jsonb;
+  v_intent uuid;
+begin
+  v_result := public.create_order_delete_intent(
+    'preview-delete-order-july-legacy',
+    'ca000000-0000-4000-8000-000000000002',
+    'preview-delete-user-b',
+    'Owner',
+    repeat('f', 64),
+    repeat('6', 64),
+    '{"marker":"preview-delete-intent-20260923"}'::jsonb
+  );
+  v_intent := (v_result->>'intent_id')::uuid;
+
+  v_result := public.delete_order_with_confirmed_intent(
+    'preview-delete-order-july-legacy',
+    'ca000000-0000-4000-8000-000000000002',
+    'preview-delete-user-b',
+    'Owner',
+    repeat('f', 64),
+    v_intent,
+    repeat('6', 64),
+    '{"id":"wrong-customer","purchase_count":999,"total_quantity":999,"total_amount":999}'::jsonb,
+    null,
+    '{"applied":false}'::jsonb,
+    '{"marker":"preview-delete-intent-20260923"}'::jsonb
+  );
+  if not coalesce((v_result->>'ok')::boolean, false) then raise exception 'LEGACY_JULY_DELETE_FAILED'; end if;
+  if exists (select 1 from public.orders where id = 'preview-delete-order-july-legacy') then
+    raise exception 'LEGACY_JULY_ORDER_REMAINS';
+  end if;
+  if not exists (
+    select 1 from public.customers
+    where id = 'preview-delete-customer-b'
+      and tenant_id = 'ca000000-0000-4000-8000-000000000002'
+      and purchase_count = 1 and total_quantity = 1 and total_amount = 100
+  ) then raise exception 'LEGACY_JULY_CUSTOMER_AGGREGATE_WRONG'; end if;
+end;
+$$;
+
 rollback;
 
 select
   (select count(*) from public.tenants where id in ('ca000000-0000-4000-8000-000000000001', 'ca000000-0000-4000-8000-000000000002')) as fixture_tenants_remaining,
   (select count(*) from public.users where id in ('preview-delete-user-a', 'preview-delete-user-b')) as fixture_users_remaining,
   (select count(*) from public.customers where id = 'preview-delete-customer-b') as fixture_customers_remaining,
-  (select count(*) from public.orders where id in ('preview-delete-order-target', 'preview-delete-order-remains')) as fixture_orders_remaining,
+  (select count(*) from public.orders where id in ('preview-delete-order-target', 'preview-delete-order-remains', 'preview-delete-order-july-legacy')) as fixture_orders_remaining,
   (select count(*) from public.settings where id in ('preview-delete-products-setting', 'preview-delete-import-job-setting')) as fixture_settings_remaining,
   (select count(*) from public.order_deletion_audit where order_id = 'preview-delete-order-target') as fixture_audits_remaining,
   (select count(*) from public.order_delete_intents where order_id = 'preview-delete-order-target') as fixture_intents_remaining;

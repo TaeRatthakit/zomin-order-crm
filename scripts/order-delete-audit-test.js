@@ -11,6 +11,10 @@ const migrationPath = fs.readdirSync(path.join(ROOT, "supabase", "migrations"))
   .map(name => path.join(ROOT, "supabase", "migrations", name))
   .find(name => name.endsWith("_order_delete_explicit_intent.sql"));
 const migration = fs.readFileSync(migrationPath, "utf8");
+const aggregateFixPath = fs.readdirSync(path.join(ROOT, "supabase", "migrations"))
+  .map(name => path.join(ROOT, "supabase", "migrations", name))
+  .find(name => name.endsWith("_order_delete_legacy_aggregate_fix.sql"));
+const aggregateFix = fs.readFileSync(aggregateFixPath, "utf8");
 
 function assertMigrationContract() {
   assert(migration.includes("create table if not exists public.order_delete_intents"));
@@ -29,6 +33,9 @@ function assertMigrationContract() {
   assert(migration.includes("audit.delete_intent_id"));
   assert(migration.includes("intent.consumed_transaction_id = pg_catalog.txid_current()"));
   assert(migration.includes("UNEXPECTED_MISSING"));
+  assert(aggregateFix.includes("derive all aggregate fields from SQL rows"));
+  assert(aggregateFix.includes("set first_purchase_date = v_first_purchase"));
+  assert(!aggregateFix.includes("ORDER_DELETE_CUSTOMER_AGGREGATE_MISMATCH"));
 }
 
 function owner(id, tenantId) {
@@ -49,7 +56,9 @@ function fixture() {
     ],
     customers: [
       { id: "customer-a", name: "Customer A", phone: "0800000001", address: "A", tags: [], createdAt: "2026-09-20" },
-      { id: "customer-b", name: "Customer B", phone: "0800000002", address: "B", tags: [], createdAt: "2026-09-20" }
+      { id: "customer-b", name: "Customer B", phone: "0800000002", address: "B", tags: [], createdAt: "2026-09-20" },
+      { id: "customer-july", name: "Customer July", phone: "0800000003", address: "July", tags: [], createdAt: "2026-07-01" },
+      { id: "customer-august", name: "Customer August", phone: "0800000004", address: "August", tags: [], createdAt: "2026-08-01" }
     ],
     orders: [
       {
@@ -67,6 +76,16 @@ function fixture() {
         id: "order-b-1", tenantId: "tenant-b", customerId: "customer-b", orderNumber: "B-1",
         customerName: "Customer B", phone: "0800000002", address: "B", date: "2026-09-20", time: "10:00",
         jars: 1, totalQuantityShipped: 1, amount: 100, items: "Test Product", productId: "p_test", source: "test"
+      },
+      {
+        id: "order-a-july-legacy", tenantId: "tenant-a", customerId: "customer-july", orderNumber: "legacy/07-31",
+        customerName: "Customer July", phone: "0800000003", address: "July", date: "2026-07-31", time: "10:00",
+        jars: 1, amount: 100, items: "Legacy Product", source: "Import", originSource: "legacy"
+      },
+      {
+        id: "order-a-august-manual", tenantId: "tenant-a", customerId: "customer-august", orderNumber: "AUG-2026-08-15",
+        customerName: "Customer August", phone: "0800000004", address: "August", date: "2026-08-15", time: "10:00",
+        jars: 1, amount: 100, items: "Manual Product", source: "Manual"
       }
     ],
     importJobs: [{ id: "job-with-order", type: "orders", importedOrderIds: ["order-a-1"], importedCustomerIds: [] }],
@@ -185,6 +204,10 @@ async function testExplicitDeleteFlow() {
     assert.strictEqual(wrongUser.status, 409);
     assert(JSON.parse(fs.readFileSync(dbFile)).orders.some(order => order.id === "order-a-1"));
 
+    const crossTenantIntent = await createIntent(port, ownerACookie, "order-b-1");
+    assert.strictEqual(crossTenantIntent.status, 404);
+    assert(JSON.parse(fs.readFileSync(dbFile)).orders.some(order => order.id === "order-b-1"));
+
     const wrongSession = await deleteWithIntent(port, cookieFor(createSession, ownerA), "order-a-1", wrongOrderIntent.body.deleteIntent);
     assert.strictEqual(wrongSession.status, 409);
 
@@ -232,6 +255,15 @@ async function testExplicitDeleteFlow() {
     assert.strictEqual(afterReplay.orderDeletionAudits.length, 1);
     assert.strictEqual(afterReplay.settings.products[0].stockQuantity, 9);
     assert.strictEqual(afterReplay.orders.filter(order => order.id === "order-a-1").length, 0);
+
+    for (const orderId of ["order-a-july-legacy", "order-a-august-manual"]) {
+      const historicalIntent = await createIntent(port, ownerACookie, orderId);
+      assert.strictEqual(historicalIntent.status, 200, `intent failed for ${orderId}`);
+      const historicalDelete = await deleteWithIntent(port, ownerACookie, orderId, historicalIntent.body.deleteIntent);
+      assert.strictEqual(historicalDelete.status, 200, JSON.stringify(historicalDelete));
+      const afterHistoricalDelete = JSON.parse(fs.readFileSync(dbFile));
+      assert(!afterHistoricalDelete.orders.some(order => order.id === orderId), `${orderId} remains after delete`);
+    }
   } finally {
     await new Promise(resolve => server.close(resolve));
     fs.rmSync(dir, { recursive: true, force: true });
