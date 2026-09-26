@@ -2454,8 +2454,14 @@ function getCurrentUser(req) {
 }
 
 function orderDeleteSessionFingerprint(req) {
-  const token = String(getSession(req)?.token || "");
-  return token ? crypto.createHash("sha256").update(token).digest("hex") : "";
+  const session = getSession(req);
+  const user = session?.user;
+  if (!user?.id || !user?.tenantId || !user?.tenantRole) return "";
+  return crypto.createHash("sha256").update(JSON.stringify({
+    userId: String(user.id),
+    tenantId: String(user.tenantId),
+    tenantRole: String(user.tenantRole)
+  })).digest("hex");
 }
 
 function isExplicitOrderDeleteBrowserRequest(req) {

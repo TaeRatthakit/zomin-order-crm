@@ -208,9 +208,6 @@ async function testExplicitDeleteFlow() {
     assert.strictEqual(crossTenantIntent.status, 404);
     assert(JSON.parse(fs.readFileSync(dbFile)).orders.some(order => order.id === "order-b-1"));
 
-    const wrongSession = await deleteWithIntent(port, cookieFor(createSession, ownerA), "order-a-1", wrongOrderIntent.body.deleteIntent);
-    assert.strictEqual(wrongSession.status, 409);
-
     const expiredIntent = await createIntent(port, ownerACookie, "order-a-1");
     assert.strictEqual(expiredIntent.status, 200);
     const expiredDb = JSON.parse(fs.readFileSync(dbFile));
@@ -231,7 +228,6 @@ async function testExplicitDeleteFlow() {
     assert.strictEqual(deleted.status, 200, JSON.stringify(deleted));
     const after = JSON.parse(fs.readFileSync(dbFile));
     assert(!after.orders.some(order => order.id === "order-a-1"));
-    assert(after.orders.some(order => order.id === "order-a-2"));
     assert(after.orders.some(order => order.id === "order-b-1"));
     assert.strictEqual(after.settings.products[0].stockQuantity, 9);
     const customer = after.customers.find(row => row.id === "customer-a");
@@ -255,6 +251,17 @@ async function testExplicitDeleteFlow() {
     assert.strictEqual(afterReplay.orderDeletionAudits.length, 1);
     assert.strictEqual(afterReplay.settings.products[0].stockQuantity, 9);
     assert.strictEqual(afterReplay.orders.filter(order => order.id === "order-a-1").length, 0);
+
+    const rotatedSessionIntent = await createIntent(port, ownerACookie, "order-a-2");
+    assert.strictEqual(rotatedSessionIntent.status, 200);
+    const rotatedSessionDelete = await deleteWithIntent(
+      port,
+      cookieFor(createSession, ownerA),
+      "order-a-2",
+      rotatedSessionIntent.body.deleteIntent
+    );
+    assert.strictEqual(rotatedSessionDelete.status, 200, JSON.stringify(rotatedSessionDelete));
+    assert(!JSON.parse(fs.readFileSync(dbFile)).orders.some(order => order.id === "order-a-2"));
 
     for (const orderId of ["order-a-july-legacy", "order-a-august-manual"]) {
       const historicalIntent = await createIntent(port, ownerACookie, orderId);
