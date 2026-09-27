@@ -1,0 +1,457 @@
+{
+  "schemaVersion": 1,
+  "id": "desktop-orders-task-1-customer-product-cells",
+  "base": {
+    "sourceCommit": "84ce121f7004776c8bf6a47d87921c21ebe133aa"
+  },
+  "target": {
+    "sourceCommit": "4b23e7e5021cd627ddc5c681d36a7d97cb9ee8b2"
+  },
+  "allowedFiles": [
+    "public/app.js",
+    "public/styles.css"
+  ],
+  "expectedTextChanges": [
+    {
+      "route": "Desktop Orders",
+      "component": "Remove customer initial avatar",
+      "from": "<span class=\"avatar\">${escapeHtml(initials(order.customerName || \"-\"))}</span>",
+      "to": "orders-customer-identity"
+    },
+    {
+      "route": "Desktop Orders",
+      "component": "Add product thumbnail before product name",
+      "from": "<td data-label=\"สินค้า\">${escapeHtml(order.items || \"-\")}</td>",
+      "to": "desktop-order-product-thumb"
+    }
+  ],
+  "expectedDiffSha256": "02466432d32346ee82405f65f533fb63912ad951071bd8310f06ea0001d0fb7e",
+  "expectedDiffLines": [
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 4613,
+      "text": "function desktopOrderProduct(order = {}) {"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 4614,
+      "text": "  const products = normalizeProductRecords();"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 4615,
+      "text": "  const productId = String(order.productId || \"\").trim();"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 4616,
+      "text": "  const productName = normalizeProductName(order.items || order.productName || \"\");"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 4617,
+      "text": "  const firstProductName = mobileOrderProductParts(order)[0] || \"\";"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 4618,
+      "text": "  const productNameKey = productName.toLocaleLowerCase(\"th-TH\");"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 4619,
+      "text": "  const firstProductNameKey = firstProductName.toLocaleLowerCase(\"th-TH\");"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 4620,
+      "text": "  return products.find(product => productId && String(product.id || \"\") === productId)"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 4621,
+      "text": "    || products.find(product => productNameKey && normalizeProductName(product.name).toLocaleLowerCase(\"th-TH\") === productNameKey)"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 4622,
+      "text": "    || products.find(product => firstProductNameKey && normalizeProductName(product.name).toLocaleLowerCase(\"th-TH\") === firstProductNameKey)"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 4623,
+      "text": "    || null;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 4624,
+      "text": "}"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 4625,
+      "text": ""
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 4627,
+      "text": "  const product = desktopOrderProduct(order);"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 4628,
+      "text": "  const productName = normalizeProductName(order.items || order.productName || product?.name || \"สินค้า\") || \"สินค้า\";"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 4629,
+      "text": "  const productImage = productImageMarkup("
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 4630,
+      "text": "    product?.image,"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 4631,
+      "text": "    productName,"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 4632,
+      "text": "    escapeHtml(initials(productName)),"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 4633,
+      "text": "    product?.id || \"\""
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 4634,
+      "text": "  );"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 4617,
+      "text": "      <td data-label=\"สินค้า\">${escapeHtml(order.items || \"-\")}</td>"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 4638,
+      "text": "      <td data-label=\"สินค้า\">"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 4639,
+      "text": "        <span class=\"desktop-order-product-cell\">"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 4640,
+      "text": "          <span class=\"desktop-order-product-thumb\" aria-hidden=\"true\">${productImage}</span>"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 4641,
+      "text": "          <span class=\"desktop-order-product-name\">${escapeHtml(order.items || \"-\")}</span>"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 4642,
+      "text": "        </span>"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 4643,
+      "text": "      </td>"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 4619,
+      "text": "        <button class=\"table-identity\" type=\"button\" data-open-customer=\"${escapeHtml(order.customerId)}\">"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 4620,
+      "text": "          <span class=\"avatar\">${escapeHtml(initials(order.customerName || \"-\"))}</span>"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 4645,
+      "text": "        <button class=\"table-identity orders-customer-identity\" type=\"button\" data-open-customer=\"${escapeHtml(order.customerId)}\">"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 31721,
+      "text": ""
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 31722,
+      "text": "body.desktop-app-shell:not(.login-view) .orders-page #orderList .desktop-order-product-cell {"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 31723,
+      "text": "  display: inline-flex;"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 31724,
+      "text": "  align-items: center;"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 31725,
+      "text": "  gap: 8px;"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 31726,
+      "text": "  min-width: 0;"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 31727,
+      "text": "  max-width: 100%;"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 31728,
+      "text": "}"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 31729,
+      "text": ""
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 31730,
+      "text": "body.desktop-app-shell:not(.login-view) .orders-page #orderList .desktop-order-product-thumb {"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 31731,
+      "text": "  display: grid;"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 31732,
+      "text": "  width: 34px;"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 31733,
+      "text": "  height: 34px;"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 31734,
+      "text": "  flex: 0 0 34px;"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 31735,
+      "text": "  place-items: center;"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 31736,
+      "text": "  overflow: hidden;"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 31737,
+      "text": "  border: 1px solid rgba(182, 131, 255, 0.18);"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 31738,
+      "text": "  border-radius: 8px;"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 31739,
+      "text": "  background: linear-gradient(145deg, rgba(127, 54, 194, 0.65), rgba(36, 90, 111, 0.72));"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 31740,
+      "text": "  color: #fff;"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 31741,
+      "text": "  font-size: 10px;"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 31742,
+      "text": "  font-weight: 800;"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 31743,
+      "text": "  line-height: 1;"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 31744,
+      "text": "}"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 31745,
+      "text": ""
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 31746,
+      "text": "body.desktop-app-shell:not(.login-view) .orders-page #orderList .desktop-order-product-thumb img {"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 31747,
+      "text": "  width: 100%;"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 31748,
+      "text": "  height: 100%;"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 31749,
+      "text": "  object-fit: cover;"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 31750,
+      "text": "}"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 31751,
+      "text": ""
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 31752,
+      "text": "body.desktop-app-shell:not(.login-view) .orders-page #orderList .desktop-order-product-name {"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 31753,
+      "text": "  min-width: 0;"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 31754,
+      "text": "  overflow-wrap: anywhere;"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 31755,
+      "text": "}"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 31756,
+      "text": ""
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 31757,
+      "text": "body.desktop-app-shell:not(.login-view) .orders-page #orderList .orders-customer-identity {"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 31758,
+      "text": "  justify-content: flex-start;"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 31759,
+      "text": "  gap: 0;"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 31760,
+      "text": "}"
+    }
+  ]
+}
