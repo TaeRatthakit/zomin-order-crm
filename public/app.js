@@ -13044,6 +13044,10 @@ document.addEventListener("click", async event => {
     app.pricingUpgradeLoading = targetPlan;
     render();
     try {
+      const quotePromise = api("/api/billing/quote", {
+        method: "POST",
+        body: JSON.stringify({ targetPlan, billingInterval })
+      }).then(result => ({ result }), error => ({ error }));
       const reconciliation = await api("/api/billing/reconcile", {
         method: "POST",
         body: JSON.stringify({ targetPlan, billingInterval })
@@ -13059,10 +13063,8 @@ document.addEventListener("click", async event => {
       app.billingCheckout = null;
       app.subscriptionQuoteLoading = true;
       setView("settingsSubscription");
-      const result = await api("/api/billing/quote", {
-        method: "POST",
-        body: JSON.stringify({ targetPlan, billingInterval })
-      });
+      const { result, error } = await quotePromise;
+      if (error) throw error;
       if (app.subscriptionCheckoutDraft === draft) {
         draft.baseQuote = result.quote;
         draft.action = result.quote?.intent === "subscription_upgrade" ? "upgrade"
