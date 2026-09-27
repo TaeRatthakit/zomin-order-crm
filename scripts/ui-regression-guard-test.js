@@ -1,6 +1,7 @@
 "use strict";
 
 const { execFileSync } = require("child_process");
+const crypto = require("crypto");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
@@ -84,6 +85,38 @@ function withRepo(mutator) {
   return runGuard(dir);
 }
 
+function approveExactPricingFixture(dir) {
+  const base = run("git", ["rev-parse", "HEAD"], { cwd: dir }).trim();
+  const diff = run("git", ["diff", "--unified=0", "--", "public/app.js"], { cwd: dir }).trim();
+  const records = [];
+  let file = "";
+  let oldLine = 0;
+  let newLine = 0;
+  for (const line of diff.split("\n")) {
+    const fileMatch = line.match(/^diff --git a\/(.+?) b\/(.+)$/);
+    if (fileMatch) { file = fileMatch[2]; continue; }
+    const hunk = line.match(/^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
+    if (hunk) { oldLine = Number(hunk[1]); newLine = Number(hunk[2]); continue; }
+    if (!/^[+-](?![+-])/.test(line)) {
+      if (line && oldLine && newLine) { oldLine += 1; newLine += 1; }
+      continue;
+    }
+    const sign = line[0];
+    records.push({ file, sign, line: sign === "+" ? newLine : oldLine, text: line.slice(1) });
+    if (sign === "+") newLine += 1;
+    else oldLine += 1;
+  }
+  write(path.join(dir, "ui-baselines", "approved-change-manifest.json"), JSON.stringify({
+    schemaVersion: 1,
+    id: "fixture-exact-pricing-approval",
+    base: { sourceCommit: base },
+    allowedFiles: ["public/app.js"],
+    expectedTextChanges: [{ route: "Pricing", component: "pricing section", from: 'aria-labelledby="landingPricingTitle">', to: "data-landing-pricing" }],
+    expectedDiffSha256: crypto.createHash("sha256").update(diff).digest("hex"),
+    expectedDiffLines: records
+  }, null, 2));
+}
+
 let result = withRepo(dir => {
   write(path.join(dir, "public", "app.js"), [
     'function renderLanding() {',
@@ -108,6 +141,7 @@ let result = withRepo(dir => {
     '}',
     ''
   ].join("\n"));
+  approveExactPricingFixture(dir);
 });
 assert(result.ok, "approved pricing structural diff should pass");
 

@@ -6,7 +6,8 @@ const fs = require("fs");
 const path = require("path");
 
 const MANIFEST_PATH = process.env.UI_BASELINE_MANIFEST || "ui-baselines/current/manifest.json";
-const APPROVED_CHANGE_MANIFEST_PATH = process.env.UI_APPROVED_CHANGE_MANIFEST || "ui-baselines/approved-change-manifest.json";
+const APPROVED_CHANGE_MANIFEST_PATH = "ui-baselines/approved-change-manifest.json";
+const APPROVED_CHANGES_DIR = "ui-baselines/approved-changes";
 const SOURCE_COMPARE_REF = process.env.UI_SOURCE_COMPARE_REF || "";
 const INVALID_SOURCE_REFS = new Set(["ui-baseline-current", "ui-baseline-invalid-9297873"]);
 const VISUAL_BASELINE_REF = /^ui-visual-baseline-/;
@@ -108,12 +109,70 @@ function sha256(file) {
   return crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex");
 }
 
-function loadApprovedChangeManifest() {
-  if (!fs.existsSync(APPROVED_CHANGE_MANIFEST_PATH)) return null;
-  try {
-    return JSON.parse(fs.readFileSync(APPROVED_CHANGE_MANIFEST_PATH, "utf8"));
-  } catch (error) {
-    return { invalid: `cannot parse ${APPROVED_CHANGE_MANIFEST_PATH}: ${error.message}` };
+function safeApprovalPath(file) {
+  const root = fs.realpathSync(process.cwd());
+  const lexical = path.resolve(file);
+  if (!fs.lstatSync(lexical).isFile()) throw new Error(`approval must be a regular file: ${file}`);
+  const resolved = fs.realpathSync(lexical);
+  const relative = path.relative(root, resolved).split(path.sep).join("/");
+  if (relative !== "ui-baselines/approved-change-manifest.json"
+    && !/^ui-baselines\/approved-changes\/[a-f0-9]{64}\.json$/.test(relative)) {
+    throw new Error(`unsafe approval path: ${file}`);
+  }
+  return { path: resolved, relative, legacy: relative === "ui-baselines/approved-change-manifest.json" };
+}
+
+function loadApprovedChangeManifests() {
+  const override = process.env.UI_APPROVED_CHANGE_MANIFEST;
+  const files = [];
+  const selected = override ? safeApprovalPath(override) : null;
+  if (fs.existsSync(APPROVED_CHANGE_MANIFEST_PATH)) files.push(safeApprovalPath(APPROVED_CHANGE_MANIFEST_PATH));
+  if (fs.existsSync(APPROVED_CHANGES_DIR)) {
+    if (!fs.lstatSync(APPROVED_CHANGES_DIR).isDirectory()
+      || path.relative(fs.realpathSync(process.cwd()), fs.realpathSync(APPROVED_CHANGES_DIR)).split(path.sep).join("/") !== APPROVED_CHANGES_DIR) {
+      throw new Error("unsafe approval directory");
+    }
+    for (const entry of fs.readdirSync(APPROVED_CHANGES_DIR).sort()) {
+      files.push(safeApprovalPath(path.join(APPROVED_CHANGES_DIR, entry)));
+    }
+  }
+  if (selected && !files.some(file => file.path === selected.path)) throw new Error(`approval override is not discoverable: ${override}`);
+  return files.map(file => {
+    const bytes = fs.readFileSync(file.path);
+    if (!file.legacy && path.basename(file.path) !== `${textSha256(bytes)}.json`) {
+      throw new Error(`approval content hash mismatch: ${file.relative}`);
+    }
+    let manifest;
+    try { manifest = JSON.parse(bytes.toString("utf8")); }
+    catch (error) { throw new Error(`malformed approval ${file.relative}: ${error.message}`); }
+    validateApprovedChangeManifest(manifest, file);
+    return { ...file, manifest };
+  });
+}
+
+function validApprovalFile(file) {
+  return typeof file === "string" && !file.includes("\\") && !file.split("/").some(segment => !segment || segment === "." || segment === "..")
+    && (UI_FILES.includes(file) || UI_ASSET_RE.test(file));
+}
+
+function validateApprovedChangeManifest(manifest, file) {
+  const hex40 = value => typeof value === "string" && /^[a-f0-9]{40}$/.test(value);
+  const hex64 = value => typeof value === "string" && /^[a-f0-9]{64}$/.test(value);
+  if (!manifest || manifest.schemaVersion !== 1 || typeof manifest.id !== "string" || !manifest.id.trim()
+    || !hex40(manifest.base?.sourceCommit) || !hex64(manifest.expectedDiffSha256)
+    || !Array.isArray(manifest.allowedFiles) || !manifest.allowedFiles.length
+    || manifest.allowedFiles.some(item => !validApprovalFile(item))
+    || new Set(manifest.allowedFiles).size !== manifest.allowedFiles.length
+    || !Array.isArray(manifest.expectedTextChanges) || !manifest.expectedTextChanges.length
+    || manifest.expectedTextChanges.some(item => !item?.route || !item?.component || !item?.from || !item?.to)
+    || !Array.isArray(manifest.expectedDiffLines) || !manifest.expectedDiffLines.length
+    || manifest.expectedDiffLines.some(item => !manifest.allowedFiles.includes(item?.file)
+      || !["+", "-"].includes(item?.sign) || !Number.isInteger(item?.line) || item.line < 1 || typeof item.text !== "string")) {
+    throw new Error(`incomplete or unsafe approval: ${file.relative}`);
+  }
+  if (!file.legacy && (!hex40(manifest.target?.sourceCommit)
+    || manifest.allowedFiles.some(item => !TEXT_UI_RE.test(item)))) {
+    throw new Error(`new approval requires an exact target commit and text UI files: ${file.relative}`);
   }
 }
 
@@ -158,11 +217,8 @@ function diffRecordKey(record) {
   return JSON.stringify([record.file, record.sign, record.line, record.text]);
 }
 
-function verifyApprovedChangeManifest(files, diff) {
-  const manifest = loadApprovedChangeManifest();
-  if (!manifest) return { configured: false };
-  if (manifest.invalid) return { configured: true, ok: false, reason: manifest.invalid };
-
+function verifyApprovedChangeManifest(record, files, diff) {
+  const { manifest } = record;
   const actualBase = SOURCE_COMPARE_REF || runGit(["rev-parse", "HEAD"]);
   if (manifest.base?.sourceCommit !== actualBase) {
     return {
@@ -213,12 +269,55 @@ function verifyApprovedChangeManifest(files, diff) {
     return { configured: true, ok: false, reason: "exact approved diff records do not match the manifest" };
   }
 
+  if (!record.legacy) {
+    const target = manifest.target.sourceCommit;
+    const base = manifest.base.sourceCommit;
+    try {
+      execFileSync("git", ["merge-base", "--is-ancestor", base, target]);
+      execFileSync("git", ["merge-base", "--is-ancestor", target, "HEAD"]);
+    } catch {
+      return { configured: true, ok: false, reason: `target commit is not on the approved base-to-HEAD lineage: ${target}` };
+    }
+    const targetFiles = runGit(["diff", "--name-only", base, target]).split("\n").filter(Boolean).sort();
+    if (JSON.stringify(targetFiles) !== JSON.stringify(allowedFiles)) {
+      return { configured: true, ok: false, reason: "target commit contains unapproved files" };
+    }
+    const targetDiff = allowedFiles.map(file => runGit(["diff", "--unified=0", base, target, "--", file], true))
+      .filter(Boolean).join("\n");
+    if (textSha256(targetDiff) !== manifest.expectedDiffSha256
+      || JSON.stringify(parseDiffRecords(targetDiff)) !== JSON.stringify(expectedRecords)) {
+      return { configured: true, ok: false, reason: "approved diff does not belong to target commit" };
+    }
+  }
+
   return {
     configured: true,
     ok: true,
     manifest,
+    record,
     approvedRecordKeys: new Set(expectedRecords.map(diffRecordKey))
   };
+}
+
+function verifyApprovedChangeManifests(files, uiFiles, diff) {
+  let records;
+  try { records = loadApprovedChangeManifests(); }
+  catch (error) { return { configured: true, ok: false, reason: error.message }; }
+  if (!records.length) return { configured: true, ok: false, reason: "no approval records configured for protected UI diff" };
+  const results = records.map(record => verifyApprovedChangeManifest(record, uiFiles, diff));
+  const matches = results.filter(result => result.ok);
+  if (matches.length !== 1) {
+    return { configured: true, ok: false, reason: matches.length > 1
+      ? "ambiguous exact approvals: more than one record matches"
+      : (records.length === 1 ? results[0].reason : "no exact approval record matches the protected UI diff") };
+  }
+  const chosen = matches[0];
+  if (!chosen.record.legacy) {
+    const allowed = new Set([...chosen.manifest.allowedFiles, chosen.record.relative]);
+    const extra = files.filter(file => !allowed.has(file));
+    if (extra.length) return { configured: true, ok: false, reason: `unapproved candidate files: ${extra.join(", ")}` };
+  }
+  return chosen;
 }
 
 function loadBaselineAssets() {
@@ -507,7 +606,7 @@ function main() {
 
   const textUiFiles = uiFiles.filter(file => TEXT_UI_RE.test(file));
   const diff = diffFor(textUiFiles);
-  const approvedManifest = verifyApprovedChangeManifest(uiFiles, diff);
+  const approvedManifest = verifyApprovedChangeManifests(files, uiFiles, diff);
   if (approvedManifest.configured && !approvedManifest.ok) {
     console.error(`UI regression guard failed: ${approvedManifest.reason}`);
     process.exit(1);
