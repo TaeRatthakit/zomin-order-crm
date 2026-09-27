@@ -4610,14 +4610,39 @@ function renderCustomerManagementCurrentView() {
   renderSearch();
 }
 
+function desktopOrderProduct(order = {}) {
+  const products = normalizeProductRecords();
+  const productId = String(order.productId || "").trim();
+  const productName = normalizeProductName(order.items || order.productName || "");
+  const firstProductName = mobileOrderProductParts(order)[0] || "";
+  const productNameKey = productName.toLocaleLowerCase("th-TH");
+  const firstProductNameKey = firstProductName.toLocaleLowerCase("th-TH");
+  return products.find(product => productId && String(product.id || "") === productId)
+    || products.find(product => productNameKey && normalizeProductName(product.name).toLocaleLowerCase("th-TH") === productNameKey)
+    || products.find(product => firstProductNameKey && normalizeProductName(product.name).toLocaleLowerCase("th-TH") === firstProductNameKey)
+    || null;
+}
+
 function orderCard(order) {
+  const product = desktopOrderProduct(order);
+  const productName = normalizeProductName(order.items || order.productName || product?.name || "สินค้า") || "สินค้า";
+  const productImage = productImageMarkup(
+    product?.image,
+    productName,
+    escapeHtml(initials(productName)),
+    product?.id || ""
+  );
   return `
     <tr data-order-id="${escapeHtml(order.id)}">
       <td data-label="ออเดอร์"><strong>${escapeHtml(order.orderNumber || "-")}</strong></td>
-      <td data-label="สินค้า">${escapeHtml(order.items || "-")}</td>
+      <td data-label="สินค้า">
+        <span class="desktop-order-product-cell">
+          <span class="desktop-order-product-thumb" aria-hidden="true">${productImage}</span>
+          <span class="desktop-order-product-name">${escapeHtml(order.items || "-")}</span>
+        </span>
+      </td>
       <td data-label="ลูกค้า">
-        <button class="table-identity" type="button" data-open-customer="${escapeHtml(order.customerId)}">
-          <span class="avatar">${escapeHtml(initials(order.customerName || "-"))}</span>
+        <button class="table-identity orders-customer-identity" type="button" data-open-customer="${escapeHtml(order.customerId)}">
           <span>
             <strong>${escapeHtml(order.customerName || "-")}</strong>
             <small>${escapeHtml(order.socialName || order.phone || "-")}</small>
