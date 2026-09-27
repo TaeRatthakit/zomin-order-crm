@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "id": "payment-performance-v2-reconcile-base-quote-parallel",
+  "base": {
+    "sourceCommit": "848b93be36298a0130147786e985a79ed4025e04"
+  },
+  "target": {
+    "sourceCommit": "469e51b466dc84a19670ffe6e6d5e37246613516"
+  },
+  "allowedFiles": [
+    "public/app.js"
+  ],
+  "expectedTextChanges": [
+    {
+      "route": "Pricing",
+      "component": "Payment V2 base quote request orchestration",
+      "from": "const result = await api(\"/api/billing/quote\"",
+      "to": "const quotePromise = api(\"/api/billing/quote\""
+    },
+    {
+      "route": "Pricing",
+      "component": "Payment V2 quote consumption after reconciliation",
+      "from": "const result = await api(\"/api/billing/quote\"",
+      "to": "const { result, error } = await quotePromise;"
+    }
+  ],
+  "expectedDiffSha256": "1fe659636d9a10c0907c65754c0eb5373f221799df91a683cf8dc340c5fba83e",
+  "expectedDiffLines": [
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 13047,
+      "text": "      const quotePromise = api(\"/api/billing/quote\", {"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 13048,
+      "text": "        method: \"POST\","
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 13049,
+      "text": "        body: JSON.stringify({ targetPlan, billingInterval })"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 13050,
+      "text": "      }).then(result => ({ result }), error => ({ error }));"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 13062,
+      "text": "      const result = await api(\"/api/billing/quote\", {"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 13063,
+      "text": "        method: \"POST\","
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 13064,
+      "text": "        body: JSON.stringify({ targetPlan, billingInterval })"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 13065,
+      "text": "      });"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 13066,
+      "text": "      const { result, error } = await quotePromise;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 13067,
+      "text": "      if (error) throw error;"
+    }
+  ]
+}
