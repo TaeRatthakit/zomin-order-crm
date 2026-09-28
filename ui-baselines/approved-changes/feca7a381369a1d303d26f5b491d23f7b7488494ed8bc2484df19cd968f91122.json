@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "id": "pricing-task-2-exact-optimized-illustrations",
+  "base": { "sourceCommit": "9b7865822b220ef84a1e33832296f6f52aa7e5db" },
+  "target": { "sourceCommit": "5d648356ba636e8a50d48d2a0630e11ec2ce6869" },
+  "tooling": {
+    "sourceCommit": "068d6075fea7df36b42af2b67228ffeaf85957f9",
+    "allowedFiles": [
+      "scripts/ui-regression-guard.js",
+      "scripts/multi-approved-change-manifest-test.js"
+    ]
+  },
+  "allowedFiles": [
+    "public/app.js",
+    "public/assets/pricing/starter-storefront.webp",
+    "public/assets/pricing/business-growth.webp",
+    "public/assets/pricing/enterprise-building.webp"
+  ],
+  "expectedBinaryAssets": [
+    { "path": "public/assets/pricing/starter-storefront.webp", "status": "added", "sha256": "a6480941a95954d55d52c03ba4c03c03a6cb2a6d80f7b39eeafe0c9ebd7e5be7" },
+    { "path": "public/assets/pricing/business-growth.webp", "status": "added", "sha256": "c16b11ddde35163e95cf3e140bdf597c67289c25aedea5bc073fa7775a495181" },
+    { "path": "public/assets/pricing/enterprise-building.webp", "status": "added", "sha256": "973d668a3d360eb2ab192b91263b77cf06b1946f40fa3effe8630722d4232f79" }
+  ],
+  "expectedTextChanges": [
+    { "route": "Pricing", "component": "Starter optimized illustration", "from": "/assets/pricing/starter-storefront.png", "to": "/assets/pricing/starter-storefront.webp" },
+    { "route": "Pricing", "component": "Business optimized illustration", "from": "/assets/pricing/business-growth.png", "to": "/assets/pricing/business-growth.webp" },
+    { "route": "Pricing", "component": "Enterprise optimized illustration", "from": "/assets/pricing/enterprise-building.png", "to": "/assets/pricing/enterprise-building.webp" },
+    { "route": "Pricing", "component": "Eager high-priority loading", "from": "loading=\"lazy\"", "to": "loading=\"eager\" fetchpriority=\"high\"" }
+  ],
+  "expectedDiffSha256": "7972e19e023e8a4a2342191e8c7a9588666363bacc77156e569e05040d840031",
+  "expectedDiffLines": [
+    { "file": "public/app.js", "sign": "-", "line": 2375, "text": "      illustration: \"/assets/pricing/starter-storefront.png\"," },
+    { "file": "public/app.js", "sign": "+", "line": 2375, "text": "      illustration: \"/assets/pricing/starter-storefront.webp\"," },
+    { "file": "public/app.js", "sign": "-", "line": 2394, "text": "      illustration: \"/assets/pricing/business-growth.png\"," },
+    { "file": "public/app.js", "sign": "+", "line": 2394, "text": "      illustration: \"/assets/pricing/business-growth.webp\"," },
+    { "file": "public/app.js", "sign": "-", "line": 2412, "text": "      illustration: \"/assets/pricing/enterprise-building.png\"," },
+    { "file": "public/app.js", "sign": "+", "line": 2412, "text": "      illustration: \"/assets/pricing/enterprise-building.webp\"," },
+    { "file": "public/app.js", "sign": "+", "line": 2424, "text": "function preloadAuthenticatedPricingIllustrations() {" },
+    { "file": "public/app.js", "sign": "+", "line": 2425, "text": "  for (const plan of authenticatedPricingPlans()) {" },
+    { "file": "public/app.js", "sign": "+", "line": 2426, "text": "    const link = document.createElement(\"link\");" },
+    { "file": "public/app.js", "sign": "+", "line": 2427, "text": "    link.rel = \"preload\";" },
+    { "file": "public/app.js", "sign": "+", "line": 2428, "text": "    link.as = \"image\";" },
+    { "file": "public/app.js", "sign": "+", "line": 2429, "text": "    link.href = plan.illustration;" },
+    { "file": "public/app.js", "sign": "+", "line": 2430, "text": "    link.fetchPriority = \"high\";" },
+    { "file": "public/app.js", "sign": "+", "line": 2431, "text": "    document.head.append(link);" },
+    { "file": "public/app.js", "sign": "+", "line": 2432, "text": "  }" },
+    { "file": "public/app.js", "sign": "+", "line": 2433, "text": "}" },
+    { "file": "public/app.js", "sign": "+", "line": 2434, "text": "" },
+    { "file": "public/app.js", "sign": "-", "line": 10700, "text": "                  <img src=\"${escapeHtml(plan.illustration)}\" alt=\"\" loading=\"lazy\">" },
+    { "file": "public/app.js", "sign": "+", "line": 10711, "text": "                  <img src=\"${escapeHtml(plan.illustration)}\" alt=\"\" loading=\"eager\" fetchpriority=\"high\">" },
+    { "file": "public/app.js", "sign": "+", "line": 14885, "text": "  preloadAuthenticatedPricingIllustrations();" }
+  ]
+}
