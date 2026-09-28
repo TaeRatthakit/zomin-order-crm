@@ -6,6 +6,7 @@ require("./lib/env").loadEnv();
 const {
   provider: dbProvider,
   readDb,
+  readOrderDeleteIntentDb,
   readLineWebhookDb,
   readLineOrderState,
   findUserForLogin,
@@ -1897,7 +1898,7 @@ function findInventoryProductIndex(products = [], order = {}) {
   return products.findIndex(product => normalizedProductNameKey(product.name) === orderNameKey);
 }
 
-function adjustInventoryForOrderChange(db, previousOrder = null, nextOrder = null, timing = null) {
+function adjustInventoryForOrderChange(db, previousOrder = null, nextOrder = null, timing = null, skipUnchanged = false) {
   const normalizeStartedAt = monotonicMs();
   const products = normalizeProductRecords(db.settings?.products);
   if (timing) timing.inventoryNormalizeMs = elapsedMs(normalizeStartedAt);
@@ -1917,6 +1918,7 @@ function adjustInventoryForOrderChange(db, previousOrder = null, nextOrder = nul
   addAdjustment(previousOrder, 1);
   addAdjustment(nextOrder, -1);
   if (timing) timing.inventoryLookupMs = elapsedMs(lookupStartedAt);
+  if (skipUnchanged && ![...adjustments.values()].some(delta => delta !== 0)) return null;
   if (!adjustments.size) return null;
 
   const mutationStartedAt = monotonicMs();
@@ -6243,7 +6245,10 @@ async function handleApi(req, res) {
   }
 
   const dbReadStartedAt = Date.now();
-  const db = await readDb();
+  const isOrderDeleteIntent = req.method === "POST" && /^\/api\/orders\/[^/]+\/delete-intent$/.test(url.pathname);
+  const db = isOrderDeleteIntent && typeof readOrderDeleteIntentDb === "function"
+    ? await readOrderDeleteIntentDb()
+    : await readDb();
   const dbReadMs = Date.now() - dbReadStartedAt;
   const sessionUser = isLineWebhook ? null : requireUser(req, res);
   if (!isLineWebhook && !sessionUser) return;
@@ -6263,7 +6268,7 @@ async function handleApi(req, res) {
 
   if (!isLineWebhook && !isSubscriptionAccessExempt(url.pathname)) {
     const access = subscriptionAccess(currentSubscription(db));
-    if (!access.allowed) return subscriptionBlockedResponse(res, db);
+    if (!access.allowed) return subscriptionBlockedResponse(res, isOrderDeleteIntent ? await readDb() : db);
   }
 
   if (req.method === "GET" && url.pathname === "/api/state") {
@@ -6660,8 +6665,14 @@ async function handleApi(req, res) {
     const previousOrder = { ...order };
     const previousCustomerIds = [order.customerId];
     const customer = db.customers.find(item => item.id === order.customerId);
+    let customerTagsChanged = false;
+    let newTagNames = [];
     if (customer && body.tags !== undefined) {
+      const previousTags = customer.tags || [];
+      const knownTags = new Set(db.tags || []);
       customer.tags = splitTags(body.tags);
+      customerTagsChanged = JSON.stringify(previousTags) !== JSON.stringify(customer.tags);
+      newTagNames = customer.tags.filter(tag => !knownTags.has(tag));
       db.tags = Array.from(new Set([...(db.tags || []), ...(customer.tags || [])]));
     }
     const nextOriginSource = body.originSource !== undefined || body.origin_source !== undefined || body.originSourceOther !== undefined || body.origin_source_other !== undefined
@@ -6718,7 +6729,8 @@ async function handleApi(req, res) {
     timings.profitSnapshotMs = Date.now() - snapshotStartedAt;
     try {
       const inventoryStartedAt = Date.now();
-      adjustInventoryForOrderChange(db, previousOrder, order);
+      const inventoryProducts = adjustInventoryForOrderChange(db, previousOrder, order, null, true);
+      timings.inventoryChanged = Boolean(inventoryProducts);
       timings.inventoryMs = Date.now() - inventoryStartedAt;
     } catch (error) {
       Object.assign(order, previousOrder);
@@ -6746,7 +6758,7 @@ async function handleApi(req, res) {
     mutation.clientMutationId = String(body.clientMutationId || "");
     const persistStartedAt = Date.now();
     const persistTimings = typeof persistOrderMutation === "function"
-      ? await persistOrderMutation(mutation, db.settings)
+      ? await persistOrderMutation({ ...mutation, persistTagNames: newTagNames, persistCustomerTags: customerTagsChanged }, timings.inventoryChanged ? db.settings : null)
       : (await writeDb(db), { totalMs: Date.now() - persistStartedAt });
     timings.persistMs = Date.now() - persistStartedAt;
     timings.totalMs = Date.now() - routeStartedAt;
