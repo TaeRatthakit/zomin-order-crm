@@ -26,6 +26,7 @@ const UI_FILES = [
 
 const UI_ASSET_RE = /^public\/.*\.(png|jpe?g|webp|svg|ico)$/i;
 const TEXT_UI_RE = /\.(css|js|html)$/i;
+const APPROVABLE_TOOLING_FILES = ["scripts/ui-regression-guard.js", "scripts/multi-approved-change-manifest-test.js"];
 
 const PAGE_PATTERNS = {
   landing: [
@@ -170,9 +171,24 @@ function validateApprovedChangeManifest(manifest, file) {
       || !["+", "-"].includes(item?.sign) || !Number.isInteger(item?.line) || item.line < 1 || typeof item.text !== "string")) {
     throw new Error(`incomplete or unsafe approval: ${file.relative}`);
   }
-  if (!file.legacy && (!hex40(manifest.target?.sourceCommit)
-    || manifest.allowedFiles.some(item => !TEXT_UI_RE.test(item)))) {
-    throw new Error(`new approval requires an exact target commit and text UI files: ${file.relative}`);
+  if (!file.legacy) {
+    if (!hex40(manifest.target?.sourceCommit)) {
+      throw new Error(`new approval requires an exact target commit and text UI files: ${file.relative}`);
+    }
+    const binaryFiles = manifest.allowedFiles.filter(item => !TEXT_UI_RE.test(item)).sort();
+    const binaryAssets = manifest.expectedBinaryAssets || [];
+    const toolingFiles = manifest.tooling?.allowedFiles || [];
+    if (!Array.isArray(binaryAssets)
+      || binaryAssets.length !== binaryFiles.length
+      || new Set(binaryAssets.map(item => item?.path)).size !== binaryAssets.length
+      || binaryAssets.some(item => !item || !binaryFiles.includes(item.path)
+        || item.status !== "added" || !hex64(item.sha256))
+      || (manifest.tooling && (!hex40(manifest.tooling.sourceCommit)
+        || !Array.isArray(toolingFiles) || !toolingFiles.length
+        || new Set(toolingFiles).size !== toolingFiles.length
+        || toolingFiles.some(item => !APPROVABLE_TOOLING_FILES.includes(item))))) {
+      throw new Error(`new approval requires exact target, binary assets, and tooling: ${file.relative}`);
+    }
   }
 }
 
@@ -282,11 +298,47 @@ function verifyApprovedChangeManifest(record, files, diff) {
     if (JSON.stringify(targetFiles) !== JSON.stringify(allowedFiles)) {
       return { configured: true, ok: false, reason: "target commit contains unapproved files" };
     }
-    const targetDiff = allowedFiles.map(file => runGit(["diff", "--unified=0", base, target, "--", file], true))
+    const binaryAssets = manifest.expectedBinaryAssets || [];
+    const targetStatuses = new Map(runGit(["diff", "--name-status", "--no-renames", base, target])
+      .split("\n").filter(Boolean).map(line => {
+        const [status, file] = line.split("\t");
+        return [file, status];
+      }));
+    for (const asset of binaryAssets) {
+      const file = asset.path;
+      if (targetStatuses.get(file) !== "A") {
+        return { configured: true, ok: false, reason: `approved binary asset status mismatch: ${file}` };
+      }
+      let targetBytes;
+      try { targetBytes = execFileSync("git", ["show", `${target}:${file}`]); }
+      catch { return { configured: true, ok: false, reason: `approved binary asset missing from target: ${file}` }; }
+      if (textSha256(targetBytes) !== asset.sha256
+        || !fs.existsSync(file) || !fs.lstatSync(file).isFile()
+        || sha256(file) !== asset.sha256) {
+        return { configured: true, ok: false, reason: `approved binary asset hash mismatch: ${file}` };
+      }
+    }
+    const targetDiff = allowedFiles.filter(file => TEXT_UI_RE.test(file))
+      .map(file => runGit(["diff", "--unified=0", base, target, "--", file], true))
       .filter(Boolean).join("\n");
     if (textSha256(targetDiff) !== manifest.expectedDiffSha256
       || JSON.stringify(parseDiffRecords(targetDiff)) !== JSON.stringify(expectedRecords)) {
       return { configured: true, ok: false, reason: "approved diff does not belong to target commit" };
+    }
+    if (manifest.tooling) {
+      const tooling = manifest.tooling.sourceCommit;
+      const toolingFiles = [...manifest.tooling.allowedFiles].sort();
+      try {
+        if (runGit(["rev-parse", `${tooling}^`]) !== target) throw new Error("tooling parent mismatch");
+        execFileSync("git", ["merge-base", "--is-ancestor", tooling, "HEAD"]);
+      } catch {
+        return { configured: true, ok: false, reason: "approved tooling commit is not directly after target and before HEAD" };
+      }
+      const committedToolingFiles = runGit(["diff", "--name-only", target, tooling]).split("\n").filter(Boolean).sort();
+      if (JSON.stringify(committedToolingFiles) !== JSON.stringify(toolingFiles)
+        || runGit(["diff", "--name-only", tooling, "--", ...toolingFiles], true)) {
+        return { configured: true, ok: false, reason: "approved tooling commit or working files differ" };
+      }
     }
   }
 
@@ -313,7 +365,7 @@ function verifyApprovedChangeManifests(files, uiFiles, diff) {
   }
   const chosen = matches[0];
   if (!chosen.record.legacy) {
-    const allowed = new Set([...chosen.manifest.allowedFiles, chosen.record.relative]);
+    const allowed = new Set([...chosen.manifest.allowedFiles, ...(chosen.manifest.tooling?.allowedFiles || []), chosen.record.relative]);
     const extra = files.filter(file => !allowed.has(file));
     if (extra.length) return { configured: true, ok: false, reason: `unapproved candidate files: ${extra.join(", ")}` };
   }
@@ -342,8 +394,9 @@ function changedFiles() {
     ? runGit(["diff", "--name-only", `${SOURCE_COMPARE_REF}..HEAD`], true)
     : "";
   const working = runGit(["diff", "--name-only"], true);
+  const staged = runGit(["diff", "--cached", "--name-only"], true);
   const untracked = runGit(["ls-files", "--others", "--exclude-standard"], true);
-  return Array.from(new Set(`${committed}\n${working}\n${untracked}`.split("\n").filter(Boolean))).sort();
+  return Array.from(new Set(`${committed}\n${working}\n${staged}\n${untracked}`.split("\n").filter(Boolean))).sort();
 }
 
 function changedUiFiles(files) {

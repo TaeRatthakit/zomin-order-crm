@@ -199,3 +199,123 @@ try {
 } finally {
   fs.rmSync(fixture, { recursive: true, force: true });
 }
+
+const binaryFixture = fs.mkdtempSync(path.join(os.tmpdir(), "growup-binary-approval-"));
+try {
+  const runBinaryGit = (...args) => execFileSync("git", args, { cwd: binaryFixture, encoding: "utf8" }).trim();
+  const binaryApprovalDir = path.join(binaryFixture, "ui-baselines", "approved-changes");
+  const binaryAppPath = path.join(binaryFixture, "public", "app.js");
+  const binaryAssetRelative = "public/assets/pricing/starter-storefront.webp";
+  const binaryAssetPath = path.join(binaryFixture, binaryAssetRelative);
+  const originalAsset = Buffer.from([0x52, 0x49, 0x46, 0x46, 0x01, 0x02, 0x03, 0x04]);
+  const guardPath = path.join(binaryFixture, "scripts", "ui-regression-guard.js");
+  const testPath = path.join(binaryFixture, "scripts", "multi-approved-change-manifest-test.js");
+  fs.mkdirSync(path.dirname(binaryAssetPath), { recursive: true });
+  fs.mkdirSync(binaryApprovalDir, { recursive: true });
+  fs.mkdirSync(path.dirname(guardPath), { recursive: true });
+  fs.writeFileSync(binaryAppPath, baseText);
+  fs.writeFileSync(guardPath, "// guard before binary support\n");
+  fs.writeFileSync(testPath, "// tests before binary support\n");
+  runBinaryGit("init", "-q");
+  runBinaryGit("config", "user.email", "guard-test@example.com");
+  runBinaryGit("config", "user.name", "Guard Test");
+  runBinaryGit("add", "public/app.js", "scripts/ui-regression-guard.js", "scripts/multi-approved-change-manifest-test.js");
+  runBinaryGit("commit", "-qm", "base");
+  const binaryBase = runBinaryGit("rev-parse", "HEAD");
+
+  fs.writeFileSync(binaryAppPath, targetText);
+  fs.writeFileSync(binaryAssetPath, originalAsset);
+  runBinaryGit("add", "public/app.js", binaryAssetRelative);
+  runBinaryGit("commit", "-qm", "product patch");
+  const binaryTarget = runBinaryGit("rev-parse", "HEAD");
+  const binaryDiff = runBinaryGit("diff", "--unified=0", binaryBase, binaryTarget, "--", "public/app.js");
+
+  fs.copyFileSync(path.join(__dirname, "ui-regression-guard.js"), guardPath);
+  fs.copyFileSync(__filename, testPath);
+  runBinaryGit("add", "scripts/ui-regression-guard.js", "scripts/multi-approved-change-manifest-test.js");
+  runBinaryGit("commit", "-qm", "exact binary approval tooling");
+  const binaryTooling = runBinaryGit("rev-parse", "HEAD");
+
+  const binaryManifest = {
+    ...makeManifest(binaryBase, binaryTarget, binaryDiff),
+    id: "binary-pricing-fixture",
+    allowedFiles: ["public/app.js", binaryAssetRelative],
+    expectedBinaryAssets: [{ path: binaryAssetRelative, status: "added", sha256: hash(originalAsset) }],
+    tooling: {
+      sourceCommit: binaryTooling,
+      allowedFiles: ["scripts/ui-regression-guard.js", "scripts/multi-approved-change-manifest-test.js"]
+    }
+  };
+  const binaryGuard = () => spawnSync(process.execPath, ["scripts/ui-regression-guard.js"], {
+    cwd: binaryFixture,
+    encoding: "utf8",
+    env: { ...process.env, UI_CHANGE_SCOPE: "pricing", UI_SOURCE_COMPARE_REF: binaryBase, UI_APPROVED_CHANGE_MANIFEST: "" }
+  });
+  const binaryPass = label => {
+    const result = binaryGuard();
+    assert.equal(result.status, 0, `${label}: ${result.stderr || result.stdout}`);
+  };
+  const binaryFail = (label, reason) => {
+    const result = binaryGuard();
+    assert.notEqual(result.status, 0, `${label} unexpectedly passed`);
+    if (reason) assert.match(result.stderr, reason, `${label}: ${result.stderr}`);
+  };
+  const clearBinaryApprovals = () => {
+    for (const name of fs.readdirSync(binaryApprovalDir)) fs.unlinkSync(path.join(binaryApprovalDir, name));
+  };
+  const approveBinary = manifest => {
+    clearBinaryApprovals();
+    const bytes = `${JSON.stringify(manifest, null, 2)}\n`;
+    fs.writeFileSync(path.join(binaryApprovalDir, `${hash(bytes)}.json`), bytes);
+  };
+
+  approveBinary(binaryManifest);
+  binaryPass("exact added binary asset and tooling commit");
+
+  const changedAsset = Buffer.from(originalAsset);
+  changedAsset[changedAsset.length - 1] ^= 1;
+  fs.writeFileSync(binaryAssetPath, changedAsset);
+  binaryFail("one-byte asset mutation", /binary asset hash mismatch/);
+  fs.writeFileSync(binaryAssetPath, originalAsset);
+
+  const renamedAsset = path.join(path.dirname(binaryAssetPath), "renamed.webp");
+  fs.renameSync(binaryAssetPath, renamedAsset);
+  binaryFail("binary asset path change");
+  fs.renameSync(renamedAsset, binaryAssetPath);
+
+  const extraAsset = path.join(path.dirname(binaryAssetPath), "extra.webp");
+  fs.writeFileSync(extraAsset, originalAsset);
+  binaryFail("extra unapproved binary asset");
+  fs.unlinkSync(extraAsset);
+
+  fs.unlinkSync(binaryAssetPath);
+  binaryFail("missing approved binary asset");
+  fs.writeFileSync(binaryAssetPath, originalAsset);
+
+  approveBinary({ ...binaryManifest, expectedBinaryAssets: [{ ...binaryManifest.expectedBinaryAssets[0], status: "modified" }] });
+  binaryFail("binary asset status differs", /exact target, binary assets, and tooling/);
+  approveBinary({ ...binaryManifest, expectedBinaryAssets: [{ ...binaryManifest.expectedBinaryAssets[0], sha256: "0".repeat(64) }] });
+  binaryFail("target bytes differ from approval", /binary asset hash mismatch/);
+  approveBinary({ ...binaryManifest, target: { sourceCommit: binaryTooling } });
+  binaryFail("target commit differs");
+  approveBinary({ ...binaryManifest, base: { sourceCommit: binaryTarget } });
+  binaryFail("base commit differs");
+  approveBinary(binaryManifest);
+
+  const unrelatedText = path.join(binaryFixture, "public", "styles.css");
+  fs.writeFileSync(unrelatedText, ".unapproved {}\n");
+  binaryFail("unrelated protected text UI line");
+  fs.unlinkSync(unrelatedText);
+  fs.writeFileSync(binaryAppPath, `${targetText}// extra approved-file mutation\n`);
+  binaryFail("approved text file mutated beyond exact diff");
+  fs.writeFileSync(binaryAppPath, targetText);
+
+  fs.appendFileSync(testPath, "// unapproved tooling mutation\n");
+  binaryFail("tooling bytes mutated", /approved tooling commit or working files differ/);
+  fs.copyFileSync(__filename, testPath);
+  binaryPass("exact state restored after disposable mutations");
+
+  console.log("Binary approval guard tests passed: exact bytes, path, status, commits, tooling, and mutation rejection.");
+} finally {
+  fs.rmSync(binaryFixture, { recursive: true, force: true });
+}
