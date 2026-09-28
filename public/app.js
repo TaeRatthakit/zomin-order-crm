@@ -2372,7 +2372,7 @@ function authenticatedPricingPlans() {
       prices: { monthly: "฿490", yearly: "฿4,900" },
       trial: "",
       includes: "",
-      illustration: "/assets/pricing/starter-storefront.png",
+      illustration: "/assets/pricing/starter-storefront.webp",
       features: [
         "ผู้ใช้งานสูงสุด 3 คน",
         "จัดการลูกค้า",
@@ -2391,7 +2391,7 @@ function authenticatedPricingPlans() {
       prices: { monthly: "฿990", yearly: "฿9,900" },
       trial: "",
       includes: "ทุกอย่างใน Starter พร้อม",
-      illustration: "/assets/pricing/business-growth.png",
+      illustration: "/assets/pricing/business-growth.webp",
       features: [
         "ผู้ใช้งานสูงสุด 10 คน",
         "VIP / VVIP / SUPER VIP",
@@ -2409,7 +2409,7 @@ function authenticatedPricingPlans() {
       prices: { monthly: "฿1,990", yearly: "฿19,900" },
       trial: "",
       includes: "ทุกอย่างใน Business พร้อม",
-      illustration: "/assets/pricing/enterprise-building.png",
+      illustration: "/assets/pricing/enterprise-building.webp",
       features: [
         "ผู้ใช้งานไม่จำกัด",
         "เครื่องมือและรายงานของ Business ทั้งหมด",
@@ -2419,6 +2419,17 @@ function authenticatedPricingPlans() {
       ]
     }
   ];
+}
+
+function preloadAuthenticatedPricingIllustrations() {
+  for (const plan of authenticatedPricingPlans()) {
+    const link = document.createElement("link");
+    link.rel = "preload";
+    link.as = "image";
+    link.href = plan.illustration;
+    link.fetchPriority = "high";
+    document.head.append(link);
+  }
 }
 
 function authenticatedCurrentPlan() {
@@ -10697,7 +10708,7 @@ function renderPricing() {
                   ${isCurrent && subscription.promoEntitlement && access.allowed ? `<span class="authenticated-pricing-trial">${escapeHtml(`สิทธิ์ใช้งานฟรี ${subscription.promoEntitlement.value} ${subscription.promoEntitlement.unit === "months" ? "เดือน" : "วัน"}`)}</span>` : `<p class="authenticated-pricing-includes">${escapeHtml(plan.includes || "ชำระผ่าน PromptPay อย่างปลอดภัย")}</p>`}
                 </div>
                 <div class="authenticated-pricing-illustration authenticated-pricing-illustration-${plan.id}" aria-hidden="true">
-                  <img src="${escapeHtml(plan.illustration)}" alt="" loading="lazy">
+                  <img src="${escapeHtml(plan.illustration)}" alt="" loading="eager" fetchpriority="high">
                 </div>
               </div>
               ${isCurrent ? `<div class="authenticated-pricing-current-badge">${iconSvg(isExpiredCurrent ? "clock" : "check")} ${isExpiredCurrent ? "แพ็กเกจหมดอายุแล้ว" : "แพ็กเกจปัจจุบัน"}</div>` : ""}
@@ -14871,6 +14882,7 @@ async function init() {
     render();
     return;
   }
+  preloadAuthenticatedPricingIllustrations();
   await loadState();
   if (isImportCenterActive()) await refreshImportJob();
 }
