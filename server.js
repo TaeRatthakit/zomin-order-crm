@@ -68,6 +68,8 @@ const {
   platformAdminUpsertPromotionCode,
   withTenantContext,
   resolveTenantForUser,
+  withOrderDeleteDiagnostics,
+  recordOrderDeleteDiagnosticStage,
   resolveTenantForLineWebhook,
   diagnoseLineWebhookTenantRejection,
   uploadProductImageObject,
@@ -6250,6 +6252,9 @@ async function handleApi(req, res) {
     ? await readOrderDeleteIntentDb()
     : await readDb();
   const dbReadMs = Date.now() - dbReadStartedAt;
+  if (typeof recordOrderDeleteDiagnosticStage === "function") {
+    recordOrderDeleteDiagnosticStage("readDbMs", dbReadMs);
+  }
   const sessionUser = isLineWebhook ? null : requireUser(req, res);
   if (!isLineWebhook && !sessionUser) return;
   const currentUser = isLineWebhook ? null : currentUserFromDb(sessionUser, db);
@@ -6794,20 +6799,28 @@ async function handleApi(req, res) {
     const secret = crypto.randomBytes(32).toString("base64url");
     const sessionFingerprint = orderDeleteSessionFingerprint(req);
     try {
-      const intent = await createOrderDeleteIntent({
-        orderId: id,
-        tenantId: String(currentUser.tenantId || currentUser.tenant_id || "").trim(),
-        actorUserId: String(currentUser.id || "").trim(),
-        actorRole: String(currentUser.role || "").trim(),
-        sessionFingerprint,
-        intentHash: crypto.createHash("sha256").update(secret).digest("hex"),
-        requestMetadata: {
-          route: url.pathname,
-          method: req.method,
-          request_id: String(req.headers["x-request-id"] || "").slice(0, 160),
-          user_agent: String(req.headers["user-agent"] || "").slice(0, 240)
+      let intent;
+      const rpcStartedAt = monotonicMs();
+      try {
+        intent = await createOrderDeleteIntent({
+          orderId: id,
+          tenantId: String(currentUser.tenantId || currentUser.tenant_id || "").trim(),
+          actorUserId: String(currentUser.id || "").trim(),
+          actorRole: String(currentUser.role || "").trim(),
+          sessionFingerprint,
+          intentHash: crypto.createHash("sha256").update(secret).digest("hex"),
+          requestMetadata: {
+            route: url.pathname,
+            method: req.method,
+            request_id: String(req.headers["x-request-id"] || "").slice(0, 160),
+            user_agent: String(req.headers["user-agent"] || "").slice(0, 240)
+          }
+        });
+      } finally {
+        if (typeof recordOrderDeleteDiagnosticStage === "function") {
+          recordOrderDeleteDiagnosticStage("rpcMs", elapsedMs(rpcStartedAt));
         }
-      });
+      }
       return json(res, 200, {
         ok: true,
         deleteIntent: `${intent.intentId}.${secret}`,
@@ -6888,7 +6901,14 @@ async function handleApi(req, res) {
       if (typeof persistOrderDeletion !== "function") {
         return json(res, 503, { ok: false, error: "ระบบยืนยันการลบออเดอร์ยังไม่พร้อมใช้งาน" });
       }
-      await persistOrderDeletion(id, deletionAudit);
+      const rpcStartedAt = monotonicMs();
+      try {
+        await persistOrderDeletion(id, deletionAudit);
+      } finally {
+        if (typeof recordOrderDeleteDiagnosticStage === "function") {
+          recordOrderDeleteDiagnosticStage("rpcMs", elapsedMs(rpcStartedAt));
+        }
+      }
     } catch (error) {
       if (error.code === "ORDER_DELETE_NOT_FOUND") {
         return json(res, 404, { ok: false, error: "ไม่พบออเดอร์" });
@@ -7700,6 +7720,21 @@ async function handleApi(req, res) {
 async function appHandler(req, res) {
   try {
     const requestPathname = new URL(req.url, `http://${req.headers.host || "localhost"}`).pathname;
+    if (
+      dbProvider === "supabase"
+      && isOrderDeleteApiRequest(req.method, requestPathname)
+      && !req._orderDeleteDiagnosticsStarted
+    ) {
+      req._orderDeleteDiagnosticsStarted = true;
+      const route = req.method === "POST" ? "intent" : "durable_delete";
+      return await withOrderDeleteDiagnostics(route, async () => {
+        try {
+          return await appHandler(req, res);
+        } finally {
+          delete req._orderDeleteDiagnosticsStarted;
+        }
+      });
+    }
     // Promo endpoints are server-authenticated even before any tenant-owned read.
     // This explicit fail-closed guard prevents an unauthenticated request from
     // reaching Supabase without a tenant context when the Preview feature is on.
