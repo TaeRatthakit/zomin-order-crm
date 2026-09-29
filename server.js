@@ -94,6 +94,31 @@ function monotonicMs() {
 function elapsedMs(startedAt) {
   return Math.round((monotonicMs() - startedAt) * 1000) / 1000;
 }
+
+const PREVIEW_SUPABASE_PROJECT_REF = "enwabsfsmwwcwwirdwok";
+const PRODUCTION_SUPABASE_PROJECT_REF = "mjnpzdmrqweugdnvlqwq";
+
+function previewSupabaseTargetMetadata() {
+  let supabaseProjectRef = "";
+  try {
+    const hostname = new URL(String(process.env.SUPABASE_URL || "")).hostname.toLowerCase();
+    const match = hostname.match(/^([a-z0-9]{20})\.supabase\.co$/);
+    if (match) supabaseProjectRef = match[1];
+  } catch {
+    // An absent or unsupported URL is reported only as an unknown target.
+  }
+  const supabaseTargetClassification = supabaseProjectRef === PREVIEW_SUPABASE_PROJECT_REF
+    ? "EXPECTED_PREVIEW"
+    : supabaseProjectRef === PRODUCTION_SUPABASE_PROJECT_REF
+      ? "FORBIDDEN_PRODUCTION"
+      : "UNKNOWN";
+  return {
+    vercelEnv: "preview",
+    databaseProvider: dbProvider,
+    supabaseProjectRef,
+    supabaseTargetClassification
+  };
+}
 const {
   normalizeAdPlatforms,
   normalizeAdCostRecords,
@@ -7720,6 +7745,12 @@ async function handleApi(req, res) {
 async function appHandler(req, res) {
   try {
     const requestPathname = new URL(req.url, `http://${req.headers.host || "localhost"}`).pathname;
+    if (requestPathname === "/api/debug/preview-db-target") {
+      if (req.method !== "GET" || process.env.VERCEL_ENV !== "preview") {
+        return json(res, 404, { ok: false, error: "Not found" });
+      }
+      return json(res, 200, previewSupabaseTargetMetadata());
+    }
     if (
       dbProvider === "supabase"
       && isOrderDeleteApiRequest(req.method, requestPathname)
