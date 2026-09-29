@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "id": "task-3-orders-delete-durable-success",
+  "base": { "sourceCommit": "4930ba4342bb35fd149d6b6d2825d5354dd3b81a" },
+  "target": { "sourceCommit": "2ad18833cf3b47d12f4b09062e7f020012f43c44" },
+  "allowedFiles": ["public/app.js"],
+  "expectedTextChanges": [
+    {
+      "route": "Orders",
+      "component": "Delete confirmation waits for durable DELETE before changing UI",
+      "from": "const snapshot = cloneUiState();",
+      "to": "const payload = await orderDeleteApi("
+    }
+  ],
+  "expectedDiffSha256": "47569606e76ad4c0eebd333b3cf5b31a49fbacdde7d83e1262d4d310d9dbc231",
+  "expectedDiffLines": [
+    {"file":"public/app.js","sign":"-","line":14428,"text":"      const snapshot = cloneUiState();"},
+    {"file":"public/app.js","sign":"-","line":14429,"text":"      const deletingOrder = app.data.orders.find(order => order.id === confirmedOrderId);"},
+    {"file":"public/app.js","sign":"-","line":14430,"text":"      const optimisticMutation = {"},
+    {"file":"public/app.js","sign":"-","line":14431,"text":"        deletedOrderId: confirmedOrderId,"},
+    {"file":"public/app.js","sign":"-","line":14432,"text":"        affectedCustomerIds: deletingOrder?.customerId ? [deletingOrder.customerId] : []"},
+    {"file":"public/app.js","sign":"-","line":14433,"text":"      };"},
+    {"file":"public/app.js","sign":"-","line":14434,"text":"      applyOrderMutation(optimisticMutation);"},
+    {"file":"public/app.js","sign":"-","line":14435,"text":"      patchOrdersView(optimisticMutation);"},
+    {"file":"public/app.js","sign":"+","line":14428,"text":"      const payload = await orderDeleteApi(`/api/orders/${encodeURIComponent(confirmedOrderId)}?date=${encodeURIComponent(app.data.summary?.selectedDate || els.workDate.value || todayISO())}`, {"},
+    {"file":"public/app.js","sign":"+","line":14429,"text":"        method: \"DELETE\""},
+    {"file":"public/app.js","sign":"+","line":14430,"text":"      }, orderDeleteIntentPayload.deleteIntent);"},
+    {"file":"public/app.js","sign":"+","line":14431,"text":"      applyOrderMutation(payload.mutation);"},
+    {"file":"public/app.js","sign":"+","line":14432,"text":"      patchOrdersView(payload.mutation);"},
+    {"file":"public/app.js","sign":"+","line":14433,"text":"      refreshVisibleCustomerPanels(payload.mutation);"},
+    {"file":"public/app.js","sign":"-","line":14439,"text":"      try {"},
+    {"file":"public/app.js","sign":"-","line":14440,"text":"        const payload = await orderDeleteApi(`/api/orders/${encodeURIComponent(optimisticMutation.deletedOrderId)}?date=${encodeURIComponent(app.data.summary?.selectedDate || els.workDate.value || todayISO())}`, {"},
+    {"file":"public/app.js","sign":"-","line":14441,"text":"          method: \"DELETE\""},
+    {"file":"public/app.js","sign":"-","line":14442,"text":"        }, orderDeleteIntentPayload.deleteIntent);"},
+    {"file":"public/app.js","sign":"-","line":14443,"text":"        applyOrderMutation(payload.mutation);"},
+    {"file":"public/app.js","sign":"-","line":14444,"text":"        patchOrdersView(payload.mutation);"},
+    {"file":"public/app.js","sign":"-","line":14445,"text":"        refreshVisibleCustomerPanels(payload.mutation);"},
+    {"file":"public/app.js","sign":"-","line":14446,"text":"      } catch (error) {"},
+    {"file":"public/app.js","sign":"-","line":14447,"text":"        restoreUiState(snapshot);"},
+    {"file":"public/app.js","sign":"-","line":14448,"text":"        throw error;"},
+    {"file":"public/app.js","sign":"-","line":14449,"text":"      }"}
+  ],
+  "expectedBinaryAssets": []
+}
