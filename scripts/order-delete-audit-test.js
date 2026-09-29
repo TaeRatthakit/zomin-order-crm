@@ -6,6 +6,8 @@ const http = require("http");
 const os = require("os");
 const path = require("path");
 
+const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
+
 const ROOT = path.join(__dirname, "..");
 const migrationPath = fs.readdirSync(path.join(ROOT, "supabase", "migrations"))
   .map(name => path.join(ROOT, "supabase", "migrations", name))
@@ -36,6 +38,60 @@ function assertMigrationContract() {
   assert(aggregateFix.includes("derive all aggregate fields from SQL rows"));
   assert(aggregateFix.includes("set first_purchase_date = v_first_purchase"));
   assert(!aggregateFix.includes("ORDER_DELETE_CUSTOMER_AGGREGATE_MISMATCH"));
+}
+
+async function assertDeleteUiWaitsForDurableResponse() {
+  const source = fs.readFileSync(path.join(ROOT, "public", "app.js"), "utf8");
+  const start = source.indexOf('    if (currentFormId === "deleteOrderForm" && app.deletingOrderId) {');
+  const end = source.indexOf('    if (currentFormId === "deleteCustomerForm"', start);
+  assert(start !== -1 && end > start, "delete form handler must exist");
+  const handler = new AsyncFunction(
+    "currentFormId", "app", "els", "can", "orderDeleteApi", "cloneUiState", "restoreUiState",
+    "applyOrderMutation", "patchOrdersView", "refreshVisibleCustomerPanels", "showToast", "todayISO",
+    source.slice(start, end)
+  );
+
+  for (const shouldFail of [false, true]) {
+    const calls = [];
+    const app = {
+      deletingOrderId: "order-a-1",
+      data: { orders: [{ id: "order-a-1", customerId: "customer-a" }], summary: { selectedDate: "2026-09-21" } }
+    };
+    const els = { workDate: { value: "2026-09-21" }, deleteOrderDialog: { close: () => calls.push("close") } };
+    let finishDelete;
+    const pendingDelete = new Promise((resolve, reject) => { finishDelete = shouldFail ? reject : resolve; });
+    const run = handler(
+      "deleteOrderForm", app, els, () => true,
+      (url, options, intent) => {
+        calls.push(options.method);
+        if (options.method === "POST") return Promise.resolve({ deleteIntent: "one-time-intent" });
+        assert.strictEqual(intent, "one-time-intent");
+        return pendingDelete;
+      },
+      () => { throw new Error("delete must not optimistically snapshot UI"); },
+      () => { throw new Error("delete must not optimistically restore UI"); },
+      mutation => { calls.push("mutate"); app.data.orders = app.data.orders.filter(order => order.id !== mutation.deletedOrderId); },
+      () => calls.push("patch"),
+      () => calls.push("refresh"),
+      message => calls.push(message),
+      () => "2026-09-21"
+    );
+    await new Promise(resolve => setImmediate(resolve));
+    assert.deepStrictEqual(calls, ["POST", "DELETE"], "no success or row removal before durable DELETE response");
+    assert.strictEqual(app.data.orders.length, 1);
+    assert.strictEqual(app.deletingOrderId, "order-a-1");
+    if (shouldFail) {
+      finishDelete(new Error("durable delete failed"));
+      await assert.rejects(run, /durable delete failed/);
+      assert.deepStrictEqual(calls, ["POST", "DELETE"], "failed DELETE must not report success or change UI");
+      assert.strictEqual(app.data.orders.length, 1);
+    } else {
+      finishDelete({ mutation: { deletedOrderId: "order-a-1", affectedCustomerIds: ["customer-a"] } });
+      await run;
+      assert.deepStrictEqual(calls, ["POST", "DELETE", "mutate", "patch", "refresh", "close", "ลบออเดอร์แล้ว"]);
+      assert.strictEqual(app.data.orders.length, 0);
+    }
+  }
 }
 
 function owner(id, tenantId) {
@@ -215,6 +271,7 @@ async function testExplicitDeleteFlow() {
     fs.writeFileSync(dbFile, `${JSON.stringify(expiredDb, null, 2)}\n`);
     const expired = await deleteWithIntent(port, ownerACookie, "order-a-1", expiredIntent.body.deleteIntent);
     assert.strictEqual(expired.status, 409);
+    assert.deepStrictEqual(JSON.parse(fs.readFileSync(dbFile)), expiredDb, "failed intent must not partially change order, stock, customer, or audit");
 
     const validIntent = await createIntent(port, ownerACookie, "order-a-1");
     assert.strictEqual(validIntent.status, 200);
@@ -280,6 +337,7 @@ async function testExplicitDeleteFlow() {
 (async () => {
   assertMigrationContract();
   await testExplicitDeleteFlow();
+  await assertDeleteUiWaitsForDurableResponse();
   console.log("order-delete-audit-test: PASS");
 })().catch(error => {
   console.error(`order-delete-audit-test: FAIL: ${error.stack || error.message}`);
