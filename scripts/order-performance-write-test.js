@@ -60,6 +60,8 @@ const context = { tenantId: "tenant-test", userId: "owner-test", tenantRole: "Ow
     };
     calls.length = 0;
     await adapter.withTenantContext(context, () => adapter.persistOrderMutation(mutation, { products: [{ id: "product-test", stockQuantity: 10 }] }));
+    assert(calls.some(call => call.method === "POST" && call.table === "customers"),
+      "missing previous-customer snapshot must not suppress required customer persistence");
     priorWriteCounts.push(calls.length);
 
     calls.length = 0;
@@ -73,23 +75,133 @@ const context = { tenantId: "tenant-test", userId: "owner-test", tenantRole: "Ow
     optimizedWriteCounts.push(calls.length);
   }
 
-  const customerChanged = {
-    order: { id: "order-customer-change", customerId: "customer-test", orderNumber: "TEST-CUSTOMER", date: "2026-09-28", jars: 1, amount: 100 },
-    customers: [{ id: "customer-test", name: "Updated Customer", phone: "0800000000", tags: [] }],
-    previousCustomers: [{ id: "customer-test", name: "Test Customer", phone: "0800000000", tags: [] }],
+  const customerBase = {
+    id: "customer-test",
+    name: "Test Customer",
+    phone: "0800000000",
+    address: "Original test address",
+    note: "Original test note",
+    assignedTo: "owner-test",
+    firstPurchaseDate: "2026-01-01",
+    lastPurchaseDate: "2026-09-28",
+    purchaseCount: 2,
+    totalJars: 3,
+    totalSpent: 300,
+    status: "NORMAL",
+    vipLevel: "NORMAL",
+    customerScore: 50,
+    followUpDate: "2026-10-01",
+    lastContactDate: "2026-09-01",
+    lastContactNote: "Test contact",
+    tags: ["existing", "second"]
+  };
+  const customerChangeMutation = (field, value) => ({
+    order: {
+      id: `order-customer-change-${field}`,
+      customerId: "customer-test",
+      orderNumber: `TEST-CUSTOMER-${field}`,
+      date: "2026-09-28",
+      jars: 1,
+      amount: 100,
+      note: `order-only change ${field}`
+    },
+    customers: [{ ...customerBase, [field]: value }],
+    previousCustomers: [{ ...customerBase }],
     affectedCustomerIds: ["customer-test"],
     persistTagNames: [],
     persistCustomerTags: false
+  });
+  const customerBusinessChanges = [
+    ["name", "Updated Test Customer"],
+    ["phone", "0800000001"],
+    ["address", "Updated test address"],
+    ["status", "VIP"],
+    ["vipLevel", "VIP"],
+    ["assignedTo", "staff-test"],
+    ["followUpDate", "2026-10-02"],
+    ["purchaseCount", 3],
+    ["totalJars", 4],
+    ["totalSpent", 400],
+    ["firstPurchaseDate", "2026-01-02"],
+    ["lastPurchaseDate", "2026-09-29"]
+  ];
+  for (const [field, value] of customerBusinessChanges) {
+    calls.length = 0;
+    await adapter.withTenantContext(context, () => adapter.persistOrderMutation(customerChangeMutation(field, value), null));
+    assert(calls.some(call => call.method === "POST" && call.table === "customers"), `${field} change must still upsert customer`);
+    assert(calls.some(call => call.method === "POST" && call.table === "orders"), `${field} change must persist order`);
+  }
+
+  calls.length = 0;
+  await adapter.withTenantContext(context, () => adapter.persistOrderMutation({
+    ...customerChangeMutation("name", customerBase.name),
+    previousCustomers: [{ ...customerBase, id: "different-customer" }]
+  }, null));
+  assert(calls.some(call => call.method === "POST" && call.table === "customers"),
+    "unmatched previous-customer snapshot must not suppress required customer persistence");
+
+  const normalizedPreviousCustomer = {
+    ...customerBase,
+    address: null,
+    note: null,
+    assignedTo: null,
+    firstPurchaseDate: null,
+    lastPurchaseDate: null,
+    purchaseCount: null,
+    totalJars: null,
+    totalSpent: null,
+    status: undefined,
+    vipLevel: undefined,
+    customerScore: undefined,
+    followUpDate: null,
+    lastContactDate: null,
+    lastContactNote: null
+  };
+  const normalizedNextCustomer = {
+    ...normalizedPreviousCustomer,
+    address: "",
+    note: "",
+    assignedTo: "",
+    firstPurchaseDate: "",
+    lastPurchaseDate: "",
+    purchaseCount: 0,
+    totalJars: 0,
+    totalSpent: 0,
+    status: "NORMAL",
+    vipLevel: "NORMAL",
+    customerScore: 0,
+    followUpDate: "",
+    lastContactDate: "",
+    lastContactNote: ""
   };
   calls.length = 0;
-  await adapter.withTenantContext(context, () => adapter.persistOrderMutation(customerChanged, null));
-  assert(calls.some(call => call.method === "POST" && call.table === "customers"), "customer row change must still upsert customer");
-  assert(calls.some(call => call.method === "POST" && call.table === "orders"), "customer row change must persist order");
+  await adapter.withTenantContext(context, () => adapter.persistOrderMutation({
+    ...customerChangeMutation("name", customerBase.name),
+    customers: [normalizedNextCustomer],
+    previousCustomers: [normalizedPreviousCustomer]
+  }, null));
+  assert(!calls.some(call => call.method === "POST" && call.table === "customers"),
+    "null/empty/default representations with identical persisted payload must not upsert customer");
+  assert(calls.some(call => call.method === "POST" && call.table === "orders"),
+    "normalization-only customer equality must preserve order persistence");
+
+  calls.length = 0;
+  await adapter.withTenantContext(context, () => adapter.persistOrderMutation({
+    ...customerChangeMutation("name", customerBase.name),
+    customers: [{ ...customerBase, tags: ["second", "existing"] }],
+    previousCustomers: [{ ...customerBase, tags: ["existing", "second"] }],
+    persistTagNames: [],
+    persistCustomerTags: false
+  }, null));
+  assert(!calls.some(call => call.method === "POST" && call.table === "customers"),
+    "tag-array ordering alone must not trigger a customer-row upsert");
+  assert(calls.some(call => call.method === "POST" && call.table === "orders"),
+    "tag-array ordering alone must preserve order persistence");
 
   const taggedAndInventoryChanged = {
-    ...customerChanged,
-    customers: [{ ...customerChanged.customers[0], name: "Test Customer", tags: ["existing", "new-tag"] }],
-    previousCustomers: [{ ...customerChanged.customers[0], name: "Test Customer", tags: ["existing"] }],
+    ...customerChangeMutation("name", customerBase.name),
+    customers: [{ ...customerBase, tags: ["existing", "new-tag"] }],
+    previousCustomers: [{ ...customerBase, tags: ["existing"] }],
     persistTagNames: ["new-tag"],
     persistCustomerTags: true
   };
@@ -131,7 +243,7 @@ const context = { tenantId: "tenant-test", userId: "owner-test", tenantRole: "Ow
   const fullReadCount = calls.length;
   assert(fullReadCount > Math.max(...readCounts));
   assert(priorWriteCounts.every(count => count > 2));
-  console.log(`order-performance-write-test: PASS; intent reads ${fullReadCount} -> ${readCounts.join(",")}; unchanged Edit calls ${priorWriteCounts.join(",")} -> ${optimizedWriteCounts.join(",")}; changed customer, tags, inventory, no-value save and failed-save checks passed`);
+  console.log(`order-performance-write-test: PASS; intent reads ${fullReadCount} -> ${readCounts.join(",")}; unchanged Edit calls ${priorWriteCounts.join(",")} -> ${optimizedWriteCounts.join(",")}; customer business fields, null/empty normalization, tag ordering, inventory, no-value save and failed-save checks passed`);
 })().catch(error => {
   console.error(error);
   process.exitCode = 1;
