@@ -14425,28 +14425,15 @@ document.addEventListener("submit", async event => {
       }
       const confirmedOrderId = app.deletingOrderId;
       const orderDeleteIntentPayload = await orderDeleteApi(`/api/orders/${encodeURIComponent(confirmedOrderId)}/delete-intent`, { method: "POST" });
-      const snapshot = cloneUiState();
-      const deletingOrder = app.data.orders.find(order => order.id === confirmedOrderId);
-      const optimisticMutation = {
-        deletedOrderId: confirmedOrderId,
-        affectedCustomerIds: deletingOrder?.customerId ? [deletingOrder.customerId] : []
-      };
-      applyOrderMutation(optimisticMutation);
-      patchOrdersView(optimisticMutation);
+      const payload = await orderDeleteApi(`/api/orders/${encodeURIComponent(confirmedOrderId)}?date=${encodeURIComponent(app.data.summary?.selectedDate || els.workDate.value || todayISO())}`, {
+        method: "DELETE"
+      }, orderDeleteIntentPayload.deleteIntent);
+      applyOrderMutation(payload.mutation);
+      patchOrdersView(payload.mutation);
+      refreshVisibleCustomerPanels(payload.mutation);
       app.deletingOrderId = "";
       els.deleteOrderDialog.close();
       showToast("ลบออเดอร์แล้ว");
-      try {
-        const payload = await orderDeleteApi(`/api/orders/${encodeURIComponent(optimisticMutation.deletedOrderId)}?date=${encodeURIComponent(app.data.summary?.selectedDate || els.workDate.value || todayISO())}`, {
-          method: "DELETE"
-        }, orderDeleteIntentPayload.deleteIntent);
-        applyOrderMutation(payload.mutation);
-        patchOrdersView(payload.mutation);
-        refreshVisibleCustomerPanels(payload.mutation);
-      } catch (error) {
-        restoreUiState(snapshot);
-        throw error;
-      }
     }
 
     if (currentFormId === "deleteCustomerForm" && app.deletingCustomerId) {
