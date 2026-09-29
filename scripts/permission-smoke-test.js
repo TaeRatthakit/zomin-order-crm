@@ -173,6 +173,10 @@ server.listen(0, "127.0.0.1", async () => {
       body: JSON.stringify({ name: "Bad", username: "bad", password: "pass123", role: "Staff" })
     });
     await expectStatus(baseUrl, "/api/orders/o1", adminCookie, 403, { method: "DELETE" });
+    await expectStatus(baseUrl, "/api/orders/o1", staffCookie, 403, {
+      method: "PUT",
+      body: JSON.stringify({ amount: 750 })
+    });
     await expectStatus(baseUrl, "/api/orders", adminCookie, 200, {
       method: "POST",
       body: JSON.stringify({ name: "Allowed", phone: "0899999999", items: "Test Product", jars: 1, amount: 750, date: "2026-07-11" })

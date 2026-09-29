@@ -231,6 +231,10 @@ function assertSafeDiagnosticLog(label, messages) {
   const tenantA = await adapter.resolveTenantForUser("u_a");
   const tenantB = await adapter.resolveTenantForUser("u_b");
   if (tenantA?.tenantId !== "tenant_a" || tenantB?.tenantId !== "tenant_b") fail("tenant resolver returned wrong tenant");
+  const tenantAOrders = await adapter.withTenantContext(tenantA, () => adapter.readDb());
+  if ((tenantAOrders.orders || []).some(order => order.id === "o_b" || order.customerId === "c_b")) {
+    fail("tenant A Edit-path read exposed tenant B order/customer data");
+  }
 
   await expectReject("writeDb", () => adapter.writeDb({
     settings: {},

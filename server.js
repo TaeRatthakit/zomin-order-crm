@@ -6665,6 +6665,7 @@ async function handleApi(req, res) {
     const previousOrder = { ...order };
     const previousCustomerIds = [order.customerId];
     const customer = db.customers.find(item => item.id === order.customerId);
+    const previousCustomer = customer ? { ...customer } : null;
     let customerTagsChanged = false;
     let newTagNames = [];
     if (customer && body.tags !== undefined) {
@@ -6758,7 +6759,12 @@ async function handleApi(req, res) {
     mutation.clientMutationId = String(body.clientMutationId || "");
     const persistStartedAt = Date.now();
     const persistTimings = typeof persistOrderMutation === "function"
-      ? await persistOrderMutation({ ...mutation, persistTagNames: newTagNames, persistCustomerTags: customerTagsChanged }, timings.inventoryChanged ? db.settings : null)
+      ? await persistOrderMutation({
+        ...mutation,
+        previousCustomers: previousCustomer ? [previousCustomer] : [],
+        persistTagNames: newTagNames,
+        persistCustomerTags: customerTagsChanged
+      }, timings.inventoryChanged ? db.settings : null)
       : (await writeDb(db), { totalMs: Date.now() - persistStartedAt });
     timings.persistMs = Date.now() - persistStartedAt;
     timings.totalMs = Date.now() - routeStartedAt;
