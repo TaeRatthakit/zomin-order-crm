@@ -1,0 +1,222 @@
+{
+  "schemaVersion": 1,
+  "id": "task5-payment-existing-checkout-resume",
+  "base": {
+    "sourceCommit": "2608cadd615c9cd1298ef1d2caf388a698c414cf"
+  },
+  "target": {
+    "sourceCommit": "edaccd472ac02c2ad91fb1bc90f7da95462e00f7"
+  },
+  "allowedFiles": [
+    "public/app.js"
+  ],
+  "expectedTextChanges": [
+    {
+      "route": "Authenticated Pricing / Subscription Checkout",
+      "component": "resume existing payment from authoritative reconciliation",
+      "from": "if (reconciliation.state === \"active\") throw new Error(",
+      "to": "const existingCheckout = await requestSubscriptionInitialization(endpoint, { targetPlan, billingInterval });"
+    }
+  ],
+  "expectedDiffSha256": "ea18e9920b4fb087644a5d99fe5a128da01d02ce71a4a2af06f5f5bff9186f3d",
+  "expectedDiffLines": [
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 10377,
+      "text": "  }).then(reconciliation => {"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10377,
+      "text": "  }).then(async reconciliation => {"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 10380,
+      "text": "    if (reconciliation.state === \"active\") throw new Error(\"คุณมีรายการชำระเงินที่กำลังดำเนินการอยู่ กรุณาดำเนินการรายการเดิมให้เรียบร้อยก่อน\");"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 10381,
+      "text": "    if (reconciliation.state === \"awaiting_webhook\") throw new Error(\"Stripe ยืนยันการชำระเงินแล้ว ระบบกำลังรอ webhook ที่ตรวจสอบแล้ว\");"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10380,
+      "text": "    if ([\"active\", \"awaiting_webhook\"].includes(reconciliation.state)) {"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10381,
+      "text": "      const pendingPayment = reconciliation.pendingPayment;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10382,
+      "text": "      if (!pendingPayment?.id) throw new Error(reconciliation.state === \"active\""
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10383,
+      "text": "        ? \"คุณมีรายการชำระเงินที่กำลังดำเนินการอยู่ กรุณาดำเนินการรายการเดิมให้เรียบร้อยก่อน\""
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10384,
+      "text": "        : \"Stripe ยืนยันการชำระเงินแล้ว ระบบกำลังรอ webhook ที่ตรวจสอบแล้ว\");"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10385,
+      "text": "      const targetPlan = String(pendingPayment.targetPlan || pendingPayment.plan || \"\").toLowerCase();"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10386,
+      "text": "      const operation = String(pendingPayment.operation || \"\").toLowerCase();"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10387,
+      "text": "      const billingInterval = String(pendingPayment.billingInterval || draft.billingInterval).toLowerCase();"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10388,
+      "text": "      if (reconciliation.state === \"active\") {"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10389,
+      "text": "        if (!targetPlan) throw new Error(\"ไม่พบแพ็กเกจของรายการชำระเงินเดิม กรุณาลองตรวจสอบอีกครั้ง\");"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10390,
+      "text": "        const endpoint = operation === \"subscription_upgrade\" ? \"/api/billing/upgrade\" : \"/api/billing/checkout\";"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10391,
+      "text": "        const existingCheckout = await requestSubscriptionInitialization(endpoint, { targetPlan, billingInterval });"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10392,
+      "text": "        if (!isCurrentAttempt()) return;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10393,
+      "text": "        app.billingCheckout = existingCheckout;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10394,
+      "text": "        if (existingCheckout.billing && app.data) app.data.billing = existingCheckout.billing;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10395,
+      "text": "      } else {"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10396,
+      "text": "        app.billingCheckout = {"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10397,
+      "text": "          payment: pendingPayment,"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10398,
+      "text": "          upgrade: { targetPlan, billingInterval, currentPlan: app.data?.billing?.subscription?.plan || \"starter\" }"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10399,
+      "text": "        };"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10400,
+      "text": "      }"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10401,
+      "text": "      draft.initializing = false;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10402,
+      "text": "      app.subscriptionCheckoutDraft = null;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10403,
+      "text": "      app.subscriptionQuoteLoading = false;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10404,
+      "text": "      app.subscriptionQrLoadState = null;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10405,
+      "text": "      render();"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10406,
+      "text": "      return;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10407,
+      "text": "    }"
+    }
+  ],
+  "tooling": {
+    "sourceCommit": "3f628399bf70fc7e9f09a621b4e2b5ed588d7744",
+    "allowedFiles": [
+      "scripts/subscription-upgrade-test.js"
+    ]
+  }
+}
