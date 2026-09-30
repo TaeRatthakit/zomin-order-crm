@@ -112,6 +112,7 @@ const app = {
   customerCallEndingIds: new Set(),
   customerContactSavingIds: new Set(),
   orderSavePending: false,
+  pendingDeleteOrders: new Map(),
   filters: {
     q: "",
     tag: "",
@@ -6429,7 +6430,7 @@ function mobileOrderProductSummary(order) {
 function mobileOrderRows(selectedDate) {
   const q = app.ordersFilterQ.trim().toLowerCase();
   const range = dashboardSummaryRange(selectedDate);
-  const rows = app.data.orders.filter(order => {
+  const rows = ordersWithoutPendingDeletes(app.data.orders.filter(order => {
     const dateMatch = Boolean(q) || !app.mobileOrdersDateOnly || dateInRange(order.date, range);
     const textMatch = !q || [
       order.orderNumber,
@@ -6448,7 +6449,7 @@ function mobileOrderRows(selectedDate) {
       order.note
     ].join(" ").toLowerCase().includes(q);
     return dateMatch && textMatch;
-  });
+  }));
   rows.sort((a, b) => {
     const dateCompare = String(a.date || "").localeCompare(String(b.date || ""));
     if (dateCompare !== 0) return app.mobileOrdersDescending ? -dateCompare : dateCompare;
@@ -6460,6 +6461,10 @@ function mobileOrderRows(selectedDate) {
 
 function mobileOrdersScrollElement() {
   return document.querySelector(".mobile-orders-list");
+}
+
+function ordersWithoutPendingDeletes(orders = []) {
+  return orders.filter(order => !app.pendingDeleteOrders.has(String(order.id || "")));
 }
 
 function rememberMobileOrdersScrollPosition() {
@@ -6557,7 +6562,7 @@ function renderOrders() {
   }
   const q = app.ordersFilterQ.trim().toLowerCase();
   if (app.ordersFilterDraft === "") app.ordersFilterDraft = app.ordersFilterQ;
-  const orders = app.data.orders.filter(order => {
+  const matchingOrders = app.data.orders.filter(order => {
     const dateMatch = app.ordersShowAll || dateInRange(order.date, selectedRange);
     const textMatch = !q || [
       order.orderNumber,
@@ -6571,17 +6576,18 @@ function renderOrders() {
     ].join(" ").toLowerCase().includes(q);
     return dateMatch && textMatch;
   });
-  const totalSales = orders.reduce((sum, order) => sum + Number(order.amount || 0), 0);
+  const orders = ordersWithoutPendingDeletes(matchingOrders);
+  const totalSales = matchingOrders.reduce((sum, order) => sum + Number(order.amount || 0), 0);
   const topChannel = channelPerformance()[0]?.name || "ยังไม่มีข้อมูล";
-  const totalUnits = orders.reduce((sum, order) => sum + Number(order.jars || 0), 0);
-  const averageOrderValue = orders.length ? totalSales / orders.length : 0;
+  const totalUnits = matchingOrders.reduce((sum, order) => sum + Number(order.jars || 0), 0);
+  const averageOrderValue = matchingOrders.length ? totalSales / matchingOrders.length : 0;
   els.content.innerHTML = `
     <section class="section saas-page orders-page">
       <div class="page-identity workspace-hero orders-hero">
         <div class="page-identity-copy">
           <span class="page-kicker">Order Management Workspace</span>
           <h2>${app.ordersShowAll ? "ออเดอร์ทั้งหมด" : `ออเดอร์วันที่ ${labelForDateRange(selectedRange, app.dateRangePicker.applied?.preset)}`}</h2>
-          <p id="ordersCountText">${app.ordersShowAll ? `แสดง ${money(orders.length)} ออเดอร์จากทุกวัน` : `แสดง ${money(orders.length)} ออเดอร์จากวันที่เลือก`} พร้อมค้นหาและจัดการรายการในหน้าเดียว</p>
+          <p id="ordersCountText">${app.ordersShowAll ? `แสดง ${money(matchingOrders.length)} ออเดอร์จากทุกวัน` : `แสดง ${money(matchingOrders.length)} ออเดอร์จากวันที่เลือก`} พร้อมค้นหาและจัดการรายการในหน้าเดียว</p>
         </div>
         <div class="orders-header-actions">
           <label class="orders-show-all">
@@ -12193,7 +12199,36 @@ async function submitOrder(form) {
   }
 }
 
+function beginPendingOrderDelete(orderId) {
+  const id = String(orderId || "");
+  if (!id || app.pendingDeleteOrders.has(id)) return false;
+  const orders = app.data?.orders || [];
+  const index = orders.findIndex(order => String(order.id || "") === id);
+  const order = index >= 0 ? JSON.parse(JSON.stringify(orders[index])) : null;
+  app.pendingDeleteOrders.set(id, { order, index });
+  return true;
+}
+
+function rollbackPendingOrderDelete(orderId) {
+  const id = String(orderId || "");
+  const snapshot = app.pendingDeleteOrders.get(id);
+  if (!snapshot) return false;
+  app.pendingDeleteOrders.delete(id);
+  if (snapshot.order && app.data) {
+    const currentIndex = app.data.orders.findIndex(order => String(order.id || "") === id);
+    if (currentIndex >= 0) {
+      app.data.orders[currentIndex] = snapshot.order;
+    } else {
+      const insertAt = Math.max(0, Math.min(snapshot.index, app.data.orders.length));
+      app.data.orders.splice(insertAt, 0, snapshot.order);
+    }
+  }
+  if (app.view === "orders" && app.data) patchOrdersView({});
+  return true;
+}
+
 function openDeleteOrderDialog(orderId) {
+  if (app.pendingDeleteOrders.has(String(orderId || ""))) return;
   app.deletingOrderId = orderId;
   const order = app.data.orders.find(item => item.id === orderId);
   if (els.mobileDeleteOrderNumber) {
@@ -14424,15 +14459,24 @@ document.addEventListener("submit", async event => {
         return;
       }
       const confirmedOrderId = app.deletingOrderId;
-      const orderDeleteIntentPayload = await orderDeleteApi(`/api/orders/${encodeURIComponent(confirmedOrderId)}/delete-intent`, { method: "POST" });
-      const payload = await orderDeleteApi(`/api/orders/${encodeURIComponent(confirmedOrderId)}?date=${encodeURIComponent(app.data.summary?.selectedDate || els.workDate.value || todayISO())}`, {
-        method: "DELETE"
-      }, orderDeleteIntentPayload.deleteIntent);
+      if (!beginPendingOrderDelete(confirmedOrderId)) return;
+      els.deleteOrderDialog.close();
+      app.deletingOrderId = "";
+      patchOrdersView({});
+      let payload;
+      try {
+        const orderDeleteIntentPayload = await orderDeleteApi(`/api/orders/${encodeURIComponent(confirmedOrderId)}/delete-intent`, { method: "POST" });
+        payload = await orderDeleteApi(`/api/orders/${encodeURIComponent(confirmedOrderId)}?date=${encodeURIComponent(app.data.summary?.selectedDate || els.workDate.value || todayISO())}`, {
+          method: "DELETE"
+        }, orderDeleteIntentPayload.deleteIntent);
+      } catch (error) {
+        rollbackPendingOrderDelete(confirmedOrderId);
+        throw error;
+      }
       applyOrderMutation(payload.mutation);
       patchOrdersView(payload.mutation);
       refreshVisibleCustomerPanels(payload.mutation);
-      app.deletingOrderId = "";
-      els.deleteOrderDialog.close();
+      app.pendingDeleteOrders.delete(String(confirmedOrderId));
       showToast("ลบออเดอร์แล้ว");
     }
 
