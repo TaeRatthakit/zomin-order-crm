@@ -10319,6 +10319,84 @@ function subscriptionPaymentDisplayStatus(promptpay = {}, payment = {}) {
   }
   return promptStatus || providerStatus || String(payment.status || "pending").toLowerCase() || "pending";
 }
+
+const SUBSCRIPTION_INITIALIZATION_TIMEOUT_MS = 15000;
+
+function requestSubscriptionInitialization(path, body) {
+  let timeoutId;
+  const timeout = new Promise((_, reject) => {
+    timeoutId = window.setTimeout(() => reject(new Error("ตรวจสอบรายการชำระเงินใช้เวลานานเกินไป กรุณาลองอีกครั้ง")), SUBSCRIPTION_INITIALIZATION_TIMEOUT_MS);
+  });
+  return Promise.race([
+    Promise.resolve().then(() => api(path, {
+      method: "POST",
+      body: JSON.stringify(body)
+    })),
+    timeout
+  ]).finally(() => window.clearTimeout(timeoutId));
+}
+
+async function initializeSubscriptionCheckout(draft) {
+  const attempt = {};
+  app.pricingUpgradeLoading = "";
+  draft.initializationAttempt = attempt;
+  draft.initializing = true;
+  draft.reconciliationReady = false;
+  draft.initializationError = "";
+  draft.baseQuote = null;
+  app.subscriptionQuoteLoading = true;
+  app.checkoutPromotionError = "";
+  app.checkoutPromoQuote = null;
+  const isCurrentAttempt = () => app.subscriptionCheckoutDraft === draft && draft.initializationAttempt === attempt;
+  render();
+
+  const quoteTask = requestSubscriptionInitialization("/api/billing/quote", {
+    targetPlan: draft.targetPlan,
+    billingInterval: draft.billingInterval
+  }).then(result => {
+    if (!isCurrentAttempt()) return;
+    const quote = result?.quote;
+    if (!quote || !Number.isFinite(Number(quote.amount_minor)) || Number(quote.amount_minor) < 0) {
+      throw new Error("ไม่ได้รับราคาที่ตรวจสอบจากระบบ กรุณาลองอีกครั้ง");
+    }
+    draft.baseQuote = quote;
+    draft.action = quote.intent === "subscription_upgrade" ? "upgrade"
+      : quote.intent === "subscription_renewal" ? "renewal" : "activation";
+    app.subscriptionQuoteLoading = false;
+    render();
+  }).catch(error => {
+    if (!isCurrentAttempt()) return;
+    app.subscriptionQuoteLoading = false;
+    draft.initializationError = error.message || "โหลดราคาชำระเงินไม่สำเร็จ";
+    render();
+  });
+
+  const reconciliationTask = requestSubscriptionInitialization("/api/billing/reconcile", {
+    targetPlan: draft.targetPlan,
+    billingInterval: draft.billingInterval
+  }).then(reconciliation => {
+    if (!isCurrentAttempt()) return;
+    if (reconciliation.billing && app.data) app.data.billing = reconciliation.billing;
+    if (reconciliation.state === "active") throw new Error("คุณมีรายการชำระเงินที่กำลังดำเนินการอยู่ กรุณาดำเนินการรายการเดิมให้เรียบร้อยก่อน");
+    if (reconciliation.state === "awaiting_webhook") throw new Error("Stripe ยืนยันการชำระเงินแล้ว ระบบกำลังรอ webhook ที่ตรวจสอบแล้ว");
+    if (!("none" === reconciliation.state || "terminal" === reconciliation.state)) throw new Error("ตรวจสอบรายการชำระเงินไม่สำเร็จ กรุณาลองอีกครั้ง");
+    draft.reconciliationReady = true;
+    render();
+  }).catch(error => {
+    if (!isCurrentAttempt()) return;
+    if (error.payload?.billing && app.data) app.data.billing = error.payload.billing;
+    draft.reconciliationReady = false;
+    draft.initializationError = error.message || "ตรวจสอบรายการชำระเงินไม่สำเร็จ";
+    render();
+  });
+
+  await Promise.all([quoteTask, reconciliationTask]);
+  if (!isCurrentAttempt()) return;
+  draft.initializing = false;
+  app.pricingUpgradeLoading = "";
+  app.subscriptionQuoteLoading = false;
+  render();
+}
 /* pricing-scope: authenticated-upgrade-state:end */
 
 function renderSettingsSubscription() {
@@ -10442,7 +10520,7 @@ function renderSettingsSubscription() {
     </article>
   `;
   const summaryAction = draft
-    ? `<button class="button primary subscription-primary-action" type="button" data-subscription-checkout-confirm ${app.pricingUpgradeLoading || app.subscriptionQuoteLoading || !draft.baseQuote ? "disabled" : ""}>${app.pricingUpgradeLoading ? "กำลังสร้างรายการชำระเงิน..." : draftQuote?.mode === "free_service" ? "ยืนยันรับสิทธิ์ฟรี" : "ยืนยันชำระเงิน"}</button>`
+    ? `<button class="button primary subscription-primary-action" type="button" data-subscription-checkout-confirm ${app.pricingUpgradeLoading || app.subscriptionQuoteLoading || draft.initializing || !draft.baseQuote || !draft.reconciliationReady ? "disabled" : ""}>${app.pricingUpgradeLoading ? "กำลังสร้างรายการชำระเงิน..." : draft.initializing && !draft.reconciliationReady ? "กำลังตรวจสอบรายการเดิม..." : draftQuote?.mode === "free_service" ? "ยืนยันรับสิทธิ์ฟรี" : "ยืนยันชำระเงิน"}</button>${draft.initializationError ? `<p class="subscription-promo-message" role="status">${escapeHtml(draft.initializationError)}</p><button class="button secondary" type="button" data-subscription-initialization-retry ${draft.initializing ? "disabled" : ""}>ลองตรวจสอบอีกครั้ง</button>` : ""}`
     : isSuccess
     ? `<button class="button primary subscription-primary-action" type="button" data-view-shortcut="dashboard">เริ่มใช้งาน</button>`
     : `<button class="button ghost subscription-back-action" type="button" data-view-shortcut="pricing">${iconSvg("arrow")} กลับไปเลือกแพ็กเกจ</button>`;
@@ -10474,7 +10552,7 @@ function renderSettingsSubscription() {
             <label for="subscriptionPromoCode">โค้ดส่วนลด</label>
             <div class="subscription-promo-controls">
               <input id="subscriptionPromoCode" type="text" placeholder="กรอกโค้ดโปรโมชั่น" maxlength="64" autocomplete="off" spellcheck="false" aria-describedby="subscriptionPromoMessage" aria-invalid="${Boolean(app.checkoutPromotionError)}" value="${escapeHtml(app.checkoutPromotionCode || "")}">
-              <button class="button secondary" type="submit"${app.subscriptionQuoteLoading ? " disabled" : ""}>${app.subscriptionQuoteLoading ? "กำลังตรวจสอบ..." : "ใช้โค้ด"}</button>
+              <button class="button secondary" type="submit"${app.subscriptionQuoteLoading || draft?.initializing ? " disabled" : ""}>${app.subscriptionQuoteLoading || draft?.initializing ? "กำลังตรวจสอบ..." : "ใช้โค้ด"}</button>
             </div>
             <p id="subscriptionPromoMessage" class="subscription-promo-message ${app.checkoutPromotionError ? "is-error" : ""}" role="status" aria-live="polite" aria-atomic="true"${app.checkoutPromotionError || promoBenefit ? "" : " hidden"}>${escapeHtml(app.checkoutPromotionError || promoBenefit)}</p>
           </form>` : ""}
@@ -10538,7 +10616,7 @@ function renderSettingsSubscription() {
       event.preventDefault();
       event.stopPropagation();
       if (draft) {
-        if (app.subscriptionQuoteLoading) return;
+        if (app.subscriptionQuoteLoading || draft.initializing) return;
         app.checkoutPromotionCode = promoInput.value.trim();
         if (!app.checkoutPromotionCode) {
           app.checkoutPromoQuote = null;
@@ -13061,7 +13139,7 @@ document.addEventListener("click", async event => {
   const subscriptionConfirmButton = event.target.closest("[data-subscription-checkout-confirm]");
   if (subscriptionConfirmButton && app.view === "settingsSubscription" && app.subscriptionCheckoutDraft && !app.pricingUpgradeLoading) {
     const draft = app.subscriptionCheckoutDraft;
-    if (!draft.baseQuote) return;
+    if (!draft.baseQuote || !draft.reconciliationReady || draft.initializing || app.subscriptionQuoteLoading) return;
     const applied = app.checkoutPromoQuote;
     app.pricingUpgradeLoading = draft.targetPlan;
     app.checkoutPromotionError = "";
@@ -13105,6 +13183,13 @@ document.addEventListener("click", async event => {
     return;
   }
 
+  const subscriptionInitializationRetryButton = event.target.closest("[data-subscription-initialization-retry]");
+  if (subscriptionInitializationRetryButton && app.view === "settingsSubscription" && app.subscriptionCheckoutDraft) {
+    const draft = app.subscriptionCheckoutDraft;
+    if (!draft.initializing) void initializeSubscriptionCheckout(draft);
+    return;
+  }
+
   const pricingCheckoutButton = event.target.closest("[data-pricing-action]");
   if (pricingCheckoutButton && app.view === "pricing") {
     const card = pricingCheckoutButton.closest("[data-pricing-plan]");
@@ -13114,43 +13199,14 @@ document.addEventListener("click", async event => {
     if (!targetPlan || !["activation", "renewal", "upgrade"].includes(action) || app.pricingUpgradeLoading) return;
     app.pricingUpgradeLoading = targetPlan;
     render();
-    try {
-      const quotePromise = api("/api/billing/quote", {
-        method: "POST",
-        body: JSON.stringify({ targetPlan, billingInterval })
-      }).then(result => ({ result }), error => ({ error }));
-      const reconciliationPromise = api("/api/billing/reconcile", {
-        method: "POST",
-        body: JSON.stringify({ targetPlan, billingInterval })
-      });
-      const draft = { targetPlan, billingInterval, action, baseQuote: null };
-      app.subscriptionCheckoutDraft = draft;
-      app.checkoutPromotionCode = "";
-      app.checkoutPromotionError = "";
-      app.checkoutPromoQuote = null;
-      app.billingCheckout = null;
-      app.subscriptionQuoteLoading = true;
-      setView("settingsSubscription");
-      const [quoteOutcome, reconciliation] = await Promise.all([quotePromise, reconciliationPromise]);
-      if (reconciliation.billing && app.data) app.data.billing = reconciliation.billing;
-      if (reconciliation.state === "active") throw new Error("คุณมีรายการชำระเงินที่กำลังดำเนินการอยู่ กรุณาดำเนินการรายการเดิมให้เรียบร้อยก่อน");
-      if (reconciliation.state === "awaiting_webhook") throw new Error("Stripe ยืนยันการชำระเงินแล้ว ระบบกำลังรอ webhook ที่ตรวจสอบแล้ว");
-      const { result, error } = quoteOutcome;
-      if (error) throw error;
-      if (app.subscriptionCheckoutDraft === draft) {
-        draft.baseQuote = result.quote;
-        draft.action = result.quote?.intent === "subscription_upgrade" ? "upgrade"
-          : result.quote?.intent === "subscription_renewal" ? "renewal" : "activation";
-      }
-    } catch (error) {
-      if (error.payload?.billing && app.data) app.data.billing = error.payload.billing;
-      if (app.subscriptionCheckoutDraft) app.checkoutPromotionError = error.message || "โหลดราคาชำระเงินไม่สำเร็จ";
-      else showToast(error.message || "ตรวจสอบรายการชำระเงินเดิมไม่สำเร็จ", "error");
-    } finally {
-      app.pricingUpgradeLoading = "";
-      app.subscriptionQuoteLoading = false;
-      render();
-    }
+    const draft = { targetPlan, billingInterval, action, baseQuote: null, reconciliationReady: false, initializing: false, initializationError: "" };
+    app.subscriptionCheckoutDraft = draft;
+    app.checkoutPromotionCode = "";
+    app.checkoutPromotionError = "";
+    app.checkoutPromoQuote = null;
+    app.billingCheckout = null;
+    setView("settingsSubscription");
+    void initializeSubscriptionCheckout(draft);
     return;
   }
   /* pricing-scope: authenticated-upgrade-handler:end */
