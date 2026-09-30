@@ -14346,10 +14346,10 @@ document.addEventListener("submit", async event => {
       clearBusinessManagementScrollRestore();
       app.mobileBusinessPage = "main";
       app.view = "dashboard";
+      loadStateAfterLogin();
       navigateToView("dashboard");
       showToast("เข้าสู่ระบบแล้ว");
       render();
-      loadStateAfterLogin();
       return;
     }
 
