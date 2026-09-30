@@ -70,6 +70,7 @@ const {
   resolveTenantForUser,
   withOrderDeleteDiagnostics,
   recordOrderDeleteDiagnosticStage,
+  orderDeleteDiagnosticHeaders,
   resolveTenantForLineWebhook,
   diagnoseLineWebhookTenantRejection,
   uploadProductImageObject,
@@ -6850,7 +6851,7 @@ async function handleApi(req, res) {
         ok: true,
         deleteIntent: `${intent.intentId}.${secret}`,
         expiresAt: intent.expiresAt
-      });
+      }, orderDeleteDiagnosticHeaders?.(req) || {});
     } catch (error) {
       if (error.code === "ORDER_DELETE_NOT_FOUND") {
         return json(res, 404, { ok: false, error: "ไม่พบออเดอร์" });
@@ -6943,7 +6944,7 @@ async function handleApi(req, res) {
       }
       throw error;
     }
-    return json(res, 200, { ok: true, mutation });
+    return json(res, 200, { ok: true, mutation }, orderDeleteDiagnosticHeaders?.(req) || {});
   }
 
   if (req.method === "POST" && url.pathname === "/api/import") {
