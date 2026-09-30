@@ -1,0 +1,458 @@
+{
+  "schemaVersion": 1,
+  "id": "task3-optimistic-order-delete",
+  "approval": {
+    "context": "Owner-approved surgical Task-3 optimistic Delete UX; exact UI and focused-test scope.",
+    "approvedOn": "2026-09-30",
+    "explicitScope": [
+      "Orders: close confirmation and hide only the selected order while pending durable Delete"
+    ]
+  },
+  "base": {
+    "sourceCommit": "b04530d9df3e400e8de15a2c711ba08738a164b8"
+  },
+  "target": {
+    "sourceCommit": "09f15256fad72fcc4694b1e5681d8a180981b45b"
+  },
+  "tooling": {
+    "sourceCommit": "d3c48ce4cb6659cd500341b14b140a8f1b473599",
+    "allowedFiles": [
+      "scripts/order-delete-audit-test.js",
+      "scripts/ui-regression-guard.js"
+    ]
+  },
+  "allowedFiles": [
+    "public/app.js"
+  ],
+  "expectedTextChanges": [
+    {
+      "route": "Orders",
+      "component": "optimistic Delete confirmation flow",
+      "from": "const orderDeleteIntentPayload = await orderDeleteApi",
+      "to": "if (!beginPendingOrderDelete(confirmedOrderId)) return;"
+    }
+  ],
+  "expectedDiffSha256": "69fc1f7be619d5b9a0df5bb19fc02c3060fa2d1acf806b279f23a7d717eb1dc0",
+  "expectedDiffLines": [
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 115,
+      "text": "  pendingDeleteOrders: new Map(),"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 6432,
+      "text": "  const rows = app.data.orders.filter(order => {"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 6433,
+      "text": "  const rows = ordersWithoutPendingDeletes(app.data.orders.filter(order => {"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 6451,
+      "text": "  });"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 6452,
+      "text": "  }));"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 6466,
+      "text": "function ordersWithoutPendingDeletes(orders = []) {"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 6467,
+      "text": "  return orders.filter(order => !app.pendingDeleteOrders.has(String(order.id || \"\")));"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 6468,
+      "text": "}"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 6469,
+      "text": ""
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 6560,
+      "text": "  const orders = app.data.orders.filter(order => {"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 6565,
+      "text": "  const matchingOrders = app.data.orders.filter(order => {"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 6574,
+      "text": "  const totalSales = orders.reduce((sum, order) => sum + Number(order.amount || 0), 0);"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 6579,
+      "text": "  const orders = ordersWithoutPendingDeletes(matchingOrders);"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 6580,
+      "text": "  const totalSales = matchingOrders.reduce((sum, order) => sum + Number(order.amount || 0), 0);"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 6576,
+      "text": "  const totalUnits = orders.reduce((sum, order) => sum + Number(order.jars || 0), 0);"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 6577,
+      "text": "  const averageOrderValue = orders.length ? totalSales / orders.length : 0;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 6582,
+      "text": "  const totalUnits = matchingOrders.reduce((sum, order) => sum + Number(order.jars || 0), 0);"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 6583,
+      "text": "  const averageOrderValue = matchingOrders.length ? totalSales / matchingOrders.length : 0;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 6584,
+      "text": "          <p id=\"ordersCountText\">${app.ordersShowAll ? `แสดง ${money(orders.length)} ออเดอร์จากทุกวัน` : `แสดง ${money(orders.length)} ออเดอร์จากวันที่เลือก`} พร้อมค้นหาและจัดการรายการในหน้าเดียว</p>"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 6590,
+      "text": "          <p id=\"ordersCountText\">${app.ordersShowAll ? `แสดง ${money(matchingOrders.length)} ออเดอร์จากทุกวัน` : `แสดง ${money(matchingOrders.length)} ออเดอร์จากวันที่เลือก`} พร้อมค้นหาและจัดการรายการในหน้าเดียว</p>"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12202,
+      "text": "function beginPendingOrderDelete(orderId) {"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12203,
+      "text": "  const id = String(orderId || \"\");"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12204,
+      "text": "  if (!id || app.pendingDeleteOrders.has(id)) return false;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12205,
+      "text": "  const orders = app.data?.orders || [];"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12206,
+      "text": "  const index = orders.findIndex(order => String(order.id || \"\") === id);"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12207,
+      "text": "  const order = index >= 0 ? JSON.parse(JSON.stringify(orders[index])) : null;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12208,
+      "text": "  app.pendingDeleteOrders.set(id, { order, index });"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12209,
+      "text": "  return true;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12210,
+      "text": "}"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12211,
+      "text": ""
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12212,
+      "text": "function rollbackPendingOrderDelete(orderId) {"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12213,
+      "text": "  const id = String(orderId || \"\");"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12214,
+      "text": "  const snapshot = app.pendingDeleteOrders.get(id);"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12215,
+      "text": "  if (!snapshot) return false;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12216,
+      "text": "  app.pendingDeleteOrders.delete(id);"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12217,
+      "text": "  if (snapshot.order && app.data) {"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12218,
+      "text": "    const currentIndex = app.data.orders.findIndex(order => String(order.id || \"\") === id);"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12219,
+      "text": "    if (currentIndex >= 0) {"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12220,
+      "text": "      app.data.orders[currentIndex] = snapshot.order;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12221,
+      "text": "    } else {"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12222,
+      "text": "      const insertAt = Math.max(0, Math.min(snapshot.index, app.data.orders.length));"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12223,
+      "text": "      app.data.orders.splice(insertAt, 0, snapshot.order);"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12224,
+      "text": "    }"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12225,
+      "text": "  }"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12226,
+      "text": "  if (app.view === \"orders\" && app.data) patchOrdersView({});"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12227,
+      "text": "  return true;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12228,
+      "text": "}"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12229,
+      "text": ""
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12231,
+      "text": "  if (app.pendingDeleteOrders.has(String(orderId || \"\"))) return;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 14427,
+      "text": "      const orderDeleteIntentPayload = await orderDeleteApi(`/api/orders/${encodeURIComponent(confirmedOrderId)}/delete-intent`, { method: \"POST\" });"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 14428,
+      "text": "      const payload = await orderDeleteApi(`/api/orders/${encodeURIComponent(confirmedOrderId)}?date=${encodeURIComponent(app.data.summary?.selectedDate || els.workDate.value || todayISO())}`, {"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 14429,
+      "text": "        method: \"DELETE\""
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 14430,
+      "text": "      }, orderDeleteIntentPayload.deleteIntent);"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 14462,
+      "text": "      if (!beginPendingOrderDelete(confirmedOrderId)) return;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 14463,
+      "text": "      els.deleteOrderDialog.close();"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 14464,
+      "text": "      app.deletingOrderId = \"\";"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 14465,
+      "text": "      patchOrdersView({});"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 14466,
+      "text": "      let payload;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 14467,
+      "text": "      try {"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 14468,
+      "text": "        const orderDeleteIntentPayload = await orderDeleteApi(`/api/orders/${encodeURIComponent(confirmedOrderId)}/delete-intent`, { method: \"POST\" });"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 14469,
+      "text": "        payload = await orderDeleteApi(`/api/orders/${encodeURIComponent(confirmedOrderId)}?date=${encodeURIComponent(app.data.summary?.selectedDate || els.workDate.value || todayISO())}`, {"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 14470,
+      "text": "          method: \"DELETE\""
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 14471,
+      "text": "        }, orderDeleteIntentPayload.deleteIntent);"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 14472,
+      "text": "      } catch (error) {"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 14473,
+      "text": "        rollbackPendingOrderDelete(confirmedOrderId);"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 14474,
+      "text": "        throw error;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 14475,
+      "text": "      }"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 14434,
+      "text": "      app.deletingOrderId = \"\";"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 14435,
+      "text": "      els.deleteOrderDialog.close();"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 14479,
+      "text": "      app.pendingDeleteOrders.delete(String(confirmedOrderId));"
+    }
+  ]
+}
