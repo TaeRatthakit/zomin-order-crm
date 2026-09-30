@@ -10374,11 +10374,37 @@ async function initializeSubscriptionCheckout(draft) {
   const reconciliationTask = requestSubscriptionInitialization("/api/billing/reconcile", {
     targetPlan: draft.targetPlan,
     billingInterval: draft.billingInterval
-  }).then(reconciliation => {
+  }).then(async reconciliation => {
     if (!isCurrentAttempt()) return;
     if (reconciliation.billing && app.data) app.data.billing = reconciliation.billing;
-    if (reconciliation.state === "active") throw new Error("คุณมีรายการชำระเงินที่กำลังดำเนินการอยู่ กรุณาดำเนินการรายการเดิมให้เรียบร้อยก่อน");
-    if (reconciliation.state === "awaiting_webhook") throw new Error("Stripe ยืนยันการชำระเงินแล้ว ระบบกำลังรอ webhook ที่ตรวจสอบแล้ว");
+    if (["active", "awaiting_webhook"].includes(reconciliation.state)) {
+      const pendingPayment = reconciliation.pendingPayment;
+      if (!pendingPayment?.id) throw new Error(reconciliation.state === "active"
+        ? "คุณมีรายการชำระเงินที่กำลังดำเนินการอยู่ กรุณาดำเนินการรายการเดิมให้เรียบร้อยก่อน"
+        : "Stripe ยืนยันการชำระเงินแล้ว ระบบกำลังรอ webhook ที่ตรวจสอบแล้ว");
+      const targetPlan = String(pendingPayment.targetPlan || pendingPayment.plan || "").toLowerCase();
+      const operation = String(pendingPayment.operation || "").toLowerCase();
+      const billingInterval = String(pendingPayment.billingInterval || draft.billingInterval).toLowerCase();
+      if (reconciliation.state === "active") {
+        if (!targetPlan) throw new Error("ไม่พบแพ็กเกจของรายการชำระเงินเดิม กรุณาลองตรวจสอบอีกครั้ง");
+        const endpoint = operation === "subscription_upgrade" ? "/api/billing/upgrade" : "/api/billing/checkout";
+        const existingCheckout = await requestSubscriptionInitialization(endpoint, { targetPlan, billingInterval });
+        if (!isCurrentAttempt()) return;
+        app.billingCheckout = existingCheckout;
+        if (existingCheckout.billing && app.data) app.data.billing = existingCheckout.billing;
+      } else {
+        app.billingCheckout = {
+          payment: pendingPayment,
+          upgrade: { targetPlan, billingInterval, currentPlan: app.data?.billing?.subscription?.plan || "starter" }
+        };
+      }
+      draft.initializing = false;
+      app.subscriptionCheckoutDraft = null;
+      app.subscriptionQuoteLoading = false;
+      app.subscriptionQrLoadState = null;
+      render();
+      return;
+    }
     if (!("none" === reconciliation.state || "terminal" === reconciliation.state)) throw new Error("ตรวจสอบรายการชำระเงินไม่สำเร็จ กรุณาลองอีกครั้ง");
     draft.reconciliationReady = true;
     render();
