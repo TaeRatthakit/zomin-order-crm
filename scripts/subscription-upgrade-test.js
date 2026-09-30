@@ -290,6 +290,114 @@ async function postWebhook(payload) {
   return request("/api/stripe/webhook", { method: "POST", headers: { "stripe-signature": `t=${timestamp},v1=${signature}` }, body: payload });
 }
 
+async function verifyCheckoutInitializationStateMachine() {
+  const start = appSource.indexOf("const SUBSCRIPTION_INITIALIZATION_TIMEOUT_MS = ");
+  const end = appSource.indexOf("\n/* pricing-scope: authenticated-upgrade-state:end */", start);
+  if (start < 0 || end < 0) fail("checkout initialization helper boundary is missing");
+  const helperSource = appSource.slice(start, end).replace("SUBSCRIPTION_INITIALIZATION_TIMEOUT_MS = 15000", "SUBSCRIPTION_INITIALIZATION_TIMEOUT_MS = 8");
+  function harness(api) {
+    const context = {
+      app: { subscriptionCheckoutDraft: null, subscriptionQuoteLoading: false, pricingUpgradeLoading: "busy", data: {} },
+      api,
+      render() {},
+      window: { setTimeout, clearTimeout }
+    };
+    vm.createContext(context);
+    vm.runInContext(`${helperSource}\nthis.initialize = initializeSubscriptionCheckout;`, context);
+    return context;
+  }
+  function deferred() {
+    let resolve;
+    let reject;
+    const promise = new Promise((res, rej) => { resolve = res; reject = rej; });
+    return { promise, resolve, reject };
+  }
+  const tick = () => new Promise(resolve => setTimeout(resolve, 0));
+
+  const quote = deferred();
+  const reconciliation = deferred();
+  const requests = [];
+  const successful = harness((path, options) => {
+    const request = { path, options, deferred: path.endsWith("/quote") ? quote : reconciliation };
+    requests.push(request);
+    return request.deferred.promise;
+  });
+  const draft = { targetPlan: "business", billingInterval: "monthly", action: "upgrade", baseQuote: null };
+  successful.app.subscriptionCheckoutDraft = draft;
+  const initialization = successful.initialize(draft);
+  if (!successful.app.subscriptionQuoteLoading || !draft.initializing) fail("checkout loading state did not start immediately");
+  await tick();
+  if (requests.length !== 2 || requests[0].path !== "/api/billing/quote" || requests[1].path !== "/api/billing/reconcile") fail("quote and reconciliation did not start concurrently");
+  quote.resolve({ quote: { amount_minor: 99000, intent: "subscription_upgrade" } });
+  await tick();
+  if (draft.baseQuote?.amount_minor !== 99000 || draft.reconciliationReady) fail("authoritative quote was not rendered independently while reconciliation remained pending");
+  reconciliation.resolve({ state: "none" });
+  await initialization;
+  if (!draft.reconciliationReady || draft.initializing || successful.app.subscriptionQuoteLoading || successful.app.pricingUpgradeLoading) fail("successful initialization did not reach a settled ready state");
+
+  const quoteFailure = deferred();
+  const reconAfterQuoteFailure = deferred();
+  const quoteFailHarness = harness(path => path.endsWith("/quote") ? quoteFailure.promise : reconAfterQuoteFailure.promise);
+  const quoteFailDraft = { targetPlan: "business", billingInterval: "monthly" };
+  quoteFailHarness.app.subscriptionCheckoutDraft = quoteFailDraft;
+  const quoteFailTask = quoteFailHarness.initialize(quoteFailDraft);
+  await tick();
+  quoteFailure.reject(new Error("quote unavailable"));
+  reconAfterQuoteFailure.resolve({ state: "none" });
+  await quoteFailTask;
+  if (quoteFailDraft.initializing || quoteFailHarness.app.subscriptionQuoteLoading || !quoteFailDraft.initializationError || quoteFailDraft.baseQuote) fail("quote rejection left checkout loading or an unsafe quote");
+
+  const reconFailureHarness = harness(path => path.endsWith("/quote")
+    ? Promise.resolve({ quote: { amount_minor: 99000, intent: "subscription_upgrade" } })
+    : Promise.reject(new Error("reconciliation unavailable")));
+  const reconFailDraft = { targetPlan: "business", billingInterval: "monthly" };
+  reconFailureHarness.app.subscriptionCheckoutDraft = reconFailDraft;
+  await reconFailureHarness.initialize(reconFailDraft);
+  if (reconFailDraft.initializing || reconFailDraft.reconciliationReady || !reconFailDraft.initializationError || reconFailureHarness.app.subscriptionQuoteLoading) fail("reconciliation rejection left checkout pending or enabled");
+
+  const timeoutHarness = harness(() => new Promise(() => {}));
+  const timeoutDraft = { targetPlan: "business", billingInterval: "monthly" };
+  timeoutHarness.app.subscriptionCheckoutDraft = timeoutDraft;
+  await timeoutHarness.initialize(timeoutDraft);
+  if (timeoutDraft.initializing || timeoutHarness.app.subscriptionQuoteLoading || !timeoutDraft.initializationError) fail("timed-out initialization remained permanently pending");
+
+  const oldQuote = deferred();
+  const oldReconciliation = deferred();
+  let call = 0;
+  const staleHarness = harness(path => {
+    if (call++ < 2) return path.endsWith("/quote") ? oldQuote.promise : oldReconciliation.promise;
+    return Promise.resolve(path.endsWith("/quote")
+      ? { quote: { amount_minor: 199000, intent: "subscription_upgrade" } }
+      : { state: "none", billing: { marker: "new" } });
+  });
+  const oldDraft = { targetPlan: "business", billingInterval: "monthly" };
+  staleHarness.app.subscriptionCheckoutDraft = oldDraft;
+  const oldTask = staleHarness.initialize(oldDraft);
+  await tick();
+  const newDraft = { targetPlan: "enterprise", billingInterval: "yearly" };
+  staleHarness.app.subscriptionCheckoutDraft = newDraft;
+  await staleHarness.initialize(newDraft);
+  oldQuote.resolve({ quote: { amount_minor: 1 } });
+  oldReconciliation.resolve({ state: "none", billing: { marker: "stale" } });
+  await oldTask;
+  if (newDraft.baseQuote?.amount_minor !== 199000 || staleHarness.app.data.billing?.marker !== "new") fail("stale initialization overwrote the current checkout");
+
+  let retryNumber = 0;
+  const retryHarness = harness(() => {
+    retryNumber += 1;
+    if (retryNumber <= 2) return Promise.reject(new Error("transient"));
+    return Promise.resolve(retryNumber === 3
+      ? { quote: { amount_minor: 99000, intent: "subscription_upgrade" } }
+      : { state: "terminal" });
+  });
+  const retryDraft = { targetPlan: "business", billingInterval: "monthly" };
+  retryHarness.app.subscriptionCheckoutDraft = retryDraft;
+  await retryHarness.initialize(retryDraft);
+  if (!retryDraft.initializationError) fail("transient failure did not expose a retry state");
+  await retryHarness.initialize(retryDraft);
+  if (retryDraft.initializationError || !retryDraft.reconciliationReady || retryDraft.baseQuote?.amount_minor !== 99000) fail("safe initialization retry did not recover to READY");
+}
+
 (async () => {
   for (const token of [
     "create table if not exists public.subscription_upgrade_attempts",
@@ -310,9 +418,12 @@ async function postWebhook(payload) {
   if (!appSource.includes('"/api/billing/reconcile"')) fail("pricing must reconcile a stale checkout before opening a new draft");
   const pricingHandler = appSource.match(/const pricingCheckoutButton = event\.target\.closest\("\[data-pricing-action\]"\);[\s\S]*?\/\* pricing-scope: authenticated-upgrade-handler:end \*\//)?.[0];
   if (!pricingHandler) fail("pricing checkout handler could not be loaded");
-  if (!/setView\("settingsSubscription"\);[\s\S]*?await Promise\.all\(\[quotePromise, reconciliationPromise\]\)/.test(pricingHandler)) fail("checkout loading view must appear while authoritative quote and reconciliation run concurrently");
-  if (!/reconciliation\.state === "active"/.test(pricingHandler) || !/reconciliation\.state === "awaiting_webhook"/.test(pricingHandler)) fail("checkout must remain gated by pending-payment reconciliation");
-  if (!/subscriptionQuoteLoading \|\| !draft\.baseQuote/.test(appSource)) fail("checkout confirmation must remain disabled until an authoritative quote is ready");
+  if (!/setView\("settingsSubscription"\);[\s\S]*?void initializeSubscriptionCheckout\(draft\)/.test(pricingHandler)) fail("checkout page must appear immediately before asynchronous initialization");
+  if (!/requestSubscriptionInitialization\("\/api\/billing\/quote"/.test(appSource) || !/requestSubscriptionInitialization\("\/api\/billing\/reconcile"/.test(appSource)) fail("quote and reconciliation must both use bounded requests");
+  if (!/reconciliation\.state === "active"/.test(appSource) || !/reconciliation\.state === "awaiting_webhook"/.test(appSource)) fail("checkout must remain gated by active and awaiting-webhook payments");
+  if (!/draft\.initializing \|\| !draft\.baseQuote \|\| !draft\.reconciliationReady/.test(appSource)) fail("confirm must require settled authoritative quote and reconciliation");
+  if (!appSource.includes("data-subscription-initialization-retry") || !appSource.includes("draft.initializationAttempt === attempt")) fail("initialization retry or stale-attempt protection is missing");
+  await verifyCheckoutInitializationStateMachine();
   const statusFunction = appSource.match(/function subscriptionPaymentDisplayStatus\(promptpay = \{\}, payment = \{\}\) \{[\s\S]*?\n\}/)?.[0];
   if (!statusFunction) fail("checkout payment status helper could not be loaded");
   const statusSandbox = {};
