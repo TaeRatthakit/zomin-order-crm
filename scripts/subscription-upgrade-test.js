@@ -308,6 +308,11 @@ async function postWebhook(payload) {
   if (!appSource.includes('"/api/billing/upgrade/qr"') || !appSource.includes("data-subscription-qr-image")) fail("subscription QR delivery fallback is missing");
   if (!appSource.includes("data-subscription-qr-source") || !appSource.includes("qrFallbackAttempted")) fail("subscription QR image retry fallback is missing");
   if (!appSource.includes('"/api/billing/reconcile"')) fail("pricing must reconcile a stale checkout before opening a new draft");
+  const pricingHandler = appSource.match(/const pricingCheckoutButton = event\.target\.closest\("\[data-pricing-action\]"\);[\s\S]*?\/\* pricing-scope: authenticated-upgrade-handler:end \*\//)?.[0];
+  if (!pricingHandler) fail("pricing checkout handler could not be loaded");
+  if (!/setView\("settingsSubscription"\);[\s\S]*?await Promise\.all\(\[quotePromise, reconciliationPromise\]\)/.test(pricingHandler)) fail("checkout loading view must appear while authoritative quote and reconciliation run concurrently");
+  if (!/reconciliation\.state === "active"/.test(pricingHandler) || !/reconciliation\.state === "awaiting_webhook"/.test(pricingHandler)) fail("checkout must remain gated by pending-payment reconciliation");
+  if (!/subscriptionQuoteLoading \|\| !draft\.baseQuote/.test(appSource)) fail("checkout confirmation must remain disabled until an authoritative quote is ready");
   const statusFunction = appSource.match(/function subscriptionPaymentDisplayStatus\(promptpay = \{\}, payment = \{\}\) \{[\s\S]*?\n\}/)?.[0];
   if (!statusFunction) fail("checkout payment status helper could not be loaded");
   const statusSandbox = {};

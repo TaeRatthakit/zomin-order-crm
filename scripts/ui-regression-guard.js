@@ -26,7 +26,7 @@ const UI_FILES = [
 
 const UI_ASSET_RE = /^public\/.*\.(png|jpe?g|webp|svg|ico)$/i;
 const TEXT_UI_RE = /\.(css|js|html)$/i;
-const APPROVABLE_TOOLING_FILES = ["scripts/ui-regression-guard.js", "scripts/multi-approved-change-manifest-test.js", "scripts/order-delete-audit-test.js"];
+const APPROVABLE_TOOLING_FILES = ["scripts/ui-regression-guard.js", "scripts/multi-approved-change-manifest-test.js", "scripts/order-delete-audit-test.js", "scripts/subscription-upgrade-test.js"];
 
 const PAGE_PATTERNS = {
   landing: [

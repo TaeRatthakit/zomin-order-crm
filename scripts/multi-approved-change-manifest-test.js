@@ -8,6 +8,9 @@ const path = require("path");
 const { execFileSync, spawnSync } = require("child_process");
 
 const fixture = fs.mkdtempSync(path.join(os.tmpdir(), "growup-multi-approval-"));
+const guardSource = fs.readFileSync(path.join(__dirname, "ui-regression-guard.js"), "utf8");
+assert.match(guardSource, /APPROVABLE_TOOLING_FILES\s*=\s*\[[^\]]*"scripts\/subscription-upgrade-test\.js"/,
+  "the exact payment-flow assertions must be allowed as approved Task 5 tooling");
 const approvalDir = path.join(fixture, "ui-baselines", "approved-changes");
 const legacyPath = path.join(fixture, "ui-baselines", "approved-change-manifest.json");
 const appPath = path.join(fixture, "public", "app.js");
