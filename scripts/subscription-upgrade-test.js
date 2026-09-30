@@ -230,7 +230,17 @@ global.fetch = async function mockFetch(input, options = {}) {
   const table = parts.at(-1);
   if (!Object.prototype.hasOwnProperty.call(db, table)) return jsonResponse({ message: `unknown table ${table}` }, 404);
   const method = String(options.method || "GET").toUpperCase();
-  if (method === "GET") return jsonResponse(applyFilters(db[table], url.searchParams));
+  if (method === "GET") {
+    let rows = applyFilters(db[table], url.searchParams);
+    if (table === "tenant_memberships" && String(url.searchParams.get("select") || "").includes("tenant:tenants(")) {
+      rows = rows.map(row => ({
+        tenant_id: row.tenant_id,
+        role: row.role,
+        tenant: db.tenants.find(tenant => tenant.id === row.tenant_id) || null
+      }));
+    }
+    return jsonResponse(rows);
+  }
   if (method === "PATCH" && table === "subscription_upgrade_attempts") {
     const rows = applyFilters(db[table], url.searchParams);
     const body = JSON.parse(options.body || "{}");

@@ -143,7 +143,17 @@ global.fetch = async function mockFetch(input, options = {}) {
   const table = parts.at(-1);
   if (!Object.prototype.hasOwnProperty.call(db, table)) return new Response(JSON.stringify({ message: `unknown table ${table}` }), { status: 404 });
   const method = String(options.method || "GET").toUpperCase();
-  if (method === "GET") return new Response(JSON.stringify(applyFilters(db[table], url.searchParams)), { status: 200 });
+  if (method === "GET") {
+    let rows = applyFilters(db[table], url.searchParams);
+    if (table === "tenant_memberships" && String(url.searchParams.get("select") || "").includes("tenant:tenants(")) {
+      rows = rows.map(row => ({
+        tenant_id: row.tenant_id,
+        role: row.role,
+        tenant: db.tenants.find(tenant => tenant.id === row.tenant_id) || null
+      }));
+    }
+    return new Response(JSON.stringify(rows), { status: 200 });
+  }
   if (method === "POST") {
     const rows = JSON.parse(options.body || "[]");
     for (const row of rows) db[table].push(row);

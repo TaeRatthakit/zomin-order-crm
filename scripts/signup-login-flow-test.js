@@ -26,7 +26,8 @@ const db = {
     { id: "m_inactive", tenant_id: "11111111-1111-4111-8111-111111111111", user_id: "u_inactive_membership", role: "Owner", is_active: false },
     { id: "m_suspended", tenant_id: "33333333-3333-4333-8333-333333333333", user_id: "u_suspended", role: "Owner", is_active: true },
     { id: "m_multi_a", tenant_id: "11111111-1111-4111-8111-111111111111", user_id: "u_multi", role: "Owner", is_active: true },
-    { id: "m_multi_b", tenant_id: "22222222-2222-4222-8222-222222222222", user_id: "u_multi", role: "Owner", is_active: true }
+    { id: "m_multi_b", tenant_id: "22222222-2222-4222-8222-222222222222", user_id: "u_multi", role: "Owner", is_active: true },
+    { id: "m_missing_tenant", tenant_id: "44444444-4444-4444-8444-444444444444", user_id: "u_missing_tenant", role: "Owner", is_active: true }
   ],
   users: [
     { id: "u_owner", username: "owner@example.com", password_hash: hashPassword("pass12345"), name: "Owner A", role: "Owner", phone: "", is_active: true },
@@ -37,7 +38,8 @@ const db = {
     { id: "u_inactive_membership", username: "inactive-member@example.com", password_hash: hashPassword("pass12345"), name: "Inactive Member", role: "Owner", phone: "", is_active: true },
     { id: "u_disabled", username: "disabled@example.com", password_hash: hashPassword("pass12345"), name: "Disabled", role: "Owner", phone: "", is_active: false },
     { id: "u_suspended", username: "suspended@example.com", password_hash: hashPassword("pass12345"), name: "Suspended", role: "Owner", phone: "", is_active: true },
-    { id: "u_multi", username: "multi@example.com", password_hash: hashPassword("pass12345"), name: "Multi", role: "Owner", phone: "", is_active: true }
+    { id: "u_multi", username: "multi@example.com", password_hash: hashPassword("pass12345"), name: "Multi", role: "Owner", phone: "", is_active: true },
+    { id: "u_missing_tenant", username: "missing-tenant@example.com", password_hash: hashPassword("pass12345"), name: "Missing Tenant", role: "Owner", phone: "", is_active: true }
   ],
   settings: [
     { id: "11111111-1111-4111-8111-111111111111:businessName", key: "businessName", value: "Tenant A", tenant_id: "11111111-1111-4111-8111-111111111111" },
@@ -85,6 +87,8 @@ const db = {
 function fail(message) {
   throw new Error(message);
 }
+
+const requestLog = [];
 
 function parseValue(raw = "") {
   return decodeURIComponent(String(raw).replace(/^"|"$/g, ""));
@@ -314,8 +318,16 @@ global.fetch = async function mockFetch(input, options = {}) {
     return new Response(JSON.stringify({ message: `unknown table ${table}` }), { status: 404 });
   }
   const method = String(options.method || "GET").toUpperCase();
+  requestLog.push({ method, table, select: url.searchParams.get("select") || "" });
   if (method === "GET") {
-    const rows = applyFilters(db[table], url.searchParams);
+    let rows = applyFilters(db[table], url.searchParams);
+    if (table === "tenant_memberships" && String(url.searchParams.get("select") || "").includes("tenant:tenants(")) {
+      rows = rows.map(row => ({
+        tenant_id: row.tenant_id,
+        role: row.role,
+        tenant: db.tenants.find(tenant => tenant.id === row.tenant_id) || null
+      }));
+    }
     return new Response(JSON.stringify(rows), { status: 200 });
   }
   if (method === "POST") {
@@ -419,13 +431,18 @@ async function login(username, password = "pass12345") {
     const runtimeBody = runtime.json();
     if (JSON.stringify(runtimeBody).includes("test-service-role-key")) fail("runtime verify leaked service role key");
 
+    const loginReadStart = requestLog.length;
     const owner = await login("owner@example.com");
+    const ownerLoginReads = requestLog.slice(loginReadStart);
+    const embeddedMembershipReads = ownerLoginReads.filter(entry => entry.table === "tenant_memberships" && entry.select.includes("tenant:tenants("));
+    if (embeddedMembershipReads.length !== 1) fail(`owner login expected one embedded membership/tenant read, got ${embeddedMembershipReads.length}`);
+    if (ownerLoginReads.some(entry => entry.table === "tenants")) fail("owner login performed a separate tenant lookup");
     const admin = await login("admin@example.com");
     const staff = await login("staff@example.com");
     if (owner.body.user.role !== "Owner" || admin.body.user.role !== "Admin" || staff.body.user.role !== "Staff") fail("login roles were not preserved");
     if (owner.body.user.tenantId !== "11111111-1111-4111-8111-111111111111") fail("owner login did not resolve tenant A");
 
-    for (const username of ["owner@example.com", "nomember@example.com", "inactive-member@example.com", "disabled@example.com", "suspended@example.com", "multi@example.com"]) {
+    for (const username of ["owner@example.com", "nomember@example.com", "inactive-member@example.com", "disabled@example.com", "suspended@example.com", "multi@example.com", "missing-tenant@example.com", "unknown@example.com"]) {
       const res = await request("/api/login", {
         method: "POST",
         body: JSON.stringify({ username, password: username === "owner@example.com" ? "wrongpass" : "pass12345" })
