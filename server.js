@@ -7,6 +7,8 @@ const {
   provider: dbProvider,
   readDb,
   readOrderDeleteIntentDb,
+  readOrderDeleteDb,
+  readOrderDeleteBillingDb,
   readLineWebhookDb,
   readLineOrderState,
   findUserForLogin,
@@ -6274,9 +6276,18 @@ async function handleApi(req, res) {
 
   const dbReadStartedAt = Date.now();
   const isOrderDeleteIntent = req.method === "POST" && /^\/api\/orders\/[^/]+\/delete-intent$/.test(url.pathname);
-  const db = isOrderDeleteIntent && typeof readOrderDeleteIntentDb === "function"
-    ? await readOrderDeleteIntentDb()
-    : await readDb();
+  const isDurableOrderDelete = req.method === "DELETE" && /^\/api\/orders\/[^/]+$/.test(url.pathname);
+  let durableOrderDeleteId = "";
+  if (isDurableOrderDelete) {
+    try {
+      durableOrderDeleteId = decodeURIComponent(url.pathname.split("/").pop() || "");
+    } catch {}
+  }
+  const db = isDurableOrderDelete && typeof readOrderDeleteDb === "function"
+    ? await readOrderDeleteDb(durableOrderDeleteId)
+    : isOrderDeleteIntent && typeof readOrderDeleteIntentDb === "function"
+      ? await readOrderDeleteIntentDb()
+      : await readDb();
   const dbReadMs = Date.now() - dbReadStartedAt;
   if (typeof recordOrderDeleteDiagnosticStage === "function") {
     recordOrderDeleteDiagnosticStage("readDbMs", dbReadMs);
@@ -6299,7 +6310,13 @@ async function handleApi(req, res) {
 
   if (!isLineWebhook && !isSubscriptionAccessExempt(url.pathname)) {
     const access = subscriptionAccess(currentSubscription(db));
-    if (!access.allowed) return subscriptionBlockedResponse(res, isOrderDeleteIntent ? await readDb() : db);
+    if (!access.allowed) {
+      const isOrderDeleteRequest = isOrderDeleteIntent || isDurableOrderDelete;
+      const blockedDb = isOrderDeleteRequest && typeof readOrderDeleteBillingDb === "function"
+        ? { ...db, ...await readOrderDeleteBillingDb() }
+        : isOrderDeleteIntent ? await readDb() : db;
+      return subscriptionBlockedResponse(res, blockedDb);
+    }
   }
 
   if (req.method === "GET" && url.pathname === "/api/state") {

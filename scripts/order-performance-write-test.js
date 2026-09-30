@@ -49,7 +49,9 @@ const context = { tenantId: "tenant-test", userId: "owner-test", tenantRole: "Ow
     assert.strictEqual(db.users[0].id, "owner-test");
     assert.strictEqual(db.subscriptions[0].status, "active");
     assert.deepStrictEqual([...new Set(calls.map(call => call.table))].sort(),
-      ["tenant_memberships", "users", "settings", "subscriptions"].sort());
+      ["users", "settings", "subscriptions"].sort());
+    assert(!calls.some(call => call.table === "tenant_memberships"),
+      "Delete intent read must reuse the membership check performed by authenticated tenant resolution");
     readCounts.push(calls.length);
 
     const mutation = {
