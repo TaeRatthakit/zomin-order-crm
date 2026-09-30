@@ -335,6 +335,29 @@ async function verifyCheckoutInitializationStateMachine() {
   await initialization;
   if (!draft.reconciliationReady || draft.initializing || successful.app.subscriptionQuoteLoading || successful.app.pricingUpgradeLoading) fail("successful initialization did not reach a settled ready state");
 
+  const activeCalls = [];
+  const activeHarness = harness(path => {
+    activeCalls.push(path);
+    if (path.endsWith("/quote")) return Promise.resolve({ quote: { amount_minor: 99000, intent: "subscription_upgrade" } });
+    if (path.endsWith("/reconcile")) return Promise.resolve({ state: "active", pendingPayment: { id: "existing_payment", targetPlan: "business", operation: "subscription_upgrade" }, billing: { latestPayments: [{ id: "existing_payment" }] } });
+    return Promise.resolve({ payment: { id: "existing_payment" }, promptpay: { paymentIntentId: "existing_intent" }, billing: { latestPayments: [{ id: "existing_payment" }] } });
+  });
+  const activeDraft = { targetPlan: "business", billingInterval: "monthly" };
+  activeHarness.app.subscriptionCheckoutDraft = activeDraft;
+  await activeHarness.initialize(activeDraft);
+  if (activeHarness.app.subscriptionCheckoutDraft || activeHarness.app.billingCheckout?.payment?.id !== "existing_payment" || activeCalls.filter(path => path.endsWith("/upgrade")).length !== 1 || activeDraft.initializing || activeHarness.app.subscriptionQuoteLoading) fail("active existing payment was not resumed and rendered safely");
+
+  const webhookCalls = [];
+  const webhookHarness = harness(path => {
+    webhookCalls.push(path);
+    if (path.endsWith("/quote")) return Promise.resolve({ quote: { amount_minor: 99000, intent: "subscription_upgrade" } });
+    return Promise.resolve({ state: "awaiting_webhook", pendingPayment: { id: "webhook_payment", plan: "business", operation: "subscription_upgrade", amountMinor: 99000 }, billing: { latestPayments: [{ id: "webhook_payment" }] } });
+  });
+  const webhookDraft = { targetPlan: "business", billingInterval: "monthly" };
+  webhookHarness.app.subscriptionCheckoutDraft = webhookDraft;
+  await webhookHarness.initialize(webhookDraft);
+  if (webhookHarness.app.subscriptionCheckoutDraft || webhookHarness.app.billingCheckout?.payment?.id !== "webhook_payment" || webhookCalls.some(path => path.endsWith("/upgrade") || path.endsWith("/checkout")) || webhookDraft.initializing) fail("awaiting-webhook payment was not preserved without creating a new payment");
+
   const quoteFailure = deferred();
   const reconAfterQuoteFailure = deferred();
   const quoteFailHarness = harness(path => path.endsWith("/quote") ? quoteFailure.promise : reconAfterQuoteFailure.promise);
@@ -420,7 +443,7 @@ async function verifyCheckoutInitializationStateMachine() {
   if (!pricingHandler) fail("pricing checkout handler could not be loaded");
   if (!/setView\("settingsSubscription"\);[\s\S]*?void initializeSubscriptionCheckout\(draft\)/.test(pricingHandler)) fail("checkout page must appear immediately before asynchronous initialization");
   if (!/requestSubscriptionInitialization\("\/api\/billing\/quote"/.test(appSource) || !/requestSubscriptionInitialization\("\/api\/billing\/reconcile"/.test(appSource)) fail("quote and reconciliation must both use bounded requests");
-  if (!/reconciliation\.state === "active"/.test(appSource) || !/reconciliation\.state === "awaiting_webhook"/.test(appSource)) fail("checkout must remain gated by active and awaiting-webhook payments");
+  if (!/\["active", "awaiting_webhook"\]\.includes\(reconciliation\.state\)/.test(appSource)) fail("checkout must remain gated by active and awaiting-webhook payments");
   if (!/draft\.initializing \|\| !draft\.baseQuote \|\| !draft\.reconciliationReady/.test(appSource)) fail("confirm must require settled authoritative quote and reconciliation");
   if (!appSource.includes("data-subscription-initialization-retry") || !appSource.includes("draft.initializationAttempt === attempt")) fail("initialization retry or stale-attempt protection is missing");
   await verifyCheckoutInitializationStateMachine();
