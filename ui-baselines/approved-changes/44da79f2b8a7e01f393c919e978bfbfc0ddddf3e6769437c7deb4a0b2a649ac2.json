@@ -1,0 +1,98 @@
+{
+  "schemaVersion": 1,
+  "id": "task5-payment-checkout-loading-final",
+  "base": {
+    "sourceCommit": "8066ae527cb61d885a7eecdf3d74162ca657d5af"
+  },
+  "target": {
+    "sourceCommit": "ce6d0c26492eced0d37780eee7aee1d8109737c5"
+  },
+  "allowedFiles": [
+    "public/app.js"
+  ],
+  "expectedTextChanges": [
+    {
+      "route": "Authenticated Pricing / Subscription Checkout",
+      "component": "immediate loading with concurrent quote and reconciliation",
+      "from": "const reconciliation = await api(\"/api/billing/reconcile\", {",
+      "to": "const reconciliationPromise = api(\"/api/billing/reconcile\", {"
+    }
+  ],
+  "expectedDiffSha256": "42b8af1060dc7adb30e34b55b1bb11e268ba7a05dc048be04596da722528714d",
+  "expectedDiffLines": [
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 13122,
+      "text": "      const reconciliation = await api(\"/api/billing/reconcile\", {"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 13122,
+      "text": "      const reconciliationPromise = api(\"/api/billing/reconcile\", {"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 13126,
+      "text": "      if (reconciliation.billing && app.data) app.data.billing = reconciliation.billing;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 13127,
+      "text": "      if (reconciliation.state === \"active\") throw new Error(\"คุณมีรายการชำระเงินที่กำลังดำเนินการอยู่ กรุณาดำเนินการรายการเดิมให้เรียบร้อยก่อน\");"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 13128,
+      "text": "      if (reconciliation.state === \"awaiting_webhook\") throw new Error(\"Stripe ยืนยันการชำระเงินแล้ว ระบบกำลังรอ webhook ที่ตรวจสอบแล้ว\");"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 13137,
+      "text": "      const { result, error } = await quotePromise;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 13134,
+      "text": "      const [quoteOutcome, reconciliation] = await Promise.all([quotePromise, reconciliationPromise]);"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 13135,
+      "text": "      if (reconciliation.billing && app.data) app.data.billing = reconciliation.billing;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 13136,
+      "text": "      if (reconciliation.state === \"active\") throw new Error(\"คุณมีรายการชำระเงินที่กำลังดำเนินการอยู่ กรุณาดำเนินการรายการเดิมให้เรียบร้อยก่อน\");"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 13137,
+      "text": "      if (reconciliation.state === \"awaiting_webhook\") throw new Error(\"Stripe ยืนยันการชำระเงินแล้ว ระบบกำลังรอ webhook ที่ตรวจสอบแล้ว\");"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 13138,
+      "text": "      const { result, error } = quoteOutcome;"
+    }
+  ],
+  "tooling": {
+    "sourceCommit": "aa5d5982455b4db9fa065cc8fb7e77ab7861b677",
+    "allowedFiles": [
+      "scripts/ui-regression-guard.js",
+      "scripts/multi-approved-change-manifest-test.js",
+      "scripts/subscription-upgrade-test.js"
+    ]
+  }
+}
