@@ -70,9 +70,6 @@ const {
   platformAdminUpsertPromotionCode,
   withTenantContext,
   resolveTenantForUser,
-  withOrderDeleteDiagnostics,
-  recordOrderDeleteDiagnosticStage,
-  orderDeleteDiagnosticHeaders,
   resolveTenantForLineWebhook,
   diagnoseLineWebhookTenantRejection,
   uploadProductImageObject,
@@ -98,30 +95,6 @@ function elapsedMs(startedAt) {
   return Math.round((monotonicMs() - startedAt) * 1000) / 1000;
 }
 
-const PREVIEW_SUPABASE_PROJECT_REF = "enwabsfsmwwcwwirdwok";
-const PRODUCTION_SUPABASE_PROJECT_REF = "mjnpzdmrqweugdnvlqwq";
-
-function previewSupabaseTargetMetadata() {
-  let supabaseProjectRef = "";
-  try {
-    const hostname = new URL(String(process.env.SUPABASE_URL || "")).hostname.toLowerCase();
-    const match = hostname.match(/^([a-z0-9]{20})\.supabase\.co$/);
-    if (match) supabaseProjectRef = match[1];
-  } catch {
-    // An absent or unsupported URL is reported only as an unknown target.
-  }
-  const supabaseTargetClassification = supabaseProjectRef === PREVIEW_SUPABASE_PROJECT_REF
-    ? "EXPECTED_PREVIEW"
-    : supabaseProjectRef === PRODUCTION_SUPABASE_PROJECT_REF
-      ? "FORBIDDEN_PRODUCTION"
-      : "UNKNOWN";
-  return {
-    vercelEnv: "preview",
-    databaseProvider: dbProvider,
-    supabaseProjectRef,
-    supabaseTargetClassification
-  };
-}
 const {
   normalizeAdPlatforms,
   normalizeAdCostRecords,
@@ -6289,9 +6262,6 @@ async function handleApi(req, res) {
       ? await readOrderDeleteIntentDb()
       : await readDb();
   const dbReadMs = Date.now() - dbReadStartedAt;
-  if (typeof recordOrderDeleteDiagnosticStage === "function") {
-    recordOrderDeleteDiagnosticStage("readDbMs", dbReadMs);
-  }
   const sessionUser = isLineWebhook ? null : requireUser(req, res);
   if (!isLineWebhook && !sessionUser) return;
   const currentUser = isLineWebhook ? null : currentUserFromDb(sessionUser, db);
@@ -6842,33 +6812,25 @@ async function handleApi(req, res) {
     const secret = crypto.randomBytes(32).toString("base64url");
     const sessionFingerprint = orderDeleteSessionFingerprint(req);
     try {
-      let intent;
-      const rpcStartedAt = monotonicMs();
-      try {
-        intent = await createOrderDeleteIntent({
-          orderId: id,
-          tenantId: String(currentUser.tenantId || currentUser.tenant_id || "").trim(),
-          actorUserId: String(currentUser.id || "").trim(),
-          actorRole: String(currentUser.role || "").trim(),
-          sessionFingerprint,
-          intentHash: crypto.createHash("sha256").update(secret).digest("hex"),
-          requestMetadata: {
-            route: url.pathname,
-            method: req.method,
-            request_id: String(req.headers["x-request-id"] || "").slice(0, 160),
-            user_agent: String(req.headers["user-agent"] || "").slice(0, 240)
-          }
-        });
-      } finally {
-        if (typeof recordOrderDeleteDiagnosticStage === "function") {
-          recordOrderDeleteDiagnosticStage("rpcMs", elapsedMs(rpcStartedAt));
+      const intent = await createOrderDeleteIntent({
+        orderId: id,
+        tenantId: String(currentUser.tenantId || currentUser.tenant_id || "").trim(),
+        actorUserId: String(currentUser.id || "").trim(),
+        actorRole: String(currentUser.role || "").trim(),
+        sessionFingerprint,
+        intentHash: crypto.createHash("sha256").update(secret).digest("hex"),
+        requestMetadata: {
+          route: url.pathname,
+          method: req.method,
+          request_id: String(req.headers["x-request-id"] || "").slice(0, 160),
+          user_agent: String(req.headers["user-agent"] || "").slice(0, 240)
         }
-      }
+      });
       return json(res, 200, {
         ok: true,
         deleteIntent: `${intent.intentId}.${secret}`,
         expiresAt: intent.expiresAt
-      }, orderDeleteDiagnosticHeaders?.(req) || {});
+      });
     } catch (error) {
       if (error.code === "ORDER_DELETE_NOT_FOUND") {
         return json(res, 404, { ok: false, error: "ไม่พบออเดอร์" });
@@ -6944,14 +6906,7 @@ async function handleApi(req, res) {
       if (typeof persistOrderDeletion !== "function") {
         return json(res, 503, { ok: false, error: "ระบบยืนยันการลบออเดอร์ยังไม่พร้อมใช้งาน" });
       }
-      const rpcStartedAt = monotonicMs();
-      try {
-        await persistOrderDeletion(id, deletionAudit);
-      } finally {
-        if (typeof recordOrderDeleteDiagnosticStage === "function") {
-          recordOrderDeleteDiagnosticStage("rpcMs", elapsedMs(rpcStartedAt));
-        }
-      }
+      await persistOrderDeletion(id, deletionAudit);
     } catch (error) {
       if (error.code === "ORDER_DELETE_NOT_FOUND") {
         return json(res, 404, { ok: false, error: "ไม่พบออเดอร์" });
@@ -6961,7 +6916,7 @@ async function handleApi(req, res) {
       }
       throw error;
     }
-    return json(res, 200, { ok: true, mutation }, orderDeleteDiagnosticHeaders?.(req) || {});
+    return json(res, 200, { ok: true, mutation });
   }
 
   if (req.method === "POST" && url.pathname === "/api/import") {
@@ -7763,27 +7718,6 @@ async function handleApi(req, res) {
 async function appHandler(req, res) {
   try {
     const requestPathname = new URL(req.url, `http://${req.headers.host || "localhost"}`).pathname;
-    if (requestPathname === "/api/debug/preview-db-target") {
-      if (req.method !== "GET" || process.env.VERCEL_ENV !== "preview") {
-        return json(res, 404, { ok: false, error: "Not found" });
-      }
-      return json(res, 200, previewSupabaseTargetMetadata());
-    }
-    if (
-      dbProvider === "supabase"
-      && isOrderDeleteApiRequest(req.method, requestPathname)
-      && !req._orderDeleteDiagnosticsStarted
-    ) {
-      req._orderDeleteDiagnosticsStarted = true;
-      const route = req.method === "POST" ? "intent" : "durable_delete";
-      return await withOrderDeleteDiagnostics(route, async () => {
-        try {
-          return await appHandler(req, res);
-        } finally {
-          delete req._orderDeleteDiagnosticsStarted;
-        }
-      });
-    }
     // Promo endpoints are server-authenticated even before any tenant-owned read.
     // This explicit fail-closed guard prevents an unauthenticated request from
     // reaching Supabase without a tenant context when the Preview feature is on.
