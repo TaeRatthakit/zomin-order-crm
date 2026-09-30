@@ -13119,13 +13119,10 @@ document.addEventListener("click", async event => {
         method: "POST",
         body: JSON.stringify({ targetPlan, billingInterval })
       }).then(result => ({ result }), error => ({ error }));
-      const reconciliation = await api("/api/billing/reconcile", {
+      const reconciliationPromise = api("/api/billing/reconcile", {
         method: "POST",
         body: JSON.stringify({ targetPlan, billingInterval })
       });
-      if (reconciliation.billing && app.data) app.data.billing = reconciliation.billing;
-      if (reconciliation.state === "active") throw new Error("คุณมีรายการชำระเงินที่กำลังดำเนินการอยู่ กรุณาดำเนินการรายการเดิมให้เรียบร้อยก่อน");
-      if (reconciliation.state === "awaiting_webhook") throw new Error("Stripe ยืนยันการชำระเงินแล้ว ระบบกำลังรอ webhook ที่ตรวจสอบแล้ว");
       const draft = { targetPlan, billingInterval, action, baseQuote: null };
       app.subscriptionCheckoutDraft = draft;
       app.checkoutPromotionCode = "";
@@ -13134,7 +13131,11 @@ document.addEventListener("click", async event => {
       app.billingCheckout = null;
       app.subscriptionQuoteLoading = true;
       setView("settingsSubscription");
-      const { result, error } = await quotePromise;
+      const [quoteOutcome, reconciliation] = await Promise.all([quotePromise, reconciliationPromise]);
+      if (reconciliation.billing && app.data) app.data.billing = reconciliation.billing;
+      if (reconciliation.state === "active") throw new Error("คุณมีรายการชำระเงินที่กำลังดำเนินการอยู่ กรุณาดำเนินการรายการเดิมให้เรียบร้อยก่อน");
+      if (reconciliation.state === "awaiting_webhook") throw new Error("Stripe ยืนยันการชำระเงินแล้ว ระบบกำลังรอ webhook ที่ตรวจสอบแล้ว");
+      const { result, error } = quoteOutcome;
       if (error) throw error;
       if (app.subscriptionCheckoutDraft === draft) {
         draft.baseQuote = result.quote;
