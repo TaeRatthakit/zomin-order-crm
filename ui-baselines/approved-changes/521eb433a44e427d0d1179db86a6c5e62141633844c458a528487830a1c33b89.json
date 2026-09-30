@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "id": "task4-login-state-request-order",
+  "base": {
+    "sourceCommit": "d14c5da76131fab0f333623679ee8910e61b9b96"
+  },
+  "target": {
+    "sourceCommit": "d86dcb645a82c69f59c60cd29a4b6dfe53ae4db4"
+  },
+  "allowedFiles": [
+    "public/app.js"
+  ],
+  "expectedTextChanges": [
+    {
+      "route": "Login → Dashboard",
+      "component": "Post-login state request ordering",
+      "from": "loadStateAfterLogin();",
+      "to": "loadStateAfterLogin();"
+    }
+  ],
+  "expectedDiffSha256": "2f0a80d45c70414bc0531cc0f6682a4b15f1017a43aa083b83f2fa0df63c457b",
+  "expectedDiffLines": [
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 14349,
+      "text": "      loadStateAfterLogin();"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 14352,
+      "text": "      loadStateAfterLogin();"
+    }
+  ]
+}
