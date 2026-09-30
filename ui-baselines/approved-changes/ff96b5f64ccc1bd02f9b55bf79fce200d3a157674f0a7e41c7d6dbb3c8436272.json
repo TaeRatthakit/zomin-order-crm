@@ -1,0 +1,858 @@
+{
+  "schemaVersion": 1,
+  "id": "task5-payment-stuck-recovery-final",
+  "base": {
+    "sourceCommit": "c9fc9ecae54d6a67fb47d522540cb3b71163464f"
+  },
+  "target": {
+    "sourceCommit": "b15a46b927cc04e161856e9a077e748624ab48d6"
+  },
+  "allowedFiles": [
+    "public/app.js"
+  ],
+  "expectedTextChanges": [
+    {
+      "route": "Authenticated Pricing / Subscription Checkout",
+      "component": "bounded independent quote and reconciliation with safe retry",
+      "from": "const [quoteOutcome, reconciliation] = await Promise.all([quotePromise, reconciliationPromise]);",
+      "to": "async function initializeSubscriptionCheckout(draft) {"
+    }
+  ],
+  "expectedDiffSha256": "49f7d8a8def520387f8558cff33e680e293b3ac11174f5fe55d483a10b9c6586",
+  "expectedDiffLines": [
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10322,
+      "text": ""
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10323,
+      "text": "const SUBSCRIPTION_INITIALIZATION_TIMEOUT_MS = 15000;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10324,
+      "text": ""
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10325,
+      "text": "function requestSubscriptionInitialization(path, body) {"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10326,
+      "text": "  let timeoutId;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10327,
+      "text": "  const timeout = new Promise((_, reject) => {"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10328,
+      "text": "    timeoutId = window.setTimeout(() => reject(new Error(\"ตรวจสอบรายการชำระเงินใช้เวลานานเกินไป กรุณาลองอีกครั้ง\")), SUBSCRIPTION_INITIALIZATION_TIMEOUT_MS);"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10329,
+      "text": "  });"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10330,
+      "text": "  return Promise.race(["
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10331,
+      "text": "    Promise.resolve().then(() => api(path, {"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10332,
+      "text": "      method: \"POST\","
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10333,
+      "text": "      body: JSON.stringify(body)"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10334,
+      "text": "    })),"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10335,
+      "text": "    timeout"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10336,
+      "text": "  ]).finally(() => window.clearTimeout(timeoutId));"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10337,
+      "text": "}"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10338,
+      "text": ""
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10339,
+      "text": "async function initializeSubscriptionCheckout(draft) {"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10340,
+      "text": "  const attempt = {};"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10341,
+      "text": "  app.pricingUpgradeLoading = \"\";"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10342,
+      "text": "  draft.initializationAttempt = attempt;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10343,
+      "text": "  draft.initializing = true;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10344,
+      "text": "  draft.reconciliationReady = false;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10345,
+      "text": "  draft.initializationError = \"\";"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10346,
+      "text": "  draft.baseQuote = null;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10347,
+      "text": "  app.subscriptionQuoteLoading = true;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10348,
+      "text": "  app.checkoutPromotionError = \"\";"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10349,
+      "text": "  app.checkoutPromoQuote = null;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10350,
+      "text": "  const isCurrentAttempt = () => app.subscriptionCheckoutDraft === draft && draft.initializationAttempt === attempt;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10351,
+      "text": "  render();"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10352,
+      "text": ""
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10353,
+      "text": "  const quoteTask = requestSubscriptionInitialization(\"/api/billing/quote\", {"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10354,
+      "text": "    targetPlan: draft.targetPlan,"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10355,
+      "text": "    billingInterval: draft.billingInterval"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10356,
+      "text": "  }).then(result => {"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10357,
+      "text": "    if (!isCurrentAttempt()) return;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10358,
+      "text": "    const quote = result?.quote;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10359,
+      "text": "    if (!quote || !Number.isFinite(Number(quote.amount_minor)) || Number(quote.amount_minor) < 0) {"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10360,
+      "text": "      throw new Error(\"ไม่ได้รับราคาที่ตรวจสอบจากระบบ กรุณาลองอีกครั้ง\");"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10361,
+      "text": "    }"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10362,
+      "text": "    draft.baseQuote = quote;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10363,
+      "text": "    draft.action = quote.intent === \"subscription_upgrade\" ? \"upgrade\""
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10364,
+      "text": "      : quote.intent === \"subscription_renewal\" ? \"renewal\" : \"activation\";"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10365,
+      "text": "    app.subscriptionQuoteLoading = false;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10366,
+      "text": "    render();"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10367,
+      "text": "  }).catch(error => {"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10368,
+      "text": "    if (!isCurrentAttempt()) return;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10369,
+      "text": "    app.subscriptionQuoteLoading = false;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10370,
+      "text": "    draft.initializationError = error.message || \"โหลดราคาชำระเงินไม่สำเร็จ\";"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10371,
+      "text": "    render();"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10372,
+      "text": "  });"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10373,
+      "text": ""
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10374,
+      "text": "  const reconciliationTask = requestSubscriptionInitialization(\"/api/billing/reconcile\", {"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10375,
+      "text": "    targetPlan: draft.targetPlan,"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10376,
+      "text": "    billingInterval: draft.billingInterval"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10377,
+      "text": "  }).then(reconciliation => {"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10378,
+      "text": "    if (!isCurrentAttempt()) return;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10379,
+      "text": "    if (reconciliation.billing && app.data) app.data.billing = reconciliation.billing;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10380,
+      "text": "    if (reconciliation.state === \"active\") throw new Error(\"คุณมีรายการชำระเงินที่กำลังดำเนินการอยู่ กรุณาดำเนินการรายการเดิมให้เรียบร้อยก่อน\");"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10381,
+      "text": "    if (reconciliation.state === \"awaiting_webhook\") throw new Error(\"Stripe ยืนยันการชำระเงินแล้ว ระบบกำลังรอ webhook ที่ตรวจสอบแล้ว\");"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10382,
+      "text": "    if (!(\"none\" === reconciliation.state || \"terminal\" === reconciliation.state)) throw new Error(\"ตรวจสอบรายการชำระเงินไม่สำเร็จ กรุณาลองอีกครั้ง\");"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10383,
+      "text": "    draft.reconciliationReady = true;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10384,
+      "text": "    render();"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10385,
+      "text": "  }).catch(error => {"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10386,
+      "text": "    if (!isCurrentAttempt()) return;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10387,
+      "text": "    if (error.payload?.billing && app.data) app.data.billing = error.payload.billing;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10388,
+      "text": "    draft.reconciliationReady = false;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10389,
+      "text": "    draft.initializationError = error.message || \"ตรวจสอบรายการชำระเงินไม่สำเร็จ\";"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10390,
+      "text": "    render();"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10391,
+      "text": "  });"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10392,
+      "text": ""
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10393,
+      "text": "  await Promise.all([quoteTask, reconciliationTask]);"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10394,
+      "text": "  if (!isCurrentAttempt()) return;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10395,
+      "text": "  draft.initializing = false;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10396,
+      "text": "  app.pricingUpgradeLoading = \"\";"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10397,
+      "text": "  app.subscriptionQuoteLoading = false;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10398,
+      "text": "  render();"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10399,
+      "text": "}"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 10445,
+      "text": "    ? `<button class=\"button primary subscription-primary-action\" type=\"button\" data-subscription-checkout-confirm ${app.pricingUpgradeLoading || app.subscriptionQuoteLoading || !draft.baseQuote ? \"disabled\" : \"\"}>${app.pricingUpgradeLoading ? \"กำลังสร้างรายการชำระเงิน...\" : draftQuote?.mode === \"free_service\" ? \"ยืนยันรับสิทธิ์ฟรี\" : \"ยืนยันชำระเงิน\"}</button>`"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10523,
+      "text": "    ? `<button class=\"button primary subscription-primary-action\" type=\"button\" data-subscription-checkout-confirm ${app.pricingUpgradeLoading || app.subscriptionQuoteLoading || draft.initializing || !draft.baseQuote || !draft.reconciliationReady ? \"disabled\" : \"\"}>${app.pricingUpgradeLoading ? \"กำลังสร้างรายการชำระเงิน...\" : draft.initializing && !draft.reconciliationReady ? \"กำลังตรวจสอบรายการเดิม...\" : draftQuote?.mode === \"free_service\" ? \"ยืนยันรับสิทธิ์ฟรี\" : \"ยืนยันชำระเงิน\"}</button>${draft.initializationError ? `<p class=\"subscription-promo-message\" role=\"status\">${escapeHtml(draft.initializationError)}</p><button class=\"button secondary\" type=\"button\" data-subscription-initialization-retry ${draft.initializing ? \"disabled\" : \"\"}>ลองตรวจสอบอีกครั้ง</button>` : \"\"}`"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 10477,
+      "text": "              <button class=\"button secondary\" type=\"submit\"${app.subscriptionQuoteLoading ? \" disabled\" : \"\"}>${app.subscriptionQuoteLoading ? \"กำลังตรวจสอบ...\" : \"ใช้โค้ด\"}</button>"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10555,
+      "text": "              <button class=\"button secondary\" type=\"submit\"${app.subscriptionQuoteLoading || draft?.initializing ? \" disabled\" : \"\"}>${app.subscriptionQuoteLoading || draft?.initializing ? \"กำลังตรวจสอบ...\" : \"ใช้โค้ด\"}</button>"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 10541,
+      "text": "        if (app.subscriptionQuoteLoading) return;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10619,
+      "text": "        if (app.subscriptionQuoteLoading || draft.initializing) return;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 13064,
+      "text": "    if (!draft.baseQuote) return;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 13142,
+      "text": "    if (!draft.baseQuote || !draft.reconciliationReady || draft.initializing || app.subscriptionQuoteLoading) return;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 13186,
+      "text": "  const subscriptionInitializationRetryButton = event.target.closest(\"[data-subscription-initialization-retry]\");"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 13187,
+      "text": "  if (subscriptionInitializationRetryButton && app.view === \"settingsSubscription\" && app.subscriptionCheckoutDraft) {"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 13188,
+      "text": "    const draft = app.subscriptionCheckoutDraft;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 13189,
+      "text": "    if (!draft.initializing) void initializeSubscriptionCheckout(draft);"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 13190,
+      "text": "    return;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 13191,
+      "text": "  }"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 13192,
+      "text": ""
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 13117,
+      "text": "    try {"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 13118,
+      "text": "      const quotePromise = api(\"/api/billing/quote\", {"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 13119,
+      "text": "        method: \"POST\","
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 13120,
+      "text": "        body: JSON.stringify({ targetPlan, billingInterval })"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 13121,
+      "text": "      }).then(result => ({ result }), error => ({ error }));"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 13122,
+      "text": "      const reconciliationPromise = api(\"/api/billing/reconcile\", {"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 13123,
+      "text": "        method: \"POST\","
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 13124,
+      "text": "        body: JSON.stringify({ targetPlan, billingInterval })"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 13125,
+      "text": "      });"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 13126,
+      "text": "      const draft = { targetPlan, billingInterval, action, baseQuote: null };"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 13127,
+      "text": "      app.subscriptionCheckoutDraft = draft;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 13128,
+      "text": "      app.checkoutPromotionCode = \"\";"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 13129,
+      "text": "      app.checkoutPromotionError = \"\";"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 13130,
+      "text": "      app.checkoutPromoQuote = null;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 13131,
+      "text": "      app.billingCheckout = null;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 13132,
+      "text": "      app.subscriptionQuoteLoading = true;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 13133,
+      "text": "      setView(\"settingsSubscription\");"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 13134,
+      "text": "      const [quoteOutcome, reconciliation] = await Promise.all([quotePromise, reconciliationPromise]);"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 13135,
+      "text": "      if (reconciliation.billing && app.data) app.data.billing = reconciliation.billing;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 13136,
+      "text": "      if (reconciliation.state === \"active\") throw new Error(\"คุณมีรายการชำระเงินที่กำลังดำเนินการอยู่ กรุณาดำเนินการรายการเดิมให้เรียบร้อยก่อน\");"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 13137,
+      "text": "      if (reconciliation.state === \"awaiting_webhook\") throw new Error(\"Stripe ยืนยันการชำระเงินแล้ว ระบบกำลังรอ webhook ที่ตรวจสอบแล้ว\");"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 13138,
+      "text": "      const { result, error } = quoteOutcome;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 13139,
+      "text": "      if (error) throw error;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 13140,
+      "text": "      if (app.subscriptionCheckoutDraft === draft) {"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 13141,
+      "text": "        draft.baseQuote = result.quote;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 13142,
+      "text": "        draft.action = result.quote?.intent === \"subscription_upgrade\" ? \"upgrade\""
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 13143,
+      "text": "          : result.quote?.intent === \"subscription_renewal\" ? \"renewal\" : \"activation\";"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 13144,
+      "text": "      }"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 13145,
+      "text": "    } catch (error) {"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 13146,
+      "text": "      if (error.payload?.billing && app.data) app.data.billing = error.payload.billing;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 13147,
+      "text": "      if (app.subscriptionCheckoutDraft) app.checkoutPromotionError = error.message || \"โหลดราคาชำระเงินไม่สำเร็จ\";"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 13148,
+      "text": "      else showToast(error.message || \"ตรวจสอบรายการชำระเงินเดิมไม่สำเร็จ\", \"error\");"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 13149,
+      "text": "    } finally {"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 13150,
+      "text": "      app.pricingUpgradeLoading = \"\";"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 13151,
+      "text": "      app.subscriptionQuoteLoading = false;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 13152,
+      "text": "      render();"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 13153,
+      "text": "    }"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 13202,
+      "text": "    const draft = { targetPlan, billingInterval, action, baseQuote: null, reconciliationReady: false, initializing: false, initializationError: \"\" };"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 13203,
+      "text": "    app.subscriptionCheckoutDraft = draft;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 13204,
+      "text": "    app.checkoutPromotionCode = \"\";"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 13205,
+      "text": "    app.checkoutPromotionError = \"\";"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 13206,
+      "text": "    app.checkoutPromoQuote = null;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 13207,
+      "text": "    app.billingCheckout = null;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 13208,
+      "text": "    setView(\"settingsSubscription\");"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 13209,
+      "text": "    void initializeSubscriptionCheckout(draft);"
+    }
+  ],
+  "tooling": {
+    "sourceCommit": "ce816a084a24209fd8e97e13ad4e6013b436010b",
+    "allowedFiles": [
+      "scripts/subscription-upgrade-test.js"
+    ]
+  }
+}
