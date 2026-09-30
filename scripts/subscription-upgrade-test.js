@@ -87,7 +87,7 @@ function parseIn(raw = "") { return parseValue(raw).replace(/^\(|\)$/g, "").spli
 function applyFilters(rows, params) {
   let out = [...rows];
   for (const [key, value] of params.entries()) {
-    if (["select", "limit", "order", "on_conflict"].includes(key)) continue;
+    if (["select", "limit", "order", "on_conflict", "tenant_memberships.is_active"].includes(key)) continue;
     if (value.startsWith("eq.")) out = out.filter(row => String(row[key]) === parseValue(value.slice(3)));
     if (value.startsWith("in.")) {
       const values = new Set(parseIn(value.slice(3)));
@@ -232,7 +232,20 @@ global.fetch = async function mockFetch(input, options = {}) {
   const method = String(options.method || "GET").toUpperCase();
   if (method === "GET") {
     let rows = applyFilters(db[table], url.searchParams);
-    if (table === "tenant_memberships" && String(url.searchParams.get("select") || "").includes("tenant:tenants(")) {
+    if (table === "users" && String(url.searchParams.get("select") || "").includes("tenant_memberships(")) {
+      const activeOnly = url.searchParams.get("tenant_memberships.is_active") === "eq.true";
+      rows = rows.map(user => ({
+        ...user,
+        tenant_memberships: db.tenant_memberships
+          .filter(membership => membership.user_id === user.id && (!activeOnly || membership.is_active === true))
+          .map(membership => ({
+            tenant_id: membership.tenant_id,
+            role: membership.role,
+            is_active: membership.is_active,
+            tenant: db.tenants.find(tenant => tenant.id === membership.tenant_id) || null
+          }))
+      }));
+    } else if (table === "tenant_memberships" && String(url.searchParams.get("select") || "").includes("tenant:tenants(")) {
       rows = rows.map(row => ({
         tenant_id: row.tenant_id,
         role: row.role,

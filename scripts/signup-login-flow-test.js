@@ -16,7 +16,8 @@ const db = {
   tenants: [
     { id: "11111111-1111-4111-8111-111111111111", name: "Tenant A", status: "active" },
     { id: "22222222-2222-4222-8222-222222222222", name: "Tenant B", status: "active" },
-    { id: "33333333-3333-4333-8333-333333333333", name: "Tenant Suspended", status: "suspended" }
+    { id: "33333333-3333-4333-8333-333333333333", name: "Tenant Suspended", status: "suspended" },
+    { id: "44444444-4444-4444-8444-444444444444", name: "Tenant Inactive", status: "inactive" }
   ],
   tenant_memberships: [
     { id: "m_a_owner", tenant_id: "11111111-1111-4111-8111-111111111111", user_id: "u_owner", role: "Owner", is_active: true },
@@ -25,6 +26,7 @@ const db = {
     { id: "m_b_owner", tenant_id: "22222222-2222-4222-8222-222222222222", user_id: "u_b_owner", role: "Owner", is_active: true },
     { id: "m_inactive", tenant_id: "11111111-1111-4111-8111-111111111111", user_id: "u_inactive_membership", role: "Owner", is_active: false },
     { id: "m_suspended", tenant_id: "33333333-3333-4333-8333-333333333333", user_id: "u_suspended", role: "Owner", is_active: true },
+    { id: "m_inactive_tenant", tenant_id: "44444444-4444-4444-8444-444444444444", user_id: "u_inactive_tenant", role: "Owner", is_active: true },
     { id: "m_multi_a", tenant_id: "11111111-1111-4111-8111-111111111111", user_id: "u_multi", role: "Owner", is_active: true },
     { id: "m_multi_b", tenant_id: "22222222-2222-4222-8222-222222222222", user_id: "u_multi", role: "Owner", is_active: true },
     { id: "m_missing_tenant", tenant_id: "44444444-4444-4444-8444-444444444444", user_id: "u_missing_tenant", role: "Owner", is_active: true }
@@ -38,6 +40,7 @@ const db = {
     { id: "u_inactive_membership", username: "inactive-member@example.com", password_hash: hashPassword("pass12345"), name: "Inactive Member", role: "Owner", phone: "", is_active: true },
     { id: "u_disabled", username: "disabled@example.com", password_hash: hashPassword("pass12345"), name: "Disabled", role: "Owner", phone: "", is_active: false },
     { id: "u_suspended", username: "suspended@example.com", password_hash: hashPassword("pass12345"), name: "Suspended", role: "Owner", phone: "", is_active: true },
+    { id: "u_inactive_tenant", username: "inactive-tenant@example.com", password_hash: hashPassword("pass12345"), name: "Inactive Tenant", role: "Owner", phone: "", is_active: true },
     { id: "u_multi", username: "multi@example.com", password_hash: hashPassword("pass12345"), name: "Multi", role: "Owner", phone: "", is_active: true },
     { id: "u_missing_tenant", username: "missing-tenant@example.com", password_hash: hashPassword("pass12345"), name: "Missing Tenant", role: "Owner", phone: "", is_active: true }
   ],
@@ -101,7 +104,7 @@ function parseIn(raw = "") {
 function applyFilters(rows, params) {
   let out = [...rows];
   for (const [key, value] of params.entries()) {
-    if (["select", "limit", "order", "on_conflict"].includes(key)) continue;
+    if (["select", "limit", "order", "on_conflict", "tenant_memberships.is_active"].includes(key)) continue;
     if (value.startsWith("eq.")) {
       const expected = parseValue(value.slice(3));
       out = out.filter(row => String(row[key]) === expected);
@@ -321,7 +324,20 @@ global.fetch = async function mockFetch(input, options = {}) {
   requestLog.push({ method, table, select: url.searchParams.get("select") || "" });
   if (method === "GET") {
     let rows = applyFilters(db[table], url.searchParams);
-    if (table === "tenant_memberships" && String(url.searchParams.get("select") || "").includes("tenant:tenants(")) {
+    if (table === "users" && String(url.searchParams.get("select") || "").includes("tenant_memberships(")) {
+      const activeOnly = url.searchParams.get("tenant_memberships.is_active") === "eq.true";
+      rows = rows.map(user => ({
+        ...user,
+        tenant_memberships: db.tenant_memberships
+          .filter(membership => membership.user_id === user.id && (!activeOnly || membership.is_active === true))
+          .map(membership => ({
+            tenant_id: membership.tenant_id,
+            role: membership.role,
+            is_active: membership.is_active,
+            tenant: db.tenants.find(tenant => tenant.id === membership.tenant_id) || null
+          }))
+      }));
+    } else if (table === "tenant_memberships" && String(url.searchParams.get("select") || "").includes("tenant:tenants(")) {
       rows = rows.map(row => ({
         tenant_id: row.tenant_id,
         role: row.role,
@@ -434,15 +450,17 @@ async function login(username, password = "pass12345") {
     const loginReadStart = requestLog.length;
     const owner = await login("owner@example.com");
     const ownerLoginReads = requestLog.slice(loginReadStart);
-    const embeddedMembershipReads = ownerLoginReads.filter(entry => entry.table === "tenant_memberships" && entry.select.includes("tenant:tenants("));
-    if (embeddedMembershipReads.length !== 1) fail(`owner login expected one embedded membership/tenant read, got ${embeddedMembershipReads.length}`);
-    if (ownerLoginReads.some(entry => entry.table === "tenants")) fail("owner login performed a separate tenant lookup");
+    const embeddedUserReads = ownerLoginReads.filter(entry => entry.table === "users" && entry.select.includes("tenant_memberships(") && entry.select.includes("tenant:tenants("));
+    if (embeddedUserReads.length !== 1) fail(`owner login expected one embedded user/membership/tenant read, got ${embeddedUserReads.length}`);
+    if (ownerLoginReads.some(entry => entry.table === "tenant_memberships" || entry.table === "tenants")) fail("owner login performed a separate membership or tenant lookup");
     const admin = await login("admin@example.com");
     const staff = await login("staff@example.com");
+    const ownerById = await login("u_owner");
     if (owner.body.user.role !== "Owner" || admin.body.user.role !== "Admin" || staff.body.user.role !== "Staff") fail("login roles were not preserved");
+    if (ownerById.body.user.id !== owner.body.user.id) fail("user-ID login fallback was not preserved");
     if (owner.body.user.tenantId !== "11111111-1111-4111-8111-111111111111") fail("owner login did not resolve tenant A");
 
-    for (const username of ["owner@example.com", "nomember@example.com", "inactive-member@example.com", "disabled@example.com", "suspended@example.com", "multi@example.com", "missing-tenant@example.com", "unknown@example.com"]) {
+    for (const username of ["owner@example.com", "nomember@example.com", "inactive-member@example.com", "disabled@example.com", "suspended@example.com", "inactive-tenant@example.com", "multi@example.com", "missing-tenant@example.com", "unknown@example.com"]) {
       const res = await request("/api/login", {
         method: "POST",
         body: JSON.stringify({ username, password: username === "owner@example.com" ? "wrongpass" : "pass12345" })
