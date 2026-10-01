@@ -1894,32 +1894,23 @@ async function hydrateSubscriptionCheckout() {
   if (!target) return;
   const currentPaymentId = String(app.billingCheckout?.payment?.id || "");
   if (currentPaymentId === target.paymentId && app.billingCheckout?.promptpay) return;
-  const hydrationKey = String(target.paymentId) + ":" + String(target.targetPlan);
-  if (app.billingCheckoutHydrationKey === hydrationKey) return;
-  app.billingCheckoutHydrationKey = hydrationKey;
-  try {
-    const reconciliation = await api("/api/billing/reconcile", {
-      method: "POST",
-      body: JSON.stringify({})
-    });
-    if (reconciliation.billing && app.data) app.data.billing = reconciliation.billing;
-    if (["none", "terminal", "awaiting_webhook"].includes(reconciliation.state)) {
-      app.billingCheckout = null;
-      render();
-      return;
-    }
-    const payload = await api(target.operation === "subscription_upgrade" ? "/api/billing/upgrade" : "/api/billing/checkout", {
-      method: "POST",
-      body: JSON.stringify({ targetPlan: target.targetPlan, billingInterval: target.billingInterval })
-    });
-    if (app.view !== "settingsSubscription") return;
-    app.billingCheckout = payload;
-    app.subscriptionQrLoadState = null;
-    if (payload.billing && app.data) app.data.billing = payload.billing;
-    render();
-  } finally {
-    if (!app.billingCheckout?.promptpay) app.billingCheckoutHydrationKey = "";
-  }
+  const action = target.operation === "subscription_upgrade" ? "upgrade"
+    : target.operation === "subscription_renewal" ? "renewal" : "activation";
+  const draft = {
+    targetPlan: target.targetPlan,
+    billingInterval: target.billingInterval,
+    action,
+    baseQuote: null,
+    reconciliationReady: false,
+    initializing: false,
+    initializationError: ""
+  };
+  app.subscriptionCheckoutDraft = draft;
+  app.checkoutPromotionCode = "";
+  app.checkoutPromotionError = "";
+  app.checkoutPromoQuote = null;
+  render();
+  await initializeSubscriptionCheckout(draft);
 }
 /* pricing-scope: authenticated-upgrade-state:end */
 
@@ -10336,6 +10327,40 @@ function requestSubscriptionInitialization(path, body) {
   ]).finally(() => window.clearTimeout(timeoutId));
 }
 
+function subscriptionCheckoutBlockReason(draft) {
+  if (!draft || !draft.baseQuote) return "รอราคาที่ตรวจสอบจากระบบ";
+  if (!draft.reconciliationReady) return "รอการตรวจสอบรายการชำระเงิน";
+  if (draft.initializationError) return draft.initializationError;
+  if (app.checkoutPromotionError) return app.checkoutPromotionError;
+  const quote = app.checkoutPromoQuote?.quote || draft.baseQuote;
+  const amountMinor = Number(quote?.amount_minor);
+  if (!Number.isFinite(amountMinor) || amountMinor < 0) return "ยอดชำระไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง";
+  const targetPlan = String(draft.targetPlan || "").toLowerCase();
+  const billingInterval = String(draft.billingInterval || "").toLowerCase();
+  if (!["starter", "business", "enterprise"].includes(targetPlan)
+    || !["monthly", "yearly"].includes(billingInterval)) return "แพ็กเกจหรือรอบบิลไม่ถูกต้อง";
+  const enteredCode = String(app.checkoutPromotionCode || "").trim().toUpperCase();
+  const appliedCode = String(app.checkoutPromoQuote?.quote?.code || "").trim().toUpperCase();
+  if (enteredCode && enteredCode !== appliedCode) return "กรุณากดใช้โค้ดโปรโมชั่นก่อนยืนยันการชำระเงิน";
+  if (draft.awaitingWebhook) return "Stripe รับการชำระเงินแล้ว ระบบกำลังรอการยืนยันที่ตรวจสอบได้ กรุณารอสักครู่";
+  const pending = draft.pendingPayment;
+  if (pending) {
+    const pendingPlan = String(pending.targetPlan || pending.plan || "").toLowerCase();
+    const pendingInterval = String(pending.billingInterval || "").toLowerCase();
+    const pendingAmount = Number(pending.amountMinor);
+    const pendingCode = String(pending.promotion?.code || "").trim().toUpperCase();
+    const quoteCode = appliedCode;
+    const pendingCurrency = String(pending.currency || "THB").toUpperCase();
+    const quoteCurrency = String(quote.currency || quote.currency_code || "THB").toUpperCase();
+    if (pendingPlan !== targetPlan || pendingInterval !== billingInterval
+      || !Number.isFinite(pendingAmount) || pendingAmount !== amountMinor
+      || pendingCode !== quoteCode || pendingCurrency !== quoteCurrency) {
+      return "รายการชำระเงินเดิมไม่ตรงกับแพ็กเกจ รอบบิล ยอด หรือโค้ดที่เลือก จึงยังดำเนินการต่อไม่ได้";
+    }
+  }
+  return "";
+}
+
 async function initializeSubscriptionCheckout(draft) {
   const attempt = {};
   app.pricingUpgradeLoading = "";
@@ -10382,26 +10407,12 @@ async function initializeSubscriptionCheckout(draft) {
       if (!pendingPayment?.id) throw new Error(reconciliation.state === "active"
         ? "คุณมีรายการชำระเงินที่กำลังดำเนินการอยู่ กรุณาดำเนินการรายการเดิมให้เรียบร้อยก่อน"
         : "Stripe ยืนยันการชำระเงินแล้ว ระบบกำลังรอ webhook ที่ตรวจสอบแล้ว");
-      const targetPlan = String(pendingPayment.targetPlan || pendingPayment.plan || "").toLowerCase();
-      const operation = String(pendingPayment.operation || "").toLowerCase();
-      const billingInterval = String(pendingPayment.billingInterval || draft.billingInterval).toLowerCase();
-      if (reconciliation.state === "active") {
-        if (!targetPlan) throw new Error("ไม่พบแพ็กเกจของรายการชำระเงินเดิม กรุณาลองตรวจสอบอีกครั้ง");
-        const endpoint = operation === "subscription_upgrade" ? "/api/billing/upgrade" : "/api/billing/checkout";
-        const existingCheckout = await requestSubscriptionInitialization(endpoint, { targetPlan, billingInterval });
-        if (!isCurrentAttempt()) return;
-        app.billingCheckout = existingCheckout;
-        if (existingCheckout.billing && app.data) app.data.billing = existingCheckout.billing;
-      } else {
-        app.billingCheckout = {
-          payment: pendingPayment,
-          upgrade: { targetPlan, billingInterval, currentPlan: app.data?.billing?.subscription?.plan || "starter" }
-        };
+      draft.pendingPayment = pendingPayment;
+      draft.awaitingWebhook = reconciliation.state === "awaiting_webhook";
+      draft.reconciliationReady = reconciliation.state === "active";
+      if (draft.awaitingWebhook) {
+        draft.initializationError = "Stripe ยืนยันการชำระเงินแล้ว ระบบกำลังรอ webhook ที่ตรวจสอบแล้ว กรุณาอย่าสร้างรายการซ้ำ";
       }
-      draft.initializing = false;
-      app.subscriptionCheckoutDraft = null;
-      app.subscriptionQuoteLoading = false;
-      app.subscriptionQrLoadState = null;
       render();
       return;
     }
@@ -10488,6 +10499,7 @@ function renderSettingsSubscription() {
   const qrState = app.subscriptionQrLoadState?.paymentId === qrPaymentId
     ? app.subscriptionQrLoadState.state
     : (qrImageSource ? "loading" : "error");
+  const checkoutBlockReason = draft ? subscriptionCheckoutBlockReason(draft) : "";
   const qrMarkup = qrImageSource ? `
     <div class="subscription-qr-state" data-subscription-qr-state="${escapeHtml(qrState)}">
       <div class="subscription-checkout-qr-placeholder" data-subscription-qr-loading role="status" aria-live="polite"${qrState === "loaded" || qrState === "error" ? " hidden" : ""}><span>กำลังเตรียม QR Code</span></div>
@@ -10521,7 +10533,7 @@ function renderSettingsSubscription() {
       <div class="subscription-card-heading"><span class="subscription-card-icon">${iconSvg("wallet")}</span><div><h2>ยืนยันก่อนสร้าง PromptPay QR</h2><p>ตรวจสอบแพ็กเกจ โค้ดส่วนลด และยอดชำระให้เรียบร้อย</p></div></div>
       <div class="subscription-payment-status pending" role="status">
         <span class="subscription-status-dot" aria-hidden="true"></span>
-        <div><strong>ยังไม่ได้สร้างรายการชำระเงิน</strong><p>ระบบจะสร้าง Stripe PaymentIntent หลังคุณกดยืนยันชำระเงินเท่านั้น</p></div>
+        <div><strong>${draft.pendingPayment ? "พบรายการชำระเงินเดิม" : "ยังไม่ได้สร้างรายการชำระเงิน"}</strong><p>${draft.pendingPayment ? "ระบบจะไม่เปิด QR จนกว่าคุณจะกดดำเนินการต่อ และตรวจสอบความเข้ากันได้ของยอดกับโค้ดก่อน" : "ระบบจะสร้าง Stripe PaymentIntent หลังคุณกดยืนยันชำระเงินเท่านั้น"}</p></div>
       </div>
       <div class="subscription-security-note"><span>${iconSvg("shield")}</span><div><strong>ยอดเงินคำนวณจากเซิร์ฟเวอร์</strong><p>ระบบจะตรวจสอบราคาและสิทธิ์โปรโมชั่นซ้ำก่อนสร้างรายการชำระเงิน</p></div></div>
     </article>
@@ -10546,7 +10558,7 @@ function renderSettingsSubscription() {
     </article>
   `;
   const summaryAction = draft
-    ? `<button class="button primary subscription-primary-action" type="button" data-subscription-checkout-confirm ${app.pricingUpgradeLoading || app.subscriptionQuoteLoading || draft.initializing || !draft.baseQuote || !draft.reconciliationReady ? "disabled" : ""}>${app.pricingUpgradeLoading ? "กำลังสร้างรายการชำระเงิน..." : draft.initializing && !draft.reconciliationReady ? "กำลังตรวจสอบรายการเดิม..." : draftQuote?.mode === "free_service" ? "ยืนยันรับสิทธิ์ฟรี" : "ยืนยันชำระเงิน"}</button>${draft.initializationError ? `<p class="subscription-promo-message" role="status">${escapeHtml(draft.initializationError)}</p><button class="button secondary" type="button" data-subscription-initialization-retry ${draft.initializing ? "disabled" : ""}>ลองตรวจสอบอีกครั้ง</button>` : ""}`
+    ? `<button class="button primary subscription-primary-action" type="button" data-subscription-checkout-confirm ${app.pricingUpgradeLoading || app.subscriptionQuoteLoading || draft.initializing || checkoutBlockReason ? "disabled" : ""}>${app.pricingUpgradeLoading ? "กำลังสร้างรายการชำระเงิน..." : draft.initializing && !draft.reconciliationReady ? "กำลังตรวจสอบรายการเดิม..." : draft.pendingPayment && !draft.awaitingWebhook ? "ดำเนินการต่อรายการเดิม" : draftQuote?.mode === "free_service" ? "ยืนยันรับสิทธิ์ฟรี" : "ยืนยันชำระเงิน"}</button>${draft.initializationError || (draft.baseQuote && !draft.initializing && checkoutBlockReason) ? `<p class="subscription-promo-message" role="status">${escapeHtml(draft.initializationError || checkoutBlockReason)}</p>` : ""}${draft.initializationError && !draft.awaitingWebhook ? `<button class="button secondary" type="button" data-subscription-initialization-retry ${draft.initializing ? "disabled" : ""}>ลองตรวจสอบอีกครั้ง</button>` : ""}`
     : isSuccess
     ? `<button class="button primary subscription-primary-action" type="button" data-view-shortcut="dashboard">เริ่มใช้งาน</button>`
     : `<button class="button ghost subscription-back-action" type="button" data-view-shortcut="pricing">${iconSvg("arrow")} กลับไปเลือกแพ็กเกจ</button>`;
@@ -10607,6 +10619,12 @@ function renderSettingsSubscription() {
     const promoInput = promoForm.querySelector("input");
     const promoButton = promoForm.querySelector("button");
     const promoMessage = promoForm.querySelector("[role=status]");
+    const updateConfirmControl = () => {
+      const confirm = els.content.querySelector("[data-subscription-checkout-confirm]");
+      if (!confirm || !draft) return;
+      confirm.disabled = Boolean(app.pricingUpgradeLoading || app.subscriptionQuoteLoading || draft.initializing || subscriptionCheckoutBlockReason(draft));
+      confirm.textContent = draft.pendingPayment && !draft.awaitingWebhook ? "ดำเนินการต่อรายการเดิม" : "ยืนยันชำระเงิน";
+    };
     promoInput.addEventListener("input", () => {
       if (draft) {
         app.checkoutPromotionCode = promoInput.value;
@@ -10623,7 +10641,8 @@ function renderSettingsSubscription() {
         const method = els.content.querySelector("[data-subscription-payment-method]");
         if (method) method.textContent = "PromptPay";
         const confirm = els.content.querySelector("[data-subscription-checkout-confirm]");
-        if (confirm) confirm.textContent = "ยืนยันชำระเงิน";
+        if (confirm) confirm.textContent = draft.pendingPayment && !draft.awaitingWebhook ? "ดำเนินการต่อรายการเดิม" : "ยืนยันชำระเงิน";
+        updateConfirmControl();
         return;
       }
       promoUi.code = promoInput.value;
@@ -13165,7 +13184,7 @@ document.addEventListener("click", async event => {
   const subscriptionConfirmButton = event.target.closest("[data-subscription-checkout-confirm]");
   if (subscriptionConfirmButton && app.view === "settingsSubscription" && app.subscriptionCheckoutDraft && !app.pricingUpgradeLoading) {
     const draft = app.subscriptionCheckoutDraft;
-    if (!draft.baseQuote || !draft.reconciliationReady || draft.initializing || app.subscriptionQuoteLoading) return;
+    if (!draft.baseQuote || !draft.reconciliationReady || draft.initializing || app.subscriptionQuoteLoading || subscriptionCheckoutBlockReason(draft)) return;
     const applied = app.checkoutPromoQuote;
     app.pricingUpgradeLoading = draft.targetPlan;
     app.checkoutPromotionError = "";
