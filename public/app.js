@@ -10346,20 +10346,30 @@ function subscriptionCheckoutBlockReason(draft) {
   if (draft.awaitingWebhook) return "Stripe รับการชำระเงินแล้ว ระบบกำลังรอการยืนยันที่ตรวจสอบได้ กรุณารอสักครู่";
   const pending = draft.pendingPayment;
   if (pending) {
-    const pendingPlan = String(pending.targetPlan || pending.plan || "").toLowerCase();
-    const pendingInterval = String(pending.billingInterval || "").toLowerCase();
-    const pendingAmount = Number(pending.amountMinor);
-    const pendingCode = String(pending.promotion?.code || "").trim().toUpperCase();
-    const quoteCode = appliedCode;
-    const pendingCurrency = String(pending.currency || "THB").toUpperCase();
-    const quoteCurrency = String(quote.currency || quote.currency_code || "THB").toUpperCase();
-    if (pendingPlan !== targetPlan || pendingInterval !== billingInterval
-      || !Number.isFinite(pendingAmount) || pendingAmount !== amountMinor
-      || pendingCode !== quoteCode || pendingCurrency !== quoteCurrency) {
-      return "รายการชำระเงินเดิมไม่ตรงกับแพ็กเกจ รอบบิล ยอด หรือโค้ดที่เลือก จึงยังดำเนินการต่อไม่ได้";
+    const protectedStates = [pending.providerStatus, pending.status, pending.paymentState]
+      .map(status => String(status || "").toLowerCase());
+    if (pending.awaitingWebhook || protectedStates.some(status => ["processing", "succeeded", "paid", "awaiting_webhook"].includes(status))) {
+      return "รายการเดิมกำลังตรวจสอบการชำระเงิน กรุณารอผลก่อนเริ่มรายการใหม่";
     }
   }
   return "";
+}
+
+function subscriptionPendingContextMatches(draft) {
+  const pending = draft?.pendingPayment;
+  if (!pending || !draft?.baseQuote) return false;
+  const quote = app.checkoutPromoQuote?.quote || draft.baseQuote;
+  const pendingPlan = String(pending.targetPlan || pending.plan || "").toLowerCase();
+  const pendingInterval = String(pending.billingInterval || "").toLowerCase();
+  const pendingAmount = Number(pending.amountMinor);
+  const pendingCode = String(pending.promotion?.code || "").trim().toUpperCase();
+  const quoteCode = String(quote.code || "").trim().toUpperCase();
+  const pendingCurrency = String(pending.currency || "THB").toUpperCase();
+  const quoteCurrency = String(quote.currency || quote.currency_code || "THB").toUpperCase();
+  return pendingPlan === String(draft.targetPlan || "").toLowerCase()
+    && pendingInterval === String(draft.billingInterval || "").toLowerCase()
+    && Number.isFinite(pendingAmount) && pendingAmount === Number(quote.amount_minor)
+    && pendingCode === quoteCode && pendingCurrency === quoteCurrency;
 }
 
 function subscriptionResumePrefetchFor(draft) {
@@ -10373,6 +10383,7 @@ function subscriptionResumePrefetchFor(draft) {
     || String(payment.billingInterval || "").toLowerCase() !== String(draft.billingInterval || "").toLowerCase()
     || Number(payment.amountMinor) !== Number(pending.amountMinor)
     || String(payment.currency || "THB").toUpperCase() !== String(pending.currency || "THB").toUpperCase()
+    || !subscriptionPendingContextMatches(draft)
     || subscriptionCheckoutBlockReason(draft)) return null;
   return payload;
 }
@@ -10522,6 +10533,7 @@ function renderSettingsSubscription() {
     ? app.subscriptionQrLoadState.state
     : (qrImageSource ? "loading" : "error");
   const checkoutBlockReason = draft ? subscriptionCheckoutBlockReason(draft) : "";
+  const pendingContextMatches = draft ? subscriptionPendingContextMatches(draft) : false;
   const qrMarkup = qrImageSource ? `
     <div class="subscription-qr-state" data-subscription-qr-state="${escapeHtml(qrState)}">
       <div class="subscription-checkout-qr-placeholder" data-subscription-qr-loading role="status" aria-live="polite"${qrState === "loaded" || qrState === "error" ? " hidden" : ""}><span>กำลังเตรียม QR Code</span></div>
@@ -10561,7 +10573,7 @@ function renderSettingsSubscription() {
       <div class="subscription-card-heading"><span class="subscription-card-icon">${iconSvg("wallet")}</span><div><h2>ยืนยันก่อนสร้าง PromptPay QR</h2><p>ตรวจสอบแพ็กเกจ โค้ดส่วนลด และยอดชำระให้เรียบร้อย</p></div></div>
       <div class="subscription-payment-status pending" role="status">
         <span class="subscription-status-dot" aria-hidden="true"></span>
-        <div><strong>${draft.pendingPayment ? "พบรายการชำระเงินเดิม" : "ยังไม่ได้สร้างรายการชำระเงิน"}</strong><p>${draft.pendingPayment ? "ระบบจะไม่เปิด QR จนกว่าคุณจะกดดำเนินการต่อ และตรวจสอบความเข้ากันได้ของยอดกับโค้ดก่อน" : "ระบบจะสร้าง Stripe PaymentIntent หลังคุณกดยืนยันชำระเงินเท่านั้น"}</p></div>
+        <div><strong>${draft.pendingPayment ? "พบรายการชำระเงินเดิม" : "ยังไม่ได้สร้างรายการชำระเงิน"}</strong><p>${draft.pendingPayment ? (pendingContextMatches ? "แพ็กเกจ รอบบิล ยอด และโปรโมชั่นตรงกับรายการเดิม ระบบจะใช้รายการเดิมเมื่อคุณยืนยัน" : "รายการเดิมไม่ตรงกับตัวเลือกปัจจุบัน ระบบจะตรวจสอบและปิดรายการเดิมอย่างปลอดภัยหลังคุณยืนยันชำระเงินเท่านั้น") : "ระบบจะสร้าง Stripe PaymentIntent หลังคุณกดยืนยันชำระเงินเท่านั้น"}</p></div>
       </div>
       <div class="subscription-security-note"><span>${iconSvg("shield")}</span><div><strong>ยอดเงินคำนวณจากเซิร์ฟเวอร์</strong><p>ระบบจะตรวจสอบราคาและสิทธิ์โปรโมชั่นซ้ำก่อนสร้างรายการชำระเงิน</p></div></div>
     </article>
@@ -10586,7 +10598,7 @@ function renderSettingsSubscription() {
     </article>
   `;
   const summaryAction = draft
-    ? `<button class="button primary subscription-primary-action" type="button" data-subscription-checkout-confirm ${app.pricingUpgradeLoading || app.subscriptionQuoteLoading || draft.initializing || checkoutBlockReason ? "disabled" : ""}>${app.pricingUpgradeLoading ? "กำลังสร้างรายการชำระเงิน..." : draft.initializing && !draft.reconciliationReady ? "กำลังตรวจสอบรายการเดิม..." : draft.pendingPayment && !draft.awaitingWebhook ? "ดำเนินการต่อรายการเดิม" : draftQuote?.mode === "free_service" ? "ยืนยันรับสิทธิ์ฟรี" : "ยืนยันชำระเงิน"}</button>${draft.initializationError || draft.submitError || (draft.baseQuote && !draft.initializing && checkoutBlockReason) ? `<p class="subscription-promo-message" role="status">${escapeHtml(draft.initializationError || draft.submitError || checkoutBlockReason)}</p>` : ""}${draft.initializationError && !draft.awaitingWebhook ? `<button class="button secondary" type="button" data-subscription-initialization-retry ${draft.initializing ? "disabled" : ""}>ลองตรวจสอบอีกครั้ง</button>` : ""}`
+    ? `<button class="button primary subscription-primary-action" type="button" data-subscription-checkout-confirm ${app.pricingUpgradeLoading || app.subscriptionQuoteLoading || draft.initializing || checkoutBlockReason ? "disabled" : ""}>${app.pricingUpgradeLoading ? "กำลังสร้างรายการชำระเงิน..." : draft.initializing && !draft.reconciliationReady ? "กำลังตรวจสอบรายการเดิม..." : draft.pendingPayment && pendingContextMatches ? "ดำเนินการต่อรายการเดิม" : draftQuote?.mode === "free_service" ? "ยืนยันรับสิทธิ์ฟรี" : "ยืนยันชำระเงิน"}</button>${draft.initializationError || draft.submitError || (draft.baseQuote && !draft.initializing && checkoutBlockReason) ? `<p class="subscription-promo-message" role="status">${escapeHtml(draft.initializationError || draft.submitError || checkoutBlockReason)}</p>` : ""}${draft.initializationError && !draft.awaitingWebhook ? `<button class="button secondary" type="button" data-subscription-initialization-retry ${draft.initializing ? "disabled" : ""}>ลองตรวจสอบอีกครั้ง</button>` : ""}`
     : isSuccess
     ? `<button class="button primary subscription-primary-action" type="button" data-view-shortcut="dashboard">เริ่มใช้งาน</button>`
     : `<button class="button ghost subscription-back-action" type="button" data-view-shortcut="pricing">${iconSvg("arrow")} กลับไปเลือกแพ็กเกจ</button>`;
@@ -10651,7 +10663,7 @@ function renderSettingsSubscription() {
       const confirm = els.content.querySelector("[data-subscription-checkout-confirm]");
       if (!confirm || !draft) return;
       confirm.disabled = Boolean(app.pricingUpgradeLoading || app.subscriptionQuoteLoading || draft.initializing || subscriptionCheckoutBlockReason(draft));
-      confirm.textContent = draft.pendingPayment && !draft.awaitingWebhook ? "ดำเนินการต่อรายการเดิม" : "ยืนยันชำระเงิน";
+      confirm.textContent = draft.pendingPayment && subscriptionPendingContextMatches(draft) ? "ดำเนินการต่อรายการเดิม" : "ยืนยันชำระเงิน";
     };
     promoInput.addEventListener("input", () => {
       if (draft) {
@@ -10669,7 +10681,7 @@ function renderSettingsSubscription() {
         const method = els.content.querySelector("[data-subscription-payment-method]");
         if (method) method.textContent = "PromptPay";
         const confirm = els.content.querySelector("[data-subscription-checkout-confirm]");
-        if (confirm) confirm.textContent = draft.pendingPayment && !draft.awaitingWebhook ? "ดำเนินการต่อรายการเดิม" : "ยืนยันชำระเงิน";
+        if (confirm) confirm.textContent = draft.pendingPayment && subscriptionPendingContextMatches(draft) ? "ดำเนินการต่อรายการเดิม" : "ยืนยันชำระเงิน";
         updateConfirmControl();
         return;
       }
@@ -10895,7 +10907,7 @@ function renderPricing() {
   `;
 }
 
-async function beginSubscriptionCheckoutForUi({ targetPlan, billingInterval, action, idempotencyKey = "", promotionCode = "" } = {}) {
+async function beginSubscriptionCheckoutForUi({ targetPlan, billingInterval, action, idempotencyKey = "", promotionCode = "", confirmReplacement = false } = {}) {
   const endpoint = action === "upgrade" ? "/api/billing/upgrade" : "/api/billing/checkout";
   return api(endpoint, {
     method: "POST",
@@ -10903,6 +10915,7 @@ async function beginSubscriptionCheckoutForUi({ targetPlan, billingInterval, act
       targetPlan,
       billingInterval,
       ...(promotionCode ? { promotionCode } : {}),
+      ...(confirmReplacement ? { confirmReplacement: true } : {}),
       ...(idempotencyKey ? { idempotencyKey } : {})
     })
   });
@@ -13241,7 +13254,8 @@ document.addEventListener("click", async event => {
         targetPlan: draft.targetPlan,
         billingInterval: draft.billingInterval,
         action: draft.action,
-        promotionCode: applied?.quote?.code || ""
+        promotionCode: applied?.quote?.code || "",
+        confirmReplacement: true
       });
       app.billingCheckout = payload;
       if (payload.billing && app.data) app.data.billing = payload.billing;
