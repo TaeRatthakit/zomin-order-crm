@@ -1,0 +1,208 @@
+{
+  "schemaVersion": 1,
+  "id": "task5-immediate-confirmation-qr-shell",
+  "base": {
+    "sourceCommit": "6f7b8c6def30c55ca85f67788d0d75ec5701bf48"
+  },
+  "target": {
+    "sourceCommit": "a0b3b1bbd6fae3608a016dc669b2904e373d9cc7"
+  },
+  "allowedFiles": [
+    "public/app.js"
+  ],
+  "approvedChanges": [
+    {
+      "route": "Authenticated Pricing / Subscription Checkout",
+      "component": "immediate, retryable confirmation and QR delivery",
+      "regions": [
+        "explicit confirm / continue-existing action",
+        "QR loading shell",
+        "error and retry state"
+      ],
+      "selectors": [
+        ".subscription-checkout-page",
+        "[data-subscription-checkout-confirm]",
+        ".subscription-qr-state"
+      ]
+    }
+  ],
+  "expectedTextChanges": [
+    {
+      "route": "Authenticated Pricing / Subscription Checkout",
+      "component": "explicit confirmation uses loading shell while server validates payment",
+      "from": "const paymentCard = draft ? `",
+      "to": "const paymentCard = draft?.submitting ? `"
+    },
+    {
+      "route": "Authenticated Pricing / Subscription Checkout",
+      "component": "failed confirmation remains retryable without blocking on promo error",
+      "from": "app.checkoutPromotionError = error.message || \"สร้างรายการชำระเงินไม่สำเร็จ\";",
+      "to": "draft.submitError = error.message || \"สร้างรายการชำระเงินไม่สำเร็จ\";"
+    },
+    {
+      "route": "Authenticated Pricing / Subscription Checkout",
+      "component": "use the authoritative QR URL first and retain the authenticated proxy as fallback",
+      "from": "const qrImageSource = checkout.promptpay && qrProxyUrl ? qrProxyUrl : qrImage;",
+      "to": "const qrImageSource = qrImage || qrProxyUrl;"
+    }
+  ],
+  "expectedDiffSha256": "e563298b17121aa809d00773a77cc79ddb3ef48be9df1da1ffdffd6bfbdf0f00",
+  "expectedDiffLines": [
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 10470,
+      "text": "  const amountDisplay = draft && !draft.baseQuote ? \"—\" : amount;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10470,
+      "text": "  const amountDisplay = draft && (!draft.baseQuote || draft.submitting) ? \"—\" : amount;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 10497,
+      "text": "  const qrImageSource = checkout.promptpay && qrProxyUrl ? qrProxyUrl : qrImage;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10497,
+      "text": "  const qrImageSource = qrImage || qrProxyUrl;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 10531,
+      "text": "  const paymentCard = draft ? `"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10531,
+      "text": "  const paymentCard = draft?.submitting ? `"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10532,
+      "text": "    <article class=\"subscription-checkout-card subscription-confirm-card\">"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10533,
+      "text": "      <div class=\"subscription-card-heading\"><span class=\"subscription-card-icon\">${iconSvg(\"wallet\")}</span><div><h2>เตรียม PromptPay QR</h2><p>กำลังตรวจสอบและเตรียมรายการชำระเงิน</p></div></div>"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10534,
+      "text": "      <div class=\"subscription-qr-wrap\"><div class=\"subscription-qr-state\" data-subscription-qr-state=\"loading\"><div class=\"subscription-checkout-qr-placeholder\" data-subscription-qr-loading role=\"status\" aria-live=\"polite\"><span>กำลังเตรียม QR Code</span></div></div></div>"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10535,
+      "text": "      <div class=\"subscription-security-note\"><span>${iconSvg(\"shield\")}</span><div><strong>ยอดเงินคำนวณจากเซิร์ฟเวอร์</strong><p>QR Code จะแสดงหลังระบบยืนยันรายการชำระเงินแล้ว</p></div></div>"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10536,
+      "text": "    </article>"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10537,
+      "text": "  ` : draft ? `"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 10561,
+      "text": "    ? `<button class=\"button primary subscription-primary-action\" type=\"button\" data-subscription-checkout-confirm ${app.pricingUpgradeLoading || app.subscriptionQuoteLoading || draft.initializing || checkoutBlockReason ? \"disabled\" : \"\"}>${app.pricingUpgradeLoading ? \"กำลังสร้างรายการชำระเงิน...\" : draft.initializing && !draft.reconciliationReady ? \"กำลังตรวจสอบรายการเดิม...\" : draft.pendingPayment && !draft.awaitingWebhook ? \"ดำเนินการต่อรายการเดิม\" : draftQuote?.mode === \"free_service\" ? \"ยืนยันรับสิทธิ์ฟรี\" : \"ยืนยันชำระเงิน\"}</button>${draft.initializationError || (draft.baseQuote && !draft.initializing && checkoutBlockReason) ? `<p class=\"subscription-promo-message\" role=\"status\">${escapeHtml(draft.initializationError || checkoutBlockReason)}</p>` : \"\"}${draft.initializationError && !draft.awaitingWebhook ? `<button class=\"button secondary\" type=\"button\" data-subscription-initialization-retry ${draft.initializing ? \"disabled\" : \"\"}>ลองตรวจสอบอีกครั้ง</button>` : \"\"}`"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10567,
+      "text": "    ? `<button class=\"button primary subscription-primary-action\" type=\"button\" data-subscription-checkout-confirm ${app.pricingUpgradeLoading || app.subscriptionQuoteLoading || draft.initializing || checkoutBlockReason ? \"disabled\" : \"\"}>${app.pricingUpgradeLoading ? \"กำลังสร้างรายการชำระเงิน...\" : draft.initializing && !draft.reconciliationReady ? \"กำลังตรวจสอบรายการเดิม...\" : draft.pendingPayment && !draft.awaitingWebhook ? \"ดำเนินการต่อรายการเดิม\" : draftQuote?.mode === \"free_service\" ? \"ยืนยันรับสิทธิ์ฟรี\" : \"ยืนยันชำระเงิน\"}</button>${draft.initializationError || draft.submitError || (draft.baseQuote && !draft.initializing && checkoutBlockReason) ? `<p class=\"subscription-promo-message\" role=\"status\">${escapeHtml(draft.initializationError || draft.submitError || checkoutBlockReason)}</p>` : \"\"}${draft.initializationError && !draft.awaitingWebhook ? `<button class=\"button secondary\" type=\"button\" data-subscription-initialization-retry ${draft.initializing ? \"disabled\" : \"\"}>ลองตรวจสอบอีกครั้ง</button>` : \"\"}`"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 10588,
+      "text": "          <dl class=\"subscription-summary-list\"><div><dt>แพ็กเกจ</dt><dd>${escapeHtml(selectedPlan)}</dd></div><div><dt>${draft ? \"ราคาเดิม\" : \"ค่าบริการ\"}</dt><dd>${escapeHtml(draft && !draft.baseQuote ? \"—\" : draft ? originalAmount : amount)} / ${escapeHtml(intervalCopy)}</dd></div><div><dt>วิธีชำระเงิน</dt><dd data-subscription-payment-method>${draftQuote?.mode === \"free_service\" ? \"ไม่ต้องชำระผ่าน Stripe\" : \"PromptPay\"}</dd></div></dl>"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10594,
+      "text": "          <dl class=\"subscription-summary-list\"><div><dt>แพ็กเกจ</dt><dd>${escapeHtml(selectedPlan)}</dd></div><div><dt>${draft ? \"ราคาเดิม\" : \"ค่าบริการ\"}</dt><dd>${escapeHtml(draft && (!draft.baseQuote || draft.submitting) ? \"—\" : draft ? originalAmount : amount)} / ${escapeHtml(intervalCopy)}</dd></div><div><dt>วิธีชำระเงิน</dt><dd data-subscription-payment-method>${draftQuote?.mode === \"free_service\" ? \"ไม่ต้องชำระผ่าน Stripe\" : \"PromptPay\"}</dd></div></dl>"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 10593,
+      "text": "              <button class=\"button secondary\" type=\"submit\"${app.subscriptionQuoteLoading || draft?.initializing ? \" disabled\" : \"\"}>${app.subscriptionQuoteLoading || draft?.initializing ? \"กำลังตรวจสอบ...\" : \"ใช้โค้ด\"}</button>"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10599,
+      "text": "              <button class=\"button secondary\" type=\"submit\"${app.subscriptionQuoteLoading || draft?.initializing || draft?.submitting ? \" disabled\" : \"\"}>${app.subscriptionQuoteLoading || draft?.initializing ? \"กำลังตรวจสอบ...\" : draft?.submitting ? \"กำลังเตรียม...\" : \"ใช้โค้ด\"}</button>"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 13196,
+      "text": "    draft.submitting = true;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 13197,
+      "text": "    draft.submitError = \"\";"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 13222,
+      "text": "      app.checkoutPromotionError = error.message || \"สร้างรายการชำระเงินไม่สำเร็จ\";"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 13223,
+      "text": "      showToast(app.checkoutPromotionError, \"error\");"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 13230,
+      "text": "      draft.submitting = false;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 13231,
+      "text": "      draft.submitError = error.message || \"สร้างรายการชำระเงินไม่สำเร็จ\";"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 13232,
+      "text": "      showToast(draft.submitError, \"error\");"
+    }
+  ],
+  "tooling": {
+    "sourceCommit": "0419bc71c11bd5850d06db8cd49f6f5585fb1289",
+    "allowedFiles": [
+      "scripts/subscription-upgrade-test.js"
+    ]
+  }
+}
