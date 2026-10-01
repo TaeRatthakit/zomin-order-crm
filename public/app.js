@@ -10467,7 +10467,7 @@ function renderSettingsSubscription() {
     ? (draftQuote?.amount_minor ?? draft?.baseQuote?.amount_minor ?? 0)
     : (promptpay.amountMinor ?? latestPayment.amountMinor ?? (targetPlan === "enterprise" ? 199000 : targetPlan === "business" ? 99000 : subscription.amountDueMinor || 0)));
   const amount = `฿${(amountMinor / 100).toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  const amountDisplay = draft && !draft.baseQuote ? "—" : amount;
+  const amountDisplay = draft && (!draft.baseQuote || draft.submitting) ? "—" : amount;
   const billingInterval = String(draft?.billingInterval || latestPayment.billingInterval || checkout.upgrade?.billingInterval || subscription.billingInterval || "monthly").toLowerCase();
   const intervalCopy = billingInterval === "yearly" ? "ปี" : "เดือน";
   const status = subscriptionPaymentDisplayStatus(promptpay, latestPayment);
@@ -10494,7 +10494,7 @@ function renderSettingsSubscription() {
     || "";
   const qrPaymentId = String(checkout.payment?.id || latestPayment.id || "");
   const qrProxyUrl = qrPaymentId ? "/api/billing/upgrade/qr" : "";
-  const qrImageSource = checkout.promptpay && qrProxyUrl ? qrProxyUrl : qrImage;
+  const qrImageSource = qrImage || qrProxyUrl;
   const qrPrimarySource = qrImageSource === qrProxyUrl ? "proxy" : "direct";
   const qrState = app.subscriptionQrLoadState?.paymentId === qrPaymentId
     ? app.subscriptionQrLoadState.state
@@ -10528,7 +10528,13 @@ function renderSettingsSubscription() {
       <div><strong>${escapeHtml(statusCopy[0])}</strong><p>${escapeHtml(statusCopy[1])}</p></div>
     </div>
   `;
-  const paymentCard = draft ? `
+  const paymentCard = draft?.submitting ? `
+    <article class="subscription-checkout-card subscription-confirm-card">
+      <div class="subscription-card-heading"><span class="subscription-card-icon">${iconSvg("wallet")}</span><div><h2>เตรียม PromptPay QR</h2><p>กำลังตรวจสอบและเตรียมรายการชำระเงิน</p></div></div>
+      <div class="subscription-qr-wrap"><div class="subscription-qr-state" data-subscription-qr-state="loading"><div class="subscription-checkout-qr-placeholder" data-subscription-qr-loading role="status" aria-live="polite"><span>กำลังเตรียม QR Code</span></div></div></div>
+      <div class="subscription-security-note"><span>${iconSvg("shield")}</span><div><strong>ยอดเงินคำนวณจากเซิร์ฟเวอร์</strong><p>QR Code จะแสดงหลังระบบยืนยันรายการชำระเงินแล้ว</p></div></div>
+    </article>
+  ` : draft ? `
     <article class="subscription-checkout-card subscription-confirm-card">
       <div class="subscription-card-heading"><span class="subscription-card-icon">${iconSvg("wallet")}</span><div><h2>ยืนยันก่อนสร้าง PromptPay QR</h2><p>ตรวจสอบแพ็กเกจ โค้ดส่วนลด และยอดชำระให้เรียบร้อย</p></div></div>
       <div class="subscription-payment-status pending" role="status">
@@ -10558,7 +10564,7 @@ function renderSettingsSubscription() {
     </article>
   `;
   const summaryAction = draft
-    ? `<button class="button primary subscription-primary-action" type="button" data-subscription-checkout-confirm ${app.pricingUpgradeLoading || app.subscriptionQuoteLoading || draft.initializing || checkoutBlockReason ? "disabled" : ""}>${app.pricingUpgradeLoading ? "กำลังสร้างรายการชำระเงิน..." : draft.initializing && !draft.reconciliationReady ? "กำลังตรวจสอบรายการเดิม..." : draft.pendingPayment && !draft.awaitingWebhook ? "ดำเนินการต่อรายการเดิม" : draftQuote?.mode === "free_service" ? "ยืนยันรับสิทธิ์ฟรี" : "ยืนยันชำระเงิน"}</button>${draft.initializationError || (draft.baseQuote && !draft.initializing && checkoutBlockReason) ? `<p class="subscription-promo-message" role="status">${escapeHtml(draft.initializationError || checkoutBlockReason)}</p>` : ""}${draft.initializationError && !draft.awaitingWebhook ? `<button class="button secondary" type="button" data-subscription-initialization-retry ${draft.initializing ? "disabled" : ""}>ลองตรวจสอบอีกครั้ง</button>` : ""}`
+    ? `<button class="button primary subscription-primary-action" type="button" data-subscription-checkout-confirm ${app.pricingUpgradeLoading || app.subscriptionQuoteLoading || draft.initializing || checkoutBlockReason ? "disabled" : ""}>${app.pricingUpgradeLoading ? "กำลังสร้างรายการชำระเงิน..." : draft.initializing && !draft.reconciliationReady ? "กำลังตรวจสอบรายการเดิม..." : draft.pendingPayment && !draft.awaitingWebhook ? "ดำเนินการต่อรายการเดิม" : draftQuote?.mode === "free_service" ? "ยืนยันรับสิทธิ์ฟรี" : "ยืนยันชำระเงิน"}</button>${draft.initializationError || draft.submitError || (draft.baseQuote && !draft.initializing && checkoutBlockReason) ? `<p class="subscription-promo-message" role="status">${escapeHtml(draft.initializationError || draft.submitError || checkoutBlockReason)}</p>` : ""}${draft.initializationError && !draft.awaitingWebhook ? `<button class="button secondary" type="button" data-subscription-initialization-retry ${draft.initializing ? "disabled" : ""}>ลองตรวจสอบอีกครั้ง</button>` : ""}`
     : isSuccess
     ? `<button class="button primary subscription-primary-action" type="button" data-view-shortcut="dashboard">เริ่มใช้งาน</button>`
     : `<button class="button ghost subscription-back-action" type="button" data-view-shortcut="pricing">${iconSvg("arrow")} กลับไปเลือกแพ็กเกจ</button>`;
@@ -10585,12 +10591,12 @@ function renderSettingsSubscription() {
         <div class="subscription-checkout-left">${paymentCard}</div>
         <aside class="subscription-summary-card">
           <div class="subscription-card-heading"><span class="subscription-card-icon">${iconSvg("clipboard")}</span><h2>สรุปรายการ</h2></div>
-          <dl class="subscription-summary-list"><div><dt>แพ็กเกจ</dt><dd>${escapeHtml(selectedPlan)}</dd></div><div><dt>${draft ? "ราคาเดิม" : "ค่าบริการ"}</dt><dd>${escapeHtml(draft && !draft.baseQuote ? "—" : draft ? originalAmount : amount)} / ${escapeHtml(intervalCopy)}</dd></div><div><dt>วิธีชำระเงิน</dt><dd data-subscription-payment-method>${draftQuote?.mode === "free_service" ? "ไม่ต้องชำระผ่าน Stripe" : "PromptPay"}</dd></div></dl>
+          <dl class="subscription-summary-list"><div><dt>แพ็กเกจ</dt><dd>${escapeHtml(selectedPlan)}</dd></div><div><dt>${draft ? "ราคาเดิม" : "ค่าบริการ"}</dt><dd>${escapeHtml(draft && (!draft.baseQuote || draft.submitting) ? "—" : draft ? originalAmount : amount)} / ${escapeHtml(intervalCopy)}</dd></div><div><dt>วิธีชำระเงิน</dt><dd data-subscription-payment-method>${draftQuote?.mode === "free_service" ? "ไม่ต้องชำระผ่าน Stripe" : "PromptPay"}</dd></div></dl>
           ${draft && app.data?.billing?.checkoutPromoEnabled && app.currentUser?.role === "Owner" ? `<form class="subscription-promo" data-subscription-promo-form novalidate>
             <label for="subscriptionPromoCode">โค้ดส่วนลด</label>
             <div class="subscription-promo-controls">
               <input id="subscriptionPromoCode" type="text" placeholder="กรอกโค้ดโปรโมชั่น" maxlength="64" autocomplete="off" spellcheck="false" aria-describedby="subscriptionPromoMessage" aria-invalid="${Boolean(app.checkoutPromotionError)}" value="${escapeHtml(app.checkoutPromotionCode || "")}">
-              <button class="button secondary" type="submit"${app.subscriptionQuoteLoading || draft?.initializing ? " disabled" : ""}>${app.subscriptionQuoteLoading || draft?.initializing ? "กำลังตรวจสอบ..." : "ใช้โค้ด"}</button>
+              <button class="button secondary" type="submit"${app.subscriptionQuoteLoading || draft?.initializing || draft?.submitting ? " disabled" : ""}>${app.subscriptionQuoteLoading || draft?.initializing ? "กำลังตรวจสอบ..." : draft?.submitting ? "กำลังเตรียม..." : "ใช้โค้ด"}</button>
             </div>
             <p id="subscriptionPromoMessage" class="subscription-promo-message ${app.checkoutPromotionError ? "is-error" : ""}" role="status" aria-live="polite" aria-atomic="true"${app.checkoutPromotionError || promoBenefit ? "" : " hidden"}>${escapeHtml(app.checkoutPromotionError || promoBenefit)}</p>
           </form>` : ""}
@@ -13187,6 +13193,8 @@ document.addEventListener("click", async event => {
     if (!draft.baseQuote || !draft.reconciliationReady || draft.initializing || app.subscriptionQuoteLoading || subscriptionCheckoutBlockReason(draft)) return;
     const applied = app.checkoutPromoQuote;
     app.pricingUpgradeLoading = draft.targetPlan;
+    draft.submitting = true;
+    draft.submitError = "";
     app.checkoutPromotionError = "";
     render();
     try {
@@ -13219,8 +13227,9 @@ document.addEventListener("click", async event => {
       showToast("สร้างรายการชำระเงินตามยอดที่ยืนยันแล้ว");
     } catch (error) {
       if (error.payload?.billing && app.data) app.data.billing = error.payload.billing;
-      app.checkoutPromotionError = error.message || "สร้างรายการชำระเงินไม่สำเร็จ";
-      showToast(app.checkoutPromotionError, "error");
+      draft.submitting = false;
+      draft.submitError = error.message || "สร้างรายการชำระเงินไม่สำเร็จ";
+      showToast(draft.submitError, "error");
     } finally {
       app.pricingUpgradeLoading = "";
       render();
