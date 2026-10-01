@@ -291,6 +291,13 @@ async function postWebhook(payload) {
 }
 
 async function verifyCheckoutInitializationStateMachine() {
+  const submittingShell = appSource.match(/const paymentCard = draft\?\.submitting \? `([\s\S]*?)` : draft \? `/)?.[1] || "";
+  if (!submittingShell.includes('data-subscription-qr-state="loading"')
+    || !submittingShell.includes("กำลังเตรียม QR Code")
+    || submittingShell.includes("<img")
+    || !appSource.includes('draft && (!draft.baseQuote || draft.submitting) ? "—" : amount')) {
+    fail("confirmation loading shell must not expose a non-authoritative amount or QR");
+  }
   const start = appSource.indexOf("const SUBSCRIPTION_INITIALIZATION_TIMEOUT_MS = ");
   const end = appSource.indexOf("\n/* pricing-scope: authenticated-upgrade-state:end */", start);
   if (start < 0 || end < 0) fail("checkout initialization helper boundary is missing");
@@ -373,17 +380,34 @@ async function verifyCheckoutInitializationStateMachine() {
     confirmationCalls += 1;
     return new Promise(resolve => { resolvePayment = resolve; });
   };
-  confirmHarness.render = () => {};
+  const confirmationRenders = [];
+  confirmHarness.render = () => confirmationRenders.push({ submitting: confirmDraft.submitting, checkout: confirmHarness.app.billingCheckout });
   confirmHarness.showToast = () => {};
   vm.runInContext(`this.clickConfirm = async event => { const subscriptionConfirmButton = event.target.closest("[data-subscription-checkout-confirm]"); ${confirmBlock}\n};`, confirmHarness);
   const confirmEvent = { target: { closest: selector => selector === "[data-subscription-checkout-confirm]" ? {} : null } };
   const firstConfirm = confirmHarness.clickConfirm(confirmEvent);
+  if (!confirmDraft.submitting || confirmationRenders[0]?.submitting !== true || confirmationRenders[0]?.checkout) fail("explicit confirmation did not synchronously enter the QR loading shell before the request");
   await tick();
   const rapidSecondConfirm = confirmHarness.clickConfirm(confirmEvent);
-  if (confirmationCalls !== 1 || confirmHarness.app.billingCheckout) fail("payment was not single-shot or advanced before its authoritative response");
+  if (confirmationCalls !== 1 || confirmHarness.app.billingCheckout || !confirmDraft.submitting) fail("payment was not single-shot or left the QR loading shell before its authoritative response");
   resolvePayment({ payment: { id: "confirmed_payment" }, promptpay: { paymentIntentId: "confirmed_intent" } });
   await Promise.all([firstConfirm, rapidSecondConfirm]);
   if (confirmHarness.app.billingCheckout?.payment?.id !== "confirmed_payment" || confirmHarness.app.subscriptionCheckoutDraft || confirmationCalls !== 1) fail("explicit confirmation did not advance exactly once after authoritative payment response");
+
+  const failedConfirmHarness = harness(() => Promise.resolve());
+  const failedConfirmDraft = { targetPlan: "business", billingInterval: "monthly", action: "upgrade", baseQuote: { amount_minor: 99000 }, reconciliationReady: true, initializing: false };
+  failedConfirmHarness.app.view = "settingsSubscription";
+  failedConfirmHarness.app.subscriptionCheckoutDraft = failedConfirmDraft;
+  failedConfirmHarness.app.pricingUpgradeLoading = "";
+  let failedConfirmationAttempts = 0;
+  failedConfirmHarness.beginSubscriptionCheckoutForUi = () => { failedConfirmationAttempts += 1; return Promise.reject(new Error("Preview request failed")); };
+  failedConfirmHarness.render = () => {};
+  failedConfirmHarness.showToast = () => {};
+  vm.runInContext(`this.clickConfirm = async event => { const subscriptionConfirmButton = event.target.closest("[data-subscription-checkout-confirm]"); ${confirmBlock}\n};`, failedConfirmHarness);
+  await failedConfirmHarness.clickConfirm(confirmEvent);
+  if (failedConfirmDraft.submitting || failedConfirmHarness.app.subscriptionCheckoutDraft !== failedConfirmDraft || failedConfirmHarness.app.pricingUpgradeLoading || failedConfirmDraft.submitError !== "Preview request failed") fail("failed confirmation remained stuck instead of restoring a retryable checkout state");
+  await failedConfirmHarness.clickConfirm(confirmEvent);
+  if (failedConfirmationAttempts !== 2 || failedConfirmDraft.submitting || failedConfirmHarness.app.subscriptionCheckoutDraft !== failedConfirmDraft) fail("failed confirmation could not be retried safely");
 
   const unvalidatedHarness = harness(() => Promise.resolve());
   const unvalidatedDraft = { targetPlan: "business", billingInterval: "monthly", action: "upgrade", baseQuote: { amount_minor: 99000 }, reconciliationReady: true, initializing: false };
@@ -490,6 +514,7 @@ async function verifyCheckoutInitializationStateMachine() {
   if (!appSource.includes('latestPayment.verifiedSuccess === true')) fail("subscription success UI is not gated by verified payment reconciliation");
   if (!appSource.includes('"/api/billing/upgrade/qr"') || !appSource.includes("data-subscription-qr-image")) fail("subscription QR delivery fallback is missing");
   if (!appSource.includes("data-subscription-qr-source") || !appSource.includes("qrFallbackAttempted")) fail("subscription QR image retry fallback is missing");
+  if (!appSource.includes("const qrImageSource = qrImage || qrProxyUrl;") || !appSource.includes('const fallbackSource = qrPrimarySource === "proxy" ? qrImage : qrProxyUrl;')) fail("authoritative QR response must avoid the redundant proxy request while retaining fallback");
   if (!appSource.includes('"/api/billing/reconcile"')) fail("pricing must reconcile a stale checkout before opening a new draft");
   const checkoutInitialization = appSource.match(/async function initializeSubscriptionCheckout\(draft\) \{[\s\S]*?\n\}/)?.[0];
   const checkoutHydration = appSource.match(/async function hydrateSubscriptionCheckout\(\) \{[\s\S]*?\n\}/)?.[0];
