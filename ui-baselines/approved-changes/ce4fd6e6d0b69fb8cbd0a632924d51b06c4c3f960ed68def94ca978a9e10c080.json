@@ -1,0 +1,325 @@
+{
+  "schemaVersion": 1,
+  "id": "task5-confirmed-mismatched-checkout-replacement",
+  "base": {
+    "sourceCommit": "12f602775426f155acfef83cbc274e0f8dc99bad"
+  },
+  "target": {
+    "sourceCommit": "ff2f59104b8a4fa4f5df2e3019e08a1a48a90c5a"
+  },
+  "allowedFiles": [
+    "public/app.js"
+  ],
+  "approvedChanges": [
+    {
+      "route": "Authenticated Pricing / Subscription Checkout",
+      "component": "explicitly confirmed replacement of a mismatched pending PromptPay payment",
+      "regions": [
+        "pending checkout message and confirmation label; no layout or styling change"
+      ],
+      "selectors": [
+        "[data-subscription-checkout-confirm]",
+        ".subscription-qr-state"
+      ]
+    }
+  ],
+  "expectedTextChanges": [
+    {
+      "route": "Authenticated Pricing / Subscription Checkout",
+      "component": "enable confirmation for changed plan, interval, amount, or promotion while preserving exact-match resume",
+      "from": "if (pendingPlan !== targetPlan",
+      "to": "function subscriptionPendingContextMatches(draft) {"
+    }
+  ],
+  "expectedDiffSha256": "eeb0475dae9881b09c921b5d152e056e2dbae6a4593f8243e1ff79e3ef03b4b1",
+  "expectedDiffLines": [
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 10349,
+      "text": "    const pendingPlan = String(pending.targetPlan || pending.plan || \"\").toLowerCase();"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 10350,
+      "text": "    const pendingInterval = String(pending.billingInterval || \"\").toLowerCase();"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 10351,
+      "text": "    const pendingAmount = Number(pending.amountMinor);"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 10352,
+      "text": "    const pendingCode = String(pending.promotion?.code || \"\").trim().toUpperCase();"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 10353,
+      "text": "    const quoteCode = appliedCode;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 10354,
+      "text": "    const pendingCurrency = String(pending.currency || \"THB\").toUpperCase();"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 10355,
+      "text": "    const quoteCurrency = String(quote.currency || quote.currency_code || \"THB\").toUpperCase();"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 10356,
+      "text": "    if (pendingPlan !== targetPlan || pendingInterval !== billingInterval"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 10357,
+      "text": "      || !Number.isFinite(pendingAmount) || pendingAmount !== amountMinor"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 10358,
+      "text": "      || pendingCode !== quoteCode || pendingCurrency !== quoteCurrency) {"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 10359,
+      "text": "      return \"รายการชำระเงินเดิมไม่ตรงกับแพ็กเกจ รอบบิล ยอด หรือโค้ดที่เลือก จึงยังดำเนินการต่อไม่ได้\";"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10349,
+      "text": "    const protectedStates = [pending.providerStatus, pending.status, pending.paymentState]"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10350,
+      "text": "      .map(status => String(status || \"\").toLowerCase());"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10351,
+      "text": "    if (pending.awaitingWebhook || protectedStates.some(status => [\"processing\", \"succeeded\", \"paid\", \"awaiting_webhook\"].includes(status))) {"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10352,
+      "text": "      return \"รายการเดิมกำลังตรวจสอบการชำระเงิน กรุณารอผลก่อนเริ่มรายการใหม่\";"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10358,
+      "text": "function subscriptionPendingContextMatches(draft) {"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10359,
+      "text": "  const pending = draft?.pendingPayment;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10360,
+      "text": "  if (!pending || !draft?.baseQuote) return false;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10361,
+      "text": "  const quote = app.checkoutPromoQuote?.quote || draft.baseQuote;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10362,
+      "text": "  const pendingPlan = String(pending.targetPlan || pending.plan || \"\").toLowerCase();"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10363,
+      "text": "  const pendingInterval = String(pending.billingInterval || \"\").toLowerCase();"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10364,
+      "text": "  const pendingAmount = Number(pending.amountMinor);"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10365,
+      "text": "  const pendingCode = String(pending.promotion?.code || \"\").trim().toUpperCase();"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10366,
+      "text": "  const quoteCode = String(quote.code || \"\").trim().toUpperCase();"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10367,
+      "text": "  const pendingCurrency = String(pending.currency || \"THB\").toUpperCase();"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10368,
+      "text": "  const quoteCurrency = String(quote.currency || quote.currency_code || \"THB\").toUpperCase();"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10369,
+      "text": "  return pendingPlan === String(draft.targetPlan || \"\").toLowerCase()"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10370,
+      "text": "    && pendingInterval === String(draft.billingInterval || \"\").toLowerCase()"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10371,
+      "text": "    && Number.isFinite(pendingAmount) && pendingAmount === Number(quote.amount_minor)"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10372,
+      "text": "    && pendingCode === quoteCode && pendingCurrency === quoteCurrency;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10373,
+      "text": "}"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10374,
+      "text": ""
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10386,
+      "text": "    || !subscriptionPendingContextMatches(draft)"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10536,
+      "text": "  const pendingContextMatches = draft ? subscriptionPendingContextMatches(draft) : false;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 10564,
+      "text": "        <div><strong>${draft.pendingPayment ? \"พบรายการชำระเงินเดิม\" : \"ยังไม่ได้สร้างรายการชำระเงิน\"}</strong><p>${draft.pendingPayment ? \"ระบบจะไม่เปิด QR จนกว่าคุณจะกดดำเนินการต่อ และตรวจสอบความเข้ากันได้ของยอดกับโค้ดก่อน\" : \"ระบบจะสร้าง Stripe PaymentIntent หลังคุณกดยืนยันชำระเงินเท่านั้น\"}</p></div>"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10576,
+      "text": "        <div><strong>${draft.pendingPayment ? \"พบรายการชำระเงินเดิม\" : \"ยังไม่ได้สร้างรายการชำระเงิน\"}</strong><p>${draft.pendingPayment ? (pendingContextMatches ? \"แพ็กเกจ รอบบิล ยอด และโปรโมชั่นตรงกับรายการเดิม ระบบจะใช้รายการเดิมเมื่อคุณยืนยัน\" : \"รายการเดิมไม่ตรงกับตัวเลือกปัจจุบัน ระบบจะตรวจสอบและปิดรายการเดิมอย่างปลอดภัยหลังคุณยืนยันชำระเงินเท่านั้น\") : \"ระบบจะสร้าง Stripe PaymentIntent หลังคุณกดยืนยันชำระเงินเท่านั้น\"}</p></div>"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 10589,
+      "text": "    ? `<button class=\"button primary subscription-primary-action\" type=\"button\" data-subscription-checkout-confirm ${app.pricingUpgradeLoading || app.subscriptionQuoteLoading || draft.initializing || checkoutBlockReason ? \"disabled\" : \"\"}>${app.pricingUpgradeLoading ? \"กำลังสร้างรายการชำระเงิน...\" : draft.initializing && !draft.reconciliationReady ? \"กำลังตรวจสอบรายการเดิม...\" : draft.pendingPayment && !draft.awaitingWebhook ? \"ดำเนินการต่อรายการเดิม\" : draftQuote?.mode === \"free_service\" ? \"ยืนยันรับสิทธิ์ฟรี\" : \"ยืนยันชำระเงิน\"}</button>${draft.initializationError || draft.submitError || (draft.baseQuote && !draft.initializing && checkoutBlockReason) ? `<p class=\"subscription-promo-message\" role=\"status\">${escapeHtml(draft.initializationError || draft.submitError || checkoutBlockReason)}</p>` : \"\"}${draft.initializationError && !draft.awaitingWebhook ? `<button class=\"button secondary\" type=\"button\" data-subscription-initialization-retry ${draft.initializing ? \"disabled\" : \"\"}>ลองตรวจสอบอีกครั้ง</button>` : \"\"}`"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10601,
+      "text": "    ? `<button class=\"button primary subscription-primary-action\" type=\"button\" data-subscription-checkout-confirm ${app.pricingUpgradeLoading || app.subscriptionQuoteLoading || draft.initializing || checkoutBlockReason ? \"disabled\" : \"\"}>${app.pricingUpgradeLoading ? \"กำลังสร้างรายการชำระเงิน...\" : draft.initializing && !draft.reconciliationReady ? \"กำลังตรวจสอบรายการเดิม...\" : draft.pendingPayment && pendingContextMatches ? \"ดำเนินการต่อรายการเดิม\" : draftQuote?.mode === \"free_service\" ? \"ยืนยันรับสิทธิ์ฟรี\" : \"ยืนยันชำระเงิน\"}</button>${draft.initializationError || draft.submitError || (draft.baseQuote && !draft.initializing && checkoutBlockReason) ? `<p class=\"subscription-promo-message\" role=\"status\">${escapeHtml(draft.initializationError || draft.submitError || checkoutBlockReason)}</p>` : \"\"}${draft.initializationError && !draft.awaitingWebhook ? `<button class=\"button secondary\" type=\"button\" data-subscription-initialization-retry ${draft.initializing ? \"disabled\" : \"\"}>ลองตรวจสอบอีกครั้ง</button>` : \"\"}`"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 10654,
+      "text": "      confirm.textContent = draft.pendingPayment && !draft.awaitingWebhook ? \"ดำเนินการต่อรายการเดิม\" : \"ยืนยันชำระเงิน\";"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10666,
+      "text": "      confirm.textContent = draft.pendingPayment && subscriptionPendingContextMatches(draft) ? \"ดำเนินการต่อรายการเดิม\" : \"ยืนยันชำระเงิน\";"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 10672,
+      "text": "        if (confirm) confirm.textContent = draft.pendingPayment && !draft.awaitingWebhook ? \"ดำเนินการต่อรายการเดิม\" : \"ยืนยันชำระเงิน\";"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10684,
+      "text": "        if (confirm) confirm.textContent = draft.pendingPayment && subscriptionPendingContextMatches(draft) ? \"ดำเนินการต่อรายการเดิม\" : \"ยืนยันชำระเงิน\";"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 10898,
+      "text": "async function beginSubscriptionCheckoutForUi({ targetPlan, billingInterval, action, idempotencyKey = \"\", promotionCode = \"\" } = {}) {"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10910,
+      "text": "async function beginSubscriptionCheckoutForUi({ targetPlan, billingInterval, action, idempotencyKey = \"\", promotionCode = \"\", confirmReplacement = false } = {}) {"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10918,
+      "text": "      ...(confirmReplacement ? { confirmReplacement: true } : {}),"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 13244,
+      "text": "        promotionCode: applied?.quote?.code || \"\""
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 13257,
+      "text": "        promotionCode: applied?.quote?.code || \"\","
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 13258,
+      "text": "        confirmReplacement: true"
+    }
+  ]
+}
