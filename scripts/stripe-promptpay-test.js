@@ -16,7 +16,8 @@ const path = require("path");
 const crypto = require("crypto");
 const { Readable } = require("stream");
 const { hashPassword } = require("../lib/auth");
-const { stripePromptPayConfig, stripePaymentStatus, safePromptPayPayload, findPaymentIntentByPaymentId } = require("../lib/stripe-promptpay");
+const { stripePromptPayConfig, stripePaymentStatus, safePromptPayPayload, findPaymentIntentByPaymentId,
+  cancelUnpaidTestPaymentIntentForReplacement } = require("../lib/stripe-promptpay");
 
 const ROOT = path.join(__dirname, "..");
 const migration = fs.readFileSync(path.join(ROOT, "supabase", "migrations", "20260814030000_stripe_promptpay_payment.sql"), "utf8");
@@ -72,6 +73,8 @@ const db = {
 const stripeIntentsByIdempotency = new Map();
 const stripeRequests = [];
 let stripeIntentSequence = 1;
+let stripeCancelFailure = false;
+const stripeCancelRequests = [];
 
 function fail(message) {
   throw new Error(message);
@@ -391,7 +394,11 @@ function stripeIntentResponse(options = {}) {
       growup_tenant_id: params.get("metadata[growup_tenant_id]") || "",
       growup_subscription_id: params.get("metadata[growup_subscription_id]") || "",
       growup_plan: params.get("metadata[growup_plan]") || "",
-      growup_billing_interval: params.get("metadata[growup_billing_interval]") || ""
+      growup_billing_interval: params.get("metadata[growup_billing_interval]") || "",
+      growup_billing_period_started_at: params.get("metadata[growup_billing_period_started_at]") || "",
+      growup_billing_period_ends_at: params.get("metadata[growup_billing_period_ends_at]") || "",
+      growup_operation: params.get("metadata[growup_operation]") || "",
+      growup_current_plan: params.get("metadata[growup_current_plan]") || ""
     }
   };
   stripeIntentsByIdempotency.set(idempotencyKey, intent);
@@ -402,6 +409,15 @@ global.fetch = async function mockFetch(input, options = {}) {
   const url = new URL(String(input));
   if (url.host === "api.stripe.com") {
     if (url.pathname === "/v1/payment_intents" && String(options.method || "POST").toUpperCase() === "POST") return stripeIntentResponse(options);
+    const cancelMatch = url.pathname.match(/^\/v1\/payment_intents\/([^/]+)\/cancel$/);
+    if (cancelMatch) {
+      stripeCancelRequests.push({ id: cancelMatch[1], idempotencyKey: options.headers?.["Idempotency-Key"] || "" });
+      if (stripeCancelFailure) return new Response(JSON.stringify({ error: { message: "cancel failed", code: "cancel_failed" } }), { status: 500 });
+      const intent = [...stripeIntentsByIdempotency.values()].find(item => item.id === cancelMatch[1]);
+      if (!intent) return new Response(JSON.stringify({ error: { message: "not found", code: "resource_missing" } }), { status: 404 });
+      intent.status = "canceled";
+      return new Response(JSON.stringify(intent), { status: 200 });
+    }
     if (url.pathname === "/v1/payment_intents/search") {
       const query = String(url.searchParams.get("query") || "");
       const paymentId = query.match(/metadata\['growup_payment_id'\]:'([^']+)'/)?.[1] || "";
@@ -536,6 +552,70 @@ async function postStripeWebhook(event) {
   });
 }
 
+async function verifyTestPaymentReplacementSafety() {
+  const payment = { id: "pay_replace_test", tenantId: "tenant_replace_test", subscriptionId: "sub_replace_test",
+    plan: "business", targetPlan: "business", billingInterval: "monthly", amountMinor: 99000, currency: "THB",
+    billingPeriodStartedAt: nowIso, billingPeriodEndsAt: "2026-09-14T00:00:00.000Z",
+    currentPlan: "starter", operation: "subscription_upgrade", checkoutMetadata: { operation: "subscription_upgrade" } };
+  const metadata = {
+    growup_payment_id: payment.id, growup_tenant_id: payment.tenantId,
+    growup_subscription_id: payment.subscriptionId, growup_plan: payment.plan,
+    growup_billing_interval: payment.billingInterval,
+    growup_billing_period_started_at: payment.billingPeriodStartedAt,
+    growup_billing_period_ends_at: payment.billingPeriodEndsAt,
+    growup_operation: payment.operation, growup_current_plan: payment.currentPlan
+  };
+  const addIntent = (id, overrides = {}) => {
+    const intent = { id, livemode: false, amount: 99000, amount_received: 0, currency: "thb", status: "requires_action",
+      metadata: { ...metadata }, next_action: { promptpay_display_qr_code: { data: "promptpay" } }, ...overrides };
+    stripeIntentsByIdempotency.set(`replacement:${id}`, intent);
+    return intent;
+  };
+  const rejects = async (context, id, message) => {
+    const before = stripeCancelRequests.length;
+    let rejected = false;
+    try { await cancelUnpaidTestPaymentIntentForReplacement(context, id); } catch { rejected = true; }
+    if (!rejected || stripeCancelRequests.length !== before) fail(message);
+  };
+  process.env.VERCEL_ENV = "preview";
+  const valid = addIntent("pi_replace_valid");
+  const canceled = await cancelUnpaidTestPaymentIntentForReplacement(payment, valid.id);
+  if (canceled.status !== "canceled" || valid.status !== "canceled" || stripeCancelRequests.length !== 1
+    || stripeCancelRequests[0].idempotencyKey !== `growup:replace-cancel:${payment.id}`) fail("safe PromptPay test intent was not canceled idempotently");
+  addIntent("pi_replace_live", { livemode: true });
+  await rejects(payment, "pi_replace_live", "live PaymentIntent was cancelable");
+  addIntent("pi_replace_tenant", { metadata: { ...metadata, growup_tenant_id: "other_tenant" } });
+  await rejects(payment, "pi_replace_tenant", "wrong-tenant PaymentIntent was cancelable");
+  addIntent("pi_replace_amount", { amount_received: 1 });
+  await rejects(payment, "pi_replace_amount", "partially paid PaymentIntent was cancelable");
+  for (const status of ["processing", "succeeded", "requires_capture", "unknown_status"]) {
+    addIntent(`pi_replace_${status}`, { status });
+    await rejects(payment, `pi_replace_${status}`, `${status} PaymentIntent was canceled as a fresh replacement`);
+  }
+  const alreadyCanceled = addIntent("pi_replace_already_canceled", { status: "canceled" });
+  const cancelCountBeforeExisting = stripeCancelRequests.length;
+  const auditedCanceled = await cancelUnpaidTestPaymentIntentForReplacement(payment, alreadyCanceled.id);
+  if (auditedCanceled.status !== "canceled" || stripeCancelRequests.length !== cancelCountBeforeExisting) fail("already-canceled intent was sent to Stripe cancellation again");
+  addIntent("pi_replace_uncertain_metadata", { metadata: { ...metadata, growup_plan: "enterprise" } });
+  await rejects(payment, "pi_replace_uncertain_metadata", "mismatched package metadata was cancelable");
+  const cancelErrorIntent = addIntent("pi_replace_cancel_error");
+  stripeCancelFailure = true;
+  let cancelFailedClosed = false;
+  const beforeCancelFailure = stripeCancelRequests.length;
+  try { await cancelUnpaidTestPaymentIntentForReplacement(payment, "pi_replace_cancel_error"); } catch { cancelFailedClosed = true; }
+  if (!cancelFailedClosed || cancelErrorIntent.status !== "requires_action" || stripeCancelRequests.length !== beforeCancelFailure + 1) fail("cancellation failure was treated as success");
+  stripeCancelFailure = false;
+  const beforeLiveMode = stripeCancelRequests.length;
+  const previousLiveSecret = process.env.STRIPE_LIVE_SECRET_KEY;
+  process.env.VERCEL_ENV = "production";
+  process.env.STRIPE_LIVE_SECRET_KEY = "sk_live_mock_secret";
+  await rejects(payment, "pi_replace_valid", "Production/Live runtime reached the cancellation request");
+  if (stripeCancelRequests.length !== beforeLiveMode) fail("Production/Live mode issued a cancellation request");
+  process.env.VERCEL_ENV = "preview";
+  if (previousLiveSecret === undefined) delete process.env.STRIPE_LIVE_SECRET_KEY;
+  else process.env.STRIPE_LIVE_SECRET_KEY = previousLiveSecret;
+}
+
 (async () => {
 assertStripeEnvironmentGuards();
 assertPromptPayExpiryMapping();
@@ -605,6 +685,8 @@ assertPromptPayExpiryMapping();
   if (zeroCheckout.status !== 200 || zeroCheckout.json().provider !== "zero_amount" || zeroCheckout.json().payment.amountMinor !== 0) fail(`zero amount checkout wrong: ${zeroCheckout.status} ${zeroCheckout.text}`);
   if (stripeRequests.length !== stripeCountBeforeZero) fail("zero-amount activation called Stripe");
   if (db.subscriptions.find(row => row.tenant_id === tenants.zero).status !== "active") fail("zero amount subscription was not activated");
+
+  await verifyTestPaymentReplacementSafety();
 
   const starterCookie = await login("starter@example.com");
   const starterCheckout = await request("/api/billing/checkout", { method: "POST", headers: { cookie: starterCookie }, body: JSON.stringify({ idempotencyKey: "starter-trial-checkout" }) });

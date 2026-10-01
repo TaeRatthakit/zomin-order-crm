@@ -27,7 +27,8 @@ const ids = {
   starter: "11111111-1111-4111-8111-111111111111",
   business: "22222222-2222-4222-8222-222222222222",
   failure: "33333333-3333-4333-8333-333333333333",
-  legacy: "44444444-4444-4444-8444-444444444444"
+  legacy: "44444444-4444-4444-8444-444444444444",
+  replacement: "55555555-5555-4555-8555-555555555555"
 };
 
 const db = {
@@ -35,13 +36,15 @@ const db = {
     { id: ids.starter, name: "Starter Tenant", status: "active" },
     { id: ids.business, name: "Business Tenant", status: "active" },
     { id: ids.failure, name: "Failure Tenant", status: "active" },
-    { id: ids.legacy, name: "Legacy Pending Tenant", status: "active" }
+    { id: ids.legacy, name: "Legacy Pending Tenant", status: "active" },
+    { id: ids.replacement, name: "Replacement Tenant", status: "active" }
   ],
   users: [
     { id: "u_starter", username: "starter@example.com", password_hash: hashPassword("pass12345"), name: "Starter Owner", role: "Owner", is_active: true },
     { id: "u_business", username: "business@example.com", password_hash: hashPassword("pass12345"), name: "Business Owner", role: "Owner", is_active: true },
     { id: "u_failure", username: "failure@example.com", password_hash: hashPassword("pass12345"), name: "Failure Owner", role: "Owner", is_active: true },
     { id: "u_legacy", username: "legacy@example.com", password_hash: hashPassword("pass12345"), name: "Legacy Owner", role: "Owner", is_active: true },
+    { id: "u_replacement", username: "replacement@example.com", password_hash: hashPassword("pass12345"), name: "Replacement Owner", role: "Owner", is_active: true },
     { id: "u_staff", username: "staff@example.com", password_hash: hashPassword("pass12345"), name: "Staff", role: "Staff", is_active: true }
   ],
   tenant_memberships: [
@@ -49,13 +52,15 @@ const db = {
     { id: "m_business", tenant_id: ids.business, user_id: "u_business", role: "Owner", is_active: true },
     { id: "m_failure", tenant_id: ids.failure, user_id: "u_failure", role: "Owner", is_active: true },
     { id: "m_legacy", tenant_id: ids.legacy, user_id: "u_legacy", role: "Owner", is_active: true },
+    { id: "m_replacement", tenant_id: ids.replacement, user_id: "u_replacement", role: "Owner", is_active: true },
     { id: "m_staff", tenant_id: ids.starter, user_id: "u_staff", role: "Staff", is_active: true }
   ],
   subscriptions: [
     { id: "s_starter", tenant_id: ids.starter, is_initial: true, plan: "starter", billing_interval: "monthly", status: "trialing", currency: "THB", base_amount_minor: 49000, discount_amount_minor: 0, amount_due_minor: 49000, trial_ends_at: "2099-01-01T00:00:00.000Z", created_at: nowIso, updated_at: nowIso },
     { id: "s_business", tenant_id: ids.business, is_initial: true, plan: "business", billing_interval: "monthly", status: "active", currency: "THB", base_amount_minor: 99000, discount_amount_minor: 0, amount_due_minor: 99000, current_period_ends_at: "2099-01-01T00:00:00.000Z", created_at: nowIso, updated_at: nowIso },
     { id: "s_failure", tenant_id: ids.failure, is_initial: true, plan: "starter", billing_interval: "monthly", status: "trialing", currency: "THB", base_amount_minor: 49000, discount_amount_minor: 0, amount_due_minor: 49000, trial_ends_at: "2099-01-01T00:00:00.000Z", created_at: nowIso, updated_at: nowIso },
-    { id: "s_legacy", tenant_id: ids.legacy, is_initial: true, plan: "starter", billing_interval: "monthly", status: "trialing", currency: "THB", base_amount_minor: 49000, discount_amount_minor: 0, amount_due_minor: 49000, trial_ends_at: "2099-01-01T00:00:00.000Z", created_at: nowIso, updated_at: nowIso }
+    { id: "s_legacy", tenant_id: ids.legacy, is_initial: true, plan: "starter", billing_interval: "monthly", status: "trialing", currency: "THB", base_amount_minor: 49000, discount_amount_minor: 0, amount_due_minor: 49000, trial_ends_at: "2099-01-01T00:00:00.000Z", created_at: nowIso, updated_at: nowIso },
+    { id: "s_replacement", tenant_id: ids.replacement, is_initial: true, plan: "business", billing_interval: "monthly", status: "active", currency: "THB", base_amount_minor: 99000, discount_amount_minor: 0, amount_due_minor: 99000, current_period_ends_at: "2099-01-01T00:00:00.000Z", created_at: nowIso, updated_at: nowIso }
   ],
   payments: [],
   subscription_upgrade_attempts: [],
@@ -76,6 +81,8 @@ const db = {
 let intentSequence = 1;
 const stripeIntents = new Map();
 const stripeCreateRequests = [];
+const stripeCancelRequests = [];
+let stripeCancelFailure = false;
 const stripeRetrieveRequests = [];
 let subscriptionUpgradeSuccessRpcCalls = 0;
 let subscriptionUpgradeSuccessEffects = 0;
@@ -203,6 +210,15 @@ function reconcileUpgrade(payload = {}, success) {
 global.fetch = async function mockFetch(input, options = {}) {
   const url = new URL(String(input));
   if (url.hostname === "api.stripe.com") {
+    const cancelMatch = url.pathname.match(/^\/v1\/payment_intents\/([^/]+)\/cancel$/);
+    if (cancelMatch) {
+      stripeCancelRequests.push(cancelMatch[1]);
+      if (stripeCancelFailure) return jsonResponse({ error: { message: "cancel failed", code: "cancel_failed" } }, 500);
+      const canceled = stripeIntents.get(cancelMatch[1]);
+      if (!canceled) return jsonResponse({ error: { message: "not found" } }, 404);
+      canceled.status = "canceled";
+      return jsonResponse(canceled);
+    }
     if (String(options.method || "GET").toUpperCase() === "GET") {
       const id = url.pathname.split("/").at(-1);
       stripeRetrieveRequests.push(id);
@@ -211,7 +227,7 @@ global.fetch = async function mockFetch(input, options = {}) {
     stripeCreateRequests.push({ body: String(options.body || "") });
     const params = new URLSearchParams(options.body || "");
     const id = `pi_upgrade_${intentSequence++}`;
-    const intent = { id, status: "requires_action", amount: Number(params.get("amount")), currency: "thb", client_secret: `${id}_secret_test`, next_action: { promptpay_display_qr_code: { image_url_png: "data:image/png;base64,cXJ0ZXN0", hosted_instructions_url: "https://pay.stripe.test/promptpay" } } };
+    const intent = { id, status: "requires_action", livemode: false, amount_received: 0, amount: Number(params.get("amount")), currency: "thb", client_secret: `${id}_secret_test`, next_action: { promptpay_display_qr_code: { image_url_png: "data:image/png;base64,cXJ0ZXN0", hosted_instructions_url: "https://pay.stripe.test/promptpay" } }, metadata: Object.fromEntries([...params.entries()].filter(([key]) => key.startsWith("metadata[")).map(([key, value]) => [key.slice(9, -1), value])) };
     stripeIntents.set(id, intent);
     return jsonResponse(intent);
   }
@@ -310,7 +326,7 @@ async function verifyCheckoutInitializationStateMachine() {
       window: { setTimeout, clearTimeout }
     };
     vm.createContext(context);
-    vm.runInContext(`${helperSource}\nthis.initialize = initializeSubscriptionCheckout; this.blockReason = subscriptionCheckoutBlockReason; this.prefetchedResume = subscriptionResumePrefetchFor;`, context);
+    vm.runInContext(`${helperSource}\nthis.initialize = initializeSubscriptionCheckout; this.blockReason = subscriptionCheckoutBlockReason; this.prefetchedResume = subscriptionResumePrefetchFor; this.pendingMatches = subscriptionPendingContextMatches;`, context);
     return context;
   }
   function deferred() {
@@ -356,8 +372,9 @@ async function verifyCheckoutInitializationStateMachine() {
   if (activeHarness.prefetchedResume(activeDraft)?.promptpay?.paymentIntentId !== "existing_intent") fail("validated existing-payment response was not prefetched for an explicit click");
   if (activeHarness.blockReason(activeDraft)) fail("compatible existing payment was incorrectly blocked from explicit continuation");
   activeDraft.pendingPayment.promotion = { code: "OLDPROMO" };
-  if (!activeHarness.blockReason(activeDraft)) fail("existing payment with a different promotion was silently reusable");
+  if (activeHarness.blockReason(activeDraft)) fail("different promotion incorrectly blocked the new explicit checkout");
   if (activeHarness.prefetchedResume(activeDraft)) fail("mismatched promo context did not invalidate the prefetched payment response");
+  if (activeHarness.pendingMatches(activeDraft)) fail("different promotion was treated as a matching payment");
   activeHarness.app.checkoutPromotionCode = "oldpromo";
   activeHarness.app.checkoutPromoQuote = { quote: { amount_minor: 99000, currency: "THB", code: "OLDPROMO" } };
   if (activeHarness.blockReason(activeDraft)) fail("matching authoritative promotion quote was incorrectly blocked");
@@ -367,7 +384,8 @@ async function verifyCheckoutInitializationStateMachine() {
   activeHarness.app.checkoutPromotionCode = "";
   activeDraft.pendingPayment.promotion = undefined;
   activeDraft.pendingPayment.amountMinor = 100000;
-  if (!activeHarness.blockReason(activeDraft)) fail("existing payment with a different amount was silently reusable");
+  if (activeHarness.blockReason(activeDraft)) fail("different amount incorrectly blocked the new explicit checkout");
+  if (activeHarness.prefetchedResume(activeDraft)) fail("different amount did not invalidate the prefetched payment response");
 
   const confirmBlock = appSource.match(/const subscriptionConfirmButton = event\.target\.closest\("\[data-subscription-checkout-confirm\]"\);([\s\S]*?)\n  const subscriptionInitializationRetryButton =/)?.[1];
   if (!confirmBlock) fail("explicit confirmation handler could not be isolated for interaction testing");
@@ -378,7 +396,9 @@ async function verifyCheckoutInitializationStateMachine() {
   confirmHarness.app.subscriptionCheckoutDraft = confirmDraft;
   let resolvePayment;
   let confirmationCalls = 0;
-  confirmHarness.beginSubscriptionCheckoutForUi = () => {
+  let confirmationArgs = null;
+  confirmHarness.beginSubscriptionCheckoutForUi = args => {
+    confirmationArgs = args;
     confirmationCalls += 1;
     return new Promise(resolve => { resolvePayment = resolve; });
   };
@@ -394,7 +414,8 @@ async function verifyCheckoutInitializationStateMachine() {
   if (confirmationCalls !== 1 || confirmHarness.app.billingCheckout || !confirmDraft.submitting) fail("payment was not single-shot or left the QR loading shell before its authoritative response");
   resolvePayment({ payment: { id: "confirmed_payment" }, promptpay: { paymentIntentId: "confirmed_intent" } });
   await Promise.all([firstConfirm, rapidSecondConfirm]);
-  if (confirmHarness.app.billingCheckout?.payment?.id !== "confirmed_payment" || confirmHarness.app.subscriptionCheckoutDraft || confirmationCalls !== 1) fail("explicit confirmation did not advance exactly once after authoritative payment response");
+  if (confirmHarness.app.billingCheckout?.payment?.id !== "confirmed_payment" || confirmHarness.app.subscriptionCheckoutDraft || confirmationCalls !== 1
+    || confirmationArgs?.confirmReplacement !== true) fail("explicit confirmation did not advance exactly once or omit its replacement authorization signal");
 
   const prefetchedHarness = harness(() => Promise.resolve());
   const prefetchedDraft = { targetPlan: "business", billingInterval: "monthly", action: "upgrade", baseQuote: { amount_minor: 99000, currency: "THB" }, reconciliationReady: true, initializing: false, pendingPayment: { id: "prefetched_payment", targetPlan: "business", amountMinor: 99000, currency: "THB", billingInterval: "monthly" }, prefetchedResumePayload: { ok: true, resumed: true, payment: { id: "prefetched_payment", targetPlan: "business", amountMinor: 99000, currency: "THB", billingInterval: "monthly" }, promptpay: { paymentIntentId: "prefetched_intent" } }, prefetchedResumeAt: Date.now() };
@@ -723,5 +744,52 @@ async function verifyCheckoutInitializationStateMachine() {
   if (failed.status !== 200 || db.subscriptions.find(row => row.id === "s_failure").plan !== "starter") fail("failed payment activated Enterprise");
   const downgrade = await request("/api/billing/upgrade", { method: "POST", headers: { cookie: businessCookie }, body: JSON.stringify({ targetPlan: "starter" }) });
   if (downgrade.status !== 409 || downgrade.json().code !== "UPGRADE_NOT_ALLOWED") fail("downgrade was not rejected");
+
+  const replacementPayment = {
+    id: "p_old_business_replace", tenant_id: ids.replacement, subscription_id: "s_replacement",
+    idempotency_key: "old-business-checkout", provider: "stripe_promptpay", provider_payment_reference: "pi_old_business_replace",
+    status: "pending", currency: "THB", amount_minor: 99000, plan: "business", billing_interval: "monthly",
+    billing_period_started_at: nowIso, billing_period_ends_at: "2026-09-22T00:00:00.000Z",
+    checkout_metadata: { operation: "subscription_upgrade", current_plan: "business", target_plan: "business" }, created_at: nowIso
+  };
+  const replacementAttempt = {
+    id: "u_old_business_replace", tenant_id: ids.replacement, subscription_id: "s_replacement",
+    payment_id: replacementPayment.id, idempotency_key: "old-business-checkout", current_plan: "business",
+    target_plan: "business", provider: "stripe_promptpay", provider_payment_reference: "pi_old_business_replace",
+    status: "pending", currency: "THB", amount_minor: 99000, billing_interval: "monthly",
+    billing_period_started_at: replacementPayment.billing_period_started_at,
+    billing_period_ends_at: replacementPayment.billing_period_ends_at, created_at: nowIso
+  };
+  db.payments.push(replacementPayment);
+  db.subscription_upgrade_attempts.push(replacementAttempt);
+  stripeIntents.set("pi_old_business_replace", {
+    id: "pi_old_business_replace", status: "requires_action", livemode: false, amount: 99000, amount_received: 0, currency: "thb",
+    next_action: { promptpay_display_qr_code: { image_url_png: "data:image/png;base64,b2xk" } },
+    metadata: { growup_payment_id: replacementPayment.id, growup_tenant_id: ids.replacement,
+      growup_subscription_id: "s_replacement", growup_plan: "business", growup_billing_interval: "monthly",
+      growup_billing_period_started_at: replacementPayment.billing_period_started_at,
+      growup_billing_period_ends_at: replacementPayment.billing_period_ends_at,
+      growup_operation: "subscription_upgrade", growup_current_plan: "business" }
+  });
+  const replacementCookie = await login("replacement@example.com");
+  const createCountBeforeReplacement = stripeCreateRequests.length;
+  const cancelCountBeforeReplacement = stripeCancelRequests.length;
+  const oldEventCountBeforeReplacement = db.payment_provider_events.length;
+  const unconfirmedReplacement = await request("/api/billing/upgrade", { method: "POST", headers: { cookie: replacementCookie }, body: JSON.stringify({ targetPlan: "enterprise" }) });
+  if (unconfirmedReplacement.status !== 409 || unconfirmedReplacement.json().code !== "UPGRADE_IN_PROGRESS"
+    || stripeCancelRequests.length !== cancelCountBeforeReplacement || stripeCreateRequests.length !== createCountBeforeReplacement) fail("mismatched payment was canceled or replaced before explicit confirmation");
+  stripeCancelFailure = true;
+  const failedCancellation = await request("/api/billing/upgrade", { method: "POST", headers: { cookie: replacementCookie }, body: JSON.stringify({ targetPlan: "enterprise", confirmReplacement: true }) });
+  if (failedCancellation.status !== 409 || replacementPayment.status !== "pending" || stripeCreateRequests.length !== createCountBeforeReplacement) fail("cancellation failure created a replacement or changed local history");
+  stripeCancelFailure = false;
+  const successfulReplacement = await request("/api/billing/upgrade", { method: "POST", headers: { cookie: replacementCookie }, body: JSON.stringify({ targetPlan: "enterprise", confirmReplacement: true }) });
+  if (successfulReplacement.status !== 200 || successfulReplacement.json().payment.amountMinor !== 199000
+    || successfulReplacement.json().payment.targetPlan !== "enterprise" || replacementPayment.status !== "cancelled"
+    || replacementAttempt.status !== "cancelled") fail(`safe replacement failed: ${successfulReplacement.status} ${successfulReplacement.text}`);
+  const replacementRetry = await request("/api/billing/upgrade", { method: "POST", headers: { cookie: replacementCookie }, body: JSON.stringify({ targetPlan: "enterprise", confirmReplacement: true }) });
+  if (replacementRetry.status !== 200 || replacementRetry.json().payment.id !== successfulReplacement.json().payment.id
+    || stripeCreateRequests.length !== createCountBeforeReplacement + 1 || stripeCancelRequests.length !== cancelCountBeforeReplacement + 2) fail("duplicate confirmation did not reuse exactly one replacement payment");
+  if (db.payment_provider_events.length !== oldEventCountBeforeReplacement + 1
+    || !db.payment_provider_events.some(row => row.payment_id === replacementPayment.id)) fail("superseded payment history was not retained exactly once");
   console.log("Subscription upgrade checks passed.");
 })().catch(error => { console.error(error); process.exit(1); });

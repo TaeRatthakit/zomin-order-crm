@@ -103,8 +103,10 @@ const {
 const {
   STRIPE_PROVIDER,
   stripePromptPayConfig,
+  stripeRuntimeMode,
   createPromptPayPaymentIntent,
   retrievePaymentIntent,
+  cancelUnpaidTestPaymentIntentForReplacement,
   cancelPromoTestPaymentIntent,
   findPaymentIntentByPaymentId,
   verifyStripeWebhookPayload,
@@ -1127,6 +1129,121 @@ async function reconcileResumablePayment(payment, attempt, promptpay, currentUse
   if (attempt && typeof recordSubscriptionUpgradeStatus === "function") await recordSubscriptionUpgradeStatus(input);
   else if (typeof recordProviderPaymentStatus === "function") await recordProviderPaymentStatus(input);
   return localStatus;
+}
+
+async function supersedeMismatchedPendingCheckout({ candidate, currentUser, expectedSubscriptionId = "", targetPlan, billingInterval, amountMinor, promotionCode = "", explicitlyConfirmed = false } = {}) {
+  const payment = candidate?.payment;
+  if (!payment) return false;
+  const metadata = payment.checkoutMetadata || payment.checkout_metadata || {};
+  const providerMetadata = payment.providerMetadata || payment.provider_metadata || {};
+  const oldPlan = String(payment.targetPlan || payment.target_plan || payment.plan || metadata.target_plan || "").toLowerCase();
+  const oldInterval = String(payment.billingInterval || payment.billing_interval || "").toLowerCase();
+  const oldPromotion = publicCheckoutPromotion(payment);
+  const requestedPromo = String(promotionCode || "").trim().toUpperCase();
+  const sameContext = oldPlan === String(targetPlan || "").toLowerCase()
+    && oldInterval === String(billingInterval || "").toLowerCase()
+    && Number(payment.amountMinor ?? payment.amount_minor) === Number(amountMinor)
+    && String(payment.currency || "THB").toUpperCase() === "THB"
+    && String(oldPromotion?.code || "").toUpperCase() === requestedPromo;
+  if (sameContext) return false;
+  if (!explicitlyConfirmed) {
+    const error = new Error("REPLACEMENT_CONFIRMATION_REQUIRED");
+    error.code = "REPLACEMENT_CONFIRMATION_REQUIRED";
+    throw error;
+  }
+
+  const tenantId = String(currentUser?.tenantId || "");
+  const paymentTenantId = String(payment.tenantId || payment.tenant_id || "");
+  const reference = String(payment.providerPaymentReference || payment.provider_payment_reference || "").trim();
+  const attempt = candidate.attempt;
+  const paymentStatus = String(payment.status || "").toLowerCase();
+  const paymentSubscriptionId = String(payment.subscriptionId || payment.subscription_id || "");
+  const attemptTarget = String(attempt?.targetPlan || attempt?.target_plan || "").toLowerCase();
+  const attemptInterval = String(attempt?.billingInterval || attempt?.billing_interval || "").toLowerCase();
+  const attemptAmount = Number(attempt?.amountMinor ?? attempt?.amount_minor);
+  if (!tenantId || paymentTenantId !== tenantId || !payment.id || !reference
+    || !expectedSubscriptionId || paymentSubscriptionId !== String(expectedSubscriptionId)
+    || payment.provider !== STRIPE_PROVIDER
+    || (attempt && (String(attempt.tenantId || attempt.tenant_id || "") !== tenantId || String(attempt.paymentId || attempt.payment_id || "") !== String(payment.id)))
+    || (attempt && String(attempt.subscriptionId || attempt.subscription_id || "") !== paymentSubscriptionId)
+    || (attempt && (attemptTarget !== oldPlan || attemptInterval !== oldInterval
+      || attemptAmount !== Number(payment.amountMinor ?? payment.amount_minor)
+      || String(attempt.currency || "").toUpperCase() !== String(payment.currency || "").toUpperCase()))
+    || (attempt && String(attempt.providerPaymentReference || attempt.provider_payment_reference || "")
+      && String(attempt.providerPaymentReference || attempt.provider_payment_reference || "") !== reference)
+    || !["pending", "requires_action"].includes(paymentStatus)
+    || ["succeeded", "processing", "paid"].includes(String(providerMetadata.last_provider_status || "").toLowerCase())
+    || Boolean(payment.paidAt || payment.paid_at)
+    || stripeRuntimeMode() !== "test" || !stripePromptPayConfig().testMode) {
+    const error = new Error("REPLACEMENT_PAYMENT_NOT_SAFE");
+    error.code = "REPLACEMENT_PAYMENT_NOT_SAFE";
+    throw error;
+  }
+  if (attempt && !["pending", "requires_action"].includes(String(attempt.status || "").toLowerCase())) {
+    const error = new Error("REPLACEMENT_PAYMENT_NOT_SAFE");
+    error.code = "REPLACEMENT_PAYMENT_NOT_SAFE";
+    throw error;
+  }
+  // Period bounds must agree between the payment and its existing upgrade attempt.
+  const start = String(payment.billingPeriodStartedAt || payment.billing_period_started_at || "");
+  const end = String(payment.billingPeriodEndsAt || payment.billing_period_ends_at || "");
+  if (!start || !end || (attempt && (String(attempt.billingPeriodStartedAt || attempt.billing_period_started_at || "") !== start
+    || String(attempt.billingPeriodEndsAt || attempt.billing_period_ends_at || "") !== end))) {
+    const error = new Error("REPLACEMENT_PAYMENT_CONTEXT_UNVERIFIED");
+    error.code = "REPLACEMENT_PAYMENT_CONTEXT_UNVERIFIED";
+    throw error;
+  }
+  const paymentContext = {
+    ...payment,
+    id: String(payment.id),
+    tenantId,
+    subscriptionId: String(payment.subscriptionId || payment.subscription_id || ""),
+    plan: oldPlan,
+    billingInterval: oldInterval,
+    amountMinor: Number(payment.amountMinor ?? payment.amount_minor),
+    currency: String(payment.currency || "THB").toUpperCase(),
+    billingPeriodStartedAt: start,
+    billingPeriodEndsAt: end,
+    currentPlan: String(payment.currentPlan || payment.current_plan || attempt?.currentPlan || attempt?.current_plan || metadata.current_plan || ""),
+    operation: String(payment.operation || metadata.operation || candidate.operation || "subscription_upgrade"),
+    checkoutMetadata: metadata
+  };
+  if (!paymentContext.subscriptionId || !paymentContext.currentPlan) {
+    const error = new Error("REPLACEMENT_PAYMENT_CONTEXT_UNVERIFIED");
+    error.code = "REPLACEMENT_PAYMENT_CONTEXT_UNVERIFIED";
+    throw error;
+  }
+  const promptpay = await cancelUnpaidTestPaymentIntentForReplacement(paymentContext, reference);
+  const statusInput = {
+    provider: STRIPE_PROVIDER,
+    providerEventId: `replace-${paymentContext.id}-${reference}`.slice(0, 160),
+    paymentId: paymentContext.id,
+    providerPaymentReference: reference,
+    amountMinor: paymentContext.amountMinor,
+    currency: paymentContext.currency,
+    status: "cancelled",
+    rawEvent: { source: "explicit_checkout_replacement", stripeStatus: promptpay.status,
+      replacedByPlan: String(targetPlan || ""), replacedByBillingInterval: String(billingInterval || "") }
+  };
+  if (metadata.promotion?.reservation_id) {
+    await releaseCanceledPromoPayment({ paymentId: paymentContext.id, tenantId,
+      providerPaymentReference: reference, amountMinor: paymentContext.amountMinor,
+      currency: paymentContext.currency, providerEventId: statusInput.providerEventId });
+  } else if (attempt && typeof recordSubscriptionUpgradeStatus === "function") {
+    await recordSubscriptionUpgradeStatus(statusInput);
+  } else if (typeof recordProviderPaymentStatus === "function") {
+    await recordProviderPaymentStatus(statusInput);
+  } else {
+    const error = new Error("REPLACEMENT_PAYMENT_AUDIT_REQUIRED");
+    error.code = "REPLACEMENT_PAYMENT_AUDIT_REQUIRED";
+    throw error;
+  }
+  if (attempt && typeof closeTerminalSubscriptionUpgradeAttempt === "function") {
+    await closeTerminalSubscriptionUpgradeAttempt({
+      attemptId: attempt.id || attempt.upgradeId, tenantId, status: "cancelled"
+    });
+  }
+  return true;
 }
 
 function paymentProviderConfig() {
@@ -4747,7 +4864,7 @@ async function handleBillingApi(req, res, url, db, currentUser) {
     }
     try {
       const pendingCandidate = pendingUpgradePaymentFor(db, currentUser, pendingUpgradeAttempts);
-      const pendingView = pendingCandidate
+      let pendingView = pendingCandidate
         ? upgradePaymentView({
             payment: pendingCandidate.payment || {},
             attempt: pendingCandidate.attempt,
@@ -4756,19 +4873,30 @@ async function handleBillingApi(req, res, url, db, currentUser) {
           })
         : null;
       const pendingTarget = String(pendingView?.targetPlan || "").toLowerCase();
-      // If Stripe already exists, inspect its authoritative state before
-      // treating the old checkout as a promo/target conflict. A terminal
-      // PromptPay attempt must be closed first so it cannot block a fresh
-      // checkout; genuinely active attempts remain protected below.
-      if (promotionCode && pendingView && !pendingView.providerPaymentReference
-        && publicCheckoutPromotion(pendingCandidate.payment)?.code !== promotionCode.toUpperCase()) {
-        return json(res, 409, checkoutPromoError(new Error("PROMOTION_CHECKOUT_CONFLICT")));
+      if (pendingView) {
+        let requestedAmountMinor = Number(PRICE_CATALOG_MINOR[targetPlan]?.[billingInterval] || 0);
+        if (promotionCode) {
+          const requestedPromoQuote = await quoteCheckoutPromotion({
+            tenantId: currentUser.tenantId, userId: currentUser.id,
+            code: promotionCode, plan: targetPlan, billing: billingInterval
+          });
+          requestedAmountMinor = Number(requestedPromoQuote.amount_minor);
+        }
+        const superseded = await supersedeMismatchedPendingCheckout({
+          candidate: pendingCandidate,
+          currentUser, expectedSubscriptionId: subscription.id, targetPlan, billingInterval, amountMinor: requestedAmountMinor, promotionCode,
+          explicitlyConfirmed: body.confirmReplacement === true
+        });
+        if (superseded) {
+          pendingView = null;
+          pendingUpgradeAttempts = [];
+        }
       }
       if (pendingView && !pendingView.providerPaymentReference && pendingTarget && pendingTarget !== targetPlan) {
         return json(res, 409, {
           ok: false,
           code: "UPGRADE_IN_PROGRESS",
-          error: "คุณมีรายการชำระเงินที่ยังไม่เสร็จสิ้น กรุณาดำเนินการรายการเดิมให้เรียบร้อยก่อน",
+          error: "รายการเดิมยังตรวจสอบเพื่อเริ่มรายการใหม่ไม่ได้ กรุณาลองอีกครั้ง",
           pendingPayment: publicPayment(pendingView),
           billing: subscriptionBillingPayload({ ...db, payments: [pendingView, ...(db.payments || [])] })
         });
@@ -4960,7 +5088,7 @@ async function handleBillingApi(req, res, url, db, currentUser) {
       const detail = String(error.code || error.detail || error.message || "");
       const promoError = checkoutPromoError(error);
       if (promoError) return json(res, 409, promoError);
-      for (const code of ["UPGRADE_NOT_ALLOWED", "UPGRADE_IN_PROGRESS", "UPGRADE_IDEMPOTENCY_CONFLICT", "SUBSCRIPTION_NOT_UPGRADABLE", "SUBSCRIPTION_NOT_FOUND", "UPGRADE_TENANT_FORBIDDEN", "INVALID_SUBSCRIPTION_UPGRADE_INPUT", "SUBSCRIPTION_CHECKOUT_IN_PROGRESS", "SUBSCRIPTION_CHECKOUT_IDEMPOTENCY_CONFLICT", "SUBSCRIPTION_CHECKOUT_OWNER_REQUIRED", "INVALID_SUBSCRIPTION_CHECKOUT_INPUT"]) {
+      for (const code of ["UPGRADE_NOT_ALLOWED", "UPGRADE_IN_PROGRESS", "UPGRADE_IDEMPOTENCY_CONFLICT", "SUBSCRIPTION_NOT_UPGRADABLE", "SUBSCRIPTION_NOT_FOUND", "UPGRADE_TENANT_FORBIDDEN", "INVALID_SUBSCRIPTION_UPGRADE_INPUT", "SUBSCRIPTION_CHECKOUT_IN_PROGRESS", "SUBSCRIPTION_CHECKOUT_IDEMPOTENCY_CONFLICT", "SUBSCRIPTION_CHECKOUT_OWNER_REQUIRED", "INVALID_SUBSCRIPTION_CHECKOUT_INPUT", "REPLACEMENT_CONFIRMATION_REQUIRED", "REPLACEMENT_PAYMENT_NOT_SAFE", "REPLACEMENT_PAYMENT_CONTEXT_UNVERIFIED", "REPLACEMENT_PAYMENT_METADATA_MISMATCH", "REPLACEMENT_PAYMENT_NOT_SAFE_TO_CANCEL", "REPLACEMENT_PAYMENT_AUDIT_REQUIRED"]) {
         if (detail.includes(code)) {
           const status = ["UPGRADE_TENANT_FORBIDDEN", "SUBSCRIPTION_CHECKOUT_OWNER_REQUIRED"].includes(code) ? 403 : 409;
           const pendingCandidate = pendingUpgradePaymentFor(db, currentUser, pendingUpgradeAttempts);
@@ -4974,9 +5102,9 @@ async function handleBillingApi(req, res, url, db, currentUser) {
             : null;
           return json(res, status, {
             ok: false,
-            code,
-            error: code === "UPGRADE_IN_PROGRESS" ? "มีรายการอัปเกรดที่กำลังดำเนินการอยู่" : "ไม่สามารถเริ่มรายการอัปเกรดนี้ได้",
-            ...(code === "UPGRADE_IN_PROGRESS" && pendingView
+            code: code === "REPLACEMENT_CONFIRMATION_REQUIRED" ? "UPGRADE_IN_PROGRESS" : code,
+            error: code.startsWith("REPLACEMENT_") ? "รายการเดิมยังตรวจสอบเพื่อเริ่มรายการใหม่ไม่ได้ กรุณาตรวจสอบแล้วลองอีกครั้ง" : (code === "UPGRADE_IN_PROGRESS" ? "มีรายการอัปเกรดที่กำลังดำเนินการอยู่" : "ไม่สามารถเริ่มรายการอัปเกรดนี้ได้"),
+            ...(["UPGRADE_IN_PROGRESS", "REPLACEMENT_CONFIRMATION_REQUIRED"].includes(code) && pendingView
               ? {
                   pendingPayment: publicPayment(pendingView),
                   billing: subscriptionBillingPayload({ ...db, payments: [pendingView, ...(db.payments || [])] })
@@ -4985,8 +5113,15 @@ async function handleBillingApi(req, res, url, db, currentUser) {
           });
         }
       }
+      if (detail.startsWith("REPLACEMENT_")) {
+        return json(res, 409, { ok: false, code: detail,
+          error: "รายการเดิมยังตรวจสอบเพื่อเริ่มรายการใหม่ไม่ได้ กรุณาลองอีกครั้ง" });
+      }
       if (error.code === "STRIPE_TEST_SECRET_KEY_REQUIRED" || error.code === "STRIPE_LIVE_SECRET_KEY_REQUIRED") {
         return json(res, 503, { ok: false, code: error.code, error: "ยังไม่ได้ตั้งค่า Stripe secret key ให้ตรงกับ environment" });
+      }
+      if (detail === "STRIPE_TEST_MODE_REQUIRED") {
+        return json(res, 503, { ok: false, code: detail, error: "ยืนยัน Stripe TEST environment ไม่สำเร็จ จึงยังไม่ปิดรายการเดิม" });
       }
       if (String(error.code || "").startsWith("STRIPE_")) {
         return json(res, 502, { ok: false, code: error.code, error: "เชื่อมต่อ Stripe ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" });
@@ -5036,6 +5171,24 @@ async function handleBillingApi(req, res, url, db, currentUser) {
     try {
       if (promotionCode && (intent === "subscription_activation" || !providerConfig.configured || providerConfig.provider !== STRIPE_PROVIDER)) {
         return json(res, 409, checkoutPromoError(new Error("PROMOTION_CHECKOUT_NOT_ALLOWED")));
+      }
+      if (providerConfig.provider === STRIPE_PROVIDER) {
+        const pendingAttempts = typeof readPendingSubscriptionUpgrades === "function"
+          ? await readPendingSubscriptionUpgrades(currentUser.tenantId) : [];
+        const pendingCheckout = pendingSubscriptionCheckoutFor(db, currentUser, pendingAttempts);
+        if (pendingCheckout?.payment) {
+          let requestedAmountMinor = intent === "subscription_activation"
+            ? Number(subscription?.amountDueMinor || 0)
+            : Number(PRICE_CATALOG_MINOR[targetPlan]?.[billingInterval] || 0);
+          if (promotionCode) {
+            const requestedPromoQuote = await quoteCheckoutPromotion({ tenantId: currentUser.tenantId,
+              userId: currentUser.id, code: promotionCode, plan: targetPlan, billing: billingInterval });
+            requestedAmountMinor = Number(requestedPromoQuote.amount_minor);
+          }
+          await supersedeMismatchedPendingCheckout({ candidate: pendingCheckout, currentUser,
+            expectedSubscriptionId: subscription.id, targetPlan, billingInterval, amountMinor: requestedAmountMinor, promotionCode,
+            explicitlyConfirmed: body.confirmReplacement === true });
+        }
       }
       if (intent === "subscription_activation" && access.requiresPayment && Number(subscription.amountDueMinor || 0) === 0) {
         if (typeof activateZeroAmountSubscriptionPayment !== "function") {
@@ -5143,6 +5296,14 @@ async function handleBillingApi(req, res, url, db, currentUser) {
       const detail = String(error.detail || error.message || "");
       const promoError = checkoutPromoError(error);
       if (promoError) return json(res, 409, promoError);
+      if (detail.startsWith("REPLACEMENT_")) {
+        return json(res, 409, { ok: false,
+          code: detail === "REPLACEMENT_CONFIRMATION_REQUIRED" ? "SUBSCRIPTION_CHECKOUT_IN_PROGRESS" : detail,
+          error: "รายการเดิมยังตรวจสอบเพื่อเริ่มรายการใหม่ไม่ได้ กรุณาลองอีกครั้ง" });
+      }
+      if (detail === "STRIPE_TEST_MODE_REQUIRED") {
+        return json(res, 503, { ok: false, code: detail, error: "ยืนยัน Stripe TEST environment ไม่สำเร็จ จึงยังไม่ปิดรายการเดิม" });
+      }
       if (detail.includes("PAYMENT_NOT_REQUIRED")) {
         return json(res, 409, { ok: false, code: "PAYMENT_NOT_REQUIRED", error: "แพ็กเกจนี้ยังไม่ต้องชำระเงิน" });
       }
