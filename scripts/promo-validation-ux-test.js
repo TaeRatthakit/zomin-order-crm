@@ -23,11 +23,12 @@ for (const [code, message] of cases) {
   assert.equal(checkoutPromoError(new Error(code)).error, message, `${code} message`);
 }
 assert.equal(checkoutPromoError(new Error("ETIMEDOUT while calling Supabase")), null, "network errors are not promo-invalid");
-assert.match(appSource, /app\.checkoutPromotionError = "กรุณากรอกโค้ดโปรโมชั่น"/);
-assert.match(appSource, /app\.checkoutPromotionError \|\| promoFeedback/);
-assert.match(appSource, /const promoFeedback = appliedPromo \? `ใช้โค้ดสำเร็จ \$\{promoBenefit\}`/);
-assert.match(appSource, /: appliedPromo \? `ลด ฿/);
-assert.doesNotMatch(appSource, /ระบบโค้ดโปรโมชั่นกำลังเตรียมพร้อมใช้งาน/);
+assert.match(appSource, /if \(!app\.checkoutPromotionCode\) \{[\s\S]*?app\.checkoutPromoQuote = null;[\s\S]*?app\.checkoutPromotionError = ""/,
+  "an empty promo field clears an old quote without contacting checkout");
+assert.match(appSource, /app\.checkoutPromotionError \|\| promoBenefit/);
+assert.match(appSource, /const promoBenefit = appliedPromo\?\.mode === "free_service"[\s\S]*?: appliedPromo \? `ส่วนลด \$\{moneyMinorText\(appliedPromo\.discount_amount_minor\)\}`/);
+assert.match(appSource, /const result = await api\("\/api\/billing\/promo\/quote",[\s\S]*?app\.checkoutPromoQuote = result/,
+  "the active checkout promo flow uses the authoritative quote API");
 assert.match(stylesSource, /html\[data-theme="light"\] body:not\(\.login-view\) \.subscription-promo-message\.is-error\s*\{\s*color: #b4233c !important;/);
 assert.match(stylesSource, /html\[data-theme="light"\] body:not\(\.login-view\) \.subscription-promo-message\.is-success\s*\{\s*color: #16845a !important;/);
 assert.match(serverSource, /PROMOTION_VALIDATION_UNAVAILABLE/);

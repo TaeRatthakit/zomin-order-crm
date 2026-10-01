@@ -75,6 +75,7 @@ function mount() {
   const context = {
     app,
     els: { content },
+    subscriptionCheckoutBlockReason: () => "",
     escapeHtml: value => String(value ?? "").replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]),
     moneyMinorText: value => `THB ${(Number(value || 0) / 100).toFixed(2)}`,
     iconSvg: () => "<svg aria-hidden=\"true\"></svg>",

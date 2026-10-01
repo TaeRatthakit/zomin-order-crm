@@ -4589,10 +4589,39 @@ async function handleBillingApi(req, res, url, db, currentUser) {
         ? billingPayloadWithReconciledPayment(db, payment, reconciliation.status)
         : subscriptionBillingPayload(db);
       if (reconciliation.state === "active") {
+        const paymentView = publicPayment({
+          ...payment,
+          operation: reconciliation.candidate.operation,
+          targetPlan: payment.targetPlan || payment.plan,
+          currentPlan: payment.currentPlan || reconciliation.candidate.attempt?.currentPlan || baseSubscription(db)?.plan || "",
+          billingInterval: payment.billingInterval || payment.billing_interval
+        });
+        const resumePromptpay = reconciliation.promptpay ? { ...reconciliation.promptpay } : null;
+        if (resumePromptpay) delete resumePromptpay.clientSecret;
+        const resumePayload = resumePromptpay && reconciliation.candidate.operation === "subscription_upgrade"
+          ? {
+              ok: true,
+              provider: STRIPE_PROVIDER,
+              resumed: true,
+              upgrade: upgradeViewFromPayment(
+                reconciliation.candidate.attempt || {},
+                upgradePaymentView({
+                  payment,
+                  attempt: reconciliation.candidate.attempt,
+                  currentPlan: payment.currentPlan || reconciliation.candidate.attempt?.currentPlan || baseSubscription(db)?.plan || "",
+                  targetPlan: payment.targetPlan || payment.plan
+                })
+              ),
+              payment: paymentView,
+              promptpay: resumePromptpay,
+              billing
+            }
+          : null;
         return json(res, 200, {
           ok: true,
           state: "active",
-          pendingPayment: publicPayment(payment),
+          pendingPayment: paymentView,
+          ...(resumePayload ? { resumePayload } : {}),
           billing
         });
       }

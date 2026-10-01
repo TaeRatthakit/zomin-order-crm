@@ -310,7 +310,7 @@ async function verifyCheckoutInitializationStateMachine() {
       window: { setTimeout, clearTimeout }
     };
     vm.createContext(context);
-    vm.runInContext(`${helperSource}\nthis.initialize = initializeSubscriptionCheckout; this.blockReason = subscriptionCheckoutBlockReason;`, context);
+    vm.runInContext(`${helperSource}\nthis.initialize = initializeSubscriptionCheckout; this.blockReason = subscriptionCheckoutBlockReason; this.prefetchedResume = subscriptionResumePrefetchFor;`, context);
     return context;
   }
   function deferred() {
@@ -346,16 +346,18 @@ async function verifyCheckoutInitializationStateMachine() {
   const activeHarness = harness(path => {
     activeCalls.push(path);
     if (path.endsWith("/quote")) return Promise.resolve({ quote: { amount_minor: 99000, intent: "subscription_upgrade" } });
-    if (path.endsWith("/reconcile")) return Promise.resolve({ state: "active", pendingPayment: { id: "existing_payment", targetPlan: "business", amountMinor: 99000, currency: "THB", billingInterval: "monthly", operation: "subscription_upgrade" }, billing: { latestPayments: [{ id: "existing_payment" }] } });
+    if (path.endsWith("/reconcile")) return Promise.resolve({ state: "active", pendingPayment: { id: "existing_payment", targetPlan: "business", amountMinor: 99000, currency: "THB", billingInterval: "monthly", operation: "subscription_upgrade" }, resumePayload: { ok: true, resumed: true, payment: { id: "existing_payment", targetPlan: "business", amountMinor: 99000, currency: "THB", billingInterval: "monthly", operation: "subscription_upgrade" }, promptpay: { paymentIntentId: "existing_intent" }, billing: { latestPayments: [{ id: "existing_payment" }] } }, billing: { latestPayments: [{ id: "existing_payment" }] } });
     return Promise.resolve({ payment: { id: "existing_payment" }, promptpay: { paymentIntentId: "existing_intent" }, billing: { latestPayments: [{ id: "existing_payment" }] } });
   });
   const activeDraft = { targetPlan: "business", billingInterval: "monthly" };
   activeHarness.app.subscriptionCheckoutDraft = activeDraft;
   await activeHarness.initialize(activeDraft);
   if (activeHarness.app.subscriptionCheckoutDraft !== activeDraft || activeDraft.pendingPayment?.id !== "existing_payment" || !activeDraft.reconciliationReady || activeCalls.some(path => path.endsWith("/upgrade") || path.endsWith("/checkout")) || activeHarness.app.billingCheckout || activeDraft.initializing || activeHarness.app.subscriptionQuoteLoading) fail("active existing payment advanced or resumed before explicit confirmation");
+  if (activeHarness.prefetchedResume(activeDraft)?.promptpay?.paymentIntentId !== "existing_intent") fail("validated existing-payment response was not prefetched for an explicit click");
   if (activeHarness.blockReason(activeDraft)) fail("compatible existing payment was incorrectly blocked from explicit continuation");
   activeDraft.pendingPayment.promotion = { code: "OLDPROMO" };
   if (!activeHarness.blockReason(activeDraft)) fail("existing payment with a different promotion was silently reusable");
+  if (activeHarness.prefetchedResume(activeDraft)) fail("mismatched promo context did not invalidate the prefetched payment response");
   activeHarness.app.checkoutPromotionCode = "oldpromo";
   activeHarness.app.checkoutPromoQuote = { quote: { amount_minor: 99000, currency: "THB", code: "OLDPROMO" } };
   if (activeHarness.blockReason(activeDraft)) fail("matching authoritative promotion quote was incorrectly blocked");
@@ -393,6 +395,32 @@ async function verifyCheckoutInitializationStateMachine() {
   resolvePayment({ payment: { id: "confirmed_payment" }, promptpay: { paymentIntentId: "confirmed_intent" } });
   await Promise.all([firstConfirm, rapidSecondConfirm]);
   if (confirmHarness.app.billingCheckout?.payment?.id !== "confirmed_payment" || confirmHarness.app.subscriptionCheckoutDraft || confirmationCalls !== 1) fail("explicit confirmation did not advance exactly once after authoritative payment response");
+
+  const prefetchedHarness = harness(() => Promise.resolve());
+  const prefetchedDraft = { targetPlan: "business", billingInterval: "monthly", action: "upgrade", baseQuote: { amount_minor: 99000, currency: "THB" }, reconciliationReady: true, initializing: false, pendingPayment: { id: "prefetched_payment", targetPlan: "business", amountMinor: 99000, currency: "THB", billingInterval: "monthly" }, prefetchedResumePayload: { ok: true, resumed: true, payment: { id: "prefetched_payment", targetPlan: "business", amountMinor: 99000, currency: "THB", billingInterval: "monthly" }, promptpay: { paymentIntentId: "prefetched_intent" } }, prefetchedResumeAt: Date.now() };
+  prefetchedHarness.app.view = "settingsSubscription";
+  prefetchedHarness.app.subscriptionCheckoutDraft = prefetchedDraft;
+  prefetchedHarness.app.pricingUpgradeLoading = "";
+  let prefetchedFallbackCalls = 0;
+  prefetchedHarness.beginSubscriptionCheckoutForUi = () => { prefetchedFallbackCalls += 1; return Promise.reject(new Error("unexpected fallback")); };
+  prefetchedHarness.render = () => {};
+  prefetchedHarness.showToast = () => {};
+  vm.runInContext(`this.clickConfirm = async event => { const subscriptionConfirmButton = event.target.closest("[data-subscription-checkout-confirm]"); ${confirmBlock}\n};`, prefetchedHarness);
+  await prefetchedHarness.clickConfirm(confirmEvent);
+  if (prefetchedFallbackCalls || prefetchedHarness.app.billingCheckout?.promptpay?.paymentIntentId !== "prefetched_intent") fail("fresh authoritative prefetch was not reused after an explicit resume click");
+
+  const stalePrefetchHarness = harness(() => Promise.resolve());
+  const stalePrefetchDraft = { ...prefetchedDraft, prefetchedResumeAt: Date.now() - 9000 };
+  stalePrefetchHarness.app.view = "settingsSubscription";
+  stalePrefetchHarness.app.subscriptionCheckoutDraft = stalePrefetchDraft;
+  stalePrefetchHarness.app.pricingUpgradeLoading = "";
+  let staleFallbackCalls = 0;
+  stalePrefetchHarness.beginSubscriptionCheckoutForUi = () => { staleFallbackCalls += 1; return Promise.resolve({ payment: { id: "fresh_payment" }, promptpay: { paymentIntentId: "fresh_intent" } }); };
+  stalePrefetchHarness.render = () => {};
+  stalePrefetchHarness.showToast = () => {};
+  vm.runInContext(`this.clickConfirm = async event => { const subscriptionConfirmButton = event.target.closest("[data-subscription-checkout-confirm]"); ${confirmBlock}\n};`, stalePrefetchHarness);
+  await stalePrefetchHarness.clickConfirm(confirmEvent);
+  if (staleFallbackCalls !== 1 || stalePrefetchHarness.app.billingCheckout?.payment?.id !== "fresh_payment") fail("stale existing-payment prefetch was not discarded for authoritative server resume");
 
   const failedConfirmHarness = harness(() => Promise.resolve());
   const failedConfirmDraft = { targetPlan: "business", billingInterval: "monthly", action: "upgrade", baseQuote: { amount_minor: 99000 }, reconciliationReady: true, initializing: false };
@@ -562,7 +590,12 @@ async function verifyCheckoutInitializationStateMachine() {
   const first = await request("/api/billing/upgrade", { method: "POST", headers: { cookie: starterCookie }, body: JSON.stringify({ targetPlan: "business", tenantId: ids.business, amountMinor: 1 }) });
   if (first.status !== 200 || first.json().payment.amountMinor !== 99000 || first.json().payment.targetPlan !== "business") fail(`Starter -> Business wrong: ${first.status} ${first.text}`);
   const activeReconciliation = await request("/api/billing/reconcile", { method: "POST", headers: { cookie: starterCookie }, body: "{}" });
-  if (activeReconciliation.status !== 200 || activeReconciliation.json().state !== "active") fail("active pending checkout was not protected during reconciliation");
+  if (activeReconciliation.status !== 200 || activeReconciliation.json().state !== "active"
+    || activeReconciliation.json().resumePayload?.payment?.id !== first.json().payment.id
+    || activeReconciliation.json().resumePayload?.promptpay?.paymentIntentId !== first.json().promptpay.paymentIntentId
+    || Object.hasOwn(activeReconciliation.json().resumePayload?.promptpay || {}, "clientSecret")) {
+    fail("active pending checkout did not return its read-only authoritative resume context");
+  }
   if (db.payments.find(row => row.id === first.json().payment.id).status !== "pending") fail("active pending checkout was modified by reconciliation");
   const resumed = await request("/api/billing/upgrade", { method: "POST", headers: { cookie: starterCookie }, body: JSON.stringify({ targetPlan: "business" }) });
   if (resumed.status !== 200 || resumed.json().payment.id !== first.json().payment.id || resumed.json().promptpay.promptpay.imageUrlPng !== first.json().promptpay.promptpay.imageUrlPng) fail("same target did not resume the same payment and QR");
