@@ -303,7 +303,7 @@ async function verifyCheckoutInitializationStateMachine() {
       window: { setTimeout, clearTimeout }
     };
     vm.createContext(context);
-    vm.runInContext(`${helperSource}\nthis.initialize = initializeSubscriptionCheckout;`, context);
+    vm.runInContext(`${helperSource}\nthis.initialize = initializeSubscriptionCheckout; this.blockReason = subscriptionCheckoutBlockReason;`, context);
     return context;
   }
   function deferred() {
@@ -339,13 +339,65 @@ async function verifyCheckoutInitializationStateMachine() {
   const activeHarness = harness(path => {
     activeCalls.push(path);
     if (path.endsWith("/quote")) return Promise.resolve({ quote: { amount_minor: 99000, intent: "subscription_upgrade" } });
-    if (path.endsWith("/reconcile")) return Promise.resolve({ state: "active", pendingPayment: { id: "existing_payment", targetPlan: "business", operation: "subscription_upgrade" }, billing: { latestPayments: [{ id: "existing_payment" }] } });
+    if (path.endsWith("/reconcile")) return Promise.resolve({ state: "active", pendingPayment: { id: "existing_payment", targetPlan: "business", amountMinor: 99000, currency: "THB", billingInterval: "monthly", operation: "subscription_upgrade" }, billing: { latestPayments: [{ id: "existing_payment" }] } });
     return Promise.resolve({ payment: { id: "existing_payment" }, promptpay: { paymentIntentId: "existing_intent" }, billing: { latestPayments: [{ id: "existing_payment" }] } });
   });
   const activeDraft = { targetPlan: "business", billingInterval: "monthly" };
   activeHarness.app.subscriptionCheckoutDraft = activeDraft;
   await activeHarness.initialize(activeDraft);
-  if (activeHarness.app.subscriptionCheckoutDraft || activeHarness.app.billingCheckout?.payment?.id !== "existing_payment" || activeCalls.filter(path => path.endsWith("/upgrade")).length !== 1 || activeDraft.initializing || activeHarness.app.subscriptionQuoteLoading) fail("active existing payment was not resumed and rendered safely");
+  if (activeHarness.app.subscriptionCheckoutDraft !== activeDraft || activeDraft.pendingPayment?.id !== "existing_payment" || !activeDraft.reconciliationReady || activeCalls.some(path => path.endsWith("/upgrade") || path.endsWith("/checkout")) || activeHarness.app.billingCheckout || activeDraft.initializing || activeHarness.app.subscriptionQuoteLoading) fail("active existing payment advanced or resumed before explicit confirmation");
+  if (activeHarness.blockReason(activeDraft)) fail("compatible existing payment was incorrectly blocked from explicit continuation");
+  activeDraft.pendingPayment.promotion = { code: "OLDPROMO" };
+  if (!activeHarness.blockReason(activeDraft)) fail("existing payment with a different promotion was silently reusable");
+  activeHarness.app.checkoutPromotionCode = "oldpromo";
+  activeHarness.app.checkoutPromoQuote = { quote: { amount_minor: 99000, currency: "THB", code: "OLDPROMO" } };
+  if (activeHarness.blockReason(activeDraft)) fail("matching authoritative promotion quote was incorrectly blocked");
+  activeHarness.app.checkoutPromotionCode = "not-applied";
+  activeHarness.app.checkoutPromoQuote = null;
+  if (!activeHarness.blockReason(activeDraft)) fail("typed but unapplied promotion was not blocked from confirmation");
+  activeHarness.app.checkoutPromotionCode = "";
+  activeDraft.pendingPayment.promotion = undefined;
+  activeDraft.pendingPayment.amountMinor = 100000;
+  if (!activeHarness.blockReason(activeDraft)) fail("existing payment with a different amount was silently reusable");
+
+  const confirmBlock = appSource.match(/const subscriptionConfirmButton = event\.target\.closest\("\[data-subscription-checkout-confirm\]"\);([\s\S]*?)\n  const subscriptionInitializationRetryButton =/)?.[1];
+  if (!confirmBlock) fail("explicit confirmation handler could not be isolated for interaction testing");
+  const confirmHarness = harness(() => Promise.resolve());
+  const confirmDraft = { targetPlan: "business", billingInterval: "monthly", action: "upgrade", baseQuote: { amount_minor: 99000 }, reconciliationReady: true, initializing: false };
+  confirmHarness.app.view = "settingsSubscription";
+  confirmHarness.app.pricingUpgradeLoading = "";
+  confirmHarness.app.subscriptionCheckoutDraft = confirmDraft;
+  let resolvePayment;
+  let confirmationCalls = 0;
+  confirmHarness.beginSubscriptionCheckoutForUi = () => {
+    confirmationCalls += 1;
+    return new Promise(resolve => { resolvePayment = resolve; });
+  };
+  confirmHarness.render = () => {};
+  confirmHarness.showToast = () => {};
+  vm.runInContext(`this.clickConfirm = async event => { const subscriptionConfirmButton = event.target.closest("[data-subscription-checkout-confirm]"); ${confirmBlock}\n};`, confirmHarness);
+  const confirmEvent = { target: { closest: selector => selector === "[data-subscription-checkout-confirm]" ? {} : null } };
+  const firstConfirm = confirmHarness.clickConfirm(confirmEvent);
+  await tick();
+  const rapidSecondConfirm = confirmHarness.clickConfirm(confirmEvent);
+  if (confirmationCalls !== 1 || confirmHarness.app.billingCheckout) fail("payment was not single-shot or advanced before its authoritative response");
+  resolvePayment({ payment: { id: "confirmed_payment" }, promptpay: { paymentIntentId: "confirmed_intent" } });
+  await Promise.all([firstConfirm, rapidSecondConfirm]);
+  if (confirmHarness.app.billingCheckout?.payment?.id !== "confirmed_payment" || confirmHarness.app.subscriptionCheckoutDraft || confirmationCalls !== 1) fail("explicit confirmation did not advance exactly once after authoritative payment response");
+
+  const unvalidatedHarness = harness(() => Promise.resolve());
+  const unvalidatedDraft = { targetPlan: "business", billingInterval: "monthly", action: "upgrade", baseQuote: { amount_minor: 99000 }, reconciliationReady: true, initializing: false };
+  unvalidatedHarness.app.view = "settingsSubscription";
+  unvalidatedHarness.app.pricingUpgradeLoading = "";
+  unvalidatedHarness.app.subscriptionCheckoutDraft = unvalidatedDraft;
+  unvalidatedHarness.app.checkoutPromotionCode = "TYPED-BUT-NOT-APPLIED";
+  let unvalidatedCalls = 0;
+  unvalidatedHarness.beginSubscriptionCheckoutForUi = () => { unvalidatedCalls += 1; return Promise.resolve({}); };
+  unvalidatedHarness.render = () => {};
+  unvalidatedHarness.showToast = () => {};
+  vm.runInContext(`this.clickConfirm = async event => { const subscriptionConfirmButton = event.target.closest("[data-subscription-checkout-confirm]"); ${confirmBlock}\n};`, unvalidatedHarness);
+  await unvalidatedHarness.clickConfirm(confirmEvent);
+  if (unvalidatedCalls || unvalidatedHarness.app.subscriptionCheckoutDraft !== unvalidatedDraft) fail("unapplied promo was ignored or confirmation advanced checkout");
 
   const webhookCalls = [];
   const webhookHarness = harness(path => {
@@ -356,7 +408,7 @@ async function verifyCheckoutInitializationStateMachine() {
   const webhookDraft = { targetPlan: "business", billingInterval: "monthly" };
   webhookHarness.app.subscriptionCheckoutDraft = webhookDraft;
   await webhookHarness.initialize(webhookDraft);
-  if (webhookHarness.app.subscriptionCheckoutDraft || webhookHarness.app.billingCheckout?.payment?.id !== "webhook_payment" || webhookCalls.some(path => path.endsWith("/upgrade") || path.endsWith("/checkout")) || webhookDraft.initializing) fail("awaiting-webhook payment was not preserved without creating a new payment");
+  if (webhookHarness.app.subscriptionCheckoutDraft !== webhookDraft || !webhookDraft.awaitingWebhook || webhookDraft.reconciliationReady || webhookHarness.app.billingCheckout || webhookCalls.some(path => path.endsWith("/upgrade") || path.endsWith("/checkout")) || webhookDraft.initializing) fail("awaiting-webhook payment advanced or created/resumed a payment before explicit confirmation");
 
   const quoteFailure = deferred();
   const reconAfterQuoteFailure = deferred();
@@ -439,12 +491,17 @@ async function verifyCheckoutInitializationStateMachine() {
   if (!appSource.includes('"/api/billing/upgrade/qr"') || !appSource.includes("data-subscription-qr-image")) fail("subscription QR delivery fallback is missing");
   if (!appSource.includes("data-subscription-qr-source") || !appSource.includes("qrFallbackAttempted")) fail("subscription QR image retry fallback is missing");
   if (!appSource.includes('"/api/billing/reconcile"')) fail("pricing must reconcile a stale checkout before opening a new draft");
+  const checkoutInitialization = appSource.match(/async function initializeSubscriptionCheckout\(draft\) \{[\s\S]*?\n\}/)?.[0];
+  const checkoutHydration = appSource.match(/async function hydrateSubscriptionCheckout\(\) \{[\s\S]*?\n\}/)?.[0];
+  if (!checkoutInitialization || /beginSubscriptionCheckoutForUi|\/api\/billing\/(?:upgrade|checkout)/.test(checkoutInitialization)) fail("checkout initialization must not create or resume payment");
+  if (!checkoutHydration || /\/api\/billing\/(?:upgrade|checkout)/.test(checkoutHydration)) fail("route hydration must not auto-advance to PromptPay");
+  if (!appSource.includes('event.target.closest("[data-subscription-checkout-confirm]")') || !appSource.includes("subscriptionCheckoutBlockReason(draft)")) fail("only an explicitly confirmed, compatible checkout may create/resume payment");
   const pricingHandler = appSource.match(/const pricingCheckoutButton = event\.target\.closest\("\[data-pricing-action\]"\);[\s\S]*?\/\* pricing-scope: authenticated-upgrade-handler:end \*\//)?.[0];
   if (!pricingHandler) fail("pricing checkout handler could not be loaded");
   if (!/setView\("settingsSubscription"\);[\s\S]*?void initializeSubscriptionCheckout\(draft\)/.test(pricingHandler)) fail("checkout page must appear immediately before asynchronous initialization");
   if (!/requestSubscriptionInitialization\("\/api\/billing\/quote"/.test(appSource) || !/requestSubscriptionInitialization\("\/api\/billing\/reconcile"/.test(appSource)) fail("quote and reconciliation must both use bounded requests");
   if (!/\["active", "awaiting_webhook"\]\.includes\(reconciliation\.state\)/.test(appSource)) fail("checkout must remain gated by active and awaiting-webhook payments");
-  if (!/draft\.initializing \|\| !draft\.baseQuote \|\| !draft\.reconciliationReady/.test(appSource)) fail("confirm must require settled authoritative quote and reconciliation");
+  if (!/draft\.initializing \|\| checkoutBlockReason/.test(appSource) || !appSource.includes("if (!draft.baseQuote || !draft.reconciliationReady || draft.initializing || app.subscriptionQuoteLoading || subscriptionCheckoutBlockReason(draft)) return;")) fail("confirm must require settled authoritative quote, reconciliation, and a compatible payment state");
   if (!appSource.includes("data-subscription-initialization-retry") || !appSource.includes("draft.initializationAttempt === attempt")) fail("initialization retry or stale-attempt protection is missing");
   await verifyCheckoutInitializationStateMachine();
   const statusFunction = appSource.match(/function subscriptionPaymentDisplayStatus\(promptpay = \{\}, payment = \{\}\) \{[\s\S]*?\n\}/)?.[0];
