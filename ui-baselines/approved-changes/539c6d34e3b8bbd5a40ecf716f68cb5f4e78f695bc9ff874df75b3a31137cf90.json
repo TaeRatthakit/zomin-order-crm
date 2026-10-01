@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "id": "task5-existing-payment-resume-prefetch",
+  "base": { "sourceCommit": "9ba538ed1b7404fba88714cbeb2208df18b226fb" },
+  "target": { "sourceCommit": "08588af6621f8d041baa239eb535ab7d54ec59e1" },
+  "allowedFiles": ["public/app.js"],
+  "approvedChanges": [
+    {
+      "route": "Authenticated Pricing / Subscription Checkout",
+      "component": "explicit continuation of a reconciled pending PromptPay payment",
+      "regions": ["existing-payment resume interaction; no layout or copy change"],
+      "selectors": ["[data-subscription-checkout-confirm]", ".subscription-qr-state"]
+    }
+  ],
+  "expectedTextChanges": [
+    {
+      "route": "Authenticated Pricing / Subscription Checkout",
+      "component": "reuse fresh reconciled payment data only after explicit continuation",
+      "from": "const payload = await beginSubscriptionCheckoutForUi({",
+      "to": "const prefetchedResume = subscriptionResumePrefetchFor(draft);"
+    }
+  ],
+  "expectedDiffSha256": "8ca01e86b52ea9bf4d9453ae0a3969385996be05f25c55af8a1df1f9afc8de37",
+  "expectedDiffLines": [
+    { "file": "public/app.js", "sign": "+", "line": 10315, "text": "const SUBSCRIPTION_RESUME_PREFETCH_MAX_AGE_MS = 8000;" },
+    { "file": "public/app.js", "sign": "+", "line": 10365, "text": "function subscriptionResumePrefetchFor(draft) {" },
+    { "file": "public/app.js", "sign": "+", "line": 10366, "text": "  const payload = draft?.prefetchedResumePayload;" },
+    { "file": "public/app.js", "sign": "+", "line": 10367, "text": "  const payment = payload?.payment;" },
+    { "file": "public/app.js", "sign": "+", "line": 10368, "text": "  const pending = draft?.pendingPayment;" },
+    { "file": "public/app.js", "sign": "+", "line": 10369, "text": "  const age = Date.now() - Number(draft?.prefetchedResumeAt || 0);" },
+    { "file": "public/app.js", "sign": "+", "line": 10370, "text": "  if (!payload || !payment || !pending || age < 0 || age > SUBSCRIPTION_RESUME_PREFETCH_MAX_AGE_MS" },
+    { "file": "public/app.js", "sign": "+", "line": 10371, "text": "    || String(payment.id || \"\") !== String(pending.id || \"\")" },
+    { "file": "public/app.js", "sign": "+", "line": 10372, "text": "    || String(payment.targetPlan || payment.plan || \"\").toLowerCase() !== String(draft.targetPlan || \"\").toLowerCase()" },
+    { "file": "public/app.js", "sign": "+", "line": 10373, "text": "    || String(payment.billingInterval || \"\").toLowerCase() !== String(draft.billingInterval || \"\").toLowerCase()" },
+    { "file": "public/app.js", "sign": "+", "line": 10374, "text": "    || Number(payment.amountMinor) !== Number(pending.amountMinor)" },
+    { "file": "public/app.js", "sign": "+", "line": 10375, "text": "    || String(payment.currency || \"THB\").toUpperCase() !== String(pending.currency || \"THB\").toUpperCase()" },
+    { "file": "public/app.js", "sign": "+", "line": 10376, "text": "    || subscriptionCheckoutBlockReason(draft)) return null;" },
+    { "file": "public/app.js", "sign": "+", "line": 10377, "text": "  return payload;" },
+    { "file": "public/app.js", "sign": "+", "line": 10378, "text": "}" },
+    { "file": "public/app.js", "sign": "+", "line": 10379, "text": "" },
+    { "file": "public/app.js", "sign": "+", "line": 10427, "text": "      draft.prefetchedResumePayload = reconciliation.resumePayload || null;" },
+    { "file": "public/app.js", "sign": "+", "line": 10428, "text": "      draft.prefetchedResumeAt = draft.prefetchedResumePayload ? Date.now() : 0;" },
+    { "file": "public/app.js", "sign": "+", "line": 10450, "text": "  if (draft.prefetchedResumePayload && !subscriptionResumePrefetchFor(draft)) {" },
+    { "file": "public/app.js", "sign": "+", "line": 10451, "text": "    draft.prefetchedResumePayload = null;" },
+    { "file": "public/app.js", "sign": "+", "line": 10452, "text": "    draft.prefetchedResumeAt = 0;" },
+    { "file": "public/app.js", "sign": "+", "line": 10453, "text": "  }" },
+    { "file": "public/app.js", "sign": "-", "line": 13215, "text": "      const payload = await beginSubscriptionCheckoutForUi({" },
+    { "file": "public/app.js", "sign": "+", "line": 13237, "text": "      const prefetchedResume = subscriptionResumePrefetchFor(draft);" },
+    { "file": "public/app.js", "sign": "+", "line": 13238, "text": "      draft.prefetchedResumePayload = null;" },
+    { "file": "public/app.js", "sign": "+", "line": 13239, "text": "      draft.prefetchedResumeAt = 0;" },
+    { "file": "public/app.js", "sign": "+", "line": 13240, "text": "      const payload = prefetchedResume || await beginSubscriptionCheckoutForUi({" }
+  ]
+}
