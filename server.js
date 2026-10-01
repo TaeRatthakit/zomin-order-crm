@@ -68,6 +68,7 @@ const {
   platformAdminPayments,
   platformAdminPromotionCodes,
   platformAdminUpsertPromotionCode,
+  readBillingDb,
   withTenantContext,
   resolveTenantForUser,
   resolveTenantForLineWebhook,
@@ -6446,7 +6447,9 @@ async function handleApi(req, res) {
       durableOrderDeleteId = decodeURIComponent(url.pathname.split("/").pop() || "");
     } catch {}
   }
-  const db = isDurableOrderDelete && typeof readOrderDeleteDb === "function"
+  const db = isBillingApiPath(url.pathname) && typeof readBillingDb === "function"
+    ? await readBillingDb()
+    : isDurableOrderDelete && typeof readOrderDeleteDb === "function"
     ? await readOrderDeleteDb(durableOrderDeleteId)
     : isOrderDeleteIntent && typeof readOrderDeleteIntentDb === "function"
       ? await readOrderDeleteIntentDb()
