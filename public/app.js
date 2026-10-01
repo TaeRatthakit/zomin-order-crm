@@ -10312,6 +10312,7 @@ function subscriptionPaymentDisplayStatus(promptpay = {}, payment = {}) {
 }
 
 const SUBSCRIPTION_INITIALIZATION_TIMEOUT_MS = 15000;
+const SUBSCRIPTION_RESUME_PREFETCH_MAX_AGE_MS = 8000;
 
 function requestSubscriptionInitialization(path, body) {
   let timeoutId;
@@ -10361,6 +10362,21 @@ function subscriptionCheckoutBlockReason(draft) {
   return "";
 }
 
+function subscriptionResumePrefetchFor(draft) {
+  const payload = draft?.prefetchedResumePayload;
+  const payment = payload?.payment;
+  const pending = draft?.pendingPayment;
+  const age = Date.now() - Number(draft?.prefetchedResumeAt || 0);
+  if (!payload || !payment || !pending || age < 0 || age > SUBSCRIPTION_RESUME_PREFETCH_MAX_AGE_MS
+    || String(payment.id || "") !== String(pending.id || "")
+    || String(payment.targetPlan || payment.plan || "").toLowerCase() !== String(draft.targetPlan || "").toLowerCase()
+    || String(payment.billingInterval || "").toLowerCase() !== String(draft.billingInterval || "").toLowerCase()
+    || Number(payment.amountMinor) !== Number(pending.amountMinor)
+    || String(payment.currency || "THB").toUpperCase() !== String(pending.currency || "THB").toUpperCase()
+    || subscriptionCheckoutBlockReason(draft)) return null;
+  return payload;
+}
+
 async function initializeSubscriptionCheckout(draft) {
   const attempt = {};
   app.pricingUpgradeLoading = "";
@@ -10408,6 +10424,8 @@ async function initializeSubscriptionCheckout(draft) {
         ? "คุณมีรายการชำระเงินที่กำลังดำเนินการอยู่ กรุณาดำเนินการรายการเดิมให้เรียบร้อยก่อน"
         : "Stripe ยืนยันการชำระเงินแล้ว ระบบกำลังรอ webhook ที่ตรวจสอบแล้ว");
       draft.pendingPayment = pendingPayment;
+      draft.prefetchedResumePayload = reconciliation.resumePayload || null;
+      draft.prefetchedResumeAt = draft.prefetchedResumePayload ? Date.now() : 0;
       draft.awaitingWebhook = reconciliation.state === "awaiting_webhook";
       draft.reconciliationReady = reconciliation.state === "active";
       if (draft.awaitingWebhook) {
@@ -10429,6 +10447,10 @@ async function initializeSubscriptionCheckout(draft) {
 
   await Promise.all([quoteTask, reconciliationTask]);
   if (!isCurrentAttempt()) return;
+  if (draft.prefetchedResumePayload && !subscriptionResumePrefetchFor(draft)) {
+    draft.prefetchedResumePayload = null;
+    draft.prefetchedResumeAt = 0;
+  }
   draft.initializing = false;
   app.pricingUpgradeLoading = "";
   app.subscriptionQuoteLoading = false;
@@ -13212,7 +13234,10 @@ document.addEventListener("click", async event => {
         setView("dashboard");
         return;
       }
-      const payload = await beginSubscriptionCheckoutForUi({
+      const prefetchedResume = subscriptionResumePrefetchFor(draft);
+      draft.prefetchedResumePayload = null;
+      draft.prefetchedResumeAt = 0;
+      const payload = prefetchedResume || await beginSubscriptionCheckoutForUi({
         targetPlan: draft.targetPlan,
         billingInterval: draft.billingInterval,
         action: draft.action,
