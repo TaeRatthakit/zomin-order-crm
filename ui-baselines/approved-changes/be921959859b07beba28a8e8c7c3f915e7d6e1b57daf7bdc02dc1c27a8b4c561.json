@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "id": "task5-business-renewal-performance",
+  "base": {
+    "sourceCommit": "8a041be3b2672cffad1f2b691a3018c5b59d9c8e"
+  },
+  "target": {
+    "sourceCommit": "72657247d28f826af81b68a5a4e5f23d23084c0e"
+  },
+  "allowedFiles": [
+    "public/app.js"
+  ],
+  "expectedTextChanges": [
+    {
+      "route": "Authenticated Business renewal",
+      "component": "immediate checkout shell",
+      "from": "const payload = await beginSubscriptionCheckoutForUi({ targetPlan, billingInterval, action: \"renewal\" });",
+      "to": "const draft = { targetPlan, billingInterval, action: \"renewal\", baseQuote: null,"
+    }
+  ],
+  "expectedDiffSha256": "84b6f8e9b5a78a7219cea11bb02d06a7e63057ed4235c8f2f65963a9c0d82cfe",
+  "expectedDiffLines": [
+    { "file": "public/app.js", "sign": "-", "line": 13155, "text": "    app.pricingUpgradeLoading = targetPlan;" },
+    { "file": "public/app.js", "sign": "-", "line": 13156, "text": "    render();" },
+    { "file": "public/app.js", "sign": "-", "line": 13157, "text": "    try {" },
+    { "file": "public/app.js", "sign": "-", "line": 13158, "text": "      const payload = await beginSubscriptionCheckoutForUi({ targetPlan, billingInterval, action: \"renewal\" });" },
+    { "file": "public/app.js", "sign": "-", "line": 13159, "text": "      app.billingCheckout = payload;" },
+    { "file": "public/app.js", "sign": "-", "line": 13160, "text": "      if (payload.billing && app.data) app.data.billing = payload.billing;" },
+    { "file": "public/app.js", "sign": "-", "line": 13161, "text": "      setView(\"settingsSubscription\");" },
+    { "file": "public/app.js", "sign": "-", "line": 13162, "text": "    } catch (error) {" },
+    { "file": "public/app.js", "sign": "-", "line": 13163, "text": "      if (error.payload?.billing && app.data) app.data.billing = error.payload.billing;" },
+    { "file": "public/app.js", "sign": "-", "line": 13164, "text": "      showToast(error.message || \"เริ่มรายการต่ออายุไม่สำเร็จ\", \"error\");" },
+    { "file": "public/app.js", "sign": "-", "line": 13165, "text": "      render();" },
+    { "file": "public/app.js", "sign": "-", "line": 13166, "text": "    } finally {" },
+    { "file": "public/app.js", "sign": "-", "line": 13167, "text": "      app.pricingUpgradeLoading = \"\";" },
+    { "file": "public/app.js", "sign": "-", "line": 13168, "text": "    }" },
+    { "file": "public/app.js", "sign": "+", "line": 13155, "text": "    if (!targetPlan || ![\"monthly\", \"yearly\"].includes(billingInterval)) return;" },
+    { "file": "public/app.js", "sign": "+", "line": 13156, "text": "    const draft = { targetPlan, billingInterval, action: \"renewal\", baseQuote: null," },
+    { "file": "public/app.js", "sign": "+", "line": 13157, "text": "      reconciliationReady: false, initializing: false, initializationError: \"\" };" },
+    { "file": "public/app.js", "sign": "+", "line": 13158, "text": "    app.subscriptionCheckoutDraft = draft;" },
+    { "file": "public/app.js", "sign": "+", "line": 13159, "text": "    app.checkoutPromotionCode = \"\";" },
+    { "file": "public/app.js", "sign": "+", "line": 13160, "text": "    app.checkoutPromotionError = \"\";" },
+    { "file": "public/app.js", "sign": "+", "line": 13161, "text": "    app.checkoutPromoQuote = null;" },
+    { "file": "public/app.js", "sign": "+", "line": 13162, "text": "    app.billingCheckout = null;" },
+    { "file": "public/app.js", "sign": "+", "line": 13163, "text": "    setView(\"settingsSubscription\");" },
+    { "file": "public/app.js", "sign": "+", "line": 13164, "text": "    void initializeSubscriptionCheckout(draft);" }
+  ],
+  "expectedBinaryAssets": [],
+  "tooling": {
+    "sourceCommit": "4a5ea5900acdaec994e2d1139633a1ce2ceacb89",
+    "allowedFiles": [
+      "scripts/subscription-upgrade-test.js"
+    ]
+  }
+}
