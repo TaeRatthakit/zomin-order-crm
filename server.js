@@ -4716,7 +4716,8 @@ async function handleBillingApi(req, res, url, db, currentUser) {
         });
         const resumePromptpay = reconciliation.promptpay ? { ...reconciliation.promptpay } : null;
         if (resumePromptpay) delete resumePromptpay.clientSecret;
-        const resumePayload = resumePromptpay && reconciliation.candidate.operation === "subscription_upgrade"
+        const resumeOperation = reconciliation.candidate.operation;
+        const resumePayload = resumePromptpay && resumeOperation === "subscription_upgrade"
           ? {
               ok: true,
               provider: STRIPE_PROVIDER,
@@ -4734,6 +4735,15 @@ async function handleBillingApi(req, res, url, db, currentUser) {
               promptpay: resumePromptpay,
               billing
             }
+          : resumePromptpay && resumeOperation === "subscription_renewal"
+            ? {
+                ok: true,
+                provider: STRIPE_PROVIDER,
+                resumed: true,
+                payment: paymentView,
+                promptpay: resumePromptpay,
+                billing
+              }
           : null;
         return json(res, 200, {
           ok: true,
