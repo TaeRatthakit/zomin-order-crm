@@ -28,7 +28,8 @@ const ids = {
   business: "22222222-2222-4222-8222-222222222222",
   failure: "33333333-3333-4333-8333-333333333333",
   legacy: "44444444-4444-4444-8444-444444444444",
-  replacement: "55555555-5555-4555-8555-555555555555"
+  replacement: "55555555-5555-4555-8555-555555555555",
+  renewal: "66666666-6666-4666-8666-666666666666"
 };
 
 const db = {
@@ -37,7 +38,8 @@ const db = {
     { id: ids.business, name: "Business Tenant", status: "active" },
     { id: ids.failure, name: "Failure Tenant", status: "active" },
     { id: ids.legacy, name: "Legacy Pending Tenant", status: "active" },
-    { id: ids.replacement, name: "Replacement Tenant", status: "active" }
+    { id: ids.replacement, name: "Replacement Tenant", status: "active" },
+    { id: ids.renewal, name: "Business Renewal Tenant", status: "active" }
   ],
   users: [
     { id: "u_starter", username: "starter@example.com", password_hash: hashPassword("pass12345"), name: "Starter Owner", role: "Owner", is_active: true },
@@ -45,6 +47,7 @@ const db = {
     { id: "u_failure", username: "failure@example.com", password_hash: hashPassword("pass12345"), name: "Failure Owner", role: "Owner", is_active: true },
     { id: "u_legacy", username: "legacy@example.com", password_hash: hashPassword("pass12345"), name: "Legacy Owner", role: "Owner", is_active: true },
     { id: "u_replacement", username: "replacement@example.com", password_hash: hashPassword("pass12345"), name: "Replacement Owner", role: "Owner", is_active: true },
+    { id: "u_renewal", username: "renewal@example.com", password_hash: hashPassword("pass12345"), name: "Renewal Owner", role: "Owner", is_active: true },
     { id: "u_staff", username: "staff@example.com", password_hash: hashPassword("pass12345"), name: "Staff", role: "Staff", is_active: true }
   ],
   tenant_memberships: [
@@ -53,6 +56,7 @@ const db = {
     { id: "m_failure", tenant_id: ids.failure, user_id: "u_failure", role: "Owner", is_active: true },
     { id: "m_legacy", tenant_id: ids.legacy, user_id: "u_legacy", role: "Owner", is_active: true },
     { id: "m_replacement", tenant_id: ids.replacement, user_id: "u_replacement", role: "Owner", is_active: true },
+    { id: "m_renewal", tenant_id: ids.renewal, user_id: "u_renewal", role: "Owner", is_active: true },
     { id: "m_staff", tenant_id: ids.starter, user_id: "u_staff", role: "Staff", is_active: true }
   ],
   subscriptions: [
@@ -60,7 +64,8 @@ const db = {
     { id: "s_business", tenant_id: ids.business, is_initial: true, plan: "business", billing_interval: "monthly", status: "active", currency: "THB", base_amount_minor: 99000, discount_amount_minor: 0, amount_due_minor: 99000, current_period_ends_at: "2099-01-01T00:00:00.000Z", created_at: nowIso, updated_at: nowIso },
     { id: "s_failure", tenant_id: ids.failure, is_initial: true, plan: "starter", billing_interval: "monthly", status: "trialing", currency: "THB", base_amount_minor: 49000, discount_amount_minor: 0, amount_due_minor: 49000, trial_ends_at: "2099-01-01T00:00:00.000Z", created_at: nowIso, updated_at: nowIso },
     { id: "s_legacy", tenant_id: ids.legacy, is_initial: true, plan: "starter", billing_interval: "monthly", status: "trialing", currency: "THB", base_amount_minor: 49000, discount_amount_minor: 0, amount_due_minor: 49000, trial_ends_at: "2099-01-01T00:00:00.000Z", created_at: nowIso, updated_at: nowIso },
-    { id: "s_replacement", tenant_id: ids.replacement, is_initial: true, plan: "business", billing_interval: "monthly", status: "active", currency: "THB", base_amount_minor: 99000, discount_amount_minor: 0, amount_due_minor: 99000, current_period_ends_at: "2099-01-01T00:00:00.000Z", created_at: nowIso, updated_at: nowIso }
+    { id: "s_replacement", tenant_id: ids.replacement, is_initial: true, plan: "business", billing_interval: "monthly", status: "active", currency: "THB", base_amount_minor: 99000, discount_amount_minor: 0, amount_due_minor: 99000, current_period_ends_at: "2099-01-01T00:00:00.000Z", created_at: nowIso, updated_at: nowIso },
+    { id: "s_renewal", tenant_id: ids.renewal, is_initial: true, plan: "business", billing_interval: "monthly", status: "active", currency: "THB", base_amount_minor: 99000, discount_amount_minor: 0, amount_due_minor: 99000, current_period_ends_at: "2099-01-01T00:00:00.000Z", created_at: nowIso, updated_at: nowIso }
   ],
   payments: [],
   subscription_upgrade_attempts: [],
@@ -387,6 +392,44 @@ async function verifyCheckoutInitializationStateMachine() {
   if (activeHarness.blockReason(activeDraft)) fail("different amount incorrectly blocked the new explicit checkout");
   if (activeHarness.prefetchedResume(activeDraft)) fail("different amount did not invalidate the prefetched payment response");
 
+  const renewalHarness = harness(path => {
+    if (path.endsWith("/quote")) return Promise.resolve({ quote: { amount_minor: 99000, currency: "THB", intent: "subscription_renewal" } });
+    if (path.endsWith("/reconcile")) return Promise.resolve({
+      state: "active",
+      pendingPayment: { id: "business_renewal_payment", plan: "business", targetPlan: "business", amountMinor: 99000, currency: "THB", billingInterval: "monthly", operation: "subscription_renewal" },
+      resumePayload: { ok: true, resumed: true,
+        payment: { id: "business_renewal_payment", plan: "business", targetPlan: "business", amountMinor: 99000, currency: "THB", billingInterval: "monthly", operation: "subscription_renewal" },
+        promptpay: { paymentIntentId: "business_renewal_intent", promptpay: { imageUrlPng: "data:image/png;base64,cXJ0ZXN0" } }, billing: {} },
+      billing: {}
+    });
+    return Promise.reject(new Error("Business renewal should reuse its read-only reconciliation response"));
+  });
+  const renewalDraft = { targetPlan: "business", billingInterval: "monthly", action: "renewal" };
+  renewalHarness.app.subscriptionCheckoutDraft = renewalDraft;
+  await renewalHarness.initialize(renewalDraft);
+  if (!renewalDraft.reconciliationReady || renewalDraft.action !== "renewal"
+    || renewalHarness.prefetchedResume(renewalDraft)?.payment?.id !== "business_renewal_payment") {
+    fail("Business renewal did not retain the authoritative pending-payment response for explicit confirmation");
+  }
+
+  const paywallRenewBlock = appSource.match(/const paywallRenewButton = event\.target\.closest\("\[data-subscription-renew\]"\);([\s\S]*?)\n  const subscriptionQrRetryButton =/)?.[1];
+  if (!paywallRenewBlock || /await beginSubscriptionCheckoutForUi/.test(paywallRenewBlock)) fail("Business renewal must not wait for checkout API work before opening its shell");
+  const paywallHarness = {
+    app: { pricingUpgradeLoading: "", subscriptionCheckoutDraft: null, checkoutPromotionCode: "", checkoutPromotionError: "", checkoutPromoQuote: null, billingCheckout: null }
+  };
+  paywallHarness.setView = view => { paywallHarness.view = view; };
+  paywallHarness.initializeSubscriptionCheckout = draft => { paywallHarness.startedDraft = draft; };
+  vm.createContext(paywallHarness);
+  vm.runInContext(`this.clickRenew = async event => { const paywallRenewButton = event.target.closest("[data-subscription-renew]"); ${paywallRenewBlock}\n};`, paywallHarness);
+  await paywallHarness.clickRenew({ target: { closest: selector => selector === "[data-subscription-renew]" ? { dataset: { subscriptionRenew: "business", billingInterval: "monthly" } } : null } });
+  if (paywallHarness.view !== "settingsSubscription" || paywallHarness.startedDraft?.targetPlan !== "business"
+    || paywallHarness.startedDraft?.action !== "renewal") fail("Business renewal shell did not open immediately with its scoped draft");
+
+  if (!appSource.includes("const qrImageSource = qrImage || qrProxyUrl")
+    || !appSource.includes('data-subscription-qr-direct="${qrImage ? "true" : "false"}"')) {
+    fail("authoritative QR returned by the server must be rendered directly before proxy fallback");
+  }
+
   const confirmBlock = appSource.match(/const subscriptionConfirmButton = event\.target\.closest\("\[data-subscription-checkout-confirm\]"\);([\s\S]*?)\n  const subscriptionInitializationRetryButton =/)?.[1];
   if (!confirmBlock) fail("explicit confirmation handler could not be isolated for interaction testing");
   const confirmHarness = harness(() => Promise.resolve());
@@ -429,6 +472,30 @@ async function verifyCheckoutInitializationStateMachine() {
   vm.runInContext(`this.clickConfirm = async event => { const subscriptionConfirmButton = event.target.closest("[data-subscription-checkout-confirm]"); ${confirmBlock}\n};`, prefetchedHarness);
   await prefetchedHarness.clickConfirm(confirmEvent);
   if (prefetchedFallbackCalls || prefetchedHarness.app.billingCheckout?.promptpay?.paymentIntentId !== "prefetched_intent") fail("fresh authoritative prefetch was not reused after an explicit resume click");
+
+  const renewalConfirmHarness = harness(() => Promise.reject(new Error("duplicate Business renewal request")));
+  const confirmedRenewalDraft = {
+    targetPlan: "business", billingInterval: "monthly", action: "renewal",
+    baseQuote: { amount_minor: 99000, currency: "THB", intent: "subscription_renewal" },
+    reconciliationReady: true, initializing: false,
+    pendingPayment: { id: "business_renewal_payment", plan: "business", targetPlan: "business", amountMinor: 99000, currency: "THB", billingInterval: "monthly" },
+    prefetchedResumePayload: { ok: true, resumed: true,
+      payment: { id: "business_renewal_payment", plan: "business", targetPlan: "business", amountMinor: 99000, currency: "THB", billingInterval: "monthly", operation: "subscription_renewal" },
+      promptpay: { paymentIntentId: "business_renewal_intent", promptpay: { imageUrlPng: "data:image/png;base64,cXJ0ZXN0" } } },
+    prefetchedResumeAt: Date.now()
+  };
+  renewalConfirmHarness.app.view = "settingsSubscription";
+  renewalConfirmHarness.app.subscriptionCheckoutDraft = confirmedRenewalDraft;
+  renewalConfirmHarness.app.pricingUpgradeLoading = "";
+  renewalConfirmHarness.render = () => {};
+  renewalConfirmHarness.showToast = () => {};
+  vm.runInContext(`this.clickConfirm = async event => { const subscriptionConfirmButton = event.target.closest("[data-subscription-checkout-confirm]"); ${confirmBlock}\n};`, renewalConfirmHarness);
+  await renewalConfirmHarness.clickConfirm(confirmEvent);
+  if (renewalConfirmHarness.app.billingCheckout?.payment?.id !== "business_renewal_payment"
+    || renewalConfirmHarness.app.billingCheckout?.promptpay?.paymentIntentId !== "business_renewal_intent"
+    || renewalConfirmHarness.app.subscriptionCheckoutDraft || renewalConfirmHarness.app.pricingUpgradeLoading) {
+    fail("Business renewal confirmation did not immediately reuse its fresh authoritative Stripe response");
+  }
 
   const stalePrefetchHarness = harness(() => Promise.resolve());
   const stalePrefetchDraft = { ...prefetchedDraft, prefetchedResumeAt: Date.now() - 9000 };
@@ -618,6 +685,44 @@ async function verifyCheckoutInitializationStateMachine() {
     fail("active pending checkout did not return its read-only authoritative resume context");
   }
   if (db.payments.find(row => row.id === first.json().payment.id).status !== "pending") fail("active pending checkout was modified by reconciliation");
+
+  const renewalPayment = {
+    id: "p_business_renewal_pending", tenant_id: ids.renewal, subscription_id: "s_renewal",
+    idempotency_key: "business-renewal-existing", provider: "stripe_promptpay",
+    provider_payment_reference: "pi_business_renewal_pending", status: "pending", currency: "THB",
+    amount_minor: 99000, plan: "business", billing_interval: "monthly",
+    billing_period_started_at: "2099-01-01T00:00:00.000Z", billing_period_ends_at: "2099-02-01T00:00:00.000Z",
+    checkout_metadata: { operation: "subscription_renewal", current_plan: "business", target_plan: "business" },
+    created_at: nowIso
+  };
+  db.payments.push(renewalPayment);
+  stripeIntents.set("pi_business_renewal_pending", {
+    id: "pi_business_renewal_pending", status: "requires_action", livemode: false,
+    amount: 99000, amount_received: 0, currency: "thb",
+    next_action: { promptpay_display_qr_code: { image_url_png: "data:image/png;base64,cmVuZXdhbA==", hosted_instructions_url: "https://pay.stripe.test/business-renewal" } },
+    metadata: { growup_payment_id: renewalPayment.id, growup_tenant_id: ids.renewal,
+      growup_subscription_id: "s_renewal", growup_plan: "business", growup_billing_interval: "monthly",
+      growup_billing_period_started_at: renewalPayment.billing_period_started_at,
+      growup_billing_period_ends_at: renewalPayment.billing_period_ends_at,
+      growup_operation: "subscription_renewal", growup_current_plan: "business" }
+  });
+  const renewalCookie = await login("renewal@example.com");
+  const renewalRetrieveCount = stripeRetrieveRequests.filter(id => id === "pi_business_renewal_pending").length;
+  const renewalReconciliation = await request("/api/billing/reconcile", { method: "POST", headers: { cookie: renewalCookie }, body: "{}" });
+  const renewalResume = renewalReconciliation.json().resumePayload;
+  if (renewalReconciliation.status !== 200 || renewalReconciliation.json().state !== "active"
+    || renewalResume?.payment?.id !== renewalPayment.id
+    || renewalResume?.payment?.operation !== "subscription_renewal"
+    || renewalResume?.promptpay?.paymentIntentId !== "pi_business_renewal_pending"
+    || !renewalResume?.promptpay?.promptpay?.imageUrlPng
+    || Object.hasOwn(renewalResume?.promptpay || {}, "clientSecret")) {
+    fail("pending Business renewal did not expose its sanitized authoritative resume/QR response");
+  }
+  if (stripeRetrieveRequests.filter(id => id === "pi_business_renewal_pending").length !== renewalRetrieveCount + 1
+    || renewalPayment.status !== "pending" || db.subscriptions.find(row => row.id === "s_renewal").plan !== "business") {
+    fail("Business renewal reconciliation repeated Stripe retrieval or changed payment/subscription state");
+  }
+
   const resumed = await request("/api/billing/upgrade", { method: "POST", headers: { cookie: starterCookie }, body: JSON.stringify({ targetPlan: "business" }) });
   if (resumed.status !== 200 || resumed.json().payment.id !== first.json().payment.id || resumed.json().promptpay.promptpay.imageUrlPng !== first.json().promptpay.promptpay.imageUrlPng) fail("same target did not resume the same payment and QR");
   if (db.payments.filter(row => row.tenant_id === ids.starter).length !== 1) fail("same-target resume created a duplicate payment");
