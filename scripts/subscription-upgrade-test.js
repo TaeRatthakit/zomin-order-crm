@@ -416,6 +416,9 @@ async function verifyCheckoutInitializationStateMachine() {
   await Promise.all([firstConfirm, rapidSecondConfirm]);
   if (confirmHarness.app.billingCheckout?.payment?.id !== "confirmed_payment" || confirmHarness.app.subscriptionCheckoutDraft || confirmationCalls !== 1
     || confirmationArgs?.confirmReplacement !== true) fail("explicit confirmation did not advance exactly once or omit its replacement authorization signal");
+  if (confirmHarness.loadStateCalls || !confirmationRenders.some(state => state.checkout?.promptpay?.paymentIntentId === "confirmed_intent")) {
+    fail("authoritative Confirm QR was delayed by an unrelated state refresh or was not rendered");
+  }
 
   const prefetchedHarness = harness(() => Promise.resolve());
   const prefetchedDraft = { targetPlan: "business", billingInterval: "monthly", action: "upgrade", baseQuote: { amount_minor: 99000, currency: "THB" }, reconciliationReady: true, initializing: false, pendingPayment: { id: "prefetched_payment", targetPlan: "business", amountMinor: 99000, currency: "THB", billingInterval: "monthly" }, prefetchedResumePayload: { ok: true, resumed: true, payment: { id: "prefetched_payment", targetPlan: "business", amountMinor: 99000, currency: "THB", billingInterval: "monthly" }, promptpay: { paymentIntentId: "prefetched_intent" } }, prefetchedResumeAt: Date.now() };
@@ -429,6 +432,65 @@ async function verifyCheckoutInitializationStateMachine() {
   vm.runInContext(`this.clickConfirm = async event => { const subscriptionConfirmButton = event.target.closest("[data-subscription-checkout-confirm]"); ${confirmBlock}\n};`, prefetchedHarness);
   await prefetchedHarness.clickConfirm(confirmEvent);
   if (prefetchedFallbackCalls || prefetchedHarness.app.billingCheckout?.promptpay?.paymentIntentId !== "prefetched_intent") fail("fresh authoritative prefetch was not reused after an explicit resume click");
+
+  const renewalHarness = harness(() => Promise.reject(new Error("duplicate Business renewal request")));
+  const renewalDraft = {
+    targetPlan: "business", billingInterval: "monthly", action: "renewal",
+    baseQuote: { amount_minor: 99000, currency: "THB", intent: "subscription_renewal" },
+    reconciliationReady: true, initializing: false,
+    pendingPayment: { id: "business_renewal_payment", plan: "business", targetPlan: "business", amountMinor: 99000, currency: "THB", billingInterval: "monthly", operation: "subscription_renewal" },
+    prefetchedResumePayload: { ok: true, resumed: true,
+      payment: { id: "business_renewal_payment", plan: "business", targetPlan: "business", amountMinor: 99000, currency: "THB", billingInterval: "monthly", operation: "subscription_renewal" },
+      promptpay: { paymentIntentId: "business_renewal_intent", promptpay: { imageUrlPng: "data:image/png;base64,cXJ0ZXN0" } } },
+    prefetchedResumeAt: Date.now()
+  };
+  renewalHarness.app.view = "settingsSubscription";
+  renewalHarness.app.subscriptionCheckoutDraft = renewalDraft;
+  renewalHarness.app.pricingUpgradeLoading = "";
+  renewalHarness.loadStateCalls = 0;
+  renewalHarness.loadState = () => { renewalHarness.loadStateCalls += 1; };
+  renewalHarness.render = () => {};
+  renewalHarness.showToast = () => {};
+  vm.runInContext(`this.clickConfirm = async event => { const subscriptionConfirmButton = event.target.closest("[data-subscription-checkout-confirm]"); ${confirmBlock}\n};`, renewalHarness);
+  await renewalHarness.clickConfirm(confirmEvent);
+  if (renewalHarness.app.billingCheckout?.payment?.id !== "business_renewal_payment"
+    || renewalHarness.app.billingCheckout?.promptpay?.paymentIntentId !== "business_renewal_intent"
+    || renewalHarness.app.subscriptionCheckoutDraft || renewalHarness.loadStateCalls) {
+    fail("Business renewal confirmation did not reuse the authoritative reconciliation response directly");
+  }
+
+  const paywallHandler = appSource.match(/const paywallRenewButton = event\.target\.closest\("\[data-subscription-renew\]"\);([\s\S]*?)\n  const subscriptionQrRetryButton =/)?.[1];
+  if (!paywallHandler) fail("paywall renewal handler could not be isolated for interaction testing");
+  if (paywallHandler.includes("initializeSubscriptionCheckout")) {
+    const paywallSteps = [];
+    const paywallHarness = {
+      app: { pricingUpgradeLoading: "", subscriptionCheckoutDraft: null, checkoutPromotionCode: "", checkoutPromotionError: "", checkoutPromoQuote: null, billingCheckout: null },
+      setView(view) { paywallSteps.push(`view:${view}`); },
+      initializeSubscriptionCheckout(draft) { paywallSteps.push(`initialize:${draft.targetPlan}`); }
+    };
+    vm.createContext(paywallHarness);
+    vm.runInContext(`this.clickRenew = async event => { const paywallRenewButton = event.target.closest("[data-subscription-renew]"); ${paywallHandler}\n};`, paywallHarness);
+    await paywallHarness.clickRenew({ target: { closest: selector => selector === "[data-subscription-renew]" ? { dataset: { subscriptionRenew: "business", billingInterval: "monthly" } } : null } });
+    if (paywallSteps.join(",") !== "view:settingsSubscription,initialize:business"
+      || paywallHarness.app.subscriptionCheckoutDraft?.action !== "renewal") {
+      fail("Business renewal did not open the existing checkout shell before asynchronous initialization");
+    }
+    paywallSteps.length = 0;
+    let enterpriseCheckoutResolve;
+    paywallHarness.beginSubscriptionCheckoutForUi = () => {
+      paywallSteps.push("enterprise-checkout");
+      return new Promise(resolve => { enterpriseCheckoutResolve = resolve; });
+    };
+    paywallHarness.render = () => {};
+    paywallHarness.showToast = () => {};
+    vm.runInContext(`this.clickRenew = async event => { const paywallRenewButton = event.target.closest("[data-subscription-renew]"); ${paywallHandler}\n};`, paywallHarness);
+    const enterpriseRenewal = paywallHarness.clickRenew({ target: { closest: selector => selector === "[data-subscription-renew]" ? { dataset: { subscriptionRenew: "enterprise", billingInterval: "monthly" } } : null } });
+    await tick();
+    if (paywallSteps.join(",") !== "enterprise-checkout") fail("Enterprise renewal reference path changed with the Business-only optimization");
+    enterpriseCheckoutResolve({ payment: { id: "enterprise_payment" } });
+    await enterpriseRenewal;
+    if (paywallSteps.join(",") !== "enterprise-checkout,view:settingsSubscription") fail("Enterprise renewal no longer waits for its original checkout response");
+  }
 
   const stalePrefetchHarness = harness(() => Promise.resolve());
   const stalePrefetchDraft = { ...prefetchedDraft, prefetchedResumeAt: Date.now() - 9000 };
@@ -702,6 +764,14 @@ async function verifyCheckoutInitializationStateMachine() {
   if (success.status !== 200 || duplicateSuccess.status !== 200 || db.subscriptions.find(row => row.id === "s_starter").plan !== "business") fail("successful or duplicate webhook did not reconcile exactly once");
   if (subscriptionUpgradeSuccessEffects !== successEffectBeforeWebhook + 1) fail("verified succeeded webhook did not reconcile exactly once");
   const businessCookie = await login("business@example.com");
+  const businessRenewalQuote = await request("/api/billing/quote", {
+    method: "POST", headers: { cookie: businessCookie },
+    body: JSON.stringify({ targetPlan: "business", billingInterval: "monthly" })
+  });
+  if (businessRenewalQuote.status !== 200 || businessRenewalQuote.json().quote?.intent !== "subscription_renewal"
+    || businessRenewalQuote.json().quote?.amount_minor !== 99000) {
+    fail("Business monthly renewal quote changed its authoritative price or intent");
+  }
   const enterprise = await request("/api/billing/upgrade", { method: "POST", headers: { cookie: businessCookie }, body: JSON.stringify({ targetPlan: "enterprise" }) });
   if (enterprise.status !== 200 || enterprise.json().payment.amountMinor !== 199000) fail(`Business -> Enterprise wrong: ${enterprise.status} ${enterprise.text}`);
   const businessSubscriptionBefore = db.subscriptions.find(row => row.id === "s_business").plan;
@@ -712,6 +782,46 @@ async function verifyCheckoutInitializationStateMachine() {
   const cancelledReconciliation = await request("/api/billing/reconcile", { method: "POST", headers: { cookie: businessCookie }, body: "{}" });
   const cancelledAttempt = db.subscription_upgrade_attempts.find(row => row.payment_id === processingPayment.id);
   if (cancelledReconciliation.status !== 200 || cancelledReconciliation.json().state !== "terminal" || cancelledReconciliation.json().status !== "cancelled" || processingPayment.status !== "cancelled" || cancelledAttempt.status !== "cancelled" || db.subscriptions.find(row => row.id === "s_business").plan !== businessSubscriptionBefore) fail("cancelled terminal checkout was not reconciled safely");
+  const businessPeriodEndBeforeRenewalResume = db.subscriptions.find(row => row.id === "s_business").current_period_ends_at;
+  const renewalPayment = {
+    id: "p_business_renewal_pending", tenant_id: ids.business, subscription_id: "s_business",
+    idempotency_key: "business-renewal-existing", provider: "stripe_promptpay",
+    provider_payment_reference: "pi_business_renewal_pending", status: "pending", currency: "THB",
+    amount_minor: 99000, plan: "business", billing_interval: "monthly",
+    billing_period_started_at: "2099-01-01T00:00:00.000Z",
+    billing_period_ends_at: "2099-02-01T00:00:00.000Z",
+    checkout_metadata: { operation: "subscription_renewal", current_plan: "business", target_plan: "business" },
+    created_at: nowIso
+  };
+  db.payments.push(renewalPayment);
+  stripeIntents.set("pi_business_renewal_pending", {
+    id: "pi_business_renewal_pending", status: "requires_action", livemode: false,
+    amount: 99000, amount_received: 0, currency: "thb",
+    next_action: { promptpay_display_qr_code: { image_url_png: "data:image/png;base64,cmVuZXdhbA==" } },
+    metadata: {
+      growup_payment_id: renewalPayment.id, growup_tenant_id: ids.business,
+      growup_subscription_id: "s_business", growup_plan: "business", growup_billing_interval: "monthly",
+      growup_billing_period_started_at: renewalPayment.billing_period_started_at,
+      growup_billing_period_ends_at: renewalPayment.billing_period_ends_at,
+      growup_operation: "subscription_renewal", growup_current_plan: "business"
+    }
+  });
+  const renewalStripeRetrievesBefore = stripeRetrieveRequests.filter(id => id === "pi_business_renewal_pending").length;
+  const renewalStripeCreatesBefore = stripeCreateRequests.length;
+  const renewalReconciliation = await request("/api/billing/reconcile", { method: "POST", headers: { cookie: businessCookie }, body: "{}" });
+  const renewalResume = renewalReconciliation.json().resumePayload;
+  if (renewalReconciliation.status !== 200 || renewalReconciliation.json().state !== "active"
+    || renewalResume?.payment?.id !== renewalPayment.id || renewalResume?.payment?.operation !== "subscription_renewal"
+    || renewalResume?.promptpay?.paymentIntentId !== renewalPayment.provider_payment_reference
+    || Object.hasOwn(renewalResume?.promptpay || {}, "clientSecret")) {
+    fail(`active Business renewal did not return a sanitized authoritative resume payload: ${renewalReconciliation.status} ${renewalReconciliation.text}`);
+  }
+  if (renewalPayment.status !== "pending" || db.subscriptions.find(row => row.id === "s_business").plan !== "business"
+    || db.subscriptions.find(row => row.id === "s_business").current_period_ends_at !== businessPeriodEndBeforeRenewalResume
+    || stripeRetrieveRequests.filter(id => id === "pi_business_renewal_pending").length !== renewalStripeRetrievesBefore + 1
+    || stripeCreateRequests.length !== renewalStripeCreatesBefore) {
+    fail("Business renewal reconciliation changed local payment/subscription state or created a new PaymentIntent");
+  }
   const failureCookie = await login("failure@example.com");
   const failedUpgrade = await request("/api/billing/upgrade", { method: "POST", headers: { cookie: failureCookie }, body: JSON.stringify({ targetPlan: "enterprise" }) });
   const failedPayment = db.payments.find(row => row.id === failedUpgrade.json().payment.id);
