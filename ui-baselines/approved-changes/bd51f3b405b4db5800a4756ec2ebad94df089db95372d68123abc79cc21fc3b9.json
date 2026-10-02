@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "id": "task5-business-renewal-ui-only",
+  "base": {
+    "sourceCommit": "cf7d328df1a94c1c612014f54944c342180a423c"
+  },
+  "target": {
+    "sourceCommit": "37509bec7484ce180b41e600d72d141e9d67b404"
+  },
+  "allowedFiles": [
+    "public/app.js"
+  ],
+  "expectedTextChanges": [
+    {
+      "route": "Pricing",
+      "component": "Business renewal handler",
+      "from": "app.pricingUpgradeLoading = targetPlan;",
+      "to": "const fastBusinessRenewal = targetPlan === \"business\" && [\"monthly\", \"yearly\"].includes(billingInterval);"
+    }
+  ],
+  "expectedDiffSha256": "d7cb63d0b931984688cb8fe35dfca327190c475087c278f39de224638f61f0a0",
+  "expectedDiffLines": [
+    { "file": "public/app.js", "sign": "-", "line": 13155, "text": "    app.pricingUpgradeLoading = targetPlan;" },
+    { "file": "public/app.js", "sign": "-", "line": 13156, "text": "    render();" },
+    { "file": "public/app.js", "sign": "+", "line": 13155, "text": "    const fastBusinessRenewal = targetPlan === \"business\" && [\"monthly\", \"yearly\"].includes(billingInterval);" },
+    { "file": "public/app.js", "sign": "+", "line": 13156, "text": "    if (!fastBusinessRenewal) {" },
+    { "file": "public/app.js", "sign": "+", "line": 13157, "text": "      app.pricingUpgradeLoading = targetPlan;" },
+    { "file": "public/app.js", "sign": "+", "line": 13158, "text": "      render();" },
+    { "file": "public/app.js", "sign": "+", "line": 13159, "text": "    }" },
+    { "file": "public/app.js", "sign": "+", "line": 13160, "text": "    if (fastBusinessRenewal) {" },
+    { "file": "public/app.js", "sign": "+", "line": 13161, "text": "      const draft = { targetPlan, billingInterval, action: \"renewal\", baseQuote: null," },
+    { "file": "public/app.js", "sign": "+", "line": 13162, "text": "        reconciliationReady: false, initializing: false, initializationError: \"\" };" },
+    { "file": "public/app.js", "sign": "+", "line": 13163, "text": "      app.subscriptionCheckoutDraft = draft;" },
+    { "file": "public/app.js", "sign": "+", "line": 13164, "text": "      app.checkoutPromotionCode = \"\";" },
+    { "file": "public/app.js", "sign": "+", "line": 13165, "text": "      app.checkoutPromotionError = \"\";" },
+    { "file": "public/app.js", "sign": "+", "line": 13166, "text": "      app.checkoutPromoQuote = null;" },
+    { "file": "public/app.js", "sign": "+", "line": 13167, "text": "      app.billingCheckout = null;" },
+    { "file": "public/app.js", "sign": "+", "line": 13168, "text": "      setView(\"settingsSubscription\");" },
+    { "file": "public/app.js", "sign": "+", "line": 13169, "text": "      void initializeSubscriptionCheckout(draft);" },
+    { "file": "public/app.js", "sign": "+", "line": 13170, "text": "      return;" },
+    { "file": "public/app.js", "sign": "+", "line": 13171, "text": "    }" }
+  ]
+}
