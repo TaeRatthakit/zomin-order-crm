@@ -13152,8 +13152,23 @@ document.addEventListener("click", async event => {
   if (paywallRenewButton && !app.pricingUpgradeLoading) {
     const targetPlan = String(paywallRenewButton.dataset.subscriptionRenew || "").toLowerCase();
     const billingInterval = String(paywallRenewButton.dataset.billingInterval || "monthly").toLowerCase();
-    app.pricingUpgradeLoading = targetPlan;
-    render();
+    const fastBusinessRenewal = targetPlan === "business" && ["monthly", "yearly"].includes(billingInterval);
+    if (!fastBusinessRenewal) {
+      app.pricingUpgradeLoading = targetPlan;
+      render();
+    }
+    if (fastBusinessRenewal) {
+      const draft = { targetPlan, billingInterval, action: "renewal", baseQuote: null,
+        reconciliationReady: false, initializing: false, initializationError: "" };
+      app.subscriptionCheckoutDraft = draft;
+      app.checkoutPromotionCode = "";
+      app.checkoutPromotionError = "";
+      app.checkoutPromoQuote = null;
+      app.billingCheckout = null;
+      setView("settingsSubscription");
+      void initializeSubscriptionCheckout(draft);
+      return;
+    }
     try {
       const payload = await beginSubscriptionCheckoutForUi({ targetPlan, billingInterval, action: "renewal" });
       app.billingCheckout = payload;
