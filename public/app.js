@@ -13152,20 +13152,16 @@ document.addEventListener("click", async event => {
   if (paywallRenewButton && !app.pricingUpgradeLoading) {
     const targetPlan = String(paywallRenewButton.dataset.subscriptionRenew || "").toLowerCase();
     const billingInterval = String(paywallRenewButton.dataset.billingInterval || "monthly").toLowerCase();
-    app.pricingUpgradeLoading = targetPlan;
-    render();
-    try {
-      const payload = await beginSubscriptionCheckoutForUi({ targetPlan, billingInterval, action: "renewal" });
-      app.billingCheckout = payload;
-      if (payload.billing && app.data) app.data.billing = payload.billing;
-      setView("settingsSubscription");
-    } catch (error) {
-      if (error.payload?.billing && app.data) app.data.billing = error.payload.billing;
-      showToast(error.message || "เริ่มรายการต่ออายุไม่สำเร็จ", "error");
-      render();
-    } finally {
-      app.pricingUpgradeLoading = "";
-    }
+    if (!targetPlan || !["monthly", "yearly"].includes(billingInterval)) return;
+    const draft = { targetPlan, billingInterval, action: "renewal", baseQuote: null,
+      reconciliationReady: false, initializing: false, initializationError: "" };
+    app.subscriptionCheckoutDraft = draft;
+    app.checkoutPromotionCode = "";
+    app.checkoutPromotionError = "";
+    app.checkoutPromoQuote = null;
+    app.billingCheckout = null;
+    setView("settingsSubscription");
+    void initializeSubscriptionCheckout(draft);
     return;
   }
 
