@@ -5274,10 +5274,15 @@ async function handleBillingApi(req, res, url, db, currentUser) {
         if (typeof setPaymentProviderReference !== "function") {
           return json(res, 503, { ok: false, code: "STRIPE_PAYMENT_RPC_REQUIRED", error: "ระบบบันทึก Stripe payment ยังไม่พร้อม" });
         }
-        if (["failed", "cancelled", "expired"].includes(payment.status)) {
+        const terminalRetryPayments = new Set();
+        while (["failed", "cancelled", "expired"].includes(payment.status)) {
           // Replayed original request keys can return a historical terminal
           // row. Never retrieve/resurrect its old intent. Stable retry key and
           // the RPC's logical pending selection prevent duplicate replacements.
+          if (terminalRetryPayments.has(payment.id) || terminalRetryPayments.size >= 8) {
+            throw new Error("TERMINAL_CHECKOUT_STATE_UNVERIFIED");
+          }
+          terminalRetryPayments.add(payment.id);
           await reconcileTerminalSubscriptionUpgradeAttempt({ paymentId: payment.id, tenantId: currentUser.tenantId });
           payment = await beginSubscriptionCheckout({ tenantId: currentUser.tenantId, userId: currentUser.id,
             targetPlan, billingInterval, intent, ...(promotionCode ? { promotionCode } : {}),

@@ -385,9 +385,10 @@ function state(label, tenantId) {
   trace.push({ label, rows, retrieved: [...stripeRetrieveRequests], created: stripeCreateRequests.length });
   console.log("LIFECYCLE_STATE", JSON.stringify(trace.at(-1)));
 }
-async function checkout(cookie, targetPlan) {
+async function checkout(cookie, targetPlan, idempotencyKey) {
   const res = await request(targetPlan === "enterprise" ? "/api/billing/upgrade" : "/api/billing/checkout", {
-    method: "POST", headers: { cookie }, body: JSON.stringify({ targetPlan, billingInterval: "monthly", confirmReplacement: true }) });
+    method: "POST", headers: { cookie }, body: JSON.stringify({ targetPlan, billingInterval: "monthly", confirmReplacement: true,
+      ...(idempotencyKey ? { idempotencyKey } : {}) }) });
   assert.equal(res.status, 200, `Owner lifecycle blocked: ${res.status} ${res.text}`);
   assert.ok(!res.text.includes("รายการเดิมยังตรวจสอบเพื่อเริ่มรายการใหม่ไม่ได้"));
   assert.ok(res.json().promptpay.promptpay.imageUrlPng);
@@ -486,6 +487,19 @@ if (!process.env.TASK5_TEST_SERVE) (async () => {
     assert.equal(currentBusiness.status, terminal);
     assert.equal((await postWebhook(JSON.stringify(raw))).status, 200);
     currentBusiness = await checkout(freshCookie, "business");
+  }
+  // Repeated failed renewals with the SAME browser request key must follow
+  // the terminal retry history without ever retrieving a concluded intent.
+  for (let retry = 0; retry < 3; retry += 1) {
+    const raw = { id: `evt_fixed_key_failed_${retry}`, type: "payment_intent.payment_failed", livemode: false,
+      data: { object: { ...stripeIntents.get(currentBusiness.provider_payment_reference), status: "requires_payment_method", next_action: undefined } } };
+    assert.equal((await postWebhook(JSON.stringify(raw))).status, 200);
+    const retrievesBefore = stripeRetrieveRequests.length;
+    currentBusiness = await checkout(freshCookie, "business", "task5-fixed-browser-retry-key");
+    assert.equal(stripeRetrieveRequests.length, retrievesBefore, "locally terminal retry-chain intent retrieved");
+    const createsBefore = stripeCreateRequests.length;
+    assert.equal((await checkout(freshCookie, "business", "task5-fixed-browser-retry-key")).id, currentBusiness.id);
+    assert.equal(stripeCreateRequests.length, createsBefore);
   }
   // Guard matrix against the same durable proof. Unsafe fixtures are local
   // isolated data only, never used as the persistent B/E/B tenant above.
