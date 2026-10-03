@@ -1,0 +1,155 @@
+{
+  "schemaVersion": 1,
+  "id": "order-safety-exact-nonvisual-confirmation-and-retry",
+  "base": {
+    "sourceCommit": "0268850876eea193728bb331a07ee141d6a43f3b"
+  },
+  "target": {
+    "sourceCommit": "5e35f5d123cc8e010168758023541accb587d405"
+  },
+  "allowedFiles": [
+    "public/app.js"
+  ],
+  "expectedTextChanges": [
+    {
+      "route": "Orders",
+      "component": "Nonvisual durable retry token lifecycle",
+      "from": "const clientMutationId = `tmp_",
+      "to": "const clientMutationId = form.dataset.clientMutationId || crypto.randomUUID();"
+    },
+    {
+      "route": "Orders",
+      "component": "Restore existing submit label for safe retry",
+      "from": "if (isSaving) els.orderSubmitButton.textContent = \"กำลังบันทึก...\";",
+      "to": "els.orderSubmitButton.textContent = els.orderSubmitButton.dataset.saveLabel;"
+    }
+  ],
+  "expectedDiffSha256": "e4d0ad2292a70fe049382cdd307e916d913be8ed1ef7ef5e0b231498c0b6063f",
+  "expectedDiffLines": [
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 12267,
+      "text": "  if (isSaving) els.orderSubmitButton.textContent = \"กำลังบันทึก...\";"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12267,
+      "text": "  if (isSaving) {"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12268,
+      "text": "    els.orderSubmitButton.dataset.saveLabel = els.orderSubmitButton.textContent;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12269,
+      "text": "    els.orderSubmitButton.textContent = \"กำลังบันทึก...\";"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12270,
+      "text": "  } else if (els.orderSubmitButton.dataset.saveLabel) {"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12271,
+      "text": "    els.orderSubmitButton.textContent = els.orderSubmitButton.dataset.saveLabel;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12272,
+      "text": "    delete els.orderSubmitButton.dataset.saveLabel;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12273,
+      "text": "  }"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 12326,
+      "text": "  const clientMutationId = `tmp_${Date.now().toString(36)}`;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12332,
+      "text": "  const clientMutationId = form.dataset.clientMutationId || crypto.randomUUID();"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12333,
+      "text": "  form.dataset.clientMutationId = clientMutationId;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12346,
+      "text": "    if (payload.ok !== true || !payload.mutation?.order"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12347,
+      "text": "      || typeof payload.mutation.order.id !== \"string\" || !payload.mutation.order.id.trim()"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12348,
+      "text": "      || typeof payload.mutation.order.customerId !== \"string\" || !payload.mutation.order.customerId.trim()"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12349,
+      "text": "      || payload.mutation.clientMutationId !== clientMutationId"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12350,
+      "text": "      || (orderId && payload.mutation.order.id !== orderId)) {"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12351,
+      "text": "      throw new Error(\"ยังยืนยันการบันทึกออเดอร์ไม่ได้ กรุณาลองบันทึกอีกครั้ง\");"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12352,
+      "text": "    }"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12366,
+      "text": "    delete form.dataset.clientMutationId;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12562,
+      "text": "  delete els.orderForm.dataset.clientMutationId;"
+    }
+  ],
+  "authorization": {
+    "attachment": "67445539-9b30-410d-940c-80b4886d7440",
+    "scope": "Explicitly authorized minimal nonvisual Order-save confirmation/retry logic only. No visual UI change.",
+    "goldenAuthority": "User-approved Local 34d1886a60940d8f63fda16098c9df1e84f8abcb; base has byte-identical public assets to that source."
+  }
+}
