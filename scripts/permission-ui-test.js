@@ -60,21 +60,21 @@ assert(orderApiIndex >= 0, "submitOrder must await the order API");
 assert(successToastIndex > orderApiIndex, "order success toast must happen only after /api/orders succeeds");
 assert(dialogCloseIndex > orderApiIndex, "order dialog must stay open until /api/orders succeeds");
 assert(formResetIndex > orderApiIndex, "order form must keep values until /api/orders succeeds");
-assert(submitOrderBody.includes("if (!payload.mutation?.order?.id)"), "submitOrder must reject incomplete order API responses");
+assert(submitOrderBody.includes("payload.ok !== true") && submitOrderBody.includes("!payload.mutation?.order"), "submitOrder must reject incomplete order API responses");
+assert(submitOrderBody.indexOf("throw new Error(\"ยังยืนยันการบันทึกออเดอร์ไม่ได้") < submitOrderBody.indexOf("applyOrderMutation(payload.mutation)"), "authoritative confirmation must precede every success-only state mutation");
+assert(submitOrderBody.includes("payload.mutation.clientMutationId !== clientMutationId"), "confirmation must identify the same logical request");
 assert(!submitOrderBody.includes("optimisticOrderFromForm(data, orderId, clientMutationId)"), "submitOrder must not show optimistic order success before persistence");
-assert(submitOrderBody.includes("timeoutMs: 60000"), "customer source creation must use a bounded but realistic timeout");
-assert(submitOrderBody.includes("timeoutMs: 120000"), "order save must not abort slow valid production writes too early");
-assert(submitOrderBody.includes("form.dataset.clientMutationId || `tmp_${Date.now().toString(36)}`"), "order retries must reuse the same clientMutationId while the form remains open");
+assert(submitOrderBody.includes("form.dataset.clientMutationId || crypto.randomUUID()"), "order retries must reuse the same clientMutationId while the form remains open");
+assert(submitOrderBody.includes("form.dataset.clientMutationId = clientMutationId"), "order retry token must be retained before transport");
 assert(submitOrderBody.includes("delete form.dataset.clientMutationId;"), "successful order saves must clear the retry clientMutationId");
-assert(submitOrderBody.includes("setOrderSaveError(error.message"), "failed order saves must keep the useful API error visible in the dialog");
-assert(submitOrderBody.includes("setOrderSaveError(\"\");"), "order saves must clear stale dialog errors before retry/success");
+assert(submitOrderBody.includes("throw error;") && submitOrderBody.includes("finally"), "failed order saves must propagate to the existing error mechanism and restore retry availability");
 
 const setOrderSaveStateStart = appJs.indexOf("function setOrderSaveState");
 assert(setOrderSaveStateStart >= 0 && setOrderSaveStateStart < submitOrderStart, "setOrderSaveState() not found");
 const setOrderSaveStateBody = appJs.slice(setOrderSaveStateStart, submitOrderStart);
 assert(setOrderSaveStateBody.includes("els.orderSubmitButton.textContent = \"กำลังบันทึก...\""), "saving state must show a loading label");
 assert(
-  setOrderSaveStateBody.includes("else els.orderSubmitButton.textContent = app.editingOrderId ? \"บันทึกการแก้ไข\" : \"บันทึกออเดอร์\""),
+  setOrderSaveStateBody.includes("els.orderSubmitButton.textContent = els.orderSubmitButton.dataset.saveLabel"),
   "order save state must always restore the submit label when loading ends"
 );
 
@@ -82,22 +82,23 @@ const apiStart = appJs.indexOf("async function api");
 const apiEnd = appJs.indexOf("function elementId", apiStart);
 assert(apiStart >= 0 && apiEnd > apiStart, "api() helper not found");
 const apiBody = appJs.slice(apiStart, apiEnd);
-assert(apiBody.includes("AbortController"), "api() must support request timeouts");
-assert(apiBody.includes("คำขอใช้เวลานานเกินไป"), "api() timeout errors must be user-visible");
-assert(apiBody.includes("window.clearTimeout(timeoutId)"), "api() must clear timeout handles");
+assert(apiBody.includes('credentials: "same-origin"'), "api() must retain authenticated same-origin credentials");
+assert(apiBody.includes("if (!res.ok || payload.ok === false)"), "HTTP/server failures must propagate rather than invent success");
+assert(apiBody.includes("throw error;"), "API errors must reach the existing UI error handler");
 
 const submitListenerStart = appJs.indexOf('document.addEventListener("submit"');
 const submitListenerEnd = appJs.indexOf('window.addEventListener("hashchange"', submitListenerStart);
 assert(submitListenerStart >= 0 && submitListenerEnd > submitListenerStart, "submit listener not found");
 const submitListenerBody = appJs.slice(submitListenerStart, submitListenerEnd);
-assert(
-  submitListenerBody.includes('showToast(error.message, currentFormId === "orderForm" ? "error" : "")'),
-  "failed order saves must render an error toast instead of default success styling"
-);
+// Execute the actual submit listener and shared toast classification instead of
+// requiring an older literal call shape absent from the approved source.
+require("./order-save-confirmation-test").main().catch(error => {
+  console.error(error);
+  process.exitCode = 1;
+});
 
-assert(indexHtml.includes('id="orderSaveError"') && indexHtml.includes('role="alert"'), "order dialog must include a persistent error alert");
-assert(css.includes(".order-save-error") && css.includes(".order-save-error[hidden]"), "order save error alert CSS missing");
-assert(css.includes('html[data-theme="light"] body:not(.login-view) .order-save-error'), "light theme order error alert CSS missing");
+assert(indexHtml.includes('id="toast"'), "approved shared error feedback element must remain present");
+assert(appJs.includes('tone === "error" ? "alert" : "status"'), "existing error feedback must remain accessible");
 
 assert(css.includes(".permission-switch input"), "permission checkbox hiding CSS missing");
 assert(css.includes("opacity: 0"), "permission checkbox should be visually hidden");

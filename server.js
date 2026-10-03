@@ -29,6 +29,8 @@ const {
   importOrdersBatch,
   verifyCustomerSync,
   persistOrderMutation,
+  findOrderCreateOperation,
+  persistOrderCreateOnce,
   persistLineOrderMutation,
   claimLineMessage,
   persistLineMessageRecord,
@@ -88,6 +90,7 @@ const {
   clearSessionCookie
 } = require("./lib/auth");
 const { synchronizeCustomers } = require("./lib/customer-sync");
+const { createConfirmedOrder } = require("./lib/order-create");
 
 function monotonicMs() {
   return Number(process.hrtime.bigint()) / 1e6;
@@ -6863,15 +6866,27 @@ async function handleApi(req, res) {
       return json(res, 400, { ok: false, error: "ยอดซื้อต้องเป็นตัวเลขตั้งแต่ 0 ขึ้นไป" });
     }
     body.amount = amountValidation.amount;
-    let order;
+    let confirmed;
     try {
-      const addStartedAt = Date.now();
-      order = addOrder(db, body);
-      timings.addOrderMs = Date.now() - addStartedAt;
-      const inventoryStartedAt = Date.now();
-      adjustInventoryForOrderChange(db, null, order);
-      timings.inventoryMs = Date.now() - inventoryStartedAt;
+      if (dbProvider === "json" && process.env.NODE_ENV !== "production") {
+        // Existing local/demo callers retain their original behavior.
+        // JSON is never presented as a distributed idempotency guarantee.
+        const order = addOrder(db, body);
+        adjustInventoryForOrderChange(db, null, order);
+        await writeDb(db);
+        const committedDb = await readDb();
+        confirmed = { mutation: orderMutationPayload(committedDb, { orderId: order.id, selectedDate: body.selectedDate }), replayed: false };
+        confirmed.mutation.clientMutationId = String(body.clientMutationId || "");
+      } else {
+        confirmed = await createConfirmedOrder({
+          body, db, readDb, findOperation: findOrderCreateOperation, commitOperation: persistOrderCreateOnce,
+          addOrder, adjustInventory: adjustInventoryForOrderChange, mutationFor: orderMutationPayload
+        });
+      }
     } catch (error) {
+      if (String(error.code || "").startsWith("ORDER_CREATE_")) {
+        return json(res, error.status || 503, { ok: false, error: error.message, code: error.code });
+      }
       if (error.code === "ORDER_DUPLICATE") {
         return json(res, 409, { ok: false, error: "ออเดอร์นี้มีอยู่แล้ว" });
       }
@@ -6892,22 +6907,12 @@ async function handleApi(req, res) {
       }
       throw error;
     }
-    const mutationStartedAt = Date.now();
-    const mutation = orderMutationPayload(db, {
-      orderId: order.id,
-      selectedDate: body.selectedDate || toDateOnly()
-    });
-    timings.mutationMs = Date.now() - mutationStartedAt;
-    mutation.clientMutationId = String(body.clientMutationId || "");
-    const persistStartedAt = Date.now();
-    const persistTimings = typeof persistOrderMutation === "function"
-      ? await persistOrderMutation(mutation, db.settings)
-      : (await writeDb(db), { totalMs: Date.now() - persistStartedAt });
-    timings.persistMs = Date.now() - persistStartedAt;
+    const mutation = confirmed.mutation;
+    const persistTimings = { replayed: confirmed.replayed };
     timings.totalMs = Date.now() - routeStartedAt;
     console.info("[order-save:server]", JSON.stringify({
       method: "POST",
-      orderId: order.id,
+      orderId: mutation.order.id,
       timings,
       persist: persistTimings,
       dbRead: readDb.lastTimings || null

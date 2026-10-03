@@ -91,7 +91,7 @@ function mount() {
       };
     }
   };
-  vm.runInNewContext(`${functionSource(source, "subscriptionPaymentDisplayStatus")}\n${functionSource(source, "renderSettingsSubscription")}\nrenderSettingsSubscription();`, context);
+  vm.runInNewContext(`${functionSource(source, "subscriptionPaymentDisplayStatus")}\n${functionSource(source, "subscriptionPendingContextMatches")}\n${functionSource(source, "renderSettingsSubscription")}\nrenderSettingsSubscription();`, context);
   return { app, content, input, form, requests, context, total, selectedAmount };
 }
 

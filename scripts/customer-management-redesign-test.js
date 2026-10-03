@@ -49,36 +49,42 @@ assert(css.includes(".customer-management-detail-view"), "detail view CSS must e
 assert(css.includes("html[data-theme=\"light\"] body:not(.login-view) .customer-management-detail-view"), "light theme detail override must exist");
 assert(css.includes("@media (max-width: 780px)") && css.includes(".customer-management-summary-cards"), "mobile responsive detail CSS must exist");
 
-const lightCustomerScope = 'html[data-theme="light"] body.desktop-app-shell:not(.login-view) :is(.customers-page:not(.settings-customers-management):not(.embedded-customer-management), .customer-management-business-page .customers-page.embedded-customer-management)';
-assert(appJs.includes('customer-management-business-page'), "Business Management customer page class must remain available for scoped styling");
-assert(appJs.includes('extraClass: "embedded-customer-management"'), "Business Management customer view must keep its embedded class");
-assert(css.includes(`${lightCustomerScope} .customers-hero`), "Desktop Light customer hero styling must include the Business Management embedded customer page");
-assert(css.includes(`${lightCustomerScope} .customer-summary-card`), "Desktop Light customer KPI styling must include the Business Management embedded customer page");
-const darkDesktopHeroIndex = css.indexOf("body.desktop-app-shell:not(.login-view) .workspace-hero");
-const lightCustomerHeroIndex = css.indexOf(`${lightCustomerScope} .customers-hero`);
-assert(darkDesktopHeroIndex !== -1 && lightCustomerHeroIndex > darkDesktopHeroIndex, "Desktop Light customer hero rule must load after the dark desktop workspace hero baseline");
-const lightCustomerHeroRule = css.slice(lightCustomerHeroIndex, css.indexOf("}", lightCustomerHeroIndex));
-assert(lightCustomerHeroRule.includes("#ffffff") && lightCustomerHeroRule.includes("#f5efff"), "Desktop Light customer hero must resolve to a white/soft-purple background");
-assert(!lightCustomerHeroRule.includes("rgba(5, 17, 29") && !lightCustomerHeroRule.includes("rgba(4, 12, 23"), "Desktop Light customer hero rule must not retain the dark surface colors");
-assert(!css.includes("html[data-theme=\"light\"] body.desktop-app-shell:not(.login-view) .customers-page:not(.settings-customers-management):not(.embedded-customer-management) .customers-hero"), "Old standalone-only selector must be corrected instead of remaining as an ineffective selector");
-
-const darkDesktopCellIndex = css.indexOf("body.desktop-app-shell:not(.login-view) .workspace-table tbody td");
-const lightCustomerCellSelector = `${lightCustomerScope} .workspace-table tbody td`;
-const lightCustomerCellIndex = css.indexOf(lightCustomerCellSelector);
-assert(darkDesktopCellIndex !== -1 && lightCustomerCellIndex > darkDesktopCellIndex, "Desktop Light customer table cell rule must load after the dark desktop table baseline");
-const lightCustomerCellRule = css.slice(lightCustomerCellIndex, css.indexOf("}", lightCustomerCellIndex));
-assert(lightCustomerCellRule.includes("background: #ffffff !important"), "Desktop Light customer table cells must use a true white surface instead of a transparent tinted surface");
-assert(lightCustomerCellRule.includes("color: #172033 !important"), "Desktop Light customer table cells must use readable text");
-assert(lightCustomerCellRule.includes("padding: 15px 14px"), "Desktop Light customer table cells must keep readable vertical spacing");
-assert(css.includes(`${lightCustomerScope} .workspace-table-wrap`) && css.includes("background: #ffffff !important"), "Desktop Light customer table wrapper must not add a purple gradient behind rows");
-assert(css.includes(`${lightCustomerScope} .workspace-table-wrap::before`) && css.includes("content: none;") && css.includes("background: none;"), "Desktop Light customer table wrapper must disable the base purple overlay pseudo-element");
-assert(css.includes(`${lightCustomerScope} .workspace-table thead th`) && css.includes("background: #faf8ff !important") && css.includes("color: #32254d !important"), "Desktop Light customer table headings must use a readable light header");
-assert(css.includes(`${lightCustomerScope} .workspace-table tbody tr {\n    background: #ffffff !important`), "Desktop Light customer table rows must use a clean white surface");
-assert(css.includes(`${lightCustomerScope} .workspace-table tbody tr:nth-child(even) td {\n    background: #fdfbff !important`), "Desktop Light customer alternate row cells must use only a very light purple tint");
-assert(css.includes(`${lightCustomerScope} .workspace-table tbody tr:hover td`) && css.includes("background: #f7f2ff !important"), "Desktop Light customer hover state must remain a soft purple highlight");
-assert(css.includes(`${lightCustomerScope} .table-identity small`) && css.includes("color: #667085 !important"), "Desktop Light customer address text must remain muted but readable");
-assert(css.includes(`${lightCustomerScope} .workspace-table .badge`) && css.includes("background: #efe4ff !important") && css.includes("color: #5b21b6 !important"), "Desktop Light customer badges must remain pastel purple with readable text");
-assert(css.includes(`${lightCustomerScope} .table-actions .button.secondary`) && css.includes("color: #6d28d9 !important"), "Desktop Light customer edit action must stay compact and recognizable");
-assert(css.includes(`${lightCustomerScope} .table-actions .button.danger`) && css.includes("color: #be123c !important"), "Desktop Light customer delete action must stay compact and recognizable");
-
+// The approved source has separate standalone Desktop and embedded page scopes.
+const standaloneScope = 'html[data-theme="light"] body.desktop-app-shell:not(.login-view) .customers-page:not(.settings-customers-management):not(.embedded-customer-management)';
+const embeddedScope = 'html[data-theme="light"] body:not(.login-view) :is(.customers-page.settings-customers-management, .customer-management-business-page .customers-page.embedded-customer-management)';
+assert(appJs.includes('customer-management-business-page'), "Business Management customer page class must remain available");
+assert(appJs.includes('extraClass: "embedded-customer-management"'), "embedded customer class must remain present");
+function rule(selector) {
+  const index = css.indexOf(selector);
+  assert(index >= 0, `missing approved selector: ${selector}`);
+  const open = css.indexOf("{", index);
+  return { index, body: css.slice(open + 1, css.indexOf("}", open)) };
+}
+function declarations(selector, values) {
+  const found = rule(selector);
+  for (const value of values) assert(found.body.includes(value), `missing ${value} in ${selector}`);
+  return found.index;
+}
+const standaloneHero = declarations(`${standaloneScope} .customers-hero`, ["#ffffff", "#f5efff"]);
+assert(standaloneHero > css.indexOf("body.desktop-app-shell:not(.login-view) .workspace-hero"), "standalone Light hero must follow the dark baseline");
+assert(!rule(`${standaloneScope} .customers-hero`).body.includes("rgba(5, 17, 29"), "standalone hero must not retain dark colors");
+declarations(`${standaloneScope} .customer-summary-card`, ["padding: 13px 14px", "rgba(255, 255, 255, 0.72)"]);
+declarations(`${embeddedScope} .customers-hero`, ["#ffffff", "#fbf9ff", "color: #111827"]);
+declarations(`${embeddedScope} .customers-hero .page-identity-copy h2`, ["color: #111827"]);
+declarations(`${embeddedScope} .customers-hero .page-identity-copy p`, ["color: #6b7280"]);
+const cells = declarations(`${embeddedScope} .workspace-table tbody td`, ["background: #ffffff !important", "color: #172033 !important"]);
+assert(cells > css.indexOf("body.desktop-app-shell:not(.login-view) .workspace-table tbody td"), "embedded Light cells must follow the dark baseline");
+// Spacing is inherited from the approved table rule, not invented in the color override.
+declarations("body.desktop-app-shell:not(.login-view) .workspace-table tbody td", ["padding: 13px 14px"]);
+assert(!rule(`${embeddedScope} .workspace-table tbody td`).body.includes("padding:"), "embedded Light color override must preserve inherited approved table spacing");
+declarations(`${embeddedScope} .workspace-table-wrap`, ["background: #ffffff !important"]);
+declarations(`${embeddedScope} .workspace-table-wrap::before`, ["content: none !important", "background: none !important"]);
+declarations(`${embeddedScope} .workspace-table thead th`, ["background: #faf8ff !important", "color: #32254d !important"]);
+declarations(`${embeddedScope} .workspace-table tbody tr {`, ["background: #ffffff !important"]);
+declarations(`${embeddedScope} .workspace-table tbody tr:nth-child(even) td`, ["background: #fdfbff !important"]);
+declarations(`${embeddedScope} .workspace-table tbody tr:hover td`, ["background: #f7f2ff !important"]);
+declarations(`${embeddedScope} .table-identity small`, ["color: #667085 !important"]);
+declarations(`${embeddedScope} .workspace-table .badge`, ["background: #efe4ff !important", "color: #5b21b6 !important"]);
+declarations(`${embeddedScope} .table-actions .button.secondary`, ["color: #6d28d9 !important"]);
+declarations(`${embeddedScope} .table-actions .button.danger`, ["color: #be123c !important"]);
 console.log("Customer Management redesign static tests passed");

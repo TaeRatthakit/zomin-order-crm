@@ -41,7 +41,7 @@ let missingRpc=false;
 let cancelState="requires_action";
 global.fetch=async(url,options={})=>{
   const address=new URL(url); requests.push({url:address.pathname,body:options.body});
-  if(address.hostname==="enwabsfsmwwcwwirdwok.supabase.co" && address.pathname.startsWith("/rest/v1/rpc/")) {
+  if(["enwabsfsmwwcwwirdwok.supabase.co","mjnpzdmrqweugdnvlqwq.supabase.co"].includes(address.hostname) && address.pathname.startsWith("/rest/v1/rpc/")) {
     if(missingRpc) return new Response(JSON.stringify({code:"PGRST202",message:"function public.growup_begin_subscription_checkout missing"}),{status:404});
     return new Response(JSON.stringify({payment_id:"payment-test",tenant_id:"tenant-test",subscription_id:"subscription-test",target_plan:"business",
       operation:"subscription_upgrade",provider:"stripe_promptpay",status:"pending",currency:"THB",amount_minor:89100,
@@ -90,6 +90,12 @@ global.fetch=async(url,options={})=>{
   process.env.CHECKOUT_PROMO_ENABLED="false";
   await assert.rejects(cancelPromoTestPaymentIntent(cancelPayment,"pi_cancel_test","abandoned"),/PROMOTION_CHECKOUT_NOT_ALLOWED/);
   await assert.rejects(db.beginSubscriptionCheckout(input),/PROMOTION_CHECKOUT_NOT_ALLOWED/);
+  const beforeWrongDatasource = requests.length;
+  await assert.rejects(db.beginSubscriptionCheckout({...input,promotionCode:""}), /Production database project does not match/);
+  assert.equal(requests.length,beforeWrongDatasource,"mismatched Production/Preview datasource must be denied before transport");
+  // A mocked Production identity is needed here; the fetch stub never connects
+  // to the network. Never mislabel Preview using a Production-ref override.
+  process.env.SUPABASE_URL="https://mjnpzdmrqweugdnvlqwq.supabase.co";
   await db.beginSubscriptionCheckout({...input,promotionCode:""});
   assert.equal(requests.at(-1).url,"/rest/v1/rpc/growup_begin_subscription_checkout","Production keeps existing RPC");
   assert(!("p_promotion_code" in JSON.parse(requests.at(-1).body)));

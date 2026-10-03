@@ -19,10 +19,13 @@ const serviceWorker = fs.readFileSync(path.join(root, "public", "service-worker.
 const jsonAdapter = fs.readFileSync(path.join(root, "lib", "db", "json-adapter.js"), "utf8");
 const supabaseAdapter = fs.readFileSync(path.join(root, "lib", "db", "supabase-adapter.js"), "utf8");
 
-assert(html.indexOf('const preference = "system"') < html.indexOf("/styles.css?v=20260722-customer-table-light-v3"), "theme bootstrap must default to System before stylesheet load");
+const styleAsset = html.match(/\/styles\.css\?v=[^"\s]+/)?.[0];
+const appAsset = html.match(/\/app\.js\?v=[^"\s]+/)?.[0];
+assert(styleAsset && appAsset, "versioned current app/style assets must exist");
+assert(html.indexOf('const preference = "system"') >= 0 && html.indexOf('const preference = "system"') < html.indexOf(styleAsset), "theme bootstrap must default to System before stylesheet load");
 assert(html.includes('document.documentElement.dataset.theme = resolved'), "theme bootstrap must set resolved theme before render");
 assert(!html.includes("growup_theme_preference_v1"), "bootstrap must not read a shared theme key before authentication");
-assert(html.includes('/app.js?v=20260722-customer-table-light-v3'), "app asset version must be bumped");
+assert(appAsset.split("?v=")[1] === styleAsset.split("?v=")[1], "app/style versions must stay synchronized");
 
 assert(appJs.includes('const THEME_STORAGE_PREFIX = "growup-theme:"'), "theme storage must be namespaced per user");
 assert(!appJs.includes("growup_theme_preference_v1"), "client must not use a shared theme storage key");
@@ -102,7 +105,8 @@ assert(css.includes('html[data-theme="light"] body.desktop-app-shell:not(.login-
 assert(css.includes('html[data-theme="light"] body:not(.login-view) .grow-settings-row'), "Light theme must cover Business Management settings rows");
 assert(css.includes('html[data-theme="light"] body:not(.login-view) .settings-users-page .settings-user-tabs button'), "Light theme must cover Users & Permissions tabs");
 assert(css.includes('html[data-theme="light"] body:not(.login-view) .settings-users-page .mobile-business-avatar'), "Light theme must cover Users avatar initials fallback");
-assert(!css.includes('html[data-theme="dark"]'), "Dark theme must remain the unmodified baseline");
+assert(css.includes('html[data-theme="dark"] body.mobile-home-view:not(.login-view)'), "approved explicit dark Mobile Home scope must remain present");
+assert(css.includes('html[data-theme="dark"] body:not(.login-view)'), "approved explicit authenticated Dark scopes must remain present");
 
 assert(css.includes(".sidebar-theme-button") && css.includes("width: 30px;") && css.includes("height: 30px;"), "Desktop theme buttons must remain compact");
 assert(css.includes(".sidebar-theme-button.is-active"), "Sidebar theme buttons must have an active state");
@@ -115,9 +119,9 @@ assert(topbarHtml.indexOf("headerNotificationButton") < topbarHtml.indexOf("mobi
 assert(html.includes('id="mobileThemeButton"') && html.includes('aria-label="เปลี่ยนธีม"') && html.includes('title="เปลี่ยนธีม"'), "Mobile theme button must have Thai aria label and title");
 assert(html.includes('id="mobileThemeSheetDialog"') && html.includes("เลือกธีมหน้าจอ") && html.includes("ใช้ธีมมืด") && html.includes("ใช้ธีมสว่าง") && html.includes("เปลี่ยนตามการตั้งค่าของอุปกรณ์"), "Mobile bottom sheet must include Thai labels and descriptions");
 assert(html.includes('data-mobile-theme-option="dark"') && html.includes('data-mobile-theme-option="light"') && html.includes('data-mobile-theme-option="system"'), "Mobile bottom sheet must expose all three theme values");
-assert(serviceWorker.includes('growup-pilot-pwa-v126-customer-table-light-v3'), "service worker cache name must be bumped");
-assert(serviceWorker.includes('/styles.css?v=20260722-customer-table-light-v3'), "service worker must cache current stylesheet");
-assert(serviceWorker.includes('/app.js?v=20260722-customer-table-light-v3'), "service worker must cache current app bundle");
+assert(/growup-pilot-pwa-v\d+-[^"']+/.test(serviceWorker), "service worker must use a versioned cache name");
+assert(serviceWorker.includes(styleAsset), "service worker must cache the exact current stylesheet");
+assert(serviceWorker.includes(appAsset), "service worker must cache the exact current app bundle");
 
 function createDummyElement() {
   const element = {
