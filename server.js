@@ -62,7 +62,7 @@ const {
   readPaymentByProviderReference,
   readPendingSubscriptionUpgrades,
   closeTerminalSubscriptionUpgradeAttempt,
-  reconcileFailedSubscriptionUpgradeAttempt,
+  reconcileTerminalSubscriptionUpgradeAttempt,
   platformAdminOverview,
   platformAdminTenants,
   platformAdminTenantDetail,
@@ -846,20 +846,7 @@ async function reconcilePendingSubscriptionCheckout(db, currentUser) {
   if (typeof readPendingSubscriptionUpgrades === "function") {
     pendingUpgrades = await readPendingSubscriptionUpgrades(currentUser.tenantId);
   }
-  // Preview-only recovery of historical TEST failures already authenticated
-  // and recorded by the webhook. Never cancel or retrieve an old intent here.
-  if (previewCheckoutReconciliationEnabled() && stripePromptPayConfig().testMode
-    && typeof reconcileFailedSubscriptionUpgradeAttempt === "function") {
-    for (const attempt of pendingUpgrades) {
-      const failedPayment = (db.payments || []).find(row => row.id === attempt.paymentId
-        && row.tenantId === currentUser.tenantId && row.status === "failed");
-      if (!failedPayment?.providerMetadata?.last_event_id) continue;
-      const repaired = await reconcileFailedSubscriptionUpgradeAttempt({ paymentId: failedPayment.id,
-        tenantId: currentUser.tenantId, providerEventId: failedPayment.providerMetadata.last_event_id,
-        requireTestEvent: true });
-      if (repaired) pendingUpgrades = pendingUpgrades.filter(row => row.id !== attempt.id);
-    }
-  }
+  pendingUpgrades = await reconcileTerminalCheckoutAttempts(db, currentUser, pendingUpgrades);
   const candidate = pendingSubscriptionCheckoutFor(db, currentUser, pendingUpgrades);
   if (!candidate?.payment) return { state: "none", candidate: null, pendingUpgrades };
 
@@ -884,6 +871,23 @@ async function reconcilePendingSubscriptionCheckout(db, currentUser) {
     promptpay,
     status
   };
+}
+
+async function reconcileTerminalCheckoutAttempts(db, currentUser, attempts) {
+  const remaining = [];
+  for (const attempt of attempts) {
+    const payment = (db.payments || []).find(row => row.id === attempt.paymentId && row.tenantId === currentUser.tenantId);
+    if (!["failed", "cancelled", "expired", "refunded", "paid"].includes(payment?.status)) {
+      remaining.push(attempt);
+      continue;
+    }
+    const repaired = typeof reconcileTerminalSubscriptionUpgradeAttempt === "function"
+      && await reconcileTerminalSubscriptionUpgradeAttempt({ paymentId: payment.id, tenantId: currentUser.tenantId });
+    if (!repaired) throw new Error("TERMINAL_CHECKOUT_STATE_UNVERIFIED");
+    // Terminal rows remain in the payment/audit history but never enter resume
+    // selection. No old Stripe retrieval is needed for a proven terminal row.
+  }
+  return remaining;
 }
 
 const MAX_SUBSCRIPTION_QR_PROXY_BYTES = 1024 * 1024;
@@ -1107,6 +1111,14 @@ async function reconcileResumablePayment(payment, attempt, promptpay, currentUse
   const providerStatus = String(promptpay.status || "").toLowerCase();
   let localStatus = String(promptpay.localStatus || "pending").toLowerCase();
   const storedPaymentStatus = String(payment?.status || "").toLowerCase();
+  const evidence = promptpay.providerEvidence;
+  if (!["requires_action", "requires_payment_method", "processing", "succeeded", "canceled"].includes(providerStatus)
+    || Number(promptpay.amountMinor) !== Number(payment.amountMinor ?? payment.amount_minor)
+    || String(promptpay.currency).toUpperCase() !== String(payment.currency).toUpperCase()
+    || (evidence?.metadata?.growup_payment_id && evidence.metadata.growup_payment_id !== payment.id)
+    || (evidence?.metadata?.growup_tenant_id && evidence.metadata.growup_tenant_id !== currentUser.tenantId)) {
+    throw new Error("PAYMENT_RECONCILIATION_CONTEXT_UNVERIFIED");
+  }
   const eventId = `resume-${String(payment.id || attempt?.paymentId || "payment")}-${providerStatus || localStatus}`.slice(0, 160);
   // A checkout resume is read-only. Only a verified Stripe webhook may
   // activate a subscription, even when a retrieved PaymentIntent is already
@@ -1140,7 +1152,8 @@ async function reconcileResumablePayment(payment, attempt, promptpay, currentUse
     amountMinor: promptpay.amountMinor,
     currency: promptpay.currency,
     status: localStatus,
-    rawEvent: { source: "subscription_upgrade_resume", stripeStatus: promptpay.status }
+    rawEvent: { source: "subscription_upgrade_resume", stripeStatus: promptpay.status,
+      providerEvidence: promptpay.providerEvidence }
   };
   if (attempt && typeof recordSubscriptionUpgradeStatus === "function") await recordSubscriptionUpgradeStatus(input);
   else if (typeof recordProviderPaymentStatus === "function") await recordProviderPaymentStatus(input);
@@ -1200,11 +1213,12 @@ async function supersedeMismatchedPendingCheckout({ candidate, currentUser, expe
     error.code = "REPLACEMENT_PAYMENT_NOT_SAFE";
     throw error;
   }
-  // Period bounds must agree between the payment and its existing upgrade attempt.
+  // The schema stores period bounds on payments, NOT upgrade attempts. Stripe
+  // must agree with these bounds below; linkage/context above proves the attempt.
   const start = String(payment.billingPeriodStartedAt || payment.billing_period_started_at || "");
   const end = String(payment.billingPeriodEndsAt || payment.billing_period_ends_at || "");
-  if (!start || !end || (attempt && (String(attempt.billingPeriodStartedAt || attempt.billing_period_started_at || "") !== start
-    || String(attempt.billingPeriodEndsAt || attempt.billing_period_ends_at || "") !== end))) {
+  if (!start || !end || !Number.isFinite(Date.parse(start)) || !Number.isFinite(Date.parse(end))
+    || Date.parse(end) <= Date.parse(start)) {
     const error = new Error("REPLACEMENT_PAYMENT_CONTEXT_UNVERIFIED");
     error.code = "REPLACEMENT_PAYMENT_CONTEXT_UNVERIFIED";
     throw error;
@@ -1239,6 +1253,7 @@ async function supersedeMismatchedPendingCheckout({ candidate, currentUser, expe
     currency: paymentContext.currency,
     status: "cancelled",
     rawEvent: { source: "explicit_checkout_replacement", stripeStatus: promptpay.status,
+      providerEvidence: promptpay.providerEvidence,
       replacedByPlan: String(targetPlan || ""), replacedByBillingInterval: String(billingInterval || "") }
   };
   if (metadata.promotion?.reservation_id) {
@@ -4890,6 +4905,7 @@ async function handleBillingApi(req, res, url, db, currentUser) {
       }
     }
     try {
+      pendingUpgradeAttempts = await reconcileTerminalCheckoutAttempts(db, currentUser, pendingUpgradeAttempts);
       const pendingCandidate = pendingUpgradePaymentFor(db, currentUser, pendingUpgradeAttempts);
       let pendingView = pendingCandidate
         ? upgradePaymentView({
@@ -5200,8 +5216,9 @@ async function handleBillingApi(req, res, url, db, currentUser) {
         return json(res, 409, checkoutPromoError(new Error("PROMOTION_CHECKOUT_NOT_ALLOWED")));
       }
       if (providerConfig.provider === STRIPE_PROVIDER) {
-        const pendingAttempts = typeof readPendingSubscriptionUpgrades === "function"
+        let pendingAttempts = typeof readPendingSubscriptionUpgrades === "function"
           ? await readPendingSubscriptionUpgrades(currentUser.tenantId) : [];
+        pendingAttempts = await reconcileTerminalCheckoutAttempts(db, currentUser, pendingAttempts);
         const pendingCheckout = pendingSubscriptionCheckoutFor(db, currentUser, pendingAttempts);
         if (pendingCheckout?.payment) {
           let requestedAmountMinor = intent === "subscription_activation"
@@ -5256,6 +5273,22 @@ async function handleBillingApi(req, res, url, db, currentUser) {
       if (providerConfig.provider === STRIPE_PROVIDER) {
         if (typeof setPaymentProviderReference !== "function") {
           return json(res, 503, { ok: false, code: "STRIPE_PAYMENT_RPC_REQUIRED", error: "ระบบบันทึก Stripe payment ยังไม่พร้อม" });
+        }
+        if (["failed", "cancelled", "expired"].includes(payment.status)) {
+          // Replayed original request keys can return a historical terminal
+          // row. Never retrieve/resurrect its old intent. Stable retry key and
+          // the RPC's logical pending selection prevent duplicate replacements.
+          await reconcileTerminalSubscriptionUpgradeAttempt({ paymentId: payment.id, tenantId: currentUser.tenantId });
+          payment = await beginSubscriptionCheckout({ tenantId: currentUser.tenantId, userId: currentUser.id,
+            targetPlan, billingInterval, intent, ...(promotionCode ? { promotionCode } : {}),
+            idempotencyKey: `terminal-retry-${crypto.createHash("sha256").update(`${idempotencyKey}:${payment.id}`).digest("hex")}`,
+            provider: providerConfig.provider });
+        }
+        if (["paid", "refunded"].includes(payment.status)) {
+          return json(res, 409, { ok: false, code: "PAYMENT_ALREADY_CONCLUDED", error: "รายการนี้ดำเนินการเสร็จแล้ว กรุณาตรวจสถานะแพ็กเกจ" });
+        }
+        if (payment.status === "processing") {
+          return json(res, 409, { ok: false, code: "PAYMENT_PROCESSING", error: "รายการกำลังดำเนินการ กรุณารอผลยืนยันจาก Stripe" });
         }
         let promptpay;
         if (payment.providerPaymentReference) {
@@ -5425,8 +5458,9 @@ async function handleStripeWebhookApi(req, res) {
         || intent.metadata?.growup_payment_id !== payment.id || intent.metadata?.growup_tenant_id !== payment.tenantId)) {
         return json(res, 200, { ok: true, ignored: true, reason: "failed_payment_outcome_not_proven" });
       }
-      if (payment.status === "failed" && event.type !== "payment_intent.payment_failed") {
-        return json(res, 200, { ok: true, ignored: true, reason: "terminal_failed_payment" });
+      if (["failed", "cancelled", "expired", "refunded"].includes(payment.status)) {
+        await reconcileTerminalSubscriptionUpgradeAttempt({ paymentId: payment.id, tenantId: payment.tenantId });
+        return json(res, 200, { ok: true, ignored: true, reason: "terminal_non_success_payment" });
       }
       if (checkoutPromoEnabled() && payment.checkoutMetadata?.promotion?.reservation_id) {
         if (["failed","cancelled","expired","paid"].includes(payment.status)) {
@@ -5452,9 +5486,6 @@ async function handleStripeWebhookApi(req, res) {
           return json(res, 503, { ok: false, code: "PAYMENT_STATUS_RPC_REQUIRED", error: "Payment status RPC is not configured." });
         }
         await recordProviderPaymentStatus({ ...input, status });
-      }
-      if (event.type === "payment_intent.payment_failed" && typeof reconcileFailedSubscriptionUpgradeAttempt === "function") {
-        await reconcileFailedSubscriptionUpgradeAttempt({ paymentId: payment.id, tenantId: payment.tenantId, providerEventId: event.id });
       }
     }
   } catch (error) {
