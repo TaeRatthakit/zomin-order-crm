@@ -220,6 +220,20 @@ global.fetch = async function mockFetch(input, options = {}) {
       const canceled = stripeIntents.get(cancelMatch[1]);
       if (!canceled) return jsonResponse({ error: { message: "not found" } }, 404);
       canceled.status = "canceled";
+      if (process.env.TASK5_TEST_WEBHOOK_RACE === "true") {
+        // A previous deployed webhook can win before the checkout's status
+        // RPC. Reproduce its generic writer: payment terminal, attempt pending.
+        const payment = db.payments.find(row => row.provider_payment_reference === canceled.id);
+        if (db.subscription_upgrade_attempts.some(row => row.payment_id === payment?.id)) {
+          payment.status = "cancelled";
+          payment.cancelled_at = nowIso;
+          const eventId = `evt_racing_cancel_${payment.id}`;
+          payment.provider_metadata = { ...payment.provider_metadata, last_event_id: eventId };
+          db.payment_provider_events.push({ provider: payment.provider, provider_event_id: eventId,
+            payment_id: payment.id, status: "processed", event_type: "payment_cancelled", processed_at: nowIso,
+            raw_event: { id: eventId, type: "payment_intent.canceled", livemode: false, data: { object: structuredClone(canceled) } } });
+        }
+      }
       return jsonResponse(canceled);
     }
     if (String(options.method || "GET").toUpperCase() === "GET") {
@@ -393,7 +407,10 @@ if (!process.env.TASK5_TEST_SERVE) (async () => {
   const enterprise = await checkout(cookie, "enterprise"); state("2 Enterprise QR", tenantId);
   assert.equal(business.status, "cancelled");
   assert.ok(!Object.hasOwn(db.subscription_upgrade_attempts.find(row => row.payment_id === enterprise.id), "billing_period_started_at"));
+  // Always exercise the real Preview race in the mandatory continuous case.
+  process.env.TASK5_TEST_WEBHOOK_RACE = "true";
   const back = await checkout(cookie, "business"); state("3 Business QR", tenantId);
+  delete process.env.TASK5_TEST_WEBHOOK_RACE;
   assert.equal(enterprise.status, "cancelled");
   assert.equal(db.subscription_upgrade_attempts.find(row => row.payment_id === enterprise.id).status, "cancelled");
   const createCount = stripeCreateRequests.length;
