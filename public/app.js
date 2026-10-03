@@ -12264,7 +12264,13 @@ function setOrderSaveState(isSaving) {
   if (!els.orderSubmitButton) return;
   els.orderSubmitButton.disabled = isSaving;
   els.orderSubmitButton.dataset.loading = isSaving ? "true" : "false";
-  if (isSaving) els.orderSubmitButton.textContent = "กำลังบันทึก...";
+  if (isSaving) {
+    els.orderSubmitButton.dataset.saveLabel = els.orderSubmitButton.textContent;
+    els.orderSubmitButton.textContent = "กำลังบันทึก...";
+  } else if (els.orderSubmitButton.dataset.saveLabel) {
+    els.orderSubmitButton.textContent = els.orderSubmitButton.dataset.saveLabel;
+    delete els.orderSubmitButton.dataset.saveLabel;
+  }
 }
 
 async function submitOrder(form) {
@@ -12323,7 +12329,8 @@ async function submitOrder(form) {
     return;
   }
   const orderId = app.editingOrderId;
-  const clientMutationId = `tmp_${Date.now().toString(36)}`;
+  const clientMutationId = form.dataset.clientMutationId || crypto.randomUUID();
+  form.dataset.clientMutationId = clientMutationId;
   try {
     data.selectedDate = app.data.summary?.selectedDate || els.workDate.value || todayISO();
     data.clientMutationId = clientMutationId;
@@ -12336,6 +12343,13 @@ async function submitOrder(form) {
       apiMs: Number(payload.__meta?.totalMs?.toFixed?.(2) || 0),
       serverTiming: payload.__meta?.serverTiming || ""
     });
+    if (payload.ok !== true || !payload.mutation?.order
+      || typeof payload.mutation.order.id !== "string" || !payload.mutation.order.id.trim()
+      || typeof payload.mutation.order.customerId !== "string" || !payload.mutation.order.customerId.trim()
+      || payload.mutation.clientMutationId !== clientMutationId
+      || (orderId && payload.mutation.order.id !== orderId)) {
+      throw new Error("ยังยืนยันการบันทึกออเดอร์ไม่ได้ กรุณาลองบันทึกอีกครั้ง");
+    }
     const applyStartedAt = performance.now();
     applyOrderMutation(payload.mutation);
     profiler.mark("mutation-applied", { stepMs: Number((performance.now() - applyStartedAt).toFixed(2)) });
@@ -12349,6 +12363,7 @@ async function submitOrder(form) {
     const closeStartedAt = performance.now();
     els.orderDialog.close();
     form.reset();
+    delete form.dataset.clientMutationId;
     profiler.mark("modal-closed", { stepMs: Number((performance.now() - closeStartedAt).toFixed(2)) });
     const toastStartedAt = performance.now();
     showToast(orderId ? "แก้ไขออเดอร์แล้ว" : "บันทึกออเดอร์แล้ว");
@@ -12544,6 +12559,7 @@ function openOrderDialog(order = null) {
   const dateField = els.orderForm.elements.date;
   dateField.type = isMobileViewport() ? "datetime-local" : "date";
   els.orderForm.reset();
+  delete els.orderForm.dataset.clientMutationId;
   delete els.orderForm.dataset.originSourceValue;
   els.orderDialogTitle.textContent = order ? "แก้ไขออเดอร์" : "เพิ่มออเดอร์";
   els.orderSubmitButton.textContent = order ? "บันทึกการแก้ไข" : "บันทึกออเดอร์";
