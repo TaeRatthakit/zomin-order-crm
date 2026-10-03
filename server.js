@@ -62,6 +62,7 @@ const {
   readPaymentByProviderReference,
   readPendingSubscriptionUpgrades,
   closeTerminalSubscriptionUpgradeAttempt,
+  reconcileFailedSubscriptionUpgradeAttempt,
   platformAdminOverview,
   platformAdminTenants,
   platformAdminTenantDetail,
@@ -845,6 +846,20 @@ async function reconcilePendingSubscriptionCheckout(db, currentUser) {
   if (typeof readPendingSubscriptionUpgrades === "function") {
     pendingUpgrades = await readPendingSubscriptionUpgrades(currentUser.tenantId);
   }
+  // Preview-only recovery of historical TEST failures already authenticated
+  // and recorded by the webhook. Never cancel or retrieve an old intent here.
+  if (previewCheckoutReconciliationEnabled() && stripePromptPayConfig().testMode
+    && typeof reconcileFailedSubscriptionUpgradeAttempt === "function") {
+    for (const attempt of pendingUpgrades) {
+      const failedPayment = (db.payments || []).find(row => row.id === attempt.paymentId
+        && row.tenantId === currentUser.tenantId && row.status === "failed");
+      if (!failedPayment?.providerMetadata?.last_event_id) continue;
+      const repaired = await reconcileFailedSubscriptionUpgradeAttempt({ paymentId: failedPayment.id,
+        tenantId: currentUser.tenantId, providerEventId: failedPayment.providerMetadata.last_event_id,
+        requireTestEvent: true });
+      if (repaired) pendingUpgrades = pendingUpgrades.filter(row => row.id !== attempt.id);
+    }
+  }
   const candidate = pendingSubscriptionCheckoutFor(db, currentUser, pendingUpgrades);
   if (!candidate?.payment) return { state: "none", candidate: null, pendingUpgrades };
 
@@ -1339,6 +1354,7 @@ function safeStripeEventForStorage(event = {}) {
         id: object.id || "",
         object: object.object || "",
         status: object.status || "",
+        amount_received: Number(object.amount_received || 0),
         amount: Number(object.amount || 0),
         currency: object.currency || "",
         payment_method_types: Array.isArray(object.payment_method_types) ? object.payment_method_types : [],
@@ -5403,6 +5419,15 @@ async function handleStripeWebhookApi(req, res) {
       let status = event.type === "payment_intent.payment_failed"
         ? "failed"
         : (event.type === "payment_intent.canceled" ? "cancelled" : stripePaymentStatus(intent.status));
+      if (event.type === "payment_intent.payment_failed" && (intent.status !== "requires_payment_method"
+        || Number(intent.amount_received || 0) !== 0 || payment.paidAt || ["paid", "processing"].includes(payment.status)
+        || event.livemode !== providerConfig.stripe.liveMode
+        || intent.metadata?.growup_payment_id !== payment.id || intent.metadata?.growup_tenant_id !== payment.tenantId)) {
+        return json(res, 200, { ok: true, ignored: true, reason: "failed_payment_outcome_not_proven" });
+      }
+      if (payment.status === "failed" && event.type !== "payment_intent.payment_failed") {
+        return json(res, 200, { ok: true, ignored: true, reason: "terminal_failed_payment" });
+      }
       if (checkoutPromoEnabled() && payment.checkoutMetadata?.promotion?.reservation_id) {
         if (["failed","cancelled","expired","paid"].includes(payment.status)) {
           return json(res, 200, { ok: true, ignored: true, reason: "terminal_promo_payment" });
@@ -5417,7 +5442,7 @@ async function handleStripeWebhookApi(req, res) {
           return json(res, 200, { ok: true, received: true, eventId: event.id });
         }
       }
-      if (payment.operation === "subscription_upgrade") {
+      if (payment.operation === "subscription_upgrade" && payment.status !== "failed") {
         if (typeof recordSubscriptionUpgradeStatus !== "function") {
           return json(res, 503, { ok: false, code: "SUBSCRIPTION_UPGRADE_STATUS_RPC_REQUIRED", error: "Subscription upgrade status RPC is not configured." });
         }
@@ -5427,6 +5452,9 @@ async function handleStripeWebhookApi(req, res) {
           return json(res, 503, { ok: false, code: "PAYMENT_STATUS_RPC_REQUIRED", error: "Payment status RPC is not configured." });
         }
         await recordProviderPaymentStatus({ ...input, status });
+      }
+      if (event.type === "payment_intent.payment_failed" && typeof reconcileFailedSubscriptionUpgradeAttempt === "function") {
+        await reconcileFailedSubscriptionUpgradeAttempt({ paymentId: payment.id, tenantId: payment.tenantId, providerEventId: event.id });
       }
     }
   } catch (error) {

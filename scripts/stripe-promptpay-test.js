@@ -56,6 +56,7 @@ const db = {
     { id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd", tenant_id: tenants.failed, is_initial: true, plan: "business", billing_interval: "yearly", status: "pending_payment", currency: "THB", base_amount_minor: 950400, discount_amount_minor: 0, amount_due_minor: 950400, payment_due_at: nowIso, created_at: nowIso, updated_at: nowIso }
   ],
   payments: [],
+  subscription_upgrade_attempts: [],
   payment_provider_events: [],
   settings: [],
   follow_up_rules: [],
