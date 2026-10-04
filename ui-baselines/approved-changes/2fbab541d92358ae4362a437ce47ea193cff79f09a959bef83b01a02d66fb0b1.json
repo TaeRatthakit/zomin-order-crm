@@ -1,0 +1,746 @@
+{
+  "schemaVersion": 1,
+  "id": "user-approved-local-golden-ui-architecture-20261004",
+  "base": {
+    "sourceCommit": "8eb8517e3e3bf03f58ad9504004417dcae039984"
+  },
+  "target": {
+    "sourceCommit": "9627099642fdf2c8549279a57fffcc30111c2911"
+  },
+  "allowedFiles": [
+    "public/app.js",
+    "public/styles.css"
+  ],
+  "expectedTextChanges": [
+    {
+      "route": "dashboard, orders, opportunities, customers, settings/line",
+      "component": "responsive shell breakpoint alignment and settings LINE page scoping",
+      "from": "max-width: 780px",
+      "to": "max-width: 820px",
+      "minimumRemoved": 1,
+      "minimumAdded": 1
+    }
+  ],
+  "expectedDiffSha256": "5c9022b2a9e71fdae030cf9606614a4941ad0c399d85cc040fbba30c3d98e50e",
+  "expectedDiffLines": [
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 2541,
+      "text": "  // Stable ownership hooks for page styles, including dialogs outside #content."
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 2542,
+      "text": "  document.body.dataset.uiView = app.view;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 2543,
+      "text": "  els.content.dataset.uiView = app.view;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 2544,
+      "text": "  if (app.view === \"settings\") {"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 2545,
+      "text": "    document.body.dataset.uiBusinessPage = app.mobileBusinessPage || \"main\";"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 2546,
+      "text": "    els.content.dataset.uiBusinessPage = app.mobileBusinessPage || \"main\";"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 2547,
+      "text": "  } else {"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 2548,
+      "text": "    delete document.body.dataset.uiBusinessPage;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 2549,
+      "text": "    delete els.content.dataset.uiBusinessPage;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 2550,
+      "text": "  }"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 23,
+      "text": "body.desktop-app-shell:not(.login-view) .line-oa-form,"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 24,
+      "text": "body.mobile-app-shell:not(.login-view) .line-oa-form {"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 25,
+      "text": "  border-color: rgba(48, 92, 126, 0.62) !important;"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 26,
+      "text": "  background:"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 27,
+      "text": "    radial-gradient(circle at 12% 0, rgba(82, 57, 149, 0.18), transparent 42%),"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 28,
+      "text": "    linear-gradient(145deg, rgba(8, 25, 42, 0.99), rgba(4, 15, 27, 1)) !important;"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 29,
+      "text": "}"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 30,
+      "text": ""
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 31,
+      "text": "body.desktop-app-shell:not(.login-view) .line-oa-form label,"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 32,
+      "text": "body.desktop-app-shell:not(.login-view) .line-oa-form h3,"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 33,
+      "text": "body.desktop-app-shell:not(.login-view) .line-status-row strong,"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 34,
+      "text": "body.desktop-app-shell:not(.login-view) .line-automation-section .settings-switch strong,"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 35,
+      "text": "body.mobile-app-shell:not(.login-view) .line-oa-form label,"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 36,
+      "text": "body.mobile-app-shell:not(.login-view) .line-oa-form h3,"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 37,
+      "text": "body.mobile-app-shell:not(.login-view) .line-status-row strong,"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 38,
+      "text": "body.mobile-app-shell:not(.login-view) .line-automation-section .settings-switch strong {"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 39,
+      "text": "  color: #f5f7fb !important;"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 40,
+      "text": "}"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 41,
+      "text": ""
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 42,
+      "text": "body.desktop-app-shell:not(.login-view) .line-oa-form p,"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 43,
+      "text": "body.desktop-app-shell:not(.login-view) .line-oa-form small,"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 44,
+      "text": "body.desktop-app-shell:not(.login-view) .line-status-row span,"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 45,
+      "text": "body.mobile-app-shell:not(.login-view) .line-oa-form p,"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 46,
+      "text": "body.mobile-app-shell:not(.login-view) .line-oa-form small,"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 47,
+      "text": "body.mobile-app-shell:not(.login-view) .line-status-row span {"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 48,
+      "text": "  color: #aab4c3 !important;"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 49,
+      "text": "}"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 50,
+      "text": ""
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 3196,
+      "text": "@media (max-width: 780px) {"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 3168,
+      "text": "@media (max-width: 820px) {"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 5145,
+      "text": "@media (max-width: 780px) {"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 5117,
+      "text": "@media (max-width: 820px) {"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 6283,
+      "text": "@media (max-width: 780px) {"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 6255,
+      "text": "@media (max-width: 820px) {"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 6828,
+      "text": "@media (max-width: 780px) {"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 6800,
+      "text": "@media (max-width: 820px) {"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 10559,
+      "text": "body.desktop-app-shell:not(.login-view) .line-oa-form {"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 10560,
+      "text": "  border-color: rgba(48, 92, 126, 0.62) !important;"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 10561,
+      "text": "  background:"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 10562,
+      "text": "    radial-gradient(circle at 12% 0, rgba(82, 57, 149, 0.18), transparent 42%),"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 10563,
+      "text": "    linear-gradient(145deg, rgba(8, 25, 42, 0.99), rgba(4, 15, 27, 1)) !important;"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 10564,
+      "text": "}"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 10565,
+      "text": ""
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 10566,
+      "text": "body.desktop-app-shell:not(.login-view) .line-oa-form label,"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 10567,
+      "text": "body.desktop-app-shell:not(.login-view) .line-oa-form h3,"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 10568,
+      "text": "body.desktop-app-shell:not(.login-view) .line-status-row strong,"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 10569,
+      "text": "body.desktop-app-shell:not(.login-view) .line-automation-section .settings-switch strong {"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 10570,
+      "text": "  color: #f5f7fb !important;"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 10571,
+      "text": "}"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 10572,
+      "text": ""
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 10573,
+      "text": "body.desktop-app-shell:not(.login-view) .line-oa-form p,"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 10574,
+      "text": "body.desktop-app-shell:not(.login-view) .line-oa-form small,"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 10575,
+      "text": "body.desktop-app-shell:not(.login-view) .line-status-row span {"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 10576,
+      "text": "  color: #aab4c3 !important;"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 10577,
+      "text": "}"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 10578,
+      "text": ""
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 12253,
+      "text": "@media (max-width: 780px) {"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 12205,
+      "text": "@media (max-width: 820px) {"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 13008,
+      "text": "@media (max-width: 780px) {"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 12960,
+      "text": "@media (max-width: 820px) {"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 13516,
+      "text": "@media (max-width: 780px) {"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 13468,
+      "text": "@media (max-width: 820px) {"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 21018,
+      "text": "body.desktop-app-shell:not(.login-view) .line-oa-form,"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 21019,
+      "text": "body.mobile-app-shell:not(.login-view) .line-oa-form {"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 20970,
+      "text": "body.desktop-app-shell:not(.login-view):where([data-ui-view=\"settingsLineHub\"]) .line-oa-form,"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 20971,
+      "text": "body.mobile-app-shell:not(.login-view):where([data-ui-view=\"settingsLineHub\"]) .line-oa-form {"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 21026,
+      "text": "body.desktop-app-shell:not(.login-view) .line-oa-form label,"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 21027,
+      "text": "body.desktop-app-shell:not(.login-view) .line-oa-form h3,"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 21028,
+      "text": "body.desktop-app-shell:not(.login-view) .line-status-row strong,"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 21029,
+      "text": "body.desktop-app-shell:not(.login-view) .line-automation-section .settings-switch strong,"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 21030,
+      "text": "body.mobile-app-shell:not(.login-view) .line-oa-form label,"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 21031,
+      "text": "body.mobile-app-shell:not(.login-view) .line-oa-form h3,"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 21032,
+      "text": "body.mobile-app-shell:not(.login-view) .line-status-row strong,"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 21033,
+      "text": "body.mobile-app-shell:not(.login-view) .line-automation-section .settings-switch strong {"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 20978,
+      "text": "body.desktop-app-shell:not(.login-view):where([data-ui-view=\"settingsLineHub\"]) .line-oa-form label,"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 20979,
+      "text": "body.desktop-app-shell:not(.login-view):where([data-ui-view=\"settingsLineHub\"]) .line-oa-form h3,"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 20980,
+      "text": "body.desktop-app-shell:not(.login-view):where([data-ui-view=\"settingsLineHub\"]) .line-status-row strong,"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 20981,
+      "text": "body.desktop-app-shell:not(.login-view):where([data-ui-view=\"settingsLineHub\"]) .line-automation-section .settings-switch strong,"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 20982,
+      "text": "body.mobile-app-shell:not(.login-view):where([data-ui-view=\"settingsLineHub\"]) .line-oa-form label,"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 20983,
+      "text": "body.mobile-app-shell:not(.login-view):where([data-ui-view=\"settingsLineHub\"]) .line-oa-form h3,"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 20984,
+      "text": "body.mobile-app-shell:not(.login-view):where([data-ui-view=\"settingsLineHub\"]) .line-status-row strong,"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 20985,
+      "text": "body.mobile-app-shell:not(.login-view):where([data-ui-view=\"settingsLineHub\"]) .line-automation-section .settings-switch strong {"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 21037,
+      "text": "body.desktop-app-shell:not(.login-view) .line-oa-form p,"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 21038,
+      "text": "body.desktop-app-shell:not(.login-view) .line-oa-form small,"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 21039,
+      "text": "body.desktop-app-shell:not(.login-view) .line-status-row span,"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 21040,
+      "text": "body.mobile-app-shell:not(.login-view) .line-oa-form p,"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 21041,
+      "text": "body.mobile-app-shell:not(.login-view) .line-oa-form small,"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 21042,
+      "text": "body.mobile-app-shell:not(.login-view) .line-status-row span {"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 20989,
+      "text": "body.desktop-app-shell:not(.login-view):where([data-ui-view=\"settingsLineHub\"]) .line-oa-form p,"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 20990,
+      "text": "body.desktop-app-shell:not(.login-view):where([data-ui-view=\"settingsLineHub\"]) .line-oa-form small,"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 20991,
+      "text": "body.desktop-app-shell:not(.login-view):where([data-ui-view=\"settingsLineHub\"]) .line-status-row span,"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 20992,
+      "text": "body.mobile-app-shell:not(.login-view):where([data-ui-view=\"settingsLineHub\"]) .line-oa-form p,"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 20993,
+      "text": "body.mobile-app-shell:not(.login-view):where([data-ui-view=\"settingsLineHub\"]) .line-oa-form small,"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 20994,
+      "text": "body.mobile-app-shell:not(.login-view):where([data-ui-view=\"settingsLineHub\"]) .line-status-row span {"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 26161,
+      "text": "@media (max-width: 780px) {"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 26113,
+      "text": "@media (max-width: 820px) {"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "-",
+      "line": 31542,
+      "text": "@media (max-width: 780px) {"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 31494,
+      "text": "@media (max-width: 820px) {"
+    }
+  ],
+  "tooling": {
+    "sourceCommit": "0e0beb520f1d79e5c262ea5904089e006e085355",
+    "allowedFiles": [
+      "scripts/production-preflight.js",
+      "scripts/ui-regression-guard.js"
+    ]
+  },
+  "goldenUIApproval": {
+    "status": "USER_APPROVED_GOLDEN_UI",
+    "approvedAt": "2026-10-04T08:04:01Z",
+    "approvedBy": "User explicitly approved in this conversation",
+    "worktree": "/Users/suputchamaoket/.codex/worktrees/golden-ui-isolation/แอพ order crm zomin",
+    "sourceCommit": "9627099642fdf2c8549279a57fffcc30111c2911",
+    "frontendFingerprint": {
+      "public/index.html": "b0652ac6ee5f99f42153b7aa2ebc37ff0a4d4245cbedddffbf0a6f02caffeede",
+      "public/app.js": "336eec3801dea1d29e3f3e3fb7839a33e9f26bfa2993fcc2f52be4af41ce4303",
+      "public/styles.css": "b7541e896014db88f525def02c8b07919ba85bbe1ba3f624054f5b24e55fe07e",
+      "public/service-worker.js": "296407e9d726e758665dff0ec43a6e4cbb65c352f45e435f35d48f38612ea75c"
+    },
+    "renderedComparison": {
+      "result": "PASS",
+      "comparisonCount": 54,
+      "routes": [
+        "login",
+        "dashboard",
+        "reports",
+        "orders",
+        "opportunities",
+        "customers",
+        "products",
+        "settings",
+        "settings/line"
+      ],
+      "viewports": [
+        {
+          "name": "desktop",
+          "width": 1440,
+          "height": 900
+        },
+        {
+          "name": "mobile375",
+          "width": 375,
+          "height": 812
+        },
+        {
+          "name": "mobile400",
+          "width": 400,
+          "height": 812
+        }
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "method": "Exact RGBA pixel comparison; evidence recorded from completed local run before current continuation."
+    },
+    "responsive800px": {
+      "result": "PASS",
+      "testedRoutes": [
+        "dashboard",
+        "orders",
+        "opportunities",
+        "reports",
+        "customers",
+        "products",
+        "settings"
+      ],
+      "horizontalOverflow": false,
+      "evidence": "Completed local measurement from current approved change run."
+    }
+  }
+}
