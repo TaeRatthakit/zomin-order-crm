@@ -2538,6 +2538,16 @@ function renderSubscriptionExpiryWarning() {
 }
 
 function updateShell() {
+  // Stable ownership hooks for page styles, including dialogs outside #content.
+  document.body.dataset.uiView = app.view;
+  els.content.dataset.uiView = app.view;
+  if (app.view === "settings") {
+    document.body.dataset.uiBusinessPage = app.mobileBusinessPage || "main";
+    els.content.dataset.uiBusinessPage = app.mobileBusinessPage || "main";
+  } else {
+    delete document.body.dataset.uiBusinessPage;
+    delete els.content.dataset.uiBusinessPage;
+  }
   document.body.classList.toggle("landing-view", app.view === "landing");
   document.body.classList.toggle("login-view", isAuthView());
   document.body.classList.toggle("signup-view", app.view === "signup");
