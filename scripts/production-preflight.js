@@ -9,6 +9,7 @@ const ROOT = path.resolve(__dirname, "..");
 const UI_PATH = /^public\//;
 const BACKEND_PATH = /^(server\.js|lib\/db\/|lib\/auth\.js|lib\/env\.js|lib\/stripe-promptpay\.js|lib\/customer-sync\.js)/;
 const TOOLING_PATH = /^(scripts\/|package\.json$|package-lock\.json$)/;
+const APPROVAL_MANIFEST_PATH = /^ui-baselines\/approved-changes\/([a-f0-9]{64})\.json$/;
 const PRICING_PAYMENT_PATHS = new Set([
   "lib/db/json-adapter.js",
   "lib/db/supabase-adapter.js",
@@ -63,6 +64,17 @@ function fileAt(ref, file, cwd = ROOT) {
 
 function sha256(contents) {
   return crypto.createHash("sha256").update(contents).digest("hex");
+}
+
+function isApprovalManifest(file, cwd = ROOT) {
+  const match = file.match(APPROVAL_MANIFEST_PATH);
+  if (!match) return false;
+  try {
+    const bytes = fs.readFileSync(path.join(cwd, file));
+    return sha256(bytes) === match[1];
+  } catch {
+    return false;
+  }
 }
 
 function changedFiles(baseline, candidate, cwd = ROOT) {
@@ -144,7 +156,8 @@ function check(options = {}) {
   const files = baseline && candidate ? changedFiles(baseline, candidate, cwd) : [];
   const uiChanged = files.filter(file => UI_PATH.test(file));
   const backendChanged = files.filter(file => BACKEND_PATH.test(file));
-  const unexpectedFiles = files.filter(file => !UI_PATH.test(file) && !BACKEND_PATH.test(file) && !TOOLING_PATH.test(file));
+  const unexpectedFiles = files.filter(file => !UI_PATH.test(file) && !BACKEND_PATH.test(file)
+    && !TOOLING_PATH.test(file) && !isApprovalManifest(file, cwd));
   const approvedBackendChange = env.BACKEND_CHANGE_APPROVED === "true";
   const requiredTestsPassed = env.REQUIRED_BACKEND_TESTS_PASSED === "true";
 
@@ -214,6 +227,7 @@ module.exports = {
   PRICING_PAYMENT_PATHS,
   check,
   changedFiles,
+  isApprovalManifest,
   missingBackendContract,
   uiSnapshotEqual
 };
