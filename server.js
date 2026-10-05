@@ -497,6 +497,26 @@ function publicUser(user) {
   };
 }
 
+function stripPublicRawMessageFields(value) {
+  if (Array.isArray(value)) return value.map(stripPublicRawMessageFields);
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter(([key]) => !["rawText", "raw_text"].includes(key))
+      .map(([key, entry]) => [key, stripPublicRawMessageFields(entry)])
+  );
+}
+
+function publicStateOrder(order = {}) {
+  const { rawText, raw_text, ...safeOrder } = order;
+  return safeOrder;
+}
+
+function publicStateCustomer(customer = {}) {
+  const { orders, contactLogs, ...safeCustomer } = customer;
+  return safeCustomer;
+}
+
 function normalizeThemePreference(value) {
   return ["dark", "light", "system"].includes(value) ? value : "system";
 }
@@ -6598,9 +6618,12 @@ async function handleApi(req, res) {
         console.error("Notification read state unavailable", error.message);
       }
     }
+    const { lineMessages, ...stateWithoutLineMessages } = enriched;
     return json(res, 200, {
-      ...enriched,
-      settings: publicSettings(enriched.settings),
+      ...stateWithoutLineMessages,
+      settings: stripPublicRawMessageFields(publicSettings(enriched.settings)),
+      customers: enriched.customers.map(publicStateCustomer),
+      orders: enriched.orders.map(publicStateOrder),
       users: currentUser.role === "Owner" ? enriched.users.map(publicUser) : [currentUser],
       currentUser,
       notificationReadIds,

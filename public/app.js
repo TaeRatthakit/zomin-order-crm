@@ -1791,13 +1791,42 @@ function elementId(element) {
   return element?.getAttribute?.("id") || "";
 }
 
+function hydrateCustomerRelations(payload) {
+  if (!payload || !Array.isArray(payload.customers)) return payload;
+  const ordersByCustomer = new Map();
+  for (const order of payload.orders || []) {
+    const customerId = String(order?.customerId || "").trim();
+    if (!customerId) continue;
+    if (!ordersByCustomer.has(customerId)) ordersByCustomer.set(customerId, []);
+    ordersByCustomer.get(customerId).push(order);
+  }
+  const contactLogsByCustomer = new Map();
+  for (const log of payload.contactLogs || []) {
+    const customerId = String(log?.customerId || "").trim();
+    if (!customerId) continue;
+    if (!contactLogsByCustomer.has(customerId)) contactLogsByCustomer.set(customerId, []);
+    contactLogsByCustomer.get(customerId).push(log);
+  }
+  return {
+    ...payload,
+    customers: payload.customers.map(customer => {
+      const customerId = String(customer?.id || "").trim();
+      return {
+        ...customer,
+        orders: ordersByCustomer.get(customerId) || [],
+        contactLogs: contactLogsByCustomer.get(customerId) || []
+      };
+    })
+  };
+}
+
 async function loadState() {
   const selectedDate = els.workDate?.value || todayISO();
   const sequence = ++app.stateRequestSequence;
   try {
     const payload = await api(`/api/state?date=${encodeURIComponent(selectedDate)}&_=${Date.now()}`);
     if (sequence !== app.stateRequestSequence) return;
-    app.data = payload;
+    app.data = hydrateCustomerRelations(payload);
     /* pricing-scope: authenticated-upgrade-state:start */
     app.subscriptionBlocked = false;
     app.lastStateLoadedAt = Date.now();
