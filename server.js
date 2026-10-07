@@ -820,7 +820,10 @@ function pendingUpgradePaymentFor(db = {}, currentUser = {}, pendingUpgrades = [
     attempt: attempts.find(item => String(item.paymentId || "") === String(payment.id || "")) || null,
     payment
   })));
-  return candidates.find(candidate => candidate.payment || candidate.attempt) || null;
+  const selected = candidates.find(candidate => candidate.payment || candidate.attempt) || null;
+  const candidateIds = new Set(candidates.map(candidate => String(candidate.payment?.id || candidate.attempt?.paymentId || "")));
+  if (selected && candidateIds.size > 1) selected.ambiguous = true;
+  return selected;
 }
 
 function pendingSubscriptionCheckoutFor(db = {}, currentUser = {}, pendingUpgrades = []) {
@@ -849,7 +852,9 @@ function pendingSubscriptionCheckoutFor(db = {}, currentUser = {}, pendingUpgrad
       || Boolean(candidate.attempt))
     .sort((left, right) => String(right.payment.createdAt || right.payment.created_at || "")
       .localeCompare(String(left.payment.createdAt || left.payment.created_at || "")));
-  return candidates[0] || null;
+  const selected = candidates[0] || null;
+  if (selected && new Set(candidates.map(candidate => String(candidate.payment.id))).size > 1) selected.ambiguous = true;
+  return selected;
 }
 
 function previewCheckoutReconciliationEnabled() {
@@ -871,6 +876,7 @@ async function reconcilePendingSubscriptionCheckout(db, currentUser) {
   }
   pendingUpgrades = await reconcileTerminalCheckoutAttempts(db, currentUser, pendingUpgrades);
   const candidate = pendingSubscriptionCheckoutFor(db, currentUser, pendingUpgrades);
+  if (candidate?.ambiguous) throw new Error("REPLACEMENT_PAYMENT_CONTEXT_UNVERIFIED");
   if (!candidate?.payment) return { state: "none", candidate: null, pendingUpgrades };
 
   const payment = candidate.payment;
@@ -1184,6 +1190,7 @@ async function reconcileResumablePayment(payment, attempt, promptpay, currentUse
 }
 
 async function supersedeMismatchedPendingCheckout({ candidate, currentUser, expectedSubscriptionId = "", targetPlan, billingInterval, amountMinor, promotionCode = "", explicitlyConfirmed = false } = {}) {
+  if (candidate?.ambiguous) throw new Error("REPLACEMENT_PAYMENT_CONTEXT_UNVERIFIED");
   const payment = candidate?.payment;
   if (!payment) return false;
   const metadata = payment.checkoutMetadata || payment.checkout_metadata || {};
