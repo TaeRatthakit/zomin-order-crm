@@ -91,6 +91,7 @@ const {
 } = require("./lib/auth");
 const { synchronizeCustomers } = require("./lib/customer-sync");
 const { createConfirmedOrder } = require("./lib/order-create");
+const { readOnlyCheckoutResume } = require("./lib/checkout-resume");
 
 function monotonicMs() {
   return Number(process.hrtime.bigint()) / 1e6;
@@ -4752,11 +4753,34 @@ async function handleBillingApi(req, res, url, db, currentUser) {
     // Preview-only: retrieve the authoritative Stripe TEST state and close a
     // locally stale terminal checkout. This never creates a payment or
     // changes a subscription; succeeded payments remain awaiting webhook.
-    if (!previewCheckoutReconciliationEnabled()) {
-      return json(res, 200, { ok: true, state: "none", billing: subscriptionBillingPayload(db) });
-    }
     if (currentUser.role !== "Owner") {
       return json(res, 403, { ok: false, error: "ต้องใช้สิทธิ์ Owner เพื่อตรวจสอบรายการชำระเงิน" });
+    }
+    const body = await readBody(req);
+    if (body.resumeExistingOnly === true) {
+      try {
+        const result = await readOnlyCheckoutResume({
+          db, user: currentUser, subscription: baseSubscription(db), expected: body,
+          readAttempts: readPendingSubscriptionUpgrades, retrieve: retrievePaymentIntent,
+          liveMode: stripeRuntimeMode() === "live"
+        });
+        const payment = publicPayment(result.payment);
+        const billing = subscriptionBillingPayload(db);
+        return json(res, 200, {
+          ok: true, state: result.state, status: result.status,
+          pendingPayment: payment, billing,
+          ...(result.state === "active" ? { resumePayload: {
+            ok: true, resumed: true, provider: STRIPE_PROVIDER, payment, promptpay: result.promptpay, billing
+          } } : {})
+        });
+      } catch (error) {
+        return json(res, 409, { ok: false, code: "CHECKOUT_RESUME_CONTEXT_UNVERIFIED",
+          error: "ตรวจสอบรายการชำระเงินไม่สำเร็จ กรุณาลองอีกครั้ง" });
+      }
+    }
+    // Existing Preview-only terminal repair/replacement is deliberately unchanged.
+    if (!previewCheckoutReconciliationEnabled()) {
+      return json(res, 200, { ok: true, state: "none", billing: subscriptionBillingPayload(db) });
     }
     try {
       const reconciliation = await reconcilePendingSubscriptionCheckout(db, currentUser);
