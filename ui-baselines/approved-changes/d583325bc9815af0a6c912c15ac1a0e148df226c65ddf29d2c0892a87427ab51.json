@@ -1,0 +1,168 @@
+{
+  "schemaVersion": 1,
+  "id": "task5-exact-read-only-checkout-resume",
+  "approval": {
+    "status": "OWNER_APPROVED_EXACT_LOGIC_ONLY",
+    "approvedOn": "2026-10-10",
+    "ownerInstruction": "3b87c128-3637-4a04-a4bc-36d67b007d3d",
+    "combinedPatchSha256": "5a1f0442e24339dda27b6e583525c1b1065308a5ab82d17241db25c48a8ccf5b",
+    "scope": "Current exact Task 5 resume state-machine logic and associated targeted tests only",
+    "purpose": "Local, predeploy and ONE final Preview verification only",
+    "uiChangeApproved": false,
+    "goldenBaselineChangeApproved": false,
+    "productionDeploymentApproved": false
+  },
+  "base": {
+    "sourceCommit": "b7147c060e800c6283ee3b88e5f1402c2d780a34"
+  },
+  "target": {
+    "sourceCommit": "4c8f8b5324d8cc857f8056d436972680282830c2"
+  },
+  "tooling": {
+    "sourceCommit": "3958998e730de5ce4ac1ca6034094f088a81ec42",
+    "allowedFiles": [
+      "scripts/subscription-upgrade-test.js"
+    ]
+  },
+  "allowedFiles": [
+    "public/app.js"
+  ],
+  "expectedDiffSha256": "74f48dc8d2b5d3789c33d52de5fc6f89270ad89dd559f66e5d403d9b43ab6371",
+  "expectedTextChanges": [
+    {
+      "route": "/settings/subscription",
+      "component": "read-only confirmed-checkout reload state-machine (not rendered UI)",
+      "from": "operation",
+      "to": "resumeExistingOnly: true"
+    }
+  ],
+  "expectedDiffLines": [
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 1916,
+      "text": "    operation"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 1916,
+      "text": "    operation,"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 1917,
+      "text": "    status: latestPayment.status,"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 1918,
+      "text": "    amountMinor: latestPayment.amountMinor,"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 1919,
+      "text": "    currency: latestPayment.currency,"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 1920,
+      "text": "    billingPeriodStartedAt: latestPayment.billingPeriodStartedAt,"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 1921,
+      "text": "    billingPeriodEndsAt: latestPayment.billingPeriodEndsAt,"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 1922,
+      "text": "    promotionCode: latestPayment.promotion?.code || \"\""
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 1938,
+      "text": "    resumeExpected: [\"pending\", \"processing\"].includes(target.status) && !target.promotionCode ? target : null,"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 10467,
+      "text": "    billingInterval: draft.billingInterval"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10474,
+      "text": "    billingInterval: draft.billingInterval,"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10475,
+      "text": "    ...(draft.resumeExpected ? { ...draft.resumeExpected, resumeExistingOnly: true } : {})"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10515,
+      "text": "  // Only reload hydration may restore a previously confirmed, server-verified"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10516,
+      "text": "  // checkout. A newly selected pricing draft still requires explicit Confirm."
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10517,
+      "text": "  const resumed = subscriptionResumePrefetchFor(draft);"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10518,
+      "text": "  if (draft.resumeExpected && resumed?.resumed === true"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10519,
+      "text": "    && String(resumed.payment.id) === String(draft.resumeExpected.paymentId)) {"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10520,
+      "text": "    app.billingCheckout = resumed;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10521,
+      "text": "    app.subscriptionCheckoutDraft = null;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10522,
+      "text": "    app.subscriptionQrLoadState = null;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10523,
+      "text": "  }"
+    }
+  ],
+  "expectedBinaryAssets": []
+}
