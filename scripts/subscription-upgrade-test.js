@@ -370,6 +370,18 @@ async function verifyCheckoutInitializationStateMachine() {
   await activeHarness.initialize(activeDraft);
   if (activeHarness.app.subscriptionCheckoutDraft !== activeDraft || activeDraft.pendingPayment?.id !== "existing_payment" || !activeDraft.reconciliationReady || activeCalls.some(path => path.endsWith("/upgrade") || path.endsWith("/checkout")) || activeHarness.app.billingCheckout || activeDraft.initializing || activeHarness.app.subscriptionQuoteLoading) fail("active existing payment advanced or resumed before explicit confirmation");
   if (activeHarness.prefetchedResume(activeDraft)?.promptpay?.paymentIntentId !== "existing_intent") fail("validated existing-payment response was not prefetched for an explicit click");
+  for (let reload = 0; reload < 2; reload++) {
+    const restored = harness(path => {
+      if (path.endsWith("/quote")) return Promise.resolve({ quote: { amount_minor: 199000, currency: "THB", intent: "subscription_upgrade" } });
+      if (!path.endsWith("/reconcile")) fail("reload invoked a payment creation endpoint");
+      const payment = { id: "existing_enterprise", targetPlan: "enterprise", amountMinor: 199000, currency: "THB", billingInterval: "monthly" };
+      return Promise.resolve({ state: "active", pendingPayment: payment, resumePayload: { ok: true, resumed: true, payment, promptpay: { paymentIntentId: "pi_existing_enterprise" } } });
+    });
+    const reloadDraft = { targetPlan: "enterprise", billingInterval: "monthly", resumeExpected: { paymentId: "existing_enterprise" } };
+    restored.app.subscriptionCheckoutDraft = reloadDraft;
+    await restored.initialize(reloadDraft);
+    if (restored.app.subscriptionCheckoutDraft || restored.app.billingCheckout?.promptpay?.paymentIntentId !== "pi_existing_enterprise") fail("reload did not restore the same verified checkout without Confirm");
+  }
   if (activeHarness.blockReason(activeDraft)) fail("compatible existing payment was incorrectly blocked from explicit continuation");
   activeDraft.pendingPayment.promotion = { code: "OLDPROMO" };
   if (activeHarness.blockReason(activeDraft)) fail("different promotion incorrectly blocked the new explicit checkout");
@@ -609,6 +621,7 @@ async function verifyCheckoutInitializationStateMachine() {
 }
 
 (async () => {
+  await require("./checkout-resume-test").runCheckoutResumeFixtures();
   for (const token of [
     "create table if not exists public.subscription_upgrade_attempts",
     "growup_begin_subscription_upgrade",
@@ -680,6 +693,40 @@ async function verifyCheckoutInitializationStateMachine() {
     fail("active pending checkout did not return its read-only authoritative resume context");
   }
   if (db.payments.find(row => row.id === first.json().payment.id).status !== "pending") fail("active pending checkout was modified by reconciliation");
+  const confirmedPayment = first.json().payment;
+  const resumeBody = {
+    resumeExistingOnly: true, paymentId: confirmedPayment.id, operation: confirmedPayment.operation,
+    targetPlan: confirmedPayment.targetPlan, billingInterval: confirmedPayment.billingInterval,
+    amountMinor: confirmedPayment.amountMinor, currency: confirmedPayment.currency, promotionCode: "",
+    billingPeriodStartedAt: confirmedPayment.billingPeriodStartedAt,
+    billingPeriodEndsAt: confirmedPayment.billingPeriodEndsAt
+  };
+  // Fake credentials and a mock fetch only: no real Production/Stripe access.
+  process.env.VERCEL_ENV = "production";
+  process.env.PRODUCTION_SUPABASE_PROJECT_REF = "subscription-upgrade-test";
+  process.env.STRIPE_LIVE_SECRET_KEY = "sk_live_mock_resume";
+  const existingIntent = stripeIntents.get(first.json().promptpay.paymentIntentId);
+  existingIntent.livemode = true;
+  const resumeBefore = JSON.stringify(db);
+  const createsBefore = stripeCreateRequests.length;
+  const cancelsBefore = stripeCancelRequests.length;
+  for (let reload = 0; reload < 2; reload++) {
+    const restored = await request("/api/billing/reconcile", { method: "POST", headers: { cookie: starterCookie }, body: JSON.stringify(resumeBody) });
+    if (restored.status !== 200 || restored.json().state !== "active"
+      || restored.json().resumePayload?.promptpay?.paymentIntentId !== existingIntent.id
+      || Object.hasOwn(restored.json().resumePayload?.promptpay || {}, "clientSecret")) fail("Production-shaped read-only resume failed: " + restored.text);
+  }
+  const deniedResume = await request("/api/billing/reconcile", { method: "POST", headers: { cookie: staffCookie }, body: JSON.stringify(resumeBody) });
+  if (deniedResume.status !== 403) fail("Staff read-only resume was not rejected");
+  for (const mismatch of [{ targetPlan: "enterprise" }, { amountMinor: 199000 }, { currency: "USD" }, { promotionCode: "DIFFERENT" }, { paymentId: "other_tenant_payment" }]) {
+    const denied = await request("/api/billing/reconcile", { method: "POST", headers: { cookie: starterCookie }, body: JSON.stringify({ ...resumeBody, ...mismatch }) });
+    if (denied.status !== 409) fail("Mismatched read-only resume did not fail closed");
+  }
+  if (JSON.stringify(db) !== resumeBefore || stripeCreateRequests.length !== createsBefore || stripeCancelRequests.length !== cancelsBefore) fail("Read-only resume mutated payment/attempt/subscription/promo or Stripe");
+  existingIntent.livemode = false;
+  process.env.VERCEL_ENV = "preview";
+  delete process.env.STRIPE_LIVE_SECRET_KEY;
+  delete process.env.PRODUCTION_SUPABASE_PROJECT_REF;
   const resumed = await request("/api/billing/upgrade", { method: "POST", headers: { cookie: starterCookie }, body: JSON.stringify({ targetPlan: "business" }) });
   if (resumed.status !== 200 || resumed.json().payment.id !== first.json().payment.id || resumed.json().promptpay.promptpay.imageUrlPng !== first.json().promptpay.promptpay.imageUrlPng) fail("same target did not resume the same payment and QR");
   if (db.payments.filter(row => row.tenant_id === ids.starter).length !== 1) fail("same-target resume created a duplicate payment");
