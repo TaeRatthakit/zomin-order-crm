@@ -1913,7 +1913,13 @@ function subscriptionCheckoutTargetFromState() {
     paymentId: String(latestPayment.id || ""),
     targetPlan,
     billingInterval: String(latestPayment.billingInterval || subscription.billingInterval || "monthly").toLowerCase(),
-    operation
+    operation,
+    status: latestPayment.status,
+    amountMinor: latestPayment.amountMinor,
+    currency: latestPayment.currency,
+    billingPeriodStartedAt: latestPayment.billingPeriodStartedAt,
+    billingPeriodEndsAt: latestPayment.billingPeriodEndsAt,
+    promotionCode: latestPayment.promotion?.code || ""
   };
 }
 
@@ -1929,6 +1935,7 @@ async function hydrateSubscriptionCheckout() {
     targetPlan: target.targetPlan,
     billingInterval: target.billingInterval,
     action,
+    resumeExpected: ["pending", "processing"].includes(target.status) && !target.promotionCode ? target : null,
     baseQuote: null,
     reconciliationReady: false,
     initializing: false,
@@ -10464,7 +10471,8 @@ async function initializeSubscriptionCheckout(draft) {
 
   const reconciliationTask = requestSubscriptionInitialization("/api/billing/reconcile", {
     targetPlan: draft.targetPlan,
-    billingInterval: draft.billingInterval
+    billingInterval: draft.billingInterval,
+    ...(draft.resumeExpected ? { ...draft.resumeExpected, resumeExistingOnly: true } : {})
   }).then(async reconciliation => {
     if (!isCurrentAttempt()) return;
     if (reconciliation.billing && app.data) app.data.billing = reconciliation.billing;
@@ -10504,6 +10512,15 @@ async function initializeSubscriptionCheckout(draft) {
   draft.initializing = false;
   app.pricingUpgradeLoading = "";
   app.subscriptionQuoteLoading = false;
+  // Only reload hydration may restore a previously confirmed, server-verified
+  // checkout. A newly selected pricing draft still requires explicit Confirm.
+  const resumed = subscriptionResumePrefetchFor(draft);
+  if (draft.resumeExpected && resumed?.resumed === true
+    && String(resumed.payment.id) === String(draft.resumeExpected.paymentId)) {
+    app.billingCheckout = resumed;
+    app.subscriptionCheckoutDraft = null;
+    app.subscriptionQrLoadState = null;
+  }
   render();
 }
 /* pricing-scope: authenticated-upgrade-state:end */
