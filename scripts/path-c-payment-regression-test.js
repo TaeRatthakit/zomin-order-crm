@@ -84,11 +84,6 @@ const tests = String.raw`
   await fixture('cross-tenant attempt linkage',({a})=>{a.payment_id='foreign_payment';
     db.payments.push({id:'foreign_payment',tenant_id:ids.starter,status:'pending',plan:'business',amount_minor:99000,currency:'THB',provider:'stripe_promptpay'});
   },{status:409,created:0,canceled:0});
-  await fixture('Owner incident active Business -> Enterprise LIVE',({intent})=>{
-    process.env.STRIPE_LIVE_SECRET_KEY='sk_live_mock_only';process.env.VERCEL_ENV='production';intent.livemode=true;
-    // Host assertion only: all fetches remain intercepted by the fixture.
-    process.env.SUPABASE_URL='https://mjnpzdmrqweugdnvlqwq.supabase.co';
-  },{status:409,created:0,canceled:0,code:'REPLACEMENT_PAYMENT_NOT_SAFE'});
   console.log('PATH_C_MATRIX_PASS',JSON.stringify(results));
 })().catch(e=>{console.error(e);process.exitCode=1;});
 `;

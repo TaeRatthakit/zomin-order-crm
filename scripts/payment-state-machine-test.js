@@ -153,7 +153,7 @@ function beginUpgrade(payload = {}) {
   const subscription = db.subscriptions.find(row => row.tenant_id === tenantId && row.is_initial);
   if (!subscription) return rpcError("SUBSCRIPTION_NOT_FOUND");
   const order = { starter: 0, business: 1, enterprise: 2 };
-  if (!order[targetPlan] || order[targetPlan] <= order[subscription.plan]) return rpcError("UPGRADE_NOT_ALLOWED");
+  if (!Object.hasOwn(order, targetPlan)) return rpcError("UPGRADE_NOT_ALLOWED");
   const existing = db.subscription_upgrade_attempts.find(row => row.tenant_id === tenantId && row.idempotency_key === key);
   if (existing) return jsonResponse([upgradeRpcRow(existing, db.payments.find(row => row.id === existing.payment_id))]);
   const pending = db.subscription_upgrade_attempts.find(row => row.tenant_id === tenantId && ["pending", "processing"].includes(row.status));
@@ -161,7 +161,7 @@ function beginUpgrade(payload = {}) {
     if (pending.target_plan !== targetPlan) return rpcError("UPGRADE_IN_PROGRESS");
     return jsonResponse([upgradeRpcRow(pending, db.payments.find(row => row.id === pending.payment_id))]);
   }
-  const amount = targetPlan === "business" ? 99000 : 199000;
+  const amount = { starter: 49000, business: 99000, enterprise: 199000 }[targetPlan];
   const payment = { id: `p_${crypto.randomUUID()}`, tenant_id: tenantId, subscription_id: subscription.id, idempotency_key: key, provider, provider_payment_reference: null, status: "pending", currency: "THB", amount_minor: amount, plan: targetPlan, billing_interval: "monthly", billing_period_started_at: nowIso, billing_period_ends_at: "2026-09-22T00:00:00.000Z", checkout_metadata: { operation: "subscription_upgrade", current_plan: subscription.plan, target_plan: targetPlan }, created_at: nowIso };
   const upgrade = { id: `u_${crypto.randomUUID()}`, tenant_id: tenantId, subscription_id: subscription.id, payment_id: payment.id, idempotency_key: key, current_plan: subscription.plan, target_plan: targetPlan, currency: "THB", amount_minor: amount, billing_interval: "monthly", provider, provider_payment_reference: null, status: "pending", created_at: nowIso };
   db.payments.push(payment);
@@ -353,9 +353,11 @@ function beginCheckout(payload) {
     return jsonResponse([{ ...paymentRpcRow(existing), current_plan: subscription.plan, target_plan: existing.plan,
       operation: payload.p_intent, upgrade_id: attempt?.id }]);
   }
+  const amountMinor = ({ starter: { monthly: 49000, yearly: 490000 }, business: { monthly: 99000, yearly: 990000 }, enterprise: { monthly: 199000, yearly: 1990000 } })[payload.p_target_plan]?.[payload.p_billing_interval];
+  if (!amountMinor) return rpcError("INVALID_SUBSCRIPTION_CHECKOUT_INPUT");
   const payment = { id: crypto.randomUUID(), tenant_id: payload.p_tenant_id, subscription_id: subscription.id,
     idempotency_key: payload.p_idempotency_key, provider: payload.p_provider, status: "pending", currency: "THB",
-    amount_minor: payload.p_target_plan === "business" ? 99000 : 199000, plan: payload.p_target_plan,
+    amount_minor: amountMinor, plan: payload.p_target_plan,
     billing_interval: payload.p_billing_interval, billing_period_started_at: nowIso, billing_period_ends_at: "2026-09-22T00:00:00.000Z",
     checkout_metadata: { operation: payload.p_intent, current_plan: subscription.plan, target_plan: payload.p_target_plan },
     created_at: new Date(Date.now() + db.payments.length).toISOString(), paid_at: null };

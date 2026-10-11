@@ -112,7 +112,7 @@ const {
   stripeRuntimeMode,
   createPromptPayPaymentIntent,
   retrievePaymentIntent,
-  cancelUnpaidTestPaymentIntentForReplacement,
+  cancelUnpaidPaymentIntentForReplacement,
   cancelPromoTestPaymentIntent,
   findPaymentIntentByPaymentId,
   verifyStripeWebhookPayload,
@@ -830,9 +830,22 @@ function pendingUpgradePaymentFor(db = {}, currentUser = {}, pendingUpgrades = [
 function pendingSubscriptionCheckoutFor(db = {}, currentUser = {}, pendingUpgrades = []) {
   const tenantId = String(currentUser.tenantId || "");
   const subscription = currentSubscription(db);
-  const attemptsByPaymentId = new Map((pendingUpgrades || []).map(attempt => [String(attempt.paymentId || ""), attempt]));
+  const tenantAttempts = (pendingUpgrades || [])
+    .filter(attempt => String(attempt.tenantId || attempt.tenant_id || "") === tenantId)
+    .filter(attempt => String(attempt.status || "").toLowerCase() === "pending"
+      || String(attempt.status || "").toLowerCase() === "processing");
+  const tenantPaymentIds = new Set((db.payments || [])
+    .filter(payment => String(payment.tenantId || payment.tenant_id || "") === tenantId)
+    .map(payment => String(payment.id || "")));
+  const orphanedTenantAttempt = tenantAttempts.find(attempt => {
+    const paymentId = String(attempt.paymentId || attempt.payment_id || "");
+    return paymentId && !tenantPaymentIds.has(paymentId);
+  });
+  if (orphanedTenantAttempt) return { attempt: orphanedTenantAttempt, payment: null, ambiguous: true };
+  const attemptsByPaymentId = new Map(tenantAttempts
+    .map(attempt => [String(attempt.paymentId || attempt.payment_id || ""), attempt]));
   const candidates = (db.payments || [])
-    .filter(payment => String(payment.tenantId || payment.tenant_id || tenantId) === tenantId)
+    .filter(payment => String(payment.tenantId || payment.tenant_id || "") === tenantId)
     .filter(payment => RESUMABLE_UPGRADE_PAYMENT_STATUSES.has(String(payment.status || "").toLowerCase()))
     .map(payment => {
       const metadata = payment.checkoutMetadata || payment.checkout_metadata || {};
@@ -1231,10 +1244,10 @@ async function supersedeMismatchedPendingCheckout({ candidate, currentUser, expe
       || String(attempt.currency || "").toUpperCase() !== String(payment.currency || "").toUpperCase()))
     || (attempt && String(attempt.providerPaymentReference || attempt.provider_payment_reference || "")
       && String(attempt.providerPaymentReference || attempt.provider_payment_reference || "") !== reference)
-    || !["pending", "requires_action"].includes(paymentStatus)
+    || !["pending", "requires_action", "requires_payment_method"].includes(paymentStatus)
     || ["succeeded", "processing", "paid"].includes(String(providerMetadata.last_provider_status || "").toLowerCase())
     || Boolean(payment.paidAt || payment.paid_at)
-    || stripeRuntimeMode() !== "test" || !stripePromptPayConfig().testMode) {
+    ) {
     const error = new Error("REPLACEMENT_PAYMENT_NOT_SAFE");
     error.code = "REPLACEMENT_PAYMENT_NOT_SAFE";
     throw error;
@@ -1274,7 +1287,7 @@ async function supersedeMismatchedPendingCheckout({ candidate, currentUser, expe
     error.code = "REPLACEMENT_PAYMENT_CONTEXT_UNVERIFIED";
     throw error;
   }
-  const promptpay = await cancelUnpaidTestPaymentIntentForReplacement(paymentContext, reference);
+  const promptpay = await cancelUnpaidPaymentIntentForReplacement(paymentContext, reference);
   const statusInput = {
     provider: STRIPE_PROVIDER,
     providerEventId: `replace-${paymentContext.id}-${reference}`.slice(0, 160),
@@ -4929,8 +4942,7 @@ async function handleBillingApi(req, res, url, db, currentUser) {
     const subscription = baseSubscription(db);
     const currentPlan = String(subscription?.plan || "").toLowerCase();
     const billingInterval = normalizeSignupBilling(body.billingInterval || body.billing || subscription?.billingInterval || "monthly");
-    const planOrder = { starter: 0, business: 1, enterprise: 2 };
-    if (!targetPlan || !billingInterval || !subscription || !planOrder[targetPlan] || planOrder[targetPlan] <= Number(planOrder[currentPlan] ?? -1)) {
+    if (!targetPlan || !billingInterval || !subscription || !Object.hasOwn(PRICE_CATALOG_MINOR, targetPlan)) {
       return json(res, 409, { ok: false, code: "UPGRADE_NOT_ALLOWED", error: "ไม่สามารถอัปเกรดไปยังแพ็กเกจนี้ได้" });
     }
 
@@ -4960,7 +4972,8 @@ async function handleBillingApi(req, res, url, db, currentUser) {
     }
     try {
       pendingUpgradeAttempts = await reconcileTerminalCheckoutAttempts(db, currentUser, pendingUpgradeAttempts);
-      const pendingCandidate = pendingUpgradePaymentFor(db, currentUser, pendingUpgradeAttempts);
+      const pendingCandidate = pendingSubscriptionCheckoutFor(db, currentUser, pendingUpgradeAttempts);
+      if (pendingCandidate?.ambiguous) throw new Error("REPLACEMENT_PAYMENT_CONTEXT_UNVERIFIED");
       let pendingView = pendingCandidate
         ? upgradePaymentView({
             payment: pendingCandidate.payment || {},
@@ -5217,9 +5230,6 @@ async function handleBillingApi(req, res, url, db, currentUser) {
       if (error.code === "STRIPE_TEST_SECRET_KEY_REQUIRED" || error.code === "STRIPE_LIVE_SECRET_KEY_REQUIRED") {
         return json(res, 503, { ok: false, code: error.code, error: "ยังไม่ได้ตั้งค่า Stripe secret key ให้ตรงกับ environment" });
       }
-      if (detail === "STRIPE_TEST_MODE_REQUIRED") {
-        return json(res, 503, { ok: false, code: detail, error: "ยืนยัน Stripe TEST environment ไม่สำเร็จ จึงยังไม่ปิดรายการเดิม" });
-      }
       if (String(error.code || "").startsWith("STRIPE_")) {
         return json(res, 502, { ok: false, code: error.code, error: "เชื่อมต่อ Stripe ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" });
       }
@@ -5274,6 +5284,7 @@ async function handleBillingApi(req, res, url, db, currentUser) {
           ? await readPendingSubscriptionUpgrades(currentUser.tenantId) : [];
         pendingAttempts = await reconcileTerminalCheckoutAttempts(db, currentUser, pendingAttempts);
         const pendingCheckout = pendingSubscriptionCheckoutFor(db, currentUser, pendingAttempts);
+        if (pendingCheckout?.ambiguous) throw new Error("REPLACEMENT_PAYMENT_CONTEXT_UNVERIFIED");
         if (pendingCheckout?.payment) {
           let requestedAmountMinor = intent === "subscription_activation"
             ? Number(subscription?.amountDueMinor || 0)

@@ -12,6 +12,7 @@ const {
 
 const root = path.resolve(__dirname, "..");
 const migration = fs.readFileSync(path.join(root, "supabase/migrations/20260827010000_subscription_lifecycle.sql"), "utf8");
+const switchingMigration = fs.readFileSync(path.join(root, "supabase/migrations/20261011090000_allow_any_package_switch.sql"), "utf8");
 const server = fs.readFileSync(path.join(root, "server.js"), "utf8");
 const app = fs.readFileSync(path.join(root, "public/app.js"), "utf8");
 
@@ -60,7 +61,23 @@ assert.equal(authoritativePriceMinor("business", "yearly"), 990000);
 assert.equal(authoritativePriceMinor("enterprise", "monthly"), 199000);
 assert.equal(subscriptionCheckoutIntent(activeMonthly, "business", "monthly"), "subscription_renewal");
 assert.equal(subscriptionCheckoutIntent(activeMonthly, "enterprise", "yearly"), "subscription_upgrade");
-assert.equal(subscriptionCheckoutIntent(activeMonthly, "starter", "monthly"), "", "downgrade must remain unsupported");
+assert.equal(subscriptionCheckoutIntent(activeMonthly, "starter", "monthly"), "subscription_upgrade", "any selected package must use payment-gated switching");
+for (const currentPlan of ["starter", "business", "enterprise"]) {
+  for (const targetPlan of ["starter", "business", "enterprise"]) {
+    for (const interval of ["monthly", "yearly"]) {
+      const expectedIntent = currentPlan === targetPlan ? "subscription_renewal" : "subscription_upgrade";
+      assert.equal(subscriptionCheckoutIntent({ ...activeMonthly, plan: currentPlan }, targetPlan, interval), expectedIntent,
+        `${currentPlan} -> ${targetPlan} ${interval} must remain payment-gated`);
+      assert(authoritativePriceMinor(targetPlan, interval) > 0, `${targetPlan} ${interval} must have an authoritative price`);
+    }
+  }
+}
+assert(switchingMigration.includes("pg_get_functiondef(v_signature)"), "forward migration must preserve the existing checkout RPC body");
+assert(switchingMigration.includes("EXPECTED_SINGLE_SUBSCRIPTION_DOWNGRADE_GUARD_NOT_FOUND"), "migration must fail if the expected guard is absent");
+assert(switchingMigration.includes("Owner-approved package switching permits lower and higher targets."), "migration must narrowly replace only the lower-plan rejection");
+assert(!/\b(create|alter|drop)\s+(table|policy|trigger|schema)\b/i.test(switchingMigration), "package switching must not alter schema structure");
+assert(migration.includes("lower(trim(tm.role)) = 'owner'") && migration.includes("for update;"), "checkout RPC must retain Owner and row-lock guards");
+assert(migration.includes("v_payment.status = 'paid'") && migration.includes("v_attempt.current_plan <> v_subscription.plan"), "subscription updates must remain behind payment and attempt verification");
 
 for (const token of [
   "new.trial_ends_at := new.trial_started_at + interval '30 days'",
@@ -110,6 +127,8 @@ for (const token of [
   "subscription_renewal",
   "latestPayment.verifiedSuccess === true"
 ]) assert(app.includes(token), `subscription UI contract missing ${token}`);
+assert(/const action = isCurrent[\s\S]{0,220}: "upgrade";/.test(app), "each non-current package selection must use the checkout action");
+assert(!app.includes("ยังไม่รองรับการดาวน์เกรด"), "obsolete lower-package UI lock must be removed");
 
 // Re-login, payment retry, and navigation are not trial-authority operations.
 for (const forbiddenPattern of [

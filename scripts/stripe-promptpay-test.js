@@ -9,6 +9,7 @@ process.env.AUTH_RATE_LIMIT_MAX = "500";
 process.env.PAYMENT_PROVIDER_ENABLED = "true";
 process.env.PAYMENT_PROVIDER = "stripe_promptpay";
 process.env.STRIPE_SECRET_KEY = "sk_test_mock_secret";
+process.env.STRIPE_PUBLISHABLE_KEY = "pk_test_mock_publishable";
 process.env.STRIPE_WEBHOOK_SECRET = "whsec_mock_secret";
 
 const fs = require("fs");
@@ -17,7 +18,7 @@ const crypto = require("crypto");
 const { Readable } = require("stream");
 const { hashPassword } = require("../lib/auth");
 const { stripePromptPayConfig, stripePaymentStatus, safePromptPayPayload, findPaymentIntentByPaymentId,
-  cancelUnpaidTestPaymentIntentForReplacement } = require("../lib/stripe-promptpay");
+  cancelUnpaidPaymentIntentForReplacement } = require("../lib/stripe-promptpay");
 
 const ROOT = path.join(__dirname, "..");
 const migration = fs.readFileSync(path.join(ROOT, "supabase", "migrations", "20260814030000_stripe_promptpay_payment.sql"), "utf8");
@@ -575,12 +576,12 @@ async function verifyTestPaymentReplacementSafety() {
   const rejects = async (context, id, message) => {
     const before = stripeCancelRequests.length;
     let rejected = false;
-    try { await cancelUnpaidTestPaymentIntentForReplacement(context, id); } catch { rejected = true; }
+    try { await cancelUnpaidPaymentIntentForReplacement(context, id); } catch { rejected = true; }
     if (!rejected || stripeCancelRequests.length !== before) fail(message);
   };
   process.env.VERCEL_ENV = "preview";
   const valid = addIntent("pi_replace_valid");
-  const canceled = await cancelUnpaidTestPaymentIntentForReplacement(payment, valid.id);
+  const canceled = await cancelUnpaidPaymentIntentForReplacement(payment, valid.id);
   if (canceled.status !== "canceled" || valid.status !== "canceled" || stripeCancelRequests.length !== 1
     || stripeCancelRequests[0].idempotencyKey !== `growup:replace-cancel:${payment.id}`) fail("safe PromptPay test intent was not canceled idempotently");
   addIntent("pi_replace_live", { livemode: true });
@@ -595,26 +596,38 @@ async function verifyTestPaymentReplacementSafety() {
   }
   const alreadyCanceled = addIntent("pi_replace_already_canceled", { status: "canceled" });
   const cancelCountBeforeExisting = stripeCancelRequests.length;
-  const auditedCanceled = await cancelUnpaidTestPaymentIntentForReplacement(payment, alreadyCanceled.id);
+  const auditedCanceled = await cancelUnpaidPaymentIntentForReplacement(payment, alreadyCanceled.id);
   if (auditedCanceled.status !== "canceled" || stripeCancelRequests.length !== cancelCountBeforeExisting) fail("already-canceled intent was sent to Stripe cancellation again");
+  const failedAttempt = addIntent("pi_replace_failed_attempt", { status: "requires_payment_method", next_action: null });
+  const beforeFailedReplacement = stripeCancelRequests.length;
+  const failedReplacement = await cancelUnpaidPaymentIntentForReplacement(payment, failedAttempt.id);
+  if (failedReplacement.status !== "canceled" || stripeCancelRequests.length !== beforeFailedReplacement + 1) fail("failed, unpaid checkout was not safely superseded");
   addIntent("pi_replace_uncertain_metadata", { metadata: { ...metadata, growup_plan: "enterprise" } });
   await rejects(payment, "pi_replace_uncertain_metadata", "mismatched package metadata was cancelable");
   const cancelErrorIntent = addIntent("pi_replace_cancel_error");
   stripeCancelFailure = true;
   let cancelFailedClosed = false;
   const beforeCancelFailure = stripeCancelRequests.length;
-  try { await cancelUnpaidTestPaymentIntentForReplacement(payment, "pi_replace_cancel_error"); } catch { cancelFailedClosed = true; }
+  try { await cancelUnpaidPaymentIntentForReplacement(payment, "pi_replace_cancel_error"); } catch { cancelFailedClosed = true; }
   if (!cancelFailedClosed || cancelErrorIntent.status !== "requires_action" || stripeCancelRequests.length !== beforeCancelFailure + 1) fail("cancellation failure was treated as success");
   stripeCancelFailure = false;
-  const beforeLiveMode = stripeCancelRequests.length;
-  const previousLiveSecret = process.env.STRIPE_LIVE_SECRET_KEY;
+  const productionTestIntent = addIntent("pi_production_style_test");
+  const productionModeCancelRequests = [];
   process.env.VERCEL_ENV = "production";
-  process.env.STRIPE_LIVE_SECRET_KEY = "sk_live_mock_secret";
-  await rejects(payment, "pi_replace_valid", "Production/Live runtime reached the cancellation request");
-  if (stripeCancelRequests.length !== beforeLiveMode) fail("Production/Live mode issued a cancellation request");
+  const testTransport = async (path, options = {}) => {
+    if (options.method === "GET") return productionTestIntent;
+    productionModeCancelRequests.push({ path, idempotencyKey: options.idempotencyKey });
+    productionTestIntent.status = "canceled";
+    return productionTestIntent;
+  };
+  const productionStyleTestResult = await cancelUnpaidPaymentIntentForReplacement(payment, productionTestIntent.id, {
+    config: { modeConfigured: true, liveMode: false }, request: testTransport
+  });
+  if (productionStyleTestResult.status !== "canceled" || productionModeCancelRequests.length !== 1
+    || productionModeCancelRequests[0].idempotencyKey !== `growup:replace-cancel:${payment.id}`) {
+    fail("production-style decision harness did not safely use injected Stripe TEST state");
+  }
   process.env.VERCEL_ENV = "preview";
-  if (previousLiveSecret === undefined) delete process.env.STRIPE_LIVE_SECRET_KEY;
-  else process.env.STRIPE_LIVE_SECRET_KEY = previousLiveSecret;
 }
 
 (async () => {
