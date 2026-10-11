@@ -1,0 +1,88 @@
+{
+  "schemaVersion": 1,
+  "id": "owner-approved-any-package-switch-pricing-actions",
+  "base": {
+    "sourceCommit": "1b942518c355990a95fc04db0dc03b5383e6c45a"
+  },
+  "target": {
+    "sourceCommit": "09d0ea65bbccd27720ec8b9c7549eb72c2ba6df1"
+  },
+  "allowedFiles": [
+    "public/app.js"
+  ],
+  "approvedChanges": [
+    {
+      "route": "Authenticated Pricing",
+      "component": "package selection actions",
+      "regions": [
+        "non-current plan CTA action, label, and payment-gated note"
+      ],
+      "selectors": [
+        ".authenticated-pricing-cta",
+        ".authenticated-pricing-note"
+      ],
+      "behavior": [
+        "allow selecting Starter, Business, or Enterprise as target without changing subscription before verified payment"
+      ]
+    }
+  ],
+  "expectedTextChanges": [
+    {
+      "route": "Authenticated Pricing",
+      "component": "non-current package action",
+      "from": ": (!isLower ? \"upgrade\" : \"\");",
+      "to": ": \"upgrade\";"
+    },
+    {
+      "route": "Authenticated Pricing",
+      "component": "package selection label",
+      "from": ": (isLower ? `ดู ${plan.name}` : `เลือก ${plan.name}`);",
+      "to": ": `เลือก ${plan.name}`;"
+    },
+    {
+      "route": "Authenticated Pricing",
+      "component": "package change payment note",
+      "from": "ยังไม่รองรับการดาวน์เกรด",
+      "to": "เปลี่ยนแพ็กเกจหลังยืนยันการชำระเงิน"
+    }
+  ],
+  "expectedDiffSha256": "b737cccf6e67373ce06dee625add5600469fdf5aa08bdc69c3720c18155e2cb9",
+  "expectedDiffLines": [
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 10909,
+      "text": "            : (!isLower ? \"upgrade\" : \"\");"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10909,
+      "text": "            : \"upgrade\";"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 10921,
+      "text": "                    : (isLower ? `ดู ${plan.name}` : `เลือก ${plan.name}`);"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10921,
+      "text": "                    : `เลือก ${plan.name}`;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 10944,
+      "text": "              <p class=\"authenticated-pricing-note\">${!isBillingOwner ? \"สิทธิ์ชำระเงินเป็นของ Owner เท่านั้น\" : isExpiredCurrent ? \"ข้อมูลเดิมจะกลับมาใช้งานได้หลังยืนยันการชำระเงิน\" : isCurrent ? \"แผนที่บริษัทของคุณใช้งานอยู่\" : (isLower ? \"ยังไม่รองรับการดาวน์เกรด\" : \"เพิ่มศักยภาพให้ธุรกิจของคุณ\")}</p>"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 10944,
+      "text": "              <p class=\"authenticated-pricing-note\">${!isBillingOwner ? \"สิทธิ์ชำระเงินเป็นของ Owner เท่านั้น\" : isExpiredCurrent ? \"ข้อมูลเดิมจะกลับมาใช้งานได้หลังยืนยันการชำระเงิน\" : isCurrent ? \"แผนที่บริษัทของคุณใช้งานอยู่\" : (isLower ? \"เปลี่ยนแพ็กเกจหลังยืนยันการชำระเงิน\" : \"เพิ่มศักยภาพให้ธุรกิจของคุณ\")}</p>"
+    }
+  ]
+}
