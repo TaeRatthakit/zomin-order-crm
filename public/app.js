@@ -10906,7 +10906,7 @@ function renderPricing() {
           const isPendingCurrent = isCurrent && currentStatus === "pending_payment";
           const action = isCurrent
             ? ((isExpiredCurrent || isActiveCurrent || isPendingCurrent) ? (isPendingCurrent ? "activation" : "renewal") : "")
-            : (!isLower ? "upgrade" : "");
+            : "upgrade";
           const canCheckout = Boolean(action) && isBillingOwner;
           const actionLabel = !isBillingOwner
             ? "ติดต่อ Owner เพื่อดำเนินการ"
@@ -10918,7 +10918,7 @@ function renderPricing() {
                   ? `ต่ออายุ ${plan.name}`
                   : isCurrent
                     ? "แพ็กเกจปัจจุบัน"
-                    : (isLower ? `ดู ${plan.name}` : `เลือก ${plan.name}`);
+                    : `เลือก ${plan.name}`;
           const disabled = !canCheckout;
           const intervalCopy = billingInterval === "yearly" ? "/ ปี" : "/ เดือน";
           const price = plan.prices?.[billingInterval] || plan.price;
@@ -10941,7 +10941,7 @@ function renderPricing() {
                 ${plan.features.map(feature => `<li><span class="authenticated-pricing-feature-check">${iconSvg("check")}</span><span>${escapeHtml(feature)}</span></li>`).join("")}
               </ul>
               <button class="authenticated-pricing-cta ${isCurrent && !action ? "is-current" : ""} ${disabled ? "is-unavailable" : ""} ${app.pricingUpgradeLoading === plan.id ? "is-loading" : ""}" type="button" data-pricing-action="${escapeHtml(action)}" data-pricing-upgrade="${action === "upgrade" ? "true" : "false"}" data-billing-interval="${escapeHtml(billingInterval)}" ${disabled ? "disabled aria-disabled=\"true\"" : ""} ${app.pricingUpgradeLoading === plan.id ? "aria-busy=\"true\"" : ""}>${app.pricingUpgradeLoading === plan.id ? "กำลังเตรียมการชำระเงิน..." : escapeHtml(actionLabel)}</button>
-              <p class="authenticated-pricing-note">${!isBillingOwner ? "สิทธิ์ชำระเงินเป็นของ Owner เท่านั้น" : isExpiredCurrent ? "ข้อมูลเดิมจะกลับมาใช้งานได้หลังยืนยันการชำระเงิน" : isCurrent ? "แผนที่บริษัทของคุณใช้งานอยู่" : (isLower ? "ยังไม่รองรับการดาวน์เกรด" : "เพิ่มศักยภาพให้ธุรกิจของคุณ")}</p>
+              <p class="authenticated-pricing-note">${!isBillingOwner ? "สิทธิ์ชำระเงินเป็นของ Owner เท่านั้น" : isExpiredCurrent ? "ข้อมูลเดิมจะกลับมาใช้งานได้หลังยืนยันการชำระเงิน" : isCurrent ? "แผนที่บริษัทของคุณใช้งานอยู่" : (isLower ? "เปลี่ยนแพ็กเกจหลังยืนยันการชำระเงิน" : "เพิ่มศักยภาพให้ธุรกิจของคุณ")}</p>
             </article>
           `;
         }).join("")}
