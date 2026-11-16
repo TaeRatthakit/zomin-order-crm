@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "id": "crm-reduced-shell-login-candidate",
+  "approval": {
+    "status": "USER_APPROVED",
+    "approvedOn": "2026-11-17",
+    "context": "Owner approved only the exact CRM UI patch and matching hash; production deployment is not authorized."
+  },
+  "base": {
+    "sourceCommit": "d6011df7ec6b8c00e41c69e341fe6b5213b50a74"
+  },
+  "target": {
+    "sourceCommit": "9b840b07a94c50cdb5f9b053c2ce2d441156f6d8"
+  },
+  "allowedFiles": [
+    "public/app.js"
+  ],
+  "expectedTextChanges": [
+    {
+      "route": "/login",
+      "component": "order-form change handler",
+      "from": "els.orderForm.elements.items",
+      "to": "els.orderForm?.elements?.items"
+    }
+  ],
+  "expectedDiffSha256": "b07a29faa66c53d47fbd242515d0c51fd9f6a8ee4df7c02612a20afad0272f78",
+  "expectedDiffLines": [
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 14351,
+      "text": "  if (event.target === els.orderForm.elements.items) {"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 14351,
+      "text": "  if (event.target === els.orderForm?.elements?.items) {"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 14583,
+      "text": "      if (!els.customerDialog || !els.orderForm) {"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 14584,
+      "text": "        window.location.assign(\"/dashboard\");"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 14585,
+      "text": "        return;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 14586,
+      "text": "      }"
+    }
+  ],
+  "expectedBinaryAssets": []
+}
