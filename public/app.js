@@ -14348,7 +14348,7 @@ document.addEventListener("change", event => {
     setTeamSaveState(event.target.form, "idle");
   }
   if (event.target?.name === "originSourceChoice" && event.target.form === els.orderForm) syncOriginSourceFields();
-  if (event.target === els.orderForm.elements.items) {
+  if (event.target === els.orderForm?.elements?.items) {
     syncOrderProductSelection({ applyPrice: true });
   }
   if (event.target?.matches?.("[name='additionalCostType'], [name='additionalCostEnabled']")) {
@@ -14580,6 +14580,10 @@ document.addEventListener("submit", async event => {
         body: JSON.stringify(data)
       });
       saveSession(payload.user);
+      if (!els.customerDialog || !els.orderForm) {
+        window.location.assign("/dashboard");
+        return;
+      }
       clearBusinessManagementScrollRestore();
       app.mobileBusinessPage = "main";
       app.view = "dashboard";
