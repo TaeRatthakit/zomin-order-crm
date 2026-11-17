@@ -89,9 +89,10 @@ async function main() {
   const stateResponse = await request("/api/state", { headers: { cookie } });
   if (stateResponse.status !== 200) fail(`state returned ${stateResponse.status}`);
   const state = JSON.parse(stateResponse.text);
-  const customer = state.customers.find(item => Array.isArray(item.orders) && item.orders.length);
+  const customer = state.customers.find(item => state.orders.some(order => order.customerId === item.id));
   if (!customer) fail("no customer with orders in fixture");
-  const latestOrder = customer.orders[customer.orders.length - 1];
+  const customerOrders = state.orders.filter(order => order.customerId === customer.id);
+  const latestOrder = customerOrders[customerOrders.length - 1];
   const today = state.summary.selectedDate;
   const laterDate = "2099-01-02";
 

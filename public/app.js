@@ -6922,7 +6922,7 @@ function mobileOpportunityCustomerCard(row) {
           ? `<a class="call" href="tel:${escapeHtml(customer.phone)}">${iconSvg("phone")} โทร</a>`
           : `<button class="call" type="button" disabled>${iconSvg("phone")} โทร</button>`}
         <button class="chat ${chatDone ? "done" : ""}" type="button" data-mobile-opportunity-chat="${escapeHtml(customer.id)}" data-opportunity-cycle="${escapeHtml(row.cycleKey || "")}" ${chatPending ? "disabled" : ""}>${iconSvg(chatDone ? "check" : "chat")} ${chatPending ? "กำลังบันทึก..." : chatDone ? "แชทหาลูกค้าแล้ว" : "แชทหาลูกค้า"}</button>
-        <button class="save" type="button" data-open-customer="${escapeHtml(customer.id)}">${iconSvg("clipboard")} บันทึกผล</button>
+        <button class="save" type="button" data-open-crm-customer="${escapeHtml(customer.id)}">${iconSvg("clipboard")} บันทึกผล</button>
       </div>
     </article>
   `;

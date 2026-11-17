@@ -193,6 +193,9 @@ function assertSharedSummary(width, mode) {
   if (!textAfter(opportunityHtml, "โอกาสปิดยอดรวม").includes("฿ 3,000")) {
     fail(`${mode} /opportunities render did not show ฿ 3,000`);
   }
+  if (!opportunityHtml.includes('data-open-crm-customer="cust-a"')) {
+    fail(`${mode} Save Result must preserve the Opportunities customer context`);
+  }
 
   api.renderDashboard();
   const dashboardHtml = sandbox.__content.innerHTML;
