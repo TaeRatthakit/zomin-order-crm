@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "id": "crm-save-result-customer-context",
+  "base": {
+    "sourceCommit": "05ddf3ac4f635c4656ed8c6023a8027445cd8a90"
+  },
+  "target": {
+    "sourceCommit": "36c5e0199c0d8f0b57380af0e66362e77a960413"
+  },
+  "tooling": {
+    "sourceCommit": "9930ec2712b26a2f7e4d7fc39dea44586730f953",
+    "allowedFiles": [
+      "docs/approved-ui-patches.md",
+      "scripts/multi-approved-change-manifest-test.js",
+      "scripts/ui-regression-guard.js"
+    ]
+  },
+  "allowedFiles": [
+    "public/app.js"
+  ],
+  "evidenceFiles": [
+    {
+      "path": "scripts/dashboard-opportunity-summary-test.js",
+      "sha256": "e93efeba7478bad913e585125281abc77ce563de34994fb2220fe959cbd166f2"
+    },
+    {
+      "path": "scripts/opportunity-cycle-test.js",
+      "sha256": "97d492824645c50a003262571ca8556d89b329e1f807baec7a98ff2fb2af01f1"
+    }
+  ],
+  "expectedTextChanges": [
+    {
+      "route": "Opportunities",
+      "component": "Save Result preserves the selected CRM customer context",
+      "from": "data-open-customer=\"${escapeHtml(customer.id)}\"",
+      "to": "data-open-crm-customer=\"${escapeHtml(customer.id)}\""
+    }
+  ],
+  "expectedDiffSha256": "5dbd844e83f491676088b0a21819330158dfab791897ea6f9f60db5b5086d1b7",
+  "expectedRawDiffSha256": "7e24a46a39303be4c54e82bda08bb1bd88ad6d0e0f5e382f387ae691b561774d",
+  "expectedFullDiffSha256": "390999f319088a704a9b104be7d3f0382812daa56e7e30de7fc02f45859d3350",
+  "expectedDiffLines": [
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 6925,
+      "text": "        <button class=\"save\" type=\"button\" data-open-customer=\"${escapeHtml(customer.id)}\">${iconSvg(\"clipboard\")} บันทึกผล</button>"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 6925,
+      "text": "        <button class=\"save\" type=\"button\" data-open-crm-customer=\"${escapeHtml(customer.id)}\">${iconSvg(\"clipboard\")} บันทึกผล</button>"
+    }
+  ],
+  "expectedBinaryAssets": []
+}
