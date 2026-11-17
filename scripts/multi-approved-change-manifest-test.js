@@ -203,6 +203,101 @@ try {
   fs.rmSync(fixture, { recursive: true, force: true });
 }
 
+const mixedFixture = fs.mkdtempSync(path.join(os.tmpdir(), "growup-mixed-approval-"));
+try {
+  const mixedGit = (...args) => execFileSync("git", args, { cwd: mixedFixture, encoding: "utf8" }).trim();
+  const mixedGitRaw = (...args) => execFileSync("git", args, { cwd: mixedFixture, encoding: "utf8" });
+  const mixedApprovalDir = path.join(mixedFixture, "ui-baselines", "approved-changes");
+  const mixedAppPath = path.join(mixedFixture, "public", "app.js");
+  const evidencePaths = [
+    "scripts/dashboard-opportunity-summary-test.js",
+    "scripts/opportunity-cycle-test.js"
+  ];
+  fs.mkdirSync(mixedApprovalDir, { recursive: true });
+  fs.mkdirSync(path.dirname(mixedAppPath), { recursive: true });
+  fs.mkdirSync(path.join(mixedFixture, "scripts"), { recursive: true });
+  fs.copyFileSync(path.join(__dirname, "ui-regression-guard.js"), path.join(mixedFixture, "scripts", "ui-regression-guard.js"));
+  fs.writeFileSync(mixedAppPath, baseText);
+  for (const file of evidencePaths) fs.writeFileSync(path.join(mixedFixture, file), "before\n");
+  mixedGit("init", "-q");
+  mixedGit("config", "user.email", "guard-test@example.com");
+  mixedGit("config", "user.name", "Guard Test");
+  mixedGit("add", "public/app.js", "scripts/ui-regression-guard.js", ...evidencePaths);
+  mixedGit("commit", "-qm", "mixed base");
+  const mixedBase = mixedGit("rev-parse", "HEAD");
+
+  fs.writeFileSync(mixedAppPath, targetText);
+  for (const file of evidencePaths) fs.writeFileSync(path.join(mixedFixture, file), `verified ${file}\n`);
+  mixedGit("add", "public/app.js", ...evidencePaths);
+  mixedGit("commit", "-qm", "mixed application and evidence candidate");
+  const mixedTarget = mixedGit("rev-parse", "HEAD");
+  const mixedUiDiff = mixedGit("diff", "--unified=0", mixedBase, mixedTarget, "--", "public/app.js");
+  const mixedTargetFiles = ["public/app.js", ...evidencePaths].sort();
+  const mixedManifest = {
+    ...makeManifest(mixedBase, mixedTarget, mixedUiDiff),
+    id: "mixed-application-and-exact-test-evidence",
+    evidenceFiles: evidencePaths.map(file => ({
+      path: file,
+      sha256: hash(fs.readFileSync(path.join(mixedFixture, file)))
+    })),
+    expectedRawDiffSha256: hash(mixedGitRaw("diff", "--unified=0", mixedBase, mixedTarget, "--", "public/app.js")),
+    expectedFullDiffSha256: hash(mixedGitRaw("diff", "--no-ext-diff", "--binary", mixedBase, mixedTarget, "--", ...mixedTargetFiles))
+  };
+  const mixedGuard = () => spawnSync(process.execPath, ["scripts/ui-regression-guard.js"], {
+    cwd: mixedFixture,
+    encoding: "utf8",
+    env: { ...process.env, UI_CHANGE_SCOPE: "pricing", UI_SOURCE_COMPARE_REF: mixedBase, UI_APPROVED_CHANGE_MANIFEST: "" }
+  });
+  const clearMixedApprovals = () => {
+    for (const name of fs.readdirSync(mixedApprovalDir)) fs.unlinkSync(path.join(mixedApprovalDir, name));
+  };
+  const approveMixed = manifest => {
+    clearMixedApprovals();
+    const bytes = `${JSON.stringify(manifest, null, 2)}\n`;
+    fs.writeFileSync(path.join(mixedApprovalDir, `${hash(bytes)}.json`), bytes);
+  };
+  const mixedPass = label => {
+    const result = mixedGuard();
+    assert.equal(result.status, 0, `${label}: ${result.stderr || result.stdout}`);
+  };
+  const mixedFail = (label, reason) => {
+    const result = mixedGuard();
+    assert.notEqual(result.status, 0, `${label} unexpectedly passed`);
+    if (reason) assert.match(result.stderr, reason, `${label}: ${result.stderr}`);
+  };
+
+  approveMixed(mixedManifest);
+  mixedPass("exact mixed application and test evidence approval");
+
+  const firstEvidencePath = path.join(mixedFixture, evidencePaths[0]);
+  fs.appendFileSync(firstEvidencePath, "mutation\n");
+  mixedFail("mutated evidence file", /evidence file hash mismatch/);
+  fs.writeFileSync(firstEvidencePath, `verified ${evidencePaths[0]}\n`);
+
+  approveMixed({ ...mixedManifest, evidenceFiles: mixedManifest.evidenceFiles.map((item, index) => index ? item : { ...item, sha256: "0".repeat(64) }) });
+  mixedFail("wrong evidence hash", /evidence file hash mismatch/);
+  approveMixed({ ...mixedManifest, evidenceFiles: mixedManifest.evidenceFiles.map((item, index) => index ? item : { path: item.path }) });
+  mixedFail("missing evidence hash", /incomplete or unsafe approval/);
+  approveMixed({ ...mixedManifest, evidenceFiles: [{ path: "server.js", sha256: "0".repeat(64) }, ...mixedManifest.evidenceFiles] });
+  mixedFail("unsafe evidence path", /incomplete or unsafe approval/);
+  approveMixed({ ...mixedManifest, evidenceFiles: mixedManifest.evidenceFiles.slice(0, 1) });
+  mixedFail("missing target evidence file", /target commit contains unapproved files/);
+  approveMixed({ ...mixedManifest, expectedRawDiffSha256: "0".repeat(64) });
+  mixedFail("wrong raw UI diff hash", /raw approved UI diff hash mismatch/);
+  approveMixed({ ...mixedManifest, expectedFullDiffSha256: "0".repeat(64) });
+  mixedFail("wrong full target diff hash", /full approved target diff hash mismatch/);
+
+  approveMixed(mixedManifest);
+  fs.writeFileSync(path.join(mixedFixture, "unexpected.txt"), "unapproved\n");
+  mixedFail("unexpected candidate file", /unapproved candidate files/);
+  fs.unlinkSync(path.join(mixedFixture, "unexpected.txt"));
+  mixedPass("mixed candidate restored exactly");
+
+  console.log("Mixed approval guard tests passed: exact UI diff, full target diff, evidence paths, hashes, and unexpected-file rejection.");
+} finally {
+  fs.rmSync(mixedFixture, { recursive: true, force: true });
+}
+
 const binaryFixture = fs.mkdtempSync(path.join(os.tmpdir(), "growup-binary-approval-"));
 try {
   const runBinaryGit = (...args) => execFileSync("git", args, { cwd: binaryFixture, encoding: "utf8" }).trim();

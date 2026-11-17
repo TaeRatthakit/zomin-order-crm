@@ -26,7 +26,7 @@ const UI_FILES = [
 
 const UI_ASSET_RE = /^public\/.*\.(png|jpe?g|webp|svg|ico)$/i;
 const TEXT_UI_RE = /\.(css|js|html)$/i;
-const APPROVABLE_TOOLING_FILES = ["scripts/ui-regression-guard.js", "scripts/production-preflight.js", "scripts/multi-approved-change-manifest-test.js", "scripts/order-delete-audit-test.js", "scripts/subscription-upgrade-test.js"];
+const APPROVABLE_TOOLING_FILES = ["scripts/ui-regression-guard.js", "scripts/production-preflight.js", "scripts/multi-approved-change-manifest-test.js", "scripts/order-delete-audit-test.js", "scripts/subscription-upgrade-test.js", "docs/approved-ui-patches.md"];
 
 const PAGE_PATTERNS = {
   landing: [
@@ -106,6 +106,15 @@ function runGit(args, allowEmpty = false) {
   }
 }
 
+function runGitRaw(args, allowEmpty = false) {
+  try {
+    return execFileSync("git", args, { encoding: "utf8" });
+  } catch (error) {
+    if (allowEmpty) return String(error.stdout || "");
+    throw error;
+  }
+}
+
 function sha256(file) {
   return crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex");
 }
@@ -156,9 +165,14 @@ function validApprovalFile(file) {
     && (UI_FILES.includes(file) || UI_ASSET_RE.test(file));
 }
 
+function validEvidenceFile(file) {
+  return typeof file === "string" && /^scripts\/[A-Za-z0-9._-]+-test\.js$/.test(file);
+}
+
 function validateApprovedChangeManifest(manifest, file) {
   const hex40 = value => typeof value === "string" && /^[a-f0-9]{40}$/.test(value);
   const hex64 = value => typeof value === "string" && /^[a-f0-9]{64}$/.test(value);
+  const evidenceFiles = manifest?.evidenceFiles || [];
   if (!manifest || manifest.schemaVersion !== 1 || typeof manifest.id !== "string" || !manifest.id.trim()
     || !hex40(manifest.base?.sourceCommit) || !hex64(manifest.expectedDiffSha256)
     || !Array.isArray(manifest.allowedFiles) || !manifest.allowedFiles.length
@@ -168,8 +182,15 @@ function validateApprovedChangeManifest(manifest, file) {
     || manifest.expectedTextChanges.some(item => !item?.route || !item?.component || !item?.from || !item?.to)
     || !Array.isArray(manifest.expectedDiffLines) || !manifest.expectedDiffLines.length
     || manifest.expectedDiffLines.some(item => !manifest.allowedFiles.includes(item?.file)
-      || !["+", "-"].includes(item?.sign) || !Number.isInteger(item?.line) || item.line < 1 || typeof item.text !== "string")) {
+      || !["+", "-"].includes(item?.sign) || !Number.isInteger(item?.line) || item.line < 1 || typeof item.text !== "string")
+    || !Array.isArray(evidenceFiles)
+    || new Set(evidenceFiles.map(item => item?.path)).size !== evidenceFiles.length
+    || evidenceFiles.some(item => !item || !validEvidenceFile(item.path) || !hex64(item.sha256))
+    || (evidenceFiles.length && (!hex64(manifest.expectedRawDiffSha256) || !hex64(manifest.expectedFullDiffSha256)))) {
     throw new Error(`incomplete or unsafe approval: ${file.relative}`);
+  }
+  if (file.legacy && evidenceFiles.length) {
+    throw new Error(`legacy approval cannot authorize evidence files: ${file.relative}`);
   }
   if (!file.legacy) {
     if (!hex40(manifest.target?.sourceCommit)) {
@@ -294,8 +315,11 @@ function verifyApprovedChangeManifest(record, files, diff) {
     } catch {
       return { configured: true, ok: false, reason: `target commit is not on the approved base-to-HEAD lineage: ${target}` };
     }
+    const evidenceFiles = manifest.evidenceFiles || [];
+    const evidencePaths = evidenceFiles.map(item => item.path).sort();
+    const approvedTargetFiles = [...allowedFiles, ...evidencePaths].sort();
     const targetFiles = runGit(["diff", "--name-only", base, target]).split("\n").filter(Boolean).sort();
-    if (JSON.stringify(targetFiles) !== JSON.stringify(allowedFiles)) {
+    if (JSON.stringify(targetFiles) !== JSON.stringify(approvedTargetFiles)) {
       return { configured: true, ok: false, reason: "target commit contains unapproved files" };
     }
     const binaryAssets = manifest.expectedBinaryAssets || [];
@@ -318,12 +342,37 @@ function verifyApprovedChangeManifest(record, files, diff) {
         return { configured: true, ok: false, reason: `approved binary asset hash mismatch: ${file}` };
       }
     }
+    for (const evidence of evidenceFiles) {
+      const file = evidence.path;
+      if (!new Set(["A", "M"]).has(targetStatuses.get(file))) {
+        return { configured: true, ok: false, reason: `approved evidence file status mismatch: ${file}` };
+      }
+      let targetBytes;
+      try { targetBytes = execFileSync("git", ["show", `${target}:${file}`]); }
+      catch { return { configured: true, ok: false, reason: `approved evidence file missing from target: ${file}` }; }
+      if (textSha256(targetBytes) !== evidence.sha256
+        || !fs.existsSync(file) || !fs.lstatSync(file).isFile()
+        || sha256(file) !== evidence.sha256) {
+        return { configured: true, ok: false, reason: `approved evidence file hash mismatch: ${file}` };
+      }
+    }
     const targetDiff = allowedFiles.filter(file => TEXT_UI_RE.test(file))
       .map(file => runGit(["diff", "--unified=0", base, target, "--", file], true))
       .filter(Boolean).join("\n");
     if (textSha256(targetDiff) !== manifest.expectedDiffSha256
       || JSON.stringify(parseDiffRecords(targetDiff)) !== JSON.stringify(expectedRecords)) {
       return { configured: true, ok: false, reason: "approved diff does not belong to target commit" };
+    }
+    if (evidenceFiles.length) {
+      const textUiFiles = allowedFiles.filter(file => TEXT_UI_RE.test(file)).sort();
+      const rawTargetDiff = runGitRaw(["diff", "--unified=0", base, target, "--", ...textUiFiles], true);
+      const fullTargetDiff = runGitRaw(["diff", "--no-ext-diff", "--binary", base, target, "--", ...approvedTargetFiles], true);
+      if (textSha256(rawTargetDiff) !== manifest.expectedRawDiffSha256) {
+        return { configured: true, ok: false, reason: "raw approved UI diff hash mismatch" };
+      }
+      if (textSha256(fullTargetDiff) !== manifest.expectedFullDiffSha256) {
+        return { configured: true, ok: false, reason: "full approved target diff hash mismatch" };
+      }
     }
     if (manifest.tooling) {
       const tooling = manifest.tooling.sourceCommit;
@@ -365,7 +414,7 @@ function verifyApprovedChangeManifests(files, uiFiles, diff) {
   }
   const chosen = matches[0];
   if (!chosen.record.legacy) {
-    const allowed = new Set([...chosen.manifest.allowedFiles, ...(chosen.manifest.tooling?.allowedFiles || []), chosen.record.relative]);
+    const allowed = new Set([...chosen.manifest.allowedFiles, ...(chosen.manifest.evidenceFiles || []).map(item => item.path), ...(chosen.manifest.tooling?.allowedFiles || []), chosen.record.relative]);
     const extra = files.filter(file => !allowed.has(file));
     if (extra.length) return { configured: true, ok: false, reason: `unapproved candidate files: ${extra.join(", ")}` };
   }

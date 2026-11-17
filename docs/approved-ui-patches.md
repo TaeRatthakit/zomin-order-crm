@@ -14,6 +14,17 @@ only the approved files. Create and review the candidate commit first, then
 record its exact diff and file hash in a new approval file. Approval is a
 separate reviewed action.
 
+A candidate that intentionally commits UI code together with its regression
+tests may additionally declare `evidenceFiles`. Evidence paths are restricted
+to `scripts/*-test.js`; every entry must provide the exact SHA-256 of the file
+at the target commit. Such a record must also provide
+`expectedRawDiffSha256` for the raw UI diff and `expectedFullDiffSha256` for
+the complete binary target diff. The guard requires the target commit's full
+file list to equal `allowedFiles` plus `evidenceFiles`, verifies every target
+and working-tree evidence byte, and still rejects all unexpected files. This
+does not authorize application, server, configuration, or arbitrary tooling
+files as evidence.
+
 The UI guard discovers the historical record and all content-addressed records
 automatically. It validates every record, then requires exactly one match for
 the complete candidate diff; zero or multiple matches fail. For a committed
