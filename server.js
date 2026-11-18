@@ -4241,6 +4241,38 @@ function normalizedOrderForStorage(parsed = {}) {
   };
 }
 
+function lineOrderDateAndNumberWarnings(order = {}, now = new Date()) {
+  const today = toDateOnly(now);
+  const todayDay = Number(today.slice(-2));
+  const warnings = [];
+  const formatThaiDate = value => {
+    const match = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!match) return value;
+    return `${match[3]}/${match[2]}/${Number(match[1]) + 543}`;
+  };
+
+  if (order.date && today && order.date !== today) {
+    warnings.push([
+      "⚠️ วันที่ซื้อไม่ตรงกับวันที่ปัจจุบัน",
+      `วันที่ซื้อ: ${formatThaiDate(order.date)}`,
+      `วันที่ปัจจุบัน: ${formatThaiDate(today)}`
+    ].join("\n"));
+  }
+
+  const orderNumber = normalizeImportText(order.orderNumber || order.order_number || "");
+  const numericOrderNumber = orderNumber.match(/^(\d+)\/(\d+)$/);
+  if (numericOrderNumber && todayDay && Number(numericOrderNumber[2]) !== todayDay) {
+    const expectedOrderNumber = `${numericOrderNumber[1]}/${todayDay}`;
+    warnings.push([
+      "⚠️ เลขออเดอร์ไม่ตรงกับวันที่ปัจจุบัน",
+      `เลขออเดอร์ที่กรอก: ${orderNumber}`,
+      `เลขออเดอร์ที่ควรเป็น: ${expectedOrderNumber}`
+    ].join("\n"));
+  }
+
+  return warnings;
+}
+
 async function parseOrderWithAI(textValue, settings = {}) {
   const fallback = parseLineOrder(textValue, settings.defaultJarPrice);
   if (parsePrimaryLineOrderForm(textValue)) return fallback;
@@ -4472,6 +4504,8 @@ async function handleLineWebhookEvents(db, settings, events, options = {}) {
           : successReplyText;
         debug.parser_status = "parsed";
       }
+      const orderWarnings = lineOrderDateAndNumberWarnings(normalized);
+      if (orderWarnings.length) replyText = `${replyText}\n\n${orderWarnings.join("\n\n")}`;
       debug.supabase_insert_status = "pending_write";
       debug.reply_text = replyText;
       debug.internal_order_id = order.id;
@@ -8150,3 +8184,4 @@ module.exports.normalizedOrderForStorage = normalizedOrderForStorage;
 module.exports.addOrder = addOrder;
 module.exports.adjustInventoryForOrderChange = adjustInventoryForOrderChange;
 module.exports.orderMutationPayload = orderMutationPayload;
+module.exports.lineOrderDateAndNumberWarnings = lineOrderDateAndNumberWarnings;

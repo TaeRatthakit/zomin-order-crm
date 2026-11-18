@@ -60,6 +60,7 @@ function baseDb(overrides = {}) {
 fs.writeFileSync(process.env.JSON_DB_PATH, `${JSON.stringify(baseDb(), null, 2)}\n`, "utf8");
 
 const appHandler = require("../server");
+const lineOrderDateAndNumberWarnings = appHandler.lineOrderDateAndNumberWarnings;
 
 function writeFixture(db) {
   fs.writeFileSync(process.env.JSON_DB_PATH, `${JSON.stringify(baseDb(db), null, 2)}\n`, "utf8");
@@ -217,7 +218,7 @@ async function testJulySevenToSixteenCreatesNewOrder() {
   });
   const result = await postLineMessage("line-new-8-16", lineOrderText({ orderNumber: "8/16", date: "16/7/69" }));
   if (result.parsedOrders !== 1) fail("07/07/69 -> 16/07/69 did not parse one new order");
-  if (lastReplyText(result) !== SUCCESS_REPLY) fail("success reply changed for a normal new order");
+  if (!lastReplyText(result).startsWith(SUCCESS_REPLY)) fail("success reply changed for a normal new order");
   const db = readFixture();
   const orders = db.orders || [];
   if (orders.length !== 2) fail(`expected 2 orders after >24h import, got ${orders.length}`);
@@ -263,7 +264,7 @@ async function testSimilarOrderDifferentCreatedDayCreatesNewOrderWithoutWarning(
   if (result.parsedOrders !== 1) fail("similar different-created-day order did not parse");
   const db = readFixture();
   if ((db.orders || []).length !== 2) fail("similar different-created-day order was not saved as a new order");
-  if (lastReplyText(result) !== SUCCESS_REPLY) fail("different-created-day similar order should not append warning");
+  if (!lastReplyText(result).startsWith(SUCCESS_REPLY)) fail("different-created-day similar order should keep success reply");
 }
 
 async function testGenuineUpsaleWithin24HoursUpdatesExistingCycle() {
@@ -331,7 +332,7 @@ async function testMultipleMissingRequiredFieldsAreListed() {
 async function testOptionalFieldsCanBeEmpty() {
   writeFixture({ customers: [], orders: [] });
   const result = await postLineMessage("line-optional-empty", lineOrderText({ includeOptionalFields: false }));
-  if (result.parsedOrders !== 1 || lastReplyText(result) !== SUCCESS_REPLY) fail("optional fields changed valid order processing");
+  if (result.parsedOrders !== 1 || !lastReplyText(result).startsWith(SUCCESS_REPLY)) fail("optional fields changed valid order processing");
   if ((readFixture().orders || []).length !== 1) fail("optional-field order was not saved");
 }
 
@@ -345,7 +346,7 @@ async function testZeroAmountOrderSavesNormally() {
     amount: 0
   }));
   if (result.parsedOrders !== 1) fail("zero-amount order was not parsed as valid");
-  if (lastReplyText(result) !== SUCCESS_REPLY) fail("zero-amount order did not keep the success reply");
+  if (!lastReplyText(result).startsWith(SUCCESS_REPLY)) fail("zero-amount order did not keep the success reply");
   const db = readFixture();
   const orders = db.orders || [];
   if (orders.length !== 1) fail(`zero-amount order saved ${orders.length} times instead of once`);
@@ -377,7 +378,7 @@ async function testZeroDecimalAmountSavesNormally() {
     phone: "0832222252",
     amount: "0.00"
   }));
-  if (result.parsedOrders !== 1 || lastReplyText(result) !== SUCCESS_REPLY) fail("0.00 amount was not accepted");
+  if (result.parsedOrders !== 1 || !lastReplyText(result).startsWith(SUCCESS_REPLY)) fail("0.00 amount was not accepted");
   const orders = readFixture().orders || [];
   if (orders.length !== 1 || Number(orders[0].amount) !== 0) fail("0.00 amount was not persisted exactly once as zero");
 }
@@ -423,8 +424,10 @@ async function testReplyFailureDoesNotCreateDuplicateOnRetry() {
   lineReplyFailuresRemaining = 1;
   const first = await postLineMessage("line-reply-failure", lineOrderText({ orderNumber: "reply/1" }));
   if (first.parsedOrders !== 1 || (readFixture().orders || []).length !== 1) fail("reply failure did not leave one saved order");
+  if (!lastReplyText(first).includes("วันที่ซื้อไม่ตรง")) fail("date warning was missing from the saved order reply");
   const retry = await postLineMessage("line-reply-failure", lineOrderText({ orderNumber: "reply/1" }));
   if (retry.parsedOrders !== 0 || (readFixture().orders || []).length !== 1) fail("LINE reply retry created a duplicate order");
+  if (lastReplyText(retry).includes("วันที่ซื้อไม่ตรง")) fail("webhook retry repeated the original warning reply");
 }
 
 async function testSameCustomerProductAfter24HoursCreatesNewOrder() {
@@ -460,6 +463,57 @@ async function testBuddhistYearThailandTimezoneBoundary() {
   if (Number(order.jars) !== 3 || Number(order.amount) !== 840) fail("timezone boundary upsale did not update existing order");
 }
 
+async function testOrderDateAndDaySuffixWarnings() {
+  const today = new Date("2026-04-30T17:00:00.000Z");
+  const combined = lineOrderDateAndNumberWarnings({ date: "2026-04-30", orderNumber: "3/30" }, today);
+  if (combined.length !== 2) fail("month-boundary date and order number mismatches were not both warned");
+  if (!combined[0].includes("วันที่ซื้อ: 30/04/2569") || !combined[0].includes("วันที่ปัจจุบัน: 01/05/2569")) {
+    fail("date warning did not show entered and Bangkok-current dates in Buddhist year format");
+  }
+  if (!combined[1].includes("เลขออเดอร์ที่กรอก: 3/30") || !combined[1].includes("เลขออเดอร์ที่ควรเป็น: 3/1")) {
+    fail("order number warning did not show entered and expected values");
+  }
+  if (lineOrderDateAndNumberWarnings({ date: "2026-05-01", orderNumber: "3/1" }, today).length) {
+    fail("matching Gregorian date and day suffix triggered a warning");
+  }
+  if (lineOrderDateAndNumberWarnings({ date: "2026-05-02", orderNumber: "3/1" }, today).length !== 1) {
+    fail("future date mismatch did not warn independently of a correct order number");
+  }
+  if (lineOrderDateAndNumberWarnings({ date: "2026-05-01", orderNumber: "legacy/1" }, today).length) {
+    fail("legacy non-numeric order number format was changed or warned");
+  }
+
+  const bangkokParts = Object.fromEntries(new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Bangkok", year: "numeric", month: "2-digit", day: "2-digit"
+  }).formatToParts(new Date()).map(part => [part.type, part.value]));
+  const currentDay = Number(bangkokParts.day);
+  const currentOrderNumber = `1/${currentDay}`;
+  const buddhistShortDate = `${currentDay}/${Number(bangkokParts.month)}/${String(Number(bangkokParts.year) + 543).slice(-2)}`;
+  const gregorianDate = `${bangkokParts.year}-${bangkokParts.month}-${bangkokParts.day}`;
+  const buddhistFullDate = `${currentDay}/${Number(bangkokParts.month)}/${Number(bangkokParts.year) + 543}`;
+  for (const [messageId, date] of [["line-match-buddhist-short", buddhistShortDate], ["line-match-buddhist-full", buddhistFullDate], ["line-match-gregorian", gregorianDate]]) {
+    writeFixture({ customers: [], orders: [] });
+    const matchingResult = await postLineMessage(messageId, lineOrderText({ orderNumber: currentOrderNumber, date }));
+    if (matchingResult.parsedOrders !== 1 || lastReplyText(matchingResult) !== SUCCESS_REPLY) {
+      fail(`${date} matching date format did not preserve the normal confirmation`);
+    }
+    if (readFixture().orders?.[0]?.date !== `${bangkokParts.year}-${bangkokParts.month}-${bangkokParts.day}`) {
+      fail(`${date} matching date format was not saved as today's date`);
+    }
+  }
+
+  writeFixture({ customers: [], orders: [] });
+  const result = await postLineMessage("line-combined-warning", lineOrderText({ orderNumber: "3/32", date: "1/1/2000" }));
+  if (result.parsedOrders !== 1 || (readFixture().orders || []).length !== 1) fail("warning order was not saved normally");
+  const replyText = lastReplyText(result);
+  if (!replyText.startsWith(SUCCESS_REPLY) || !replyText.includes("วันที่ซื้อไม่ตรง") || !replyText.includes("เลขออเดอร์ไม่ตรง")) {
+    fail("both warning checks were not combined with the successful save reply");
+  }
+  if (!replyText.includes("เลขออเดอร์ที่กรอก: 3/32") || !replyText.includes(`เลขออเดอร์ที่ควรเป็น: 3/${new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Bangkok", day: "numeric" }).format(new Date())}`)) {
+    fail("reply changed the entered order number or omitted today's expected suffix");
+  }
+}
+
 async function main() {
   await testJulySevenToSixteenCreatesNewOrder();
   await testSimilarOrderSameDayCreatesNewOrderWithWarning();
@@ -477,6 +531,7 @@ async function main() {
   await testReplyFailureDoesNotCreateDuplicateOnRetry();
   await testSameCustomerProductAfter24HoursCreatesNewOrder();
   await testBuddhistYearThailandTimezoneBoundary();
+  await testOrderDateAndDaySuffixWarnings();
   console.log("LINE webhook duplicate regression tests passed");
 }
 
