@@ -1,0 +1,593 @@
+{
+  "schemaVersion": 1,
+  "id": "login-password-visibility-toggle-production-head",
+  "approval": {
+    "context": "Owner-authorized surgical password show/hide eye toggle on /login; all Golden UI outside the password field remains immutable",
+    "approvedOn": "2026-11-22",
+    "explicitScope": [
+      "/login password field only"
+    ]
+  },
+  "base": {
+    "sourceCommit": "d62936387ee8b6d563ad24063591c20c492cdc25"
+  },
+  "target": {
+    "sourceCommit": "e0e5f6a49b3fb814f0bc19454dc8c1adfd858970"
+  },
+  "allowedFiles": [
+    "public/app.js",
+    "public/styles.css"
+  ],
+  "expectedTextChanges": [
+    {
+      "route": "/login",
+      "component": "password field visibility control",
+      "from": "<label>รหัสผ่าน (Password)",
+      "to": "<label class=\"login-password-field\">รหัสผ่าน (Password)",
+      "minimumRemoved": 1,
+      "minimumAdded": 1
+    }
+  ],
+  "expectedDiffSha256": "df89712ed7764719651aaefb427ba1f7867b98dd97a810cc25ca38a6802da558",
+  "expectedDiffLines": [
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 3781,
+      "text": "          <label>รหัสผ่าน (Password)"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "-",
+      "line": 3782,
+      "text": "            <input name=\"password\" autocomplete=\"current-password\" type=\"password\" required placeholder=\"กรอกรหัสผ่าน\">"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 3781,
+      "text": "          <label class=\"login-password-field\">รหัสผ่าน (Password)"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 3782,
+      "text": "            <span class=\"login-password-control\">"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 3783,
+      "text": "              <input name=\"password\" autocomplete=\"current-password\" type=\"password\" required placeholder=\"กรอกรหัสผ่าน\">"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 3784,
+      "text": "              <button class=\"login-password-toggle\" type=\"button\" data-toggle-login-password aria-label=\"แสดงรหัสผ่าน\" aria-pressed=\"false\">"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 3785,
+      "text": "                <svg class=\"login-password-eye login-password-eye-show\" viewBox=\"0 0 24 24\" aria-hidden=\"true\">"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 3786,
+      "text": "                  <path d=\"M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z\"></path>"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 3787,
+      "text": "                  <circle cx=\"12\" cy=\"12\" r=\"2.75\"></circle>"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 3788,
+      "text": "                </svg>"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 3789,
+      "text": "                <svg class=\"login-password-eye login-password-eye-hide\" viewBox=\"0 0 24 24\" aria-hidden=\"true\">"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 3790,
+      "text": "                  <path d=\"m3 3 18 18\"></path>"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 3791,
+      "text": "                  <path d=\"M10.6 6.1A9.8 9.8 0 0 1 12 6c6 0 9.5 6 9.5 6a16 16 0 0 1-2.1 2.8M6.2 6.2C3.8 8 2.5 12 2.5 12s3.5 6 9.5 6a9.8 9.8 0 0 0 3.1-.5M9.9 9.9a3 3 0 0 0 4.2 4.2\"></path>"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 3792,
+      "text": "                </svg>"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 3793,
+      "text": "              </button>"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 3794,
+      "text": "            </span>"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12755,
+      "text": "  const loginPasswordToggle = event.target.closest(\"[data-toggle-login-password]\");"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12756,
+      "text": "  if (loginPasswordToggle) {"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12757,
+      "text": "    event.preventDefault();"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12758,
+      "text": "    const passwordInput = loginPasswordToggle.closest(\".login-password-field\")?.querySelector('input[name=\"password\"]');"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12759,
+      "text": "    if (!passwordInput) return;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12760,
+      "text": "    const selectionStart = passwordInput.selectionStart;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12761,
+      "text": "    const selectionEnd = passwordInput.selectionEnd;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12762,
+      "text": "    const willShowPassword = passwordInput.type === \"password\";"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12763,
+      "text": "    passwordInput.type = willShowPassword ? \"text\" : \"password\";"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12764,
+      "text": "    loginPasswordToggle.setAttribute(\"aria-pressed\", String(willShowPassword));"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12765,
+      "text": "    loginPasswordToggle.setAttribute(\"aria-label\", willShowPassword ? \"ซ่อนรหัสผ่าน\" : \"แสดงรหัสผ่าน\");"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12766,
+      "text": "    loginPasswordToggle.classList.toggle(\"is-password-visible\", willShowPassword);"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12767,
+      "text": "    passwordInput.focus({ preventScroll: true });"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12768,
+      "text": "    if (selectionStart !== null && selectionEnd !== null) {"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12769,
+      "text": "      passwordInput.setSelectionRange(selectionStart, selectionEnd);"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12770,
+      "text": "    }"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12771,
+      "text": "    return;"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12772,
+      "text": "  }"
+    },
+    {
+      "file": "public/app.js",
+      "sign": "+",
+      "line": 12773,
+      "text": ""
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 27427,
+      "text": "body.login-view .login-password-control {"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 27428,
+      "text": "  display: grid;"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 27429,
+      "text": "}"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 27430,
+      "text": ""
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 27431,
+      "text": "body.login-view .login-password-control > input,"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 27432,
+      "text": "body.login-view .login-password-control > .login-password-toggle {"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 27433,
+      "text": "  grid-area: 1 / 1;"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 27434,
+      "text": "}"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 27435,
+      "text": ""
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 27436,
+      "text": "body.login-view .login-password-control > input {"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 27437,
+      "text": "  width: 100%;"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 27438,
+      "text": "  padding-right: 64px;"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 27439,
+      "text": "}"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 27440,
+      "text": ""
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 27441,
+      "text": "body.login-view .login-password-toggle {"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 27442,
+      "text": "  display: grid;"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 27443,
+      "text": "  width: 44px;"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 27444,
+      "text": "  height: 44px;"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 27445,
+      "text": "  margin-right: 10px;"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 27446,
+      "text": "  padding: 0;"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 27447,
+      "text": "  align-self: center;"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 27448,
+      "text": "  justify-self: end;"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 27449,
+      "text": "  place-items: center;"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 27450,
+      "text": "  border: 0;"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 27451,
+      "text": "  border-radius: 10px;"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 27452,
+      "text": "  background: transparent;"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 27453,
+      "text": "  color: #697386;"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 27454,
+      "text": "  cursor: pointer;"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 27455,
+      "text": "}"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 27456,
+      "text": ""
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 27457,
+      "text": "body.login-view .login-password-toggle:hover {"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 27458,
+      "text": "  color: #4c1d95;"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 27459,
+      "text": "}"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 27460,
+      "text": ""
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 27461,
+      "text": "body.login-view .login-password-toggle:focus-visible {"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 27462,
+      "text": "  outline: 3px solid rgba(139, 61, 255, 0.25);"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 27463,
+      "text": "  outline-offset: 0;"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 27464,
+      "text": "}"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 27465,
+      "text": ""
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 27466,
+      "text": "body.login-view .login-password-eye {"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 27467,
+      "text": "  width: 22px;"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 27468,
+      "text": "  height: 22px;"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 27469,
+      "text": "  fill: none;"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 27470,
+      "text": "  stroke: currentColor;"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 27471,
+      "text": "  stroke-width: 1.8;"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 27472,
+      "text": "  stroke-linecap: round;"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 27473,
+      "text": "  stroke-linejoin: round;"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 27474,
+      "text": "}"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 27475,
+      "text": ""
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 27476,
+      "text": "body.login-view .login-password-eye-hide,"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 27477,
+      "text": "body.login-view .login-password-toggle.is-password-visible .login-password-eye-show {"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 27478,
+      "text": "  display: none;"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 27479,
+      "text": "}"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 27480,
+      "text": ""
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 27481,
+      "text": "body.login-view .login-password-toggle.is-password-visible .login-password-eye-hide {"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 27482,
+      "text": "  display: block;"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 27483,
+      "text": "}"
+    },
+    {
+      "file": "public/styles.css",
+      "sign": "+",
+      "line": 27484,
+      "text": ""
+    }
+  ],
+  "expectedBinaryAssets": []
+}
