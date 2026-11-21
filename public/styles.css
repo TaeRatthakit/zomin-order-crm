@@ -27424,6 +27424,64 @@ body.login-view .login-card input[aria-invalid="true"] {
   box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.10), 0 12px 26px rgba(109, 40, 217, 0.10);
 }
 
+body.login-view .login-password-control {
+  display: grid;
+}
+
+body.login-view .login-password-control > input,
+body.login-view .login-password-control > .login-password-toggle {
+  grid-area: 1 / 1;
+}
+
+body.login-view .login-password-control > input {
+  width: 100%;
+  padding-right: 64px;
+}
+
+body.login-view .login-password-toggle {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  margin-right: 10px;
+  padding: 0;
+  align-self: center;
+  justify-self: end;
+  place-items: center;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: #697386;
+  cursor: pointer;
+}
+
+body.login-view .login-password-toggle:hover {
+  color: #4c1d95;
+}
+
+body.login-view .login-password-toggle:focus-visible {
+  outline: 3px solid rgba(139, 61, 255, 0.25);
+  outline-offset: 0;
+}
+
+body.login-view .login-password-eye {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+body.login-view .login-password-eye-hide,
+body.login-view .login-password-toggle.is-password-visible .login-password-eye-show {
+  display: none;
+}
+
+body.login-view .login-password-toggle.is-password-visible .login-password-eye-hide {
+  display: block;
+}
+
 body.login-view .login-field-error {
   color: #b91c1c;
   font-size: 13px;

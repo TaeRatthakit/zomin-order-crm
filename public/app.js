@@ -3778,8 +3778,20 @@ function renderLogin() {
           <label>ชื่อผู้ใช้งาน (Username)
             <input name="username" autocomplete="username" required placeholder="กรอกชื่อผู้ใช้งาน">
           </label>
-          <label>รหัสผ่าน (Password)
-            <input name="password" autocomplete="current-password" type="password" required placeholder="กรอกรหัสผ่าน">
+          <label class="login-password-field">รหัสผ่าน (Password)
+            <span class="login-password-control">
+              <input name="password" autocomplete="current-password" type="password" required placeholder="กรอกรหัสผ่าน">
+              <button class="login-password-toggle" type="button" data-toggle-login-password aria-label="แสดงรหัสผ่าน" aria-pressed="false">
+                <svg class="login-password-eye login-password-eye-show" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"></path>
+                  <circle cx="12" cy="12" r="2.75"></circle>
+                </svg>
+                <svg class="login-password-eye login-password-eye-hide" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="m3 3 18 18"></path>
+                  <path d="M10.6 6.1A9.8 9.8 0 0 1 12 6c6 0 9.5 6 9.5 6a16 16 0 0 1-2.1 2.8M6.2 6.2C3.8 8 2.5 12 2.5 12s3.5 6 9.5 6a9.8 9.8 0 0 0 3.1-.5M9.9 9.9a3 3 0 0 0 4.2 4.2"></path>
+                </svg>
+              </button>
+            </span>
           </label>
           <button class="button primary" type="submit">เข้าสู่ระบบ</button>
           <p class="login-card-switch">ยังไม่มีบัญชี? <a href="/signup" data-auth-route="signup">สมัครใช้งาน</a></p>
@@ -12740,6 +12752,25 @@ els.productDialog?.addEventListener("close", () => {
 });
 
 document.addEventListener("click", async event => {
+  const loginPasswordToggle = event.target.closest("[data-toggle-login-password]");
+  if (loginPasswordToggle) {
+    event.preventDefault();
+    const passwordInput = loginPasswordToggle.closest(".login-password-field")?.querySelector('input[name="password"]');
+    if (!passwordInput) return;
+    const selectionStart = passwordInput.selectionStart;
+    const selectionEnd = passwordInput.selectionEnd;
+    const willShowPassword = passwordInput.type === "password";
+    passwordInput.type = willShowPassword ? "text" : "password";
+    loginPasswordToggle.setAttribute("aria-pressed", String(willShowPassword));
+    loginPasswordToggle.setAttribute("aria-label", willShowPassword ? "ซ่อนรหัสผ่าน" : "แสดงรหัสผ่าน");
+    loginPasswordToggle.classList.toggle("is-password-visible", willShowPassword);
+    passwordInput.focus({ preventScroll: true });
+    if (selectionStart !== null && selectionEnd !== null) {
+      passwordInput.setSelectionRange(selectionStart, selectionEnd);
+    }
+    return;
+  }
+
   const landingPricingLink = event.target.closest('a[href="#pricing"]');
   if (landingPricingLink && document.body.classList.contains("landing-view")) {
     event.preventDefault();
